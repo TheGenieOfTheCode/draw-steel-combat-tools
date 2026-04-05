@@ -1,0 +1,241 @@
+const MACRO_FOLDER_NAME = 'Draw Steel: Combat Tools';
+
+const MACROS = [
+  {
+    name: 'DSCT: Forced Movement Panel',
+    img: 'icons/skills/movement/arrows-up-trio-red.webp',
+    command:
+`// Opens or closes the Forced Movement panel.
+// Select one token (the source/pusher) and target one token (the creature being moved).
+// Configure type (Push / Pull / Slide), distance, and optional vertical movement in the panel.
+game.modules.get('draw-steel-combat-tools').api.forcedMovementUI();`
+  },
+  {
+    name: 'DSCT: Forced Movement (Direct)',
+    img: 'icons/skills/movement/arrows-up-trio-red.webp',
+    command:
+`// Executes forced movement directly without opening the panel.
+// Requires one targeted token (the creature to move). Optionally control one token to act as the source for range checks.
+//
+// Array format: [type, distance, bonusCreatureDmg, bonusObjectDmg, verticalHeight,
+//                fallReduction, noFallDamage, ignoreStability, noCollisionDamage,
+//                keywords, range, fastMove]
+//
+// Simple push - target a token then run:
+await game.modules.get('draw-steel-combat-tools').api.forcedMovement(['Push', 3]);
+
+// Pull 2 squares with 2 squares of vertical lift, no fall damage:
+// await game.modules.get('draw-steel-combat-tools').api.forcedMovement(['Pull', 2, 0, 0, 2, 0, true]);
+
+// Programmatic use with explicit token IDs (e.g. from another macro or script):
+// await game.modules.get('draw-steel-combat-tools').api.forcedMovement({
+//   type: 'Push', distance: 3,
+//   targetId: targetToken.id,
+//   sourceId: sourceToken.id,
+//   verticalHeight: 0,
+//   suppressMessage: false
+// });`
+  },
+  {
+    name: 'DSCT: Grab Panel',
+    img: 'icons/skills/melee/hand-grip-sword-orange.webp',
+    command:
+`// Opens or closes the Grab panel.
+// Use the panel to initiate grabs, monitor active grabs, and release grabbed tokens.
+game.modules.get('draw-steel-combat-tools').api.grabPanel();`
+  },
+  {
+    name: 'DSCT: Grab (Direct)',
+    img: 'icons/skills/melee/hand-grip-sword-orange.webp',
+    command:
+`// Initiates a grab between two tokens programmatically.
+// Control one token (the grabber) and target one token (the target).
+const grabber = canvas.tokens.controlled[0];
+const target  = [...game.user.targets][0];
+if (!grabber || !target) {
+  ui.notifications.warn('Select one token (grabber) and target one token.');
+} else {
+  await game.modules.get('draw-steel-combat-tools').api.grab(grabber, target);
+}`
+  },
+  {
+    name: 'DSCT: End Grab',
+    img: 'icons/skills/melee/hand-grip-sword-orange.webp',
+    command:
+`// Ends an active grab on the targeted or controlled grabbed token.
+// Target or select the token that is currently being grabbed, then run.
+const token = [...game.user.targets][0] ?? canvas.tokens.controlled[0];
+if (!token) {
+  ui.notifications.warn('Target or select the grabbed token.');
+} else {
+  await game.modules.get('draw-steel-combat-tools').api.endGrab(token.id);
+}`
+  },
+  {
+    name: 'DSCT: Revive',
+    img: 'icons/magic/life/heart-cross-strong-flame-green.webp',
+    command:
+`// Opens the Revive UI for selecting a dead token to bring back. GM only.
+game.modules.get('draw-steel-combat-tools').api.revive();`
+  },
+  {
+    name: 'DSCT: Power Word Kill',
+    img: 'icons/magic/death/skull-horned-goat-pentagram-red.webp',
+    command:
+`// Opens the Power Word Kill UI. GM only.
+// Target one or more tokens to instantly kill them, triggering the death animation and placing skull markers for any eligible creatures.
+game.modules.get('draw-steel-combat-tools').api.powerWordKill();`
+  },
+  {
+    name: 'DSCT: Judgement',
+    img: 'icons/magic/death/skull-humanoid-white-red.webp',
+    command:
+`// Applies the Judgement effect to the targeted token. Target exactly one token then run.
+// When the judged target dies, a prompt appears to use a free triggered action to apply Judgement to a new target.
+await game.modules.get('draw-steel-combat-tools').api.judgement();`
+  },
+  {
+    name: 'DSCT: Mark',
+    img: 'icons/skills/targeting/crosshair-pointed-orange.webp',
+    command:
+`// Applies the Mark effect to the targeted token. Target exactly one token then run.
+// When the marked target dies, a prompt appears to use a free triggered action to mark a new target within 10 squares.
+await game.modules.get('draw-steel-combat-tools').api.mark();`
+  },
+  {
+    name: 'DSCT: Aid Attack',
+    img: 'icons/skills/social/diplomacy-handshake-blue.webp',
+    command:
+`// Applies the Aid Attack edge to a target. Select one token (the aider) and target one token (the creature being aided against).
+// The edge automatically clears after the next ability roll is made against that target, or when combat ends.
+await game.modules.get('draw-steel-combat-tools').api.aidAttack();`
+  },
+  {
+    name: 'DSCT: Teleport Panel',
+    img: 'icons/magic/movement/trail-streak-pink.webp',
+    command:
+`// Opens or closes the Teleport panel.
+// Select one or more tokens, configure color and animation in the panel, then click a destination on the canvas.
+game.modules.get('draw-steel-combat-tools').api.teleportUI();`
+  },
+  {
+    name: 'DSCT: Apply Squad Labels',
+    img: 'icons/environment/people/group.webp',
+    command:
+`// Manually applies squad label icons to all current combatants.
+// Normally runs automatically at combat start when Auto-Apply Squad Labels is enabled. Useful for applying labels mid-combat after adding new combatants.
+await game.modules.get('draw-steel-combat-tools').api.squadLabels();`
+  },
+  {
+    name: 'DSCT: Rename Squads',
+    img: 'icons/environment/people/group.webp',
+    command:
+`// Auto-renames all squad groups based on their current members.
+// Useful for keeping squad names tidy after adding or removing combatants mid-encounter.
+await game.modules.get('draw-steel-combat-tools').api.renameSquads();`
+  },
+  {
+    name: 'DSCT: Apply Triggered Action Trackers',
+    img: 'icons/magic/symbols/runes-star-magenta.webp',
+    command:
+`// Manually applies the Unspent Triggered Action tracker to combatants.
+// Normally runs automatically at combat start when the setting is enabled.
+// Uses the "Triggered Action Tracker Targets" module setting by default.
+// Pass an explicit mode to override: 'ALL', 'HEROES', 'NPCS', or 'TARGETED'.
+await game.modules.get('draw-steel-combat-tools').api.triggeredActions();`
+  },
+  {
+    name: 'DSCT: Distribute Abilities',
+    img: 'icons/sundries/books/book-red-exclamation.webp',
+    command:
+`// Distributes forced movement abilities (Knockback, etc.) from the Draw Steel compendium to every actor that doesn't already have them.
+// Safe to run multiple times - actors that already have all abilities are skipped automatically. GM only.
+await game.modules.get('draw-steel-combat-tools').api.distributeAbilities();`
+  },
+  {
+    name: 'DSCT: Fall',
+    img: 'icons/magic/control/debuff-energy-snare-purple-pink.webp',
+    command:
+`// Applies fall damage and drops the selected or targeted token to the ground.
+// Respects fly speed, prone status, and speed 0 (a grounded flyer still falls).
+// Useful when a creature ends up airborne outside of normal forced movement.
+const token = canvas.tokens.controlled[0] ?? [...game.user.targets][0] ?? null;
+if (!token) { ui.notifications.warn('Select or target a token first.'); return; }
+await game.modules.get('draw-steel-combat-tools').api.fall(token, 0, { silent: false });`
+  },
+];
+
+export const installMacros = async () => {
+  if (!game.user.isGM) { ui.notifications.warn('Only the GM can install DSCT macros.'); return; }
+
+  let folder = game.folders.find(f => f.type === 'Macro' && f.name === MACRO_FOLDER_NAME);
+  if (!folder) folder = await Folder.create({ name: MACRO_FOLDER_NAME, type: 'Macro' });
+
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  for (const data of MACROS) {
+    const exists = game.macros.find(m => m.name === data.name && m.folder?.id === folder.id);
+    if (exists) {
+      if (exists.command !== data.command || exists.img !== data.img) {
+        await exists.update({ command: data.command, img: data.img });
+        updated++;
+      } else {
+        skipped++;
+      }
+      continue;
+    }
+    await Macro.create({ name: data.name, type: 'script', img: data.img, command: data.command, folder: folder.id });
+    created++;
+  }
+
+  ui.notifications.info(`DSCT | Macros: ${created} created, ${updated} updated, ${skipped} up to date. Find them in the Macros sidebar under "${MACRO_FOLDER_NAME}".`);
+};
+
+export const distributeAbilities = async () => {
+  if (!game.user.isGM) { ui.notifications.warn('Only the GM can distribute abilities.'); return; }
+
+  const MAX_SAFE    = 15;
+  const pack        = game.packs.get('draw-steel.abilities');
+  const EXCLUDE_IDS = new Set(['melee-free-strike', 'ranged-free-strike', 'heal', 'catch-breath']);
+
+  if (!pack) { ui.notifications.warn('Could not find the draw-steel.abilities compendium.'); return; }
+
+  const index     = await pack.getIndex({ fields: ['system._dsid', 'folder'] });
+  const knockback = index.find(i => i.system?._dsid === 'knockback');
+  if (!knockback?.folder) { ui.notifications.warn('Could not find Knockback in the abilities pack.'); return; }
+
+  const toAdd = index.filter(i => i.folder === knockback.folder && !EXCLUDE_IDS.has(i.system?._dsid));
+
+  if (toAdd.length > MAX_SAFE) {
+    const proceed = await Dialog.confirm({
+      title: 'Unusual Item Count',
+      content: `<p>This operation is about to add <strong>${toAdd.length} items</strong> to every actor sheet, which is more than expected (max ${MAX_SAFE}). Something may have gone wrong.</p><p>Proceed anyway?</p>`,
+    });
+    if (!proceed) { ui.notifications.info('Cancelled.'); return; }
+  }
+
+  const sourceDocs = await Promise.all(toAdd.map(i => pack.getDocument(i._id)));
+
+  let added = 0, skipped = 0;
+  for (const actor of game.actors) {
+    const actorDsids = new Set(actor.items.map(i => i.system?._dsid ?? i.toObject().system?._dsid));
+    const missing    = sourceDocs.filter(d => !actorDsids.has(d.system?._dsid));
+    if (!missing.length) { skipped++; continue; }
+    await actor.createEmbeddedDocuments('Item', missing.map(d => d.toObject()));
+    added++;
+  }
+
+  ui.notifications.info(`Done. Updated ${added} actor(s), skipped ${skipped} (already complete).`);
+};
+
+export class InstallMacrosMenu extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, { title: 'Install DSCT Macros', template: null });
+  }
+  async _render() {
+    await installMacros();
+  }
+  async _updateObject() {}
+}
