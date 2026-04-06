@@ -1,6 +1,6 @@
 ﻿import { runForcedMovement } from './forced-movement.js';
 import { runGrab, buildFreeStrikeButton } from './grab.js';
-import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting } from './helpers.js';
+import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod } from './helpers.js';
 
 const getForcedEffects = (item, tier) => {
   const effectsCollection = item.system?.power?.effects;
@@ -253,10 +253,24 @@ const injectGrabResolutions = (msg, el) => {
   }
 };
 
-const _knockbackNotified = new Set(); // guards against double-notify from createChatMessage + renderChatMessageHTML race
+const _knockbackNotified    = new Set(); // guards against double-notify race
+const _powerRollModInFlight = new Set(); // guards against double-processing power roll mods
+
+// Reads the accumulated bane/edge deltas from flags and applies them once.
+// Each system contributing banes/edges writes its own key into 'powerRollDeltas'.
+// This ensures multiple conditions never conflict — they all combine into one pass.
+const injectAllRollMods = (msg, el) => {
+  const base   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
+  const deltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas');
+  if (!base?.originalTotal || !deltas) return;
+
+  const totalDelta = Object.values(deltas).reduce((sum, d) => sum + d, 0);
+  if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | msg=${msg.id} deltas=${JSON.stringify(deltas)} totalDelta=${totalDelta} originalNet=${base.originalNet} → finalNet=${Math.max(-2, Math.min(2, base.originalNet + totalDelta))} isCritical=${base.isCritical}`);
+  applyRollMod(el, base, totalDelta);
+};
 
 export function registerChatHooks() {
-  const trySetFlag = async (msg) => {
+  const trySetFlag = async (msg, el = null) => {
     if (msg.author.id !== game.user.id) return;
 
     const parts         = msg.system?.parts?.contents ?? Object.values(msg.system?.parts ?? {});
@@ -269,6 +283,43 @@ export function registerChatHooks() {
 
     const dsid = getItemDsid(item);
     const tier = abilityResult.tier;
+
+    // Power roll mods: requires the live rendered element — dice roll HTML is client-side only.
+    // Each condition writes its own key into 'powerRollDeltas'; all are applied together at inject time.
+    if (el && !_powerRollModInFlight.has(msg.id)) {
+      const existingBase   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
+      const existingDeltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas') ?? {};
+      const pendingDeltas  = { ...existingDeltas };
+      let baseState = existingBase ?? null;
+
+      // Grabbed bane
+      if (getSetting('grabbedBaneEnabled') && !('grabbed' in existingDeltas)) {
+        const speakerTokenId = msg.speaker?.token;
+        const grab = speakerTokenId ? window._activeGrabs?.get(speakerTokenId) : null;
+        if (grab) {
+          const targets = [...game.user.targets];
+          const targetingGrabber = targets.some(t => t.actor?.id === grab.grabberActorId || t.id === grab.grabberTokenId);
+          if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Grabbed bane check msg=${msg.id} targetingGrabber=${targetingGrabber} targets=${targets.length}`);
+          if (!targetingGrabber) pendingDeltas.grabbed = 1;
+        }
+      }
+
+      // Future conditions add their own keys here, e.g.: pendingDeltas.frightened = 1;
+
+      const hasNewDeltas = Object.keys(pendingDeltas).some(k => !(k in existingDeltas));
+      if (hasNewDeltas) {
+        if (!baseState) {
+          baseState = parsePowerRollState(el);
+          if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Captured base state for msg=${msg.id}:`, baseState);
+        }
+        if (baseState) {
+          _powerRollModInFlight.add(msg.id);
+          if (!existingBase) await msg.setFlag('draw-steel-combat-tools', 'powerRollBase', baseState);
+          await msg.setFlag('draw-steel-combat-tools', 'powerRollDeltas', pendingDeltas);
+          _powerRollModInFlight.delete(msg.id);
+        }
+      }
+    }
 
     if (!msg.getFlag('draw-steel-combat-tools', 'knockbackBlocked') && !_knockbackNotified.has(msg.id) && dsid === 'knockback') {
       const speakerTokenId = msg.speaker?.token;
@@ -351,15 +402,16 @@ export function registerChatHooks() {
         liveEl.appendChild(div);
         return;
       }
+      injectAllRollMods(msg, liveEl);
       injectForcedButtons(msg, liveEl);
       injectGrabButton(msg, liveEl);
       injectGrabResolutions(msg, liveEl);
     }, getSetting('chatInjectDelay'));
   };
 
-  Hooks.on('createChatMessage',     (msg) => trySetFlag(msg));
-  Hooks.on('updateChatMessage',     (msg) => { trySetFlag(msg); tryInject(msg); });
-  Hooks.on('renderChatMessageHTML', (msg) => trySetFlag(msg).then(() => tryInject(msg)));
+  Hooks.on('createChatMessage',     (msg)      => trySetFlag(msg));
+  Hooks.on('updateChatMessage',     (msg)      => { trySetFlag(msg); tryInject(msg); });
+  Hooks.on('renderChatMessageHTML', (msg, el)  => trySetFlag(msg, el).then(() => tryInject(msg)));
 }
 
 export function refreshChatInjections() {
