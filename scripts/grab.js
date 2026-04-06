@@ -154,6 +154,14 @@ export const applyGrab = async (grabberTok, grabbedTok) => {
   if (!window._activeGrabs) window._activeGrabs = new Map();
   if (window._activeGrabs.has(grabbedTok.id)) await endGrab(grabbedTok.id, { silent: true });
 
+  // A grabber can only hold one creature - end any existing grab they have first.
+  for (const [existingGrabbedId, grab] of window._activeGrabs.entries()) {
+    if (grab.grabberTokenId === grabberTok.id) {
+      await endGrab(existingGrabbedId, { silent: false, customMsg: `${grabberTok.name} releases ${grab.grabbedName} to grab a new target.` });
+      break;
+    }
+  }
+
   await safeCreateEmbedded(grabbedTok.actor, 'ActiveEffect', [{
     name: 'Grabbed',
     img: 'icons/skills/melee/unarmed-punch-fist-yellow-red.webp',

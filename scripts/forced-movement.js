@@ -11,7 +11,7 @@
   safeUpdate, safeDelete, safeCreateEmbedded, safeToggleStatusEffect,
   replayUndo, getSetting,
 } from './helpers.js';
-import { endGrab } from './grab.js';
+import { endGrab, applyGrab } from './grab.js';
 
 
 // Draw Steel rule: you can't move diagonally through the corner of a wall.
@@ -1200,6 +1200,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     }
 
     // Resolve grabs where this token is the grabber: end or reposition based on adjacency.
+    const grabsEnded = [];
     if (grabberGrabs.length > 0) {
       window._grabFMSuppressed?.delete(targetToken.id);
       const grabberGrid = toGrid(targetToken.document);
@@ -1219,6 +1220,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           g.offsetX = grabbedTok.document.x - targetToken.document.x;
           g.offsetY = grabbedTok.document.y - targetToken.document.y;
         } else {
+          grabsEnded.push({ grabberTokenId: targetToken.id, grabbedTokenId: grabbedId });
           await endGrab(grabbedId, { silent: false, customMsg: `${grab.grabberName} was force-moved out of reach and released ${grab.grabbedName}.` });
         }
       }
@@ -1245,13 +1247,14 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     }
 
     const mainResultData = {
-      content:       buildSummary() + (collisionMsgs.length ? '<br>' + collisionMsgs.join('<br>') : ''),
-      undoLog:       fullUndoLog,
+      content:        buildSummary() + (collisionMsgs.length ? '<br>' + collisionMsgs.join('<br>') : ''),
+      undoLog:        fullUndoLog,
       moveId,
-      targetTokenId: targetToken.id,
-      targetSceneId: canvas.scene.id,
-      finalPos:      { x: landingWorld.x, y: landingWorld.y, elevation: targetElev },
-      hadDamage:     collisionMsgs.length > 0,
+      targetTokenId:  targetToken.id,
+      targetSceneId:  canvas.scene.id,
+      finalPos:       { x: landingWorld.x, y: landingWorld.y, elevation: targetElev },
+      hadDamage:      collisionMsgs.length > 0,
+      grabsToRestore: grabsEnded,
     };
     if (suppressMessage) return mainResultData;
     await ChatMessage.create({
@@ -1654,8 +1657,8 @@ export class ForcedMovementPanel extends Application {
                 'draw-steel-combat-tools': {
                   isFmUndo:   true,
                   isCombined: true,
-                  entries:    results.map(({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage }) =>
-                                ({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage })),
+                  entries:    results.map(({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage, grabsToRestore }) =>
+                                ({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage, grabsToRestore: grabsToRestore ?? [] })),
                   isUndone:   false,
                   hadDamage:  results.some(r => r.hadDamage),
                 }
@@ -1841,6 +1844,11 @@ export const registerForcedMovementHooks = () => {
               await replayUndo(entry.undoLog);
               allRevived.push(...await handleStaminaRevival(entry.undoLog));
             }
+            for (const { grabberTokenId, grabbedTokenId } of entry.grabsToRestore ?? []) {
+              const grabberTok = canvas.tokens.placeables.find(t => t.id === grabberTokenId);
+              const grabbedTok = canvas.tokens.placeables.find(t => t.id === grabbedTokenId);
+              if (grabberTok && grabbedTok) await applyGrab(grabberTok, grabbedTok);
+            }
           }
           const unique = [...new Set(allRevived)];
           ui.notifications.info(unique.length > 0
@@ -1881,6 +1889,11 @@ export const registerForcedMovementHooks = () => {
           await safeUpdate(msg, { 'flags.draw-steel-combat-tools.isUndone': true });
           await replayUndo(undoLog);
           const revivedNames = await handleStaminaRevival(undoLog);
+          for (const { grabberTokenId, grabbedTokenId } of msg.getFlag('draw-steel-combat-tools', 'grabsToRestore') ?? []) {
+            const grabberTok = canvas.tokens.placeables.find(t => t.id === grabberTokenId);
+            const grabbedTok = canvas.tokens.placeables.find(t => t.id === grabbedTokenId);
+            if (grabberTok && grabbedTok) await applyGrab(grabberTok, grabbedTok);
+          }
           ui.notifications.info(revivedNames.length > 0
             ? `Forced movement reversed. Revived: ${[...new Set(revivedNames)].join(', ')}.`
             : 'Forced movement undone.'
