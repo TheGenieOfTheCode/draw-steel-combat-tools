@@ -1,6 +1,6 @@
 ﻿import { runForcedMovement } from './forced-movement.js';
 import { runGrab, buildFreeStrikeButton } from './grab.js';
-import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod } from './helpers.js';
+import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject } from './helpers.js';
 
 const getForcedEffects = (item, tier) => {
   const effectsCollection = item.system?.power?.effects;
@@ -43,14 +43,12 @@ const hasGrabEffect = (item, tier) => {
   return false;
 };
 
-const injectForcedButtons = (msg, el) => {
+const injectForcedButtons = (msg, { el, buttons, content }) => {
   const data = msg.getFlag('draw-steel-combat-tools', 'forcedMovement');
   if (!data) return;
   if (el.querySelector('.dsct-forced-buttons')) return;
 
-  const footer  = el.querySelector('.message-part-buttons');
-  const content = el.querySelector('.message-content');
-  const target  = footer ?? content ?? el;
+  const target = buttons ?? content ?? el;
   if (!target) return;
 
   const container = document.createElement('div');
@@ -95,11 +93,10 @@ const injectForcedButtons = (msg, el) => {
   target.appendChild(container);
 };
 
-const injectGrabButton = (msg, el) => {
+const injectGrabButton = (msg, { el }) => {
   const data = msg.getFlag('draw-steel-combat-tools', 'grab');
   if (!data) return;
 
-  
   const nativeBtns = el.querySelectorAll('button[data-action="applyEffect"][data-effect-id="grabbed"]');
   if (!nativeBtns.length) return;
 
@@ -154,8 +151,7 @@ const injectGrabButton = (msg, el) => {
   }
 };
 
-const injectGrabResolutions = (msg, el) => {
-  
+const injectGrabResolutions = (msg, { el, buttons, content }) => {
   const grabActions = el.querySelector('.dsct-tier2-grab-actions');
   if (grabActions && !grabActions.dataset.bound) {
     grabActions.dataset.bound = "true";
@@ -194,7 +190,7 @@ const injectGrabResolutions = (msg, el) => {
   if (escapeData && escapeData.tier === 2) {
     if (el.querySelector('.dsct-escape-actions')) return; 
     
-    const targetArea = el.querySelector('.message-part-buttons') || el.querySelector('.message-content') || el;
+    const targetArea = buttons ?? content ?? el;
     const resolvedState = msg.getFlag('draw-steel-combat-tools', 'escapeResolved');
 
     const container = document.createElement('div');
@@ -259,7 +255,7 @@ const _powerRollModInFlight = new Set(); // guards against double-processing pow
 // Reads the accumulated bane/edge deltas from flags and applies them once.
 // Each system contributing banes/edges writes its own key into 'powerRollDeltas'.
 // This ensures multiple conditions never conflict — they all combine into one pass.
-const injectAllRollMods = (msg, el) => {
+const injectAllRollMods = (msg, { el }) => {
   const base   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
   const deltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas');
   if (!base?.originalTotal || !deltas) return;
@@ -388,30 +384,26 @@ export function registerChatHooks() {
 
   };
 
-  const tryInject = (msg) => {
-    setTimeout(() => {
-      const liveEl = document.querySelector(`[data-message-id="${msg.id}"]`);
-      if (!liveEl) return;
-      if (msg.getFlag('draw-steel-combat-tools', 'knockbackBlocked')) {
-        for (const child of [...liveEl.children]) {
-          if (!child.matches('.message-header')) child.remove();
-        }
-        const div = document.createElement('div');
-        div.className = 'message-content';
-        div.innerHTML = '<p><em>A grabbed creature cannot use the Knockback maneuver.</em></p>';
-        liveEl.appendChild(div);
-        return;
-      }
-      injectAllRollMods(msg, liveEl);
-      injectForcedButtons(msg, liveEl);
-      injectGrabButton(msg, liveEl);
-      injectGrabResolutions(msg, liveEl);
-    }, getSetting('chatInjectDelay'));
-  };
+  // Injectors run in order; returning true stops the chain (used for full replacements)
+  registerInjector(function injectKnockbackBlock(msg, { el }) {
+    if (!msg.getFlag('draw-steel-combat-tools', 'knockbackBlocked')) return;
+    for (const child of [...el.children]) {
+      if (!child.matches('.message-header')) child.remove();
+    }
+    const div = document.createElement('div');
+    div.className = 'message-content';
+    div.innerHTML = '<p><em>A grabbed creature cannot use the Knockback maneuver.</em></p>';
+    el.appendChild(div);
+    return true; // stop further injectors — message content replaced
+  });
+  registerInjector(injectAllRollMods);
+  registerInjector(injectForcedButtons);
+  registerInjector(injectGrabButton);
+  registerInjector(injectGrabResolutions);
 
-  Hooks.on('createChatMessage',     (msg)      => trySetFlag(msg));
-  Hooks.on('updateChatMessage',     (msg)      => { trySetFlag(msg); tryInject(msg); });
-  Hooks.on('renderChatMessageHTML', (msg, el)  => trySetFlag(msg, el).then(() => tryInject(msg)));
+  Hooks.on('createChatMessage',     (msg)     => trySetFlag(msg));
+  Hooks.on('updateChatMessage',     (msg)     => { trySetFlag(msg); scheduleInject(msg); });
+  Hooks.on('renderChatMessageHTML', (msg, el) => trySetFlag(msg, el).then(() => scheduleInject(msg)));
 }
 
 export function refreshChatInjections() {
