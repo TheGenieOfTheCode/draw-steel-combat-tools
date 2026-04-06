@@ -3,7 +3,6 @@ export const registerModuleButtons = () => {
     const tokenControl = controls.tokens || controls.token;
     if (!tokenControl) return;
 
-    const getApi = () => game.modules.get('draw-steel-combat-tools')?.api;
     const S = (key) => game.settings.get('draw-steel-combat-tools', key);
 
     const myTools = {
@@ -13,7 +12,7 @@ export const registerModuleButtons = () => {
         icon: 'fas fa-hand-rock',
         button: true,
         visible: S('grabEnabled') && S('showGrabButton'),
-        onClick: () => getApi()?.grabPanel()
+        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.grabPanel()
       },
       'dsct-forced-movement': {
         name: 'dsct-forced-movement',
@@ -21,7 +20,7 @@ export const registerModuleButtons = () => {
         icon: 'fas fa-arrows-alt',
         button: true,
         visible: S('forcedMovementEnabled') && S('showForcedMovementButton'),
-        onClick: () => getApi()?.forcedMovementUI()
+        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.forcedMovementUI()
       },
       'dsct-teleport': {
         name: 'dsct-teleport',
@@ -29,7 +28,7 @@ export const registerModuleButtons = () => {
         icon: 'fa-solid fa-person-through-window',
         button: true,
         visible: S('teleportEnabled') && S('showTeleportButton'),
-        onClick: () => getApi()?.teleportUI()
+        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.teleportUI()
       },
       'dsct-wall': {
         name: 'dsct-wall',
@@ -37,7 +36,7 @@ export const registerModuleButtons = () => {
         icon: 'fas fa-dungeon',
         button: true,
         visible: game.user.isGM && S('showWallBuilderButton'),
-        onClick: () => getApi()?.wallBuilder()
+        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.wallBuilder()
       },
       'dsct-pwk': {
         name: 'dsct-pwk',
@@ -45,7 +44,7 @@ export const registerModuleButtons = () => {
         icon: 'fas fa-skull',
         button: true,
         visible: game.user.isGM && S('showPowerWordKillButton'),
-        onClick: () => getApi()?.powerWordKill()
+        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.powerWordKill()
       }
     };
 

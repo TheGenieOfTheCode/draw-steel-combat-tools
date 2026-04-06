@@ -1,4 +1,4 @@
-﻿import { getSetting, safeCreateEmbedded, safeDelete, canForcedMoveTarget } from './helpers.js';
+﻿import { getSetting, safeCreateEmbedded, safeDelete, canForcedMoveTarget, getTokenById, getWindowById } from './helpers.js';
 
 const TIMEOUT_MS = 60_000;
 const SCALE      = 1.2;
@@ -38,7 +38,7 @@ const palette = () => document.body.classList.contains('theme-dark') ? {
 };
 
 const refreshOpenPanel = () => {
-  const panel = Object.values(ui.windows).find(w => w.id === 'grab-panel');
+  const panel = getWindowById('grab-panel');
   if (panel) panel._refreshPanel();
 };
 
@@ -64,7 +64,7 @@ const ensureGrabHooks = () => {
       if (window._grabFMSuppressed?.has(doc.id)) return; // grabber being force-moved; grabbed creature stays put
       for (const [gid, grab] of window._activeGrabs.entries()) {
         if (doc.id !== grab.grabberTokenId) continue;
-        const gt     = canvas.tokens.placeables.find(t => t.id === gid);
+        const gt     = getTokenById(gid);
         const deltaX = (changes.x ?? doc.x) - doc.x;
         const deltaY = (changes.y ?? doc.y) - doc.y;
         if (gt) {
@@ -114,8 +114,8 @@ const rehydrateGrabs = () => {
       const grabberId = parts[2];
       const grabbedId = parts[3];
 
-      const grabberTok = canvas.tokens.get(grabberId);
-      const grabbedTok = canvas.tokens.get(grabbedId);
+      const grabberTok = getTokenById(grabberId);
+      const grabbedTok = getTokenById(grabbedId);
 
       if (!grabberTok || !grabbedTok) continue;
 
@@ -210,8 +210,8 @@ export const endGrab = async (grabbedTokenId, { silent = false, customMsg = null
   const grab = window._activeGrabs?.get(grabbedTokenId);
   if (!grab) return;
 
-  const grabberTok = canvas.tokens.placeables.find(t => t.id === grab.grabberTokenId);
-  const grabbedTok = canvas.tokens.placeables.find(t => t.id === grab.grabbedTokenId);
+  const grabberTok = getTokenById(grab.grabberTokenId);
+  const grabbedTok = getTokenById(grab.grabbedTokenId);
   if (grab.grabberEffectId) { const e = grabberTok?.actor.effects.get(grab.grabberEffectId); if (e) await safeDelete(e); }
   if (grab.grabbedEffectId) { const e = grabbedTok?.actor.effects.get(grab.grabbedEffectId); if (e) await safeDelete(e); }
   window._activeGrabs.delete(grabbedTokenId);
@@ -261,7 +261,7 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, t
         </div>
       ` });
       
-      const panel = Object.values(ui.windows).find(w => w.id === 'grab-panel');
+      const panel = getWindowById('grab-panel');
       if (panel) {
         panel._pendingConfirm = { grabberToken, targetToken };
         panel._refreshPanel();
@@ -352,8 +352,8 @@ export class GrabPanel extends Application {
   async _attemptEscape(grabbedTokenId) {
     const grab       = window._activeGrabs?.get(grabbedTokenId);
     if (!grab) return;
-    const grabbedTok = canvas.tokens.placeables.find(t => t.id === grabbedTokenId);
-    const grabberTok = canvas.tokens.placeables.find(t => t.id === grab.grabberTokenId);
+    const grabbedTok = getTokenById(grabbedTokenId);
+    const grabberTok = getTokenById(grab.grabberTokenId);
     if (!grabbedTok || !grabberTok) return;
 
     const escapeItem = grabbedTok.actor.items.find(i => i.name === 'Escape Grab');
@@ -409,8 +409,8 @@ export class GrabPanel extends Application {
       window._grabRepositionHook = null;
       window._grabRepositioning.delete(grabbedTokenId);
 
-      const grabbedTok = canvas.tokens.placeables.find(t => t.id === grabbedTokenId);
-      const grabberTok = canvas.tokens.placeables.find(t => t.id === grab.grabberTokenId);
+      const grabbedTok = getTokenById(grabbedTokenId);
+      const grabberTok = getTokenById(grab.grabberTokenId);
       if (!grabbedTok || !grabberTok) { this._refreshPanel(); return; }
 
       const newX = (changes.x ?? doc.x) + (grabbedTok.document.width  * canvas.grid.size / 2);
@@ -464,8 +464,8 @@ export class GrabPanel extends Application {
     }
 
     html += grabs.map(grab => {
-      const grabberTok    = canvas.tokens.placeables.find(t => t.id === grab.grabberTokenId);
-      const grabbedTok    = canvas.tokens.placeables.find(t => t.id === grab.grabbedTokenId);
+      const grabberTok    = getTokenById(grab.grabberTokenId);
+      const grabbedTok    = getTokenById(grab.grabbedTokenId);
       const grabberSrc    = grabberTok?.document.texture.src ?? 'icons/svg/mystery-man.svg';
       const grabbedSrc    = grabbedTok?.document.texture.src ?? 'icons/svg/mystery-man.svg';
       const isPending     = this._pendingEscape?.grabbedTokenId === grab.grabbedTokenId;
@@ -547,7 +547,7 @@ export class GrabPanel extends Application {
     const h = this._html;
 
     h.find('[data-ping]').off('click').on('click', e => {
-      const tok = canvas.tokens.placeables.find(t => t.id === e.currentTarget.dataset.ping);
+      const tok = getTokenById(e.currentTarget.dataset.ping);
       if (tok) canvas.ping({ x: tok.center.x, y: tok.center.y });
     });
     h.find('[data-escape]').off('click').on('click', async e => {
@@ -700,7 +700,7 @@ export class GrabPanel extends Application {
 }
 
 export const toggleGrabPanel = () => {
-  const existing = Object.values(ui.windows).find(w => w.id === 'grab-panel');
+  const existing = getWindowById('grab-panel');
   if (existing) existing.close();
   else new GrabPanel().render(true);
 };

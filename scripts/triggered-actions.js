@@ -1,4 +1,4 @@
-﻿import { safeCreateEmbedded, safeDelete, safeUpdate, getSetting } from './helpers.js';
+﻿import { safeCreateEmbedded, safeDelete, safeUpdate, getSetting, getTokenById } from './helpers.js';
 
 const TRIGGER_ORIGIN = 'dsct-triggered-action';
 
@@ -13,7 +13,7 @@ const TRIGGER_EFFECT = {
 };
 
 const getActorFromCombatant = (combatant) => {
-  const token = canvas.tokens.placeables.find(t => t.id === combatant.tokenId);
+  const token = getTokenById(combatant.tokenId);
   if (!token) return null;
   return token.document.actorLink ? game.actors.get(combatant.actorId) : token.actor;
 };

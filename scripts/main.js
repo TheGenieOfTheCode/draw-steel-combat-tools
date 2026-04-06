@@ -5,7 +5,7 @@ import { registerChatHooks, refreshChatInjections } from './chat-hooks.js';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks } from './grab.js';
 import { applyFall } from './helpers.js';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './tactical-effects.js';
-import { parsePowerRollState, applyRollMod } from './helpers.js';
+import { parsePowerRollState, applyRollMod, getWindowById } from './helpers.js';
 import { registerDeathTrackerHooks, runReviveUI, runPowerWordKillUI } from './death-tracker.js';
 import { applySquadLabels, autoRenameGroups, registerSquadLabelHooks } from './squad-labels.js';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.js';
@@ -17,7 +17,7 @@ const api = {
   forcedMovement:   runForcedMovement,
   grab:             runGrab,
   wallBuilder: () => {
-    const existing = Object.values(ui.windows).find(w => w.id === 'wall-builder-panel');
+    const existing = getWindowById('wall-builder-panel');
     if (existing) existing.close();
     else new WallBuilderPanel().render(true);
   },

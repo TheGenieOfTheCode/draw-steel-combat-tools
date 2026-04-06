@@ -9,7 +9,7 @@
   canCurrentlyFly, getWallBlockTileAt, getWallBlockTop,
   sizeRank,
   safeUpdate, safeDelete, safeCreateEmbedded, safeToggleStatusEffect,
-  replayUndo, getSetting,
+  replayUndo, getSetting, getTokenById, getWindowById, getModuleApi,
 } from './helpers.js';
 import { endGrab, applyGrab } from './grab.js';
 
@@ -1207,7 +1207,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       const grabberSize = targetToken.actor?.system?.combat?.size?.value ?? 1;
       for (const [grabbedId, grab] of grabberGrabs) {
         if (!window._activeGrabs?.has(grabbedId)) continue; // already ended during move
-        const grabbedTok = canvas.tokens.placeables.find(t => t.id === grabbedId);
+        const grabbedTok = getTokenById(grabbedId);
         if (!grabbedTok) { await endGrab(grabbedId, { silent: true }); continue; }
         const grabbedGrid = toGrid(grabbedTok.document);
         // Chebyshev distance from grabbed cell to nearest cell in grabber's footprint
@@ -1376,8 +1376,8 @@ export async function runForcedMovement(macroArgs = []) {
   } 
   else if (typeof macroArgs === 'object' && !Array.isArray(macroArgs) && Object.keys(macroArgs).length > 0) {
     const { type, distance, sourceId, targetId, verticalHeight, fallReduction, noFallDamage, noCollisionDamage, ignoreStability, fastMove, suppressMessage } = macroArgs;
-    const target = canvas.tokens.get(targetId);
-    const source = sourceId ? canvas.tokens.get(sourceId) : null;
+    const target = getTokenById(targetId);
+    const source = sourceId ? getTokenById(sourceId) : null;
     if (!target) { ui.notifications.warn('DSCT | Target token not found on canvas.'); return; }
     return await _runForcedMovement(type, distance, target, source, 0, 0, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, [], fastMove, suppressMessage);
   } 
@@ -1635,7 +1635,7 @@ export class ForcedMovementPanel extends Application {
         const ignoreStability = html.find('#fm-ign-stab').is(':checked');
         const fastMove = html.find('#fm-fast-move').is(':checked');
 
-        const api = game.modules.get('draw-steel-combat-tools')?.api;
+        const api = getModuleApi(false);
         if (api && api.forcedMovement) {
           const targetsToProcess = this._targetTokens.slice(0, 25);
           const payload = { type, distance, sourceId: this._sourceToken?.id, verticalHeight, fallReduction, noFallDamage, noCollisionDamage, ignoreStability, fastMove };
@@ -1679,7 +1679,7 @@ export class ForcedMovementPanel extends Application {
 }
 
 export const toggleForcedMovementPanel = () => {
-  const existing = Object.values(ui.windows).find(w => w.id === 'dsct-fm-panel');
+  const existing = getWindowById('dsct-fm-panel');
   if (existing) {
     existing.close();
   } else {
@@ -1845,8 +1845,8 @@ export const registerForcedMovementHooks = () => {
               allRevived.push(...await handleStaminaRevival(entry.undoLog));
             }
             for (const { grabberTokenId, grabbedTokenId } of entry.grabsToRestore ?? []) {
-              const grabberTok = canvas.tokens.placeables.find(t => t.id === grabberTokenId);
-              const grabbedTok = canvas.tokens.placeables.find(t => t.id === grabbedTokenId);
+              const grabberTok = getTokenById(grabberTokenId);
+              const grabbedTok = getTokenById(grabbedTokenId);
               if (grabberTok && grabbedTok) await applyGrab(grabberTok, grabbedTok);
             }
           }
@@ -1890,8 +1890,8 @@ export const registerForcedMovementHooks = () => {
           await replayUndo(undoLog);
           const revivedNames = await handleStaminaRevival(undoLog);
           for (const { grabberTokenId, grabbedTokenId } of msg.getFlag('draw-steel-combat-tools', 'grabsToRestore') ?? []) {
-            const grabberTok = canvas.tokens.placeables.find(t => t.id === grabberTokenId);
-            const grabbedTok = canvas.tokens.placeables.find(t => t.id === grabbedTokenId);
+            const grabberTok = getTokenById(grabberTokenId);
+            const grabbedTok = getTokenById(grabbedTokenId);
             if (grabberTok && grabbedTok) await applyGrab(grabberTok, grabbedTok);
           }
           ui.notifications.info(revivedNames.length > 0

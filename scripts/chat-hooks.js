@@ -1,10 +1,10 @@
 ﻿import { runForcedMovement } from './forced-movement.js';
 import { runGrab, buildFreeStrikeButton } from './grab.js';
-import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject } from './helpers.js';
+import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection } from './helpers.js';
 
 const getForcedEffects = (item, tier) => {
   const effectsCollection = item.system?.power?.effects;
-  const effects = effectsCollection?.contents ?? Object.values(effectsCollection ?? {});
+  const effects = normalizeCollection(effectsCollection);
   const results = [];
   for (const effect of effects) {
     if (effect.type !== 'forced') continue;
@@ -13,9 +13,7 @@ const getForcedEffects = (item, tier) => {
     const distance = parseInt(tierData.distance);
     if (isNaN(distance) || distance <= 0) continue;
     const propertiesRaw = tierData.properties;
-    const properties = Array.isArray(propertiesRaw) ? propertiesRaw
-                     : propertiesRaw instanceof Set  ? [...propertiesRaw]
-                     : (propertiesRaw?.contents ?? Object.values(propertiesRaw ?? {}));
+    const properties = normalizeCollection(propertiesRaw);
     const vertical        = properties.includes('vertical');
     const ignoreStability = properties.includes('ignoresImmunity');
     for (const movement of (tierData.movement ?? [])) {
@@ -30,14 +28,12 @@ const hasGrabEffect = (item, tier) => {
   if (dsid === 'grab') return tier >= 2;
 
   const effectsCollection = item.system?.power?.effects;
-  const effects = effectsCollection?.contents ?? Object.values(effectsCollection ?? {});
+  const effects = normalizeCollection(effectsCollection);
   for (const effect of effects) {
     const tierData = effect[effect.type]?.[`tier${tier}`] ?? effect[`tier${tier}`];
     if (!tierData) continue;
     const conditions = tierData.conditions ?? tierData.statuses ?? tierData.status ?? [];
-    const arr = Array.isArray(conditions) ? conditions
-              : conditions instanceof Set ? [...conditions]
-              : Object.values(conditions ?? {});
+    const arr = normalizeCollection(conditions);
     if (arr.some(c => String(c?.id ?? c?.name ?? c).toLowerCase() === 'grabbed')) return true;
   }
   return false;
@@ -66,8 +62,8 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
     btn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${label}`;
     btn.style.cssText = 'cursor:pointer;';
     btn.addEventListener('click', async () => {
-      const api = game.modules.get('draw-steel-combat-tools')?.api;
-      if (!api) { ui.notifications.error('Draw Steel: Combat Tools not active.'); return; }
+      const api = getModuleApi();
+      if (!api) return;
 
       const targets    = [...game.user.targets];
       const controlled = canvas.tokens.controlled;
@@ -83,7 +79,7 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
 
       const type           = effect.movement.charAt(0).toUpperCase() + effect.movement.slice(1);
       const verticalHeight = effect.vertical ? String(effect.distance) : '';
-      const kwArray        = data.keywords instanceof Set ? [...data.keywords] : (Array.isArray(data.keywords) ? data.keywords : []);
+      const kwArray        = normalizeCollection(data.keywords);
       const kw             = kwArray.join(',');
       await api.forcedMovement([type, String(effect.distance), '0', '0', verticalHeight, '0', 'false', String(effect.ignoreStability), 'false', kw, String(data.range ?? 0)]);
     });
@@ -111,8 +107,8 @@ const injectGrabButton = (msg, { el }) => {
       e.preventDefault();
       e.stopPropagation();
 
-      const api = game.modules.get('draw-steel-combat-tools')?.api;
-      if (!api) { ui.notifications.error('Draw Steel: Combat Tools not active.'); return; }
+      const api = getModuleApi();
+      if (!api) return;
 
       const targets    = [...game.user.targets];
       const controlled = canvas.tokens.controlled;
@@ -132,7 +128,7 @@ const injectGrabButton = (msg, { el }) => {
           
           if (tokenIdx !== -1) {
             const tokenId = parts[tokenIdx + 1];
-            grabbed = canvas.tokens.get(tokenId) || canvas.tokens.placeables.find(t => t.id === tokenId);
+            grabbed = getTokenById(tokenId);
           } else {
             const actorIdx = parts.indexOf('Actor');
             const actorId = actorIdx !== -1 ? parts[actorIdx + 1] : parts[parts.length - 1];
@@ -160,9 +156,9 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
     
     confirmBtn?.addEventListener('click', async (e) => {
         e.preventDefault();
-        const api = game.modules.get('draw-steel-combat-tools')?.api;
-        const grabber = canvas.tokens.get(grabActions.dataset.grabberId) || canvas.tokens.placeables.find(t=>t.id===grabActions.dataset.grabberId);
-        const target = canvas.tokens.get(grabActions.dataset.targetId) || canvas.tokens.placeables.find(t=>t.id===grabActions.dataset.targetId);
+        const api = getModuleApi(false);
+        const grabber = getTokenById(grabActions.dataset.grabberId);
+        const target  = getTokenById(grabActions.dataset.targetId);
         if (grabber && target) await api?.grab(grabber, target, { forceApply: true });
         
         
@@ -170,7 +166,7 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
         if (msg.isOwner || game.user.isGM) await msg.update({ content: newContent });
         else grabActions.innerHTML = '<em>Grab Confirmed</em>';
         
-        const panel = Object.values(ui.windows).find(w => w.id === 'grab-panel');
+        const panel = getWindowById('grab-panel');
         if (panel) { panel._pendingConfirm = null; panel._refreshPanel(); }
     });
     
@@ -180,7 +176,7 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
         if (msg.isOwner || game.user.isGM) await msg.update({ content: newContent });
         else grabActions.innerHTML = '<em>Grab Cancelled</em>';
         
-        const panel = Object.values(ui.windows).find(w => w.id === 'grab-panel');
+        const panel = getWindowById('grab-panel');
         if (panel) { panel._pendingConfirm = null; panel._refreshPanel(); }
     });
   }
@@ -206,7 +202,7 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
     const grab = window._activeGrabs?.get(escapeData.speakerToken);
     if (!grab) return;
 
-    const grabberTok = canvas.tokens.get(grab.grabberTokenId) || canvas.tokens.placeables.find(t=>t.id===grab.grabberTokenId);
+    const grabberTok = getTokenById(grab.grabberTokenId);
     const fsHtml = grabberTok ? buildFreeStrikeButton(grabberTok.actor) : '';
     
     container.innerHTML = `
@@ -222,7 +218,7 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
     
     container.querySelector('.dsct-accept-escape').addEventListener('click', async (e) => {
         e.preventDefault();
-        const api = game.modules.get('draw-steel-combat-tools')?.api;
+        const api = getModuleApi(false);
         await api?.endGrab(escapeData.speakerToken, { silent: true });
         ChatMessage.create({ content: `<strong>Escape Grab:</strong> ${grab.grabbedName} escapes after taking a free strike.` });
         
@@ -230,7 +226,7 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
         if (msg.isOwner || game.user.isGM) await msg.setFlag('draw-steel-combat-tools', 'escapeResolved', 'accepted');
         else container.innerHTML = '<em>Escape Accepted</em>';
         
-        const panel = Object.values(ui.windows).find(w => w.id === 'grab-panel');
+        const panel = getWindowById('grab-panel');
         if (panel) { panel._pendingEscape = null; panel._refreshPanel(); }
     });
     
@@ -241,7 +237,7 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
         if (msg.isOwner || game.user.isGM) await msg.setFlag('draw-steel-combat-tools', 'escapeResolved', 'denied');
         else container.innerHTML = '<em>Stayed Grabbed</em>';
         
-        const panel = Object.values(ui.windows).find(w => w.id === 'grab-panel');
+        const panel = getWindowById('grab-panel');
         if (panel) { panel._pendingEscape = null; panel._refreshPanel(); }
     });
     
@@ -269,7 +265,7 @@ export function registerChatHooks() {
   const trySetFlag = async (msg, el = null) => {
     if (msg.author.id !== game.user.id) return;
 
-    const parts         = msg.system?.parts?.contents ?? Object.values(msg.system?.parts ?? {});
+    const parts         = normalizeCollection(msg.system?.parts);
     const abilityUse    = parts.find(p => p.type === 'abilityUse');
     const abilityResult = parts.find(p => p.type === 'abilityResult');
     if (!abilityUse?.abilityUuid || !abilityResult?.tier) return;
@@ -363,7 +359,7 @@ export function registerChatHooks() {
           
           const grab = window._activeGrabs.get(grabbedTokenId);
           if (tier >= 3) {
-            const api = game.modules.get('draw-steel-combat-tools')?.api;
+            const api = getModuleApi(false);
             if (api) {
                await api.endGrab(grabbedTokenId, { silent: true });
                ChatMessage.create({ content: `<strong>Escape Grab:</strong> ${grab.grabbedName} breaks free from ${grab.grabberName}!` });
@@ -372,7 +368,7 @@ export function registerChatHooks() {
             ChatMessage.create({ content: `<strong>Escape Grab:</strong> ${grab.grabbedName} fails to escape.` });
           } else if (tier === 2) {
              
-             const panel = Object.values(ui.windows).find(w => w.id === 'grab-panel');
+             const panel = getWindowById('grab-panel');
              if (panel) {
                  panel._pendingEscape = { grabbedTokenId };
                  panel._refreshPanel();
