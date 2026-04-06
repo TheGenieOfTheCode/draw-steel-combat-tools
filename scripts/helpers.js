@@ -270,6 +270,63 @@ export const safeTeleport = async (tokenDoc, targetX, targetY) => {
   await safeUpdate(tokenDoc, { x: targetX, y: targetY }, { animate: false, teleport: true });
 };
 
+// ── Chat Message Injection ────────────────────────────────────────────────────
+
+const _injectors     = [];
+const _pendingInjects = new Map();
+
+/**
+ * Register an injector function to be called on every chat message inject pass.
+ *
+ * Injectors are called in registration order with (msg, ctx), where ctx contains:
+ *   el      — the full message <li> element
+ *   header  — .message-header
+ *   content — .message-content (may be null)
+ *   buttons — .message-part-buttons footer (may be null)
+ *   rolls   — .message-part-rolls (may be null)
+ *   parts   — NodeList of all [data-message-part] sections
+ *
+ * Return true from an injector to stop subsequent injectors running (use for
+ * full content replacements like the knockback block).
+ *
+ * @param {Function} fn - (msg, ctx) => void | true
+ */
+export const registerInjector = (fn) => _injectors.push(fn);
+
+/**
+ * Schedule a debounced injection pass for a message.
+ * Multiple rapid calls for the same message (e.g. from flag writes triggering
+ * updateChatMessage) collapse into a single pass after chatInjectDelay.
+ *
+ * @param {ChatMessage} msg
+ */
+export const scheduleInject = (msg) => {
+  const existing = _pendingInjects.get(msg.id);
+  if (existing) clearTimeout(existing);
+  const id = setTimeout(() => {
+    _pendingInjects.delete(msg.id);
+    const el = document.querySelector(`[data-message-id="${msg.id}"]`);
+    if (!el) return;
+    const ctx = {
+      el,
+      header:  el.querySelector('.message-header'),
+      content: el.querySelector('.message-content'),
+      buttons: el.querySelector('.message-part-buttons'),
+      rolls:   el.querySelector('.message-part-rolls'),
+      parts:   el.querySelectorAll('[data-message-part]'),
+    };
+    for (const fn of _injectors) {
+      try {
+        const stop = fn(msg, ctx);
+        if (stop) break;
+      } catch (e) {
+        console.error('DSCT | scheduleInject | Injector error:', fn.name ?? '(anonymous)', e);
+      }
+    }
+  }, getSetting('chatInjectDelay'));
+  _pendingInjects.set(msg.id, id);
+};
+
 // ── Power Roll Bane/Edge Helpers ─────────────────────────────────────────────
 
 export const tierOf = (total) => total <= 11 ? 1 : total <= 16 ? 2 : 3;
