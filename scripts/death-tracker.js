@@ -192,7 +192,7 @@ export function registerDeathTrackerHooks() {
       const chosenUserId = resolveBreakpointUser();
       const socket = game.modules.get('draw-steel-combat-tools')?.api?.socket;
       if (chosenUserId === game.user.id || !socket) {
-        // it's us (the GM) — open directly
+        // it's us (the GM) - open directly
         const api = game.modules.get('draw-steel-combat-tools')?.api;
         if (api?.powerWordKill) api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions });
       } else {

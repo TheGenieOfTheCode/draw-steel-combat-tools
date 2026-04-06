@@ -27,6 +27,12 @@ export const MATERIAL_ICONS = {
 
 export const MATERIAL_ALPHA = { glass: 0.1, wood: 0.8, stone: 0.8, metal: 0.8 };
 
+export const BASE_MATERIALS    = ['glass', 'wood', 'stone', 'metal'];
+export const getCustomMaterials = () => { try { return getSetting('customMaterials') ?? []; } catch { return []; } };
+export const getAllMaterials    = () => [...BASE_MATERIALS, ...getCustomMaterials().map(m => m.name)];
+export const getMaterialIcon   = (name) => MATERIAL_ICONS[name] ?? getCustomMaterials().find(m => m.name === name)?.icon ?? MATERIAL_ICONS.stone;
+export const getMaterialAlpha  = (name) => MATERIAL_RULES()[name]?.alpha ?? MATERIAL_ALPHA[name] ?? getCustomMaterials().find(m => m.name === name)?.alpha ?? 0.8;
+
 export const getMaterial = (obj) => {
   for (const mat of Object.keys(MATERIAL_RULES())) {
     if (hasTags(obj, mat)) return mat;
@@ -166,7 +172,7 @@ export const hasFly = (actor) => {
   return false;
 };
 
-// a prone or restrained flyer can't use flight to cancel a fall — restrained sets effective speed to 0 as a condition,
+// a prone or restrained flyer can't use flight to cancel a fall - restrained sets effective speed to 0 as a condition,
 // which isn't reflected in the base movement.speed stat, so we have to check the status directly
 export const canCurrentlyFly = (actor) => {
   if (!hasFly(actor)) return false;
@@ -188,7 +194,7 @@ export const applyFall = async (token, targetElev = 0, { silent = true } = {}) =
     dmg = effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, cap);
     if (dmg > 0) await applyDamage(token.actor, dmg);
   }
-  // always land at targetElev — flyers glide down, everyone else falls
+  // always land at targetElev - flyers glide down, everyone else falls
   await safeUpdate(token.document, { elevation: targetElev }, { animate: false, teleport: true });
   if (!silent) {
     await ChatMessage.create({ content: buildFallMessage(token.name, fallDist, effectiveFall, dmg) });
@@ -199,7 +205,7 @@ export const applyFall = async (token, targetElev = 0, { silent = true } = {}) =
 const buildFallMessage = (name, fallDist, effectiveFall, dmg) => {
   const distPart = `<strong>${name}</strong> falls <strong>${fallDist}</strong> square${fallDist !== 1 ? 's' : ''}`;
   if (effectiveFall === fallDist) {
-    // agility didn't reduce anything — skip the redundant "(X effective)" clause
+    // agility didn't reduce anything - skip the redundant "(X effective)" clause
     return dmg > 0
       ? `${distPart}, dealing <strong>${dmg}</strong> fall damage (${effectiveFall * 2} × ½ effective).`
       : `${distPart} but the fall is too short to deal damage.`;
@@ -207,7 +213,7 @@ const buildFallMessage = (name, fallDist, effectiveFall, dmg) => {
   const effectivePart = ` (<strong>${effectiveFall}</strong> effective after Agility reduction)`;
   return dmg > 0
     ? `${distPart}${effectivePart}, dealing <strong>${dmg}</strong> fall damage.`
-    : `${distPart}${effectivePart} — not enough to deal damage.`;
+    : `${distPart}${effectivePart} - not enough to deal damage.`;
 };
 
 export const sizeRank = (size) =>

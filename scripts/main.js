@@ -51,15 +51,15 @@ Hooks.once('init', () => {
   });
   game.settings.register(M, 'animationStepDelay', {
     name: 'Animation Step Delay (ms)', hint: 'Time in milliseconds between each square of animated forced movement. Set to 0 to disable animation.',
-    scope: 'world', config: true, type: Number, default: 80, range: { min: 0, max: 500, step: 10 }
+    scope: 'world', config: true, type: Number, default: 80, range: { min: 0, max: 500, step: 10 }, ...reloadOnChange
   });
   game.settings.register(M, 'fallDamageCap', {
     name: 'Fall Damage Cap', hint: 'Maximum damage a creature can take from a single fall.',
-    scope: 'world', config: true, type: Number, default: 50, range: { min: 10, max: 200, step: 5 }
+    scope: 'world', config: true, type: Number, default: 50, range: { min: 10, max: 200, step: 5 }, ...reloadOnChange
   });
   game.settings.register(M, 'gmBypassesRangeCheck', {
     name: 'GM Bypasses Range Check', hint: 'When enabled, the GM can execute forced movement from chat buttons regardless of range.',
-    scope: 'world', config: true, type: Boolean, default: true
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
 
   game.settings.register(M, 'grabEnabled', {
@@ -68,11 +68,11 @@ Hooks.once('init', () => {
   });
   game.settings.register(M, 'gmBypassesSizeCheck', {
     name: 'GM Bypasses Size Check', hint: 'When enabled, the GM can execute Knockback and Grab regardless of target size.',
-    scope: 'world', config: true, type: Boolean, default: true
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
   game.settings.register(M, 'restrictGrabButtons', {
     name: 'Restrict Manual Grab Buttons to GM', hint: 'If enabled, only the GM can see and click the Apply Grab and End Grab buttons in the Grab Panel.',
-    scope: 'world', config: true, type: Boolean, default: false
+    scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
   });
 
   game.settings.register(M, 'deathTrackerEnabled', {
@@ -81,15 +81,15 @@ Hooks.once('init', () => {
   });
   game.settings.register(M, 'deathAnimationDuration', {
     name: 'Death Animation Duration (ms)', hint: 'How long the red fade-out animation lasts before the token is removed. Set to 0 to skip.',
-    scope: 'world', config: true, type: Number, default: 2000, range: { min: 0, max: 5000, step: 100 }
+    scope: 'world', config: true, type: Number, default: 2000, range: { min: 0, max: 5000, step: 100 }, ...reloadOnChange
   });
   game.settings.register(M, 'clearSkullsOnCombatEnd', {
     name: 'Clear Skulls on Combat End', hint: 'If enabled, all skull tiles placed during a combat encounter are deleted when combat ends.',
-    scope: 'world', config: true, type: Boolean, default: false
+    scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
   });
   game.settings.register(M, 'clearEffectsOnRevive', {
     name: 'Clear Effects on Revive', hint: 'If enabled, reviving a creature automatically removes all active conditions and effects (except core system states like Winded).',
-    scope: 'world', config: true, type: Boolean, default: false
+    scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
   });
   game.settings.register(M, 'deathTrackerSkullIds', { scope: 'world', config: false, type: Array, default: [] });
 
@@ -106,7 +106,7 @@ Hooks.once('init', () => {
     name: 'Triggered Action Tracker Targets', hint: 'Who should receive the Triggered Action tracker at the start of combat?',
     scope: 'world', config: true, type: String,
     choices: { 'ALL': 'All Combatants', 'HEROES': 'Heroes Only', 'NPCS': 'NPCs Only' },
-    default: 'ALL'
+    default: 'ALL', ...reloadOnChange
   });
 
   game.settings.register(M, 'teleportEnabled', {
@@ -124,6 +124,7 @@ Hooks.once('init', () => {
   game.settings.register(M, 'wbDefaultMaterial',     { scope: 'world', config: false, type: String, default: 'stone' });
   game.settings.register(M, 'wbDefaultHeightBottom', { scope: 'world', config: false, type: String, default: '' });
   game.settings.register(M, 'wbDefaultHeightTop',    { scope: 'world', config: false, type: String, default: '' });
+  game.settings.register(M, 'customMaterials',       { scope: 'world', config: false, type: Array,  default: [] });
 
   game.settings.register(M, 'showForcedMovementButton', {
     name: 'Show Forced Movement Button', hint: 'Show the Forced Movement toolbar button in the token controls.',
@@ -148,18 +149,18 @@ Hooks.once('init', () => {
 
   game.settings.register(M, 'chatInjectDelay', {
     name: 'Chat Button Inject Delay (ms)', hint: 'Time in milliseconds to wait after a chat message renders before injecting forced movement buttons.',
-    scope: 'world', config: true, type: Number, default: 500, range: { min: 100, max: 2000, step: 100 }
+    scope: 'world', config: true, type: Number, default: 500, range: { min: 100, max: 2000, step: 100 }, ...reloadOnChange
   });
   game.settings.register(M, 'debugMode', {
     name: 'Debug Mode', hint: 'If enabled, verbose debug messages are printed to the browser console.',
-    scope: 'world', config: true, type: Boolean, default: false
+    scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
   });
   game.settings.register(M, 'cornerCutMode', {
     name: 'Corner Cut Movement',
-    hint: 'Block: diagonal movement through a wall corner is forbidden. Collide: corner cuts are allowed but trigger collision damage (same as hitting a wall head-on).',
+    hint: 'Collide on Corner Cuts (default): diagonal movement clipping a wall corner is allowed but triggers collision damage.\nBlock Corner Cutting: diagonal movement through a wall corner is forbidden entirely.',
     scope: 'world', config: true, type: String,
     choices: { 'block': 'Block Corner Cutting', 'collide': 'Collide on Corner Cuts' },
-    default: 'block'
+    default: 'collide', ...reloadOnChange
   });
   game.settings.registerMenu(M, 'installMacros', {
     name: 'Install API Macros', label: 'Install Macros',

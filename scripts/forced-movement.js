@@ -3,6 +3,7 @@
   GRID as getGRID,
   toGrid, toWorld, toCenter, gridEq, gridDist,
   MATERIAL_RULES, MATERIAL_ICONS, MATERIAL_ALPHA, WALL_RESTRICTIONS,
+  getMaterialIcon, getMaterialAlpha, getAllMaterials,
   getMaterial, tokenAt, tileAt, wallBetween,
   getSquadGroup, applyDamage, snapStamina,
   canCurrentlyFly, getWallBlockTileAt, getWallBlockTop,
@@ -10,6 +11,7 @@
   safeUpdate, safeDelete, safeCreateEmbedded, safeToggleStatusEffect,
   replayUndo, getSetting,
 } from './helpers.js';
+import { endGrab } from './grab.js';
 
 
 // Draw Steel rule: you can't move diagonally through the corner of a wall.
@@ -25,7 +27,7 @@ const cornerCutsWall = (from, to, elev = 0) => {
     const wt = w.flags?.['wall-height']?.top    ?? Infinity;
     return !(elev >= wt || elev < wb);
   };
-  // check both ends of each boundary axis — walls on the destination side won't cross the center ray
+  // check both ends of each boundary axis - walls on the destination side won't cross the center ray
   const hasVert  = active(wallBetween(from, cA)) || active(wallBetween(to, cA));
   const hasHoriz = active(wallBetween(from, cB)) || active(wallBetween(to, cB));
   return hasVert || hasHoriz;
@@ -159,7 +161,7 @@ const breakTileFromTop = async (tile, fallDmg, undoOps, collisionMsgs, targetTok
       undoOps.push({ op: 'update', uuid: w.uuid, data: { ...restrict, 'flags.wall-height.top': tileTop, 'flags.wall-height.bottom': tileBottom } });
       undoOps.push({ op: 'removeTags', uuid: w.uuid, tags: ['broken'] });
     }
-    undoOps.push({ op: 'update', uuid: tile.document.uuid, data: { 'texture.src': MATERIAL_ICONS[mat] ?? MATERIAL_ICONS.stone, alpha: MATERIAL_ALPHA[mat] ?? 0.8 } });
+    undoOps.push({ op: 'update', uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(mat), alpha: getMaterialAlpha(mat) } });
     undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
     if (prevDamagedTag) undoOps.push({ op: 'addTags', uuid: tile.document.uuid, tags: [prevDamagedTag] });
 
@@ -348,6 +350,16 @@ const buildUndoLog = (targetToken, startPos, startElevSnap, movedSnap, undoOps) 
 ];
 
 const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false) => {
+  // Grabbed creatures can only be force moved by their grabber.
+  const grabState = window._activeGrabs?.get(targetToken.id);
+  if (grabState) {
+    const sourceIsGrabber = sourceToken && sourceToken.id === grabState.grabberTokenId;
+    if (!sourceIsGrabber) {
+      ui.notifications.warn(`A grabbed creature can't be force moved except by a creature, object, or effect that has them grabbed.`);
+      return;
+    }
+  }
+
   const GRID      = getGRID();
   const stability = ignoreStability ? 0 : (targetToken.actor?.system?.combat?.stability ?? 0);
 
@@ -489,7 +501,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     const colorValid     = 0x44cc44;
     const colorSuggest   = 0x88ffbb;
     const colorInvalid   = 0xcc4444;
-    const colorCollision = 0xff7700; // orange — "you can go here but it'll hurt"
+    const colorCollision = 0xff7700; // orange - "you can go here but it'll hurt"
 
     const cornerCutMode = getSetting('cornerCutMode');
 
@@ -522,7 +534,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           }
         }
       }
-      // cells blocked by a wall (orthogonally adjacent to reachable) — still selectable, will trigger collision
+      // cells blocked by a wall (orthogonally adjacent to reachable) - still selectable, will trigger collision
       const wallReachable = new Set();
       for (const k of reachable) {
         const [rx, ry] = k.split(',').map(Number);
@@ -557,7 +569,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       return true;
     };
 
-    // in collide mode: greedy diagonal-first — shortest possible path, corner cuts allowed (they collide).
+    // in collide mode: greedy diagonal-first - shortest possible path, corner cuts allowed (they collide).
     // in block mode: BFS so it routes around corners rather than through them.
     const getSuggestedPath = (from, to) => {
       const remaining = reduced - path.length;
@@ -588,7 +600,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         }
         return steps.length > 0 ? steps : null;
       }
-      // block mode — BFS routing around corners
+      // block mode - BFS routing around corners
       const key = g => `${g.x},${g.y}`;
       const parent = new Map();
       parent.set(key(from), null);
@@ -667,13 +679,13 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const destCollision = stepIsCollision(prev, hoverGrid);
 
         if (isValidStep(prev, hoverGrid)) {
-          // single step directly to hover — green or orange depending on collision
+          // single step directly to hover - green or orange depending on collision
           const hw = toWorld(hoverGrid);
           graphics.beginFill(destCollision ? colorCollision : colorValid, 0.45);
           graphics.drawRect(hw.x, hw.y, GRID, GRID);
           graphics.endFill();
         } else if (inRange) {
-          // multi-step suggestion — color each intermediate step individually
+          // multi-step suggestion - color each intermediate step individually
           const suggestion = getSuggestedPath(prev, hoverGrid);
           if (suggestion) {
             let suggPrev = prev;
@@ -909,7 +921,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       }
 
       let wall = wallBetween(prev, step);
-      // corner-cut blocking — enforced at path-gen time, but re-checked here for externally supplied paths.
+      // corner-cut blocking - enforced at path-gen time, but re-checked here for externally supplied paths.
       // when both orthogonal boundaries are walled (double corner) we pick the nastier wall and let the
       // normal collision handler below deal damage; a single-wall corner just stops movement cleanly.
       if (!wall && prev.x !== step.x && prev.y !== step.y) {
@@ -924,7 +936,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const wVert  = activeWall(wallBetween(prev, cA)) ?? activeWall(wallBetween(step, cA));
         const wHoriz = activeWall(wallBetween(prev, cB)) ?? activeWall(wallBetween(step, cB));
         if (wVert && wHoriz) {
-          // double corner — pick the most dangerous wall and collide with it regardless of mode
+          // double corner - pick the most dangerous wall and collide with it regardless of mode
           wall = (hasTags(wVert, 'obstacle') && !hasTags(wVert, 'breakable'))   ? wVert
                : (hasTags(wHoriz, 'obstacle') && !hasTags(wHoriz, 'breakable')) ? wHoriz
                : hasTags(wVert, 'obstacle') ? wVert : wHoriz;
@@ -932,11 +944,11 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         } else if (wVert || wHoriz) {
           const cornerWall = wVert ?? wHoriz;
           if (getSetting('cornerCutMode') === 'collide') {
-            // single corner cut in collide mode — treat it as a collision with that wall
+            // single corner cut in collide mode - treat it as a collision with that wall
             wall = cornerWall;
             if (getSetting('debugMode')) console.log(`DSCT | FM | Single corner collision at step ${i}: (${prev.x},${prev.y})→(${step.x},${step.y})`);
           } else {
-            // block mode — movement stops cleanly with no damage
+            // block mode - movement stops cleanly with no damage
             if (getSetting('debugMode')) console.log(`DSCT | FM | Single corner blocked at step ${i}: (${prev.x},${prev.y})→(${step.x},${step.y})`);
             landingIndex = i - 1;
             break;
@@ -1003,7 +1015,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                   }
                   collisionMsgs.push(`The top of the ${mat} object collapses into the gap (now ${wallTop - 1 - wallBottom} square${wallTop - 1 - wallBottom !== 1 ? 's' : ''} tall).`);
                 } else {
-                  const origMat      = tile ? (getTags(tile).find(t => Object.keys(MATERIAL_ICONS).includes(t)) ?? 'stone') : 'stone';
+                  const origMat      = tile ? getMaterial(tile) : 'stone';
                   const prevWallData = allWalls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
                   for (const w of allWalls) {
                     await safeUpdate(w, { move: 0, sight: 0, light: 0, sound: 0 });
@@ -1012,7 +1024,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                   if (tile) {
                     await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
                     if (game.user.isGM) await addTags(tile, ['broken']);
-                    undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': MATERIAL_ICONS[origMat], alpha: MATERIAL_ALPHA[origMat] } });
+                    undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: getMaterialAlpha(origMat) } });
                     undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
                   }
                   for (const { wall: w, restrict } of prevWallData) {
@@ -1094,7 +1106,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           if (remaining >= rule.cost) {
             if (blockTag) {
               const walls        = getByTag(blockTag).filter(o => Array.isArray(o.c));
-              const origMat      = getTags(tile).find(t => Object.keys(MATERIAL_ICONS).includes(t)) ?? 'stone';
+              const origMat      = getMaterial(tile);
               const prevWallData = walls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
               for (const wall of walls) {
                 await safeUpdate(wall, { move: 0, sight: 0, light: 0, sound: 0 });
@@ -1103,7 +1115,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
               await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
               if (game.user.isGM) await addTags(tile, ['broken']);
 
-              undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': MATERIAL_ICONS[origMat], alpha: MATERIAL_ALPHA[origMat] } });
+              undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: getMaterialAlpha(origMat) } });
               undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
               for (const { wall, restrict } of prevWallData) {
                 undoOps.push({ op: 'update',     uuid: wall.uuid, data: restrict });
@@ -1131,6 +1143,13 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     const landingStepIndex = landingIndex >= 0 ? landingIndex : -1;
 
     const stepsToAnimate = landingIndex >= 0 ? path.slice(0, landingIndex + 1) : [];
+
+    // If the target is a grabber, suppress grab-follow so the grabbed creature stays in place.
+    const grabberGrabs = [...(window._activeGrabs?.entries() ?? [])].filter(([, g]) => g.grabberTokenId === targetToken.id);
+    if (grabberGrabs.length > 0) {
+      window._grabFMSuppressed ??= new Set();
+      window._grabFMSuppressed.add(targetToken.id);
+    }
 
     for (let s = 0; s < stepsToAnimate.length; s++) {
       const stepGrid  = stepsToAnimate[s];
@@ -1178,6 +1197,31 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     if (getSetting('debugMode')) {
       const live = canvas.scene.tokens.get(targetToken.id);
       console.log(`DSCT | FM | Post-poll: live(${live?.x},${live?.y},elev=${live?.elevation}) | landing(${landingWorld.x},${landingWorld.y},elev=${targetElev})`);
+    }
+
+    // Resolve grabs where this token is the grabber: end or reposition based on adjacency.
+    if (grabberGrabs.length > 0) {
+      window._grabFMSuppressed?.delete(targetToken.id);
+      const grabberGrid = toGrid(targetToken.document);
+      const grabberSize = targetToken.actor?.system?.combat?.size?.value ?? 1;
+      for (const [grabbedId, grab] of grabberGrabs) {
+        if (!window._activeGrabs?.has(grabbedId)) continue; // already ended during move
+        const grabbedTok = canvas.tokens.placeables.find(t => t.id === grabbedId);
+        if (!grabbedTok) { await endGrab(grabbedId, { silent: true }); continue; }
+        const grabbedGrid = toGrid(grabbedTok.document);
+        // Chebyshev distance from grabbed cell to nearest cell in grabber's footprint
+        const nearX = Math.max(grabberGrid.x, Math.min(grabbedGrid.x, grabberGrid.x + grabberSize - 1));
+        const nearY = Math.max(grabberGrid.y, Math.min(grabbedGrid.y, grabberGrid.y + grabberSize - 1));
+        const dist  = Math.max(Math.abs(grabbedGrid.x - nearX), Math.abs(grabbedGrid.y - nearY));
+        if (dist <= 1) {
+          // Still adjacent - update offset to new relative position.
+          const g  = window._activeGrabs.get(grabbedId);
+          g.offsetX = grabbedTok.document.x - targetToken.document.x;
+          g.offsetY = grabbedTok.document.y - targetToken.document.y;
+        } else {
+          await endGrab(grabbedId, { silent: false, customMsg: `${grab.grabberName} was force-moved out of reach and released ${grab.grabbedName}.` });
+        }
+      }
     }
 
     const oldMoveId = targetToken.document.getFlag('draw-steel-combat-tools', 'lastFmMoveId');

@@ -1,6 +1,7 @@
 ﻿import {
-  MATERIAL_ICONS, MATERIAL_ALPHA, WALL_RESTRICTIONS,
-  getMaterial, tileAt,
+  MATERIAL_ICONS, WALL_RESTRICTIONS,
+  getMaterial, getMaterialIcon, getMaterialAlpha, getAllMaterials,
+  tileAt,
   hasTags, getTags, getByTag, addTags, removeTags,
   toGrid, toWorld, GRID as getGRID, getSetting,
 } from './helpers.js';
@@ -8,8 +9,8 @@
 const SCALE = 1.2;
 const s = n => Math.round(n * SCALE);
 
-const MATERIALS       = ['glass', 'wood', 'stone', 'metal'];
-const MATERIAL_COLORS = { glass: 0x88ddff, wood: 0xaa6622, stone: 0x888888, metal: 0x4488aa };
+const BASE_MAT_COLORS = { glass: 0x88ddff, wood: 0xaa6622, stone: 0x888888, metal: 0x4488aa };
+const MATERIAL_COLORS = BASE_MAT_COLORS;
 const MODE_COLORS     = { build: 0x44cc44, destroy: 0xcc4444, fix: 0x44aacc, transmute: 0xcc8800, break: 0xff6600, inspect: 0xaaaaff };
 
 const palette = () => document.body.classList.contains('theme-dark') ? {
@@ -50,8 +51,8 @@ const placeBlock = async (gx, gy, material, heightBottom = '', heightTop = '', i
     x: gx * GRID, y: gy * GRID,
     width: GRID, height: GRID,
     elevation: tileElevation,
-    texture: { src: MATERIAL_ICONS[material] },
-    alpha: MATERIAL_ALPHA[material] ?? 0.8,
+    texture: { src: getMaterialIcon(material) },
+    alpha: getMaterialAlpha(material),
     hidden: false, locked: false,
     occlusion: { mode: 0, alpha: 0 },
     restrictions: { light: false, weather: false },
@@ -149,7 +150,7 @@ const fixBlock = async (tile) => {
     await removeTags(wall, ['broken']);
     await suppressOverlappingSight(wall);
   }
-  await tile.document.update({ 'texture.src': MATERIAL_ICONS[material], alpha: MATERIAL_ALPHA[material] ?? 0.8 });
+  await tile.document.update({ 'texture.src': getMaterialIcon(material), alpha: getMaterialAlpha(material) });
   await removeTags(tile, ['broken', 'partially-broken']);
   if (damagedTag) await removeTags(tile, [damagedTag]);
 };
@@ -170,12 +171,12 @@ const transmuteBlock = async (tile, newMaterial) => {
   const blockTag = getBlockTag(tile);
   if (!blockTag) return;
   const oldTags  = getTags(tile);
-  const oldMat   = oldTags.find(t => MATERIALS.includes(t));
+  const oldMat   = oldTags.find(t => getAllMaterials().includes(t));
   const restrict = WALL_RESTRICTIONS()[newMaterial];
 
   if (oldMat) await removeTags(tile, [oldMat]);
   await addTags(tile, [newMaterial]);
-  await tile.document.update({ 'texture.src': MATERIAL_ICONS[newMaterial], alpha: MATERIAL_ALPHA[newMaterial] ?? 0.8 });
+  await tile.document.update({ 'texture.src': getMaterialIcon(newMaterial), alpha: getMaterialAlpha(newMaterial) });
 
   const walls = getBlockWalls(blockTag);
   for (const wall of walls) {
@@ -446,10 +447,8 @@ export class WallBuilderPanel extends Application {
     if (execBtn) execBtn.textContent = this._mode === 'inspect' ? 'Start Inspect' : 'Select Squares';
     const heightRow = this._html.find('#wb-height-row')[0];
     if (heightRow) heightRow.style.display = this._mode === 'build' ? 'flex' : 'none';
-    for (const mat of MATERIALS) {
-      const btn = this._html.find(`#wb-mat-${mat}`)[0];
-      if (btn) { btn.style.borderColor = this._material === mat ? p.accent : p.border; btn.style.color = this._material === mat ? p.accent : p.text; }
-    }
+    const matSel = this._html.find('#wb-material-select')[0];
+    if (matSel) matSel.value = this._material;
   }
 
   async _renderInner(data) {
@@ -483,9 +482,9 @@ export class WallBuilderPanel extends Application {
 
         <div id="wb-material-row" style="display:${(this._mode==='build'||this._mode==='transmute')?'flex':'none'};flex-direction:column;gap:${s(4)}px;margin-bottom:${s(8)}px;">
           <div style="font-size:${s(8)}px;text-transform:uppercase;color:${p.textDim};">Material</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:${s(3)}px;">
-            ${MATERIALS.map(mat => `<button id="wb-mat-${mat}" data-material="${mat}" style="padding:${s(4)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._material===mat?p.accent:p.border};color:${this._material===mat?p.accent:p.text};text-transform:capitalize;">${mat}</button>`).join('')}
-          </div>
+          <select id="wb-material-select" style="width:100%;padding:${s(4)}px;border-radius:${s(3)}px;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${p.border};color:${p.text};cursor:pointer;text-transform:capitalize;">
+            ${getAllMaterials().map(mat => `<option value="${mat}" ${this._material===mat?'selected':''} style="text-transform:capitalize;">${mat.charAt(0).toUpperCase()+mat.slice(1)}</option>`).join('')}
+          </select>
         </div>
 
         <div id="wb-height-row" style="display:${this._mode==='build'?'flex':'none'};flex-direction:column;gap:${s(4)}px;margin-bottom:${s(8)}px;">
@@ -520,7 +519,7 @@ export class WallBuilderPanel extends Application {
       appEl.style.left = saved ? `${saved.left}px` : `${Math.round((window.innerWidth - (appEl.offsetWidth || s(240))) / 2)}px`;
       appEl.style.top  = saved ? `${saved.top}px`  : `${Math.round((window.innerHeight - (appEl.offsetHeight || s(400))) / 2)}px`;
       html[0].addEventListener('mousedown', e => {
-        if (e.target.closest('button') || e.target.closest('input')) return;
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
         e.preventDefault();
         const sx = e.clientX - appEl.offsetLeft, sy = e.clientY - appEl.offsetTop;
         const onMove = ev => { appEl.style.left = `${ev.clientX - sx}px`; appEl.style.top = `${ev.clientY - sy}px`; };
@@ -540,8 +539,8 @@ export class WallBuilderPanel extends Application {
     html.on('input',  '#wb-height-bottom', e => { this._heightBottom = e.target.value === '' ? '' : parseFloat(e.target.value); });
     html.on('input',  '#wb-height-top',    e => { this._heightTop    = e.target.value === '' ? '' : parseFloat(e.target.value); });
     html.on('change', '#wb-stable',        e => { this._stable = e.target.checked; });
-    html.on('click',  '[data-mode]',       e => { this._mode = e.currentTarget.dataset.mode; this._refreshPanel(); });
-    html.on('click',  '[data-material]',   e => { this._material = e.currentTarget.dataset.material; this._refreshPanel(); });
+    html.on('click',  '[data-mode]',             e => { this._mode = e.currentTarget.dataset.mode; this._refreshPanel(); });
+    html.on('change', '#wb-material-select',     e => { this._material = e.target.value; });
     html.on('click',  '[data-action]', async e => {
       const action = e.currentTarget.dataset.action;
       if (action === 'close-window') { this.close(); return; }

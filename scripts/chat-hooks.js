@@ -253,6 +253,8 @@ const injectGrabResolutions = (msg, el) => {
   }
 };
 
+const _knockbackNotified = new Set(); // guards against double-notify from createChatMessage + renderChatMessageHTML race
+
 export function registerChatHooks() {
   const trySetFlag = async (msg) => {
     if (msg.author.id !== game.user.id) return;
@@ -267,6 +269,15 @@ export function registerChatHooks() {
 
     const dsid = getItemDsid(item);
     const tier = abilityResult.tier;
+
+    if (!msg.getFlag('draw-steel-combat-tools', 'knockbackBlocked') && !_knockbackNotified.has(msg.id) && dsid === 'knockback') {
+      const speakerTokenId = msg.speaker?.token;
+      if (speakerTokenId && window._activeGrabs?.has(speakerTokenId)) {
+        _knockbackNotified.add(msg.id);
+        await msg.setFlag('draw-steel-combat-tools', 'knockbackBlocked', true);
+        ui.notifications.warn('A grabbed creature cannot use the Knockback maneuver.');
+      }
+    }
 
     if (!msg.getFlag('draw-steel-combat-tools', 'forcedMovement')) {
       const forced = getForcedEffects(item, tier);
@@ -330,6 +341,16 @@ export function registerChatHooks() {
     setTimeout(() => {
       const liveEl = document.querySelector(`[data-message-id="${msg.id}"]`);
       if (!liveEl) return;
+      if (msg.getFlag('draw-steel-combat-tools', 'knockbackBlocked')) {
+        for (const child of [...liveEl.children]) {
+          if (!child.matches('.message-header')) child.remove();
+        }
+        const div = document.createElement('div');
+        div.className = 'message-content';
+        div.innerHTML = '<p><em>A grabbed creature cannot use the Knockback maneuver.</em></p>';
+        liveEl.appendChild(div);
+        return;
+      }
       injectForcedButtons(msg, liveEl);
       injectGrabButton(msg, liveEl);
       injectGrabResolutions(msg, liveEl);
