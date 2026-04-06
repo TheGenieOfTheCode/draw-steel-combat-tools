@@ -269,3 +269,139 @@ export const safeTeleport = async (tokenDoc, targetX, targetY) => {
   canvas.tokens.releaseAll();
   await safeUpdate(tokenDoc, { x: targetX, y: targetY }, { animate: false, teleport: true });
 };
+
+// ── Power Roll Bane/Edge Helpers ─────────────────────────────────────────────
+
+export const tierOf = (total) => total <= 11 ? 1 : total <= 16 ? 2 : 3;
+
+export const formatRollModLabel = (n) => {
+  if (n === 0)  return '';
+  if (n === 1)  return ' <em>(1 Bane)</em>';
+  if (n === -1) return ' <em>(1 Edge)</em>';
+  if (n >= 2)   return ` <em>(${n} Banes)</em>`;
+  return ` <em>(${Math.abs(n)} Edges)</em>`;
+};
+
+/**
+ * Parses the current bane/edge state from a live rendered chat message element.
+ * Finds the "Ability Roll" dice section and extracts the base values (stripping any
+ * existing ±2 modifier so the result represents the clean pre-bane state).
+ *
+ * @param {HTMLElement} el - A rendered chat message element (from renderChatMessageHTML)
+ * @returns {{ originalTotal, originalNet, baseFormula, baseTooltip, isCritical } | null}
+ */
+export const parsePowerRollState = (el) => {
+  const abilityRoll = [...el.querySelectorAll('.dice-roll')]
+    .find(r => r.querySelector('.dice-flavor')?.textContent?.trim() === 'Ability Roll');
+  if (!abilityRoll) return null;
+
+  const totalEl   = abilityRoll.querySelector('.dice-total');
+  const formulaEl = abilityRoll.querySelector('.dice-formula');
+  const tooltipEl = abilityRoll.querySelector('[data-tooltip-text]');
+  const tierEl    = abilityRoll.querySelector('.tier');
+  if (!totalEl || !formulaEl || !tierEl) return null;
+
+  const originalTotal = parseInt(totalEl.textContent.trim());
+  if (isNaN(originalTotal)) return null;
+
+  const isCritical = totalEl.classList.contains('critical');
+
+  const emText = tierEl.querySelector('em')?.textContent?.toLowerCase().trim() ?? '';
+  let originalNet = 0;
+  if (emText) {
+    const isBane   = emText.includes('bane');
+    const isEdge   = emText.includes('edge');
+    const numMatch = emText.match(/(\d+)/);
+    const count    = numMatch ? parseInt(numMatch[1]) : 1;
+    if (isBane) originalNet =  count;
+    if (isEdge) originalNet = -count;
+  }
+
+  let baseFormula = formulaEl.textContent.trim();
+  let baseTooltip = tooltipEl?.getAttribute('data-tooltip-text') ?? baseFormula;
+  if (originalNet === 1) {
+    baseFormula = baseFormula.replace(/\s*-\s*2\s*$/, '').trim();
+    baseTooltip = baseTooltip.replace(/\s*-\s*2(\[Bane\])?/i, '').trim();
+  } else if (originalNet === -1) {
+    baseFormula = baseFormula.replace(/\s*\+\s*2\s*$/, '').trim();
+    baseTooltip = baseTooltip.replace(/\s*\+\s*2(\[Edge\])?/i, '').trim();
+  }
+
+  return { originalTotal, originalNet, baseFormula, baseTooltip, isCritical };
+};
+
+/**
+ * Applies a bane/edge delta to a rendered chat message element.
+ * Uses the original parsed state (from parsePowerRollState) to ensure idempotency
+ * — safe to call on every re-render with the same stored data.
+ *
+ * @param {HTMLElement} el       - A rendered chat message element
+ * @param {object}      baneData - Original roll state from parsePowerRollState
+ * @param {number}      delta    - How many banes (+) or edges (-) to add to the original state.
+ *                                 e.g. +1 adds one bane, -2 adds double edge.
+ *                                 Final net is always capped to ±2.
+ */
+export const applyRollMod = (el, baneData, delta) => {
+  const { originalTotal, originalNet, baseFormula, baseTooltip, isCritical } = baneData;
+  const newNet = Math.max(-2, Math.min(2, (originalNet ?? 0) + delta));
+
+  const abilityRoll = [...el.querySelectorAll('.dice-roll')]
+    .find(r => r.querySelector('.dice-flavor')?.textContent?.trim() === 'Ability Roll');
+  if (!abilityRoll || abilityRoll.dataset.dsctBaneApplied) return;
+
+  const totalEl   = abilityRoll.querySelector('.dice-total');
+  const formulaEl = abilityRoll.querySelector('.dice-formula');
+  const tierEl    = abilityRoll.querySelector('.tier');
+  const tooltipEl = abilityRoll.querySelector('[data-tooltip-text]');
+  if (!totalEl || !formulaEl || !tierEl) return;
+
+  // Strip any existing single-bane/edge modifier to get raw base total
+  const baseTotal = originalNet === 1  ? originalTotal + 2
+                  : originalNet === -1 ? originalTotal - 2
+                  : originalTotal;
+
+  let displayTotal, tierAdjust;
+  if      (newNet >=  2) { displayTotal = baseTotal;     tierAdjust = -1; }
+  else if (newNet <= -2) { displayTotal = baseTotal;     tierAdjust = +1; }
+  else if (newNet ===  1) { displayTotal = baseTotal - 2; tierAdjust =  0; }
+  else if (newNet === -1) { displayTotal = baseTotal + 2; tierAdjust =  0; }
+  else                   { displayTotal = baseTotal;     tierAdjust =  0; }
+
+  const baseTier  = tierOf(displayTotal);
+  const finalTier = isCritical ? 3 : Math.max(1, Math.min(3, baseTier + tierAdjust));
+
+  const originalDisplayTier = isCritical ? 3
+                             : originalNet >=  2 ? Math.max(1, tierOf(originalTotal) - 1)
+                             : originalNet <= -2 ? Math.min(3, tierOf(originalTotal) + 1)
+                             : tierOf(originalTotal);
+
+  const newFormula = newNet ===  1 ? `${baseFormula} - 2`
+                   : newNet === -1 ? `${baseFormula} + 2`
+                   : baseFormula;
+  const newTooltip = newNet ===  1 ? `${baseTooltip} - 2[Bane]`
+                   : newNet === -1 ? `${baseTooltip} + 2[Edge]`
+                   : `${baseTooltip}${formatRollModLabel(newNet).replace(/<\/?em>/g, '')}`;
+
+  totalEl.textContent = String(displayTotal);
+  formulaEl.textContent = newFormula;
+  if (tooltipEl) tooltipEl.setAttribute('data-tooltip-text', newTooltip);
+  tierEl.className = `tier tier${finalTier}`;
+  tierEl.innerHTML = `Tier ${finalTier}${formatRollModLabel(newNet)}`;
+
+  if (finalTier !== originalDisplayTier) {
+    const abilityDesc = el.querySelector('document-embed .power-roll-display');
+    const newTierDd   = abilityDesc?.querySelector(`dd.tier${finalTier}`);
+    const resultPRD   = el.querySelector('.message-part-html > .power-roll-display');
+    if (resultPRD && newTierDd) {
+      const sym = ['!', '@', '#'][finalTier - 1];
+      resultPRD.innerHTML = `<dt class="tier${finalTier}">${sym}</dt><dd>${newTierDd.innerHTML}</dd>`;
+    }
+    const dmgMatch = newTierDd?.textContent?.trim().match(/^(\d+)\s*damage/i);
+    if (dmgMatch) {
+      const applyBtn = el.querySelector('[data-action="applyDamage"]');
+      if (applyBtn) applyBtn.innerHTML = `<i class="fa-solid fa-burst"></i> Apply ${dmgMatch[1]} Damage`;
+    }
+  }
+
+  abilityRoll.dataset.dsctBaneApplied = 'true';
+};

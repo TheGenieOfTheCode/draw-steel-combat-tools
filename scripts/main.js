@@ -5,6 +5,7 @@ import { registerChatHooks, refreshChatInjections } from './chat-hooks.js';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks } from './grab.js';
 import { applyFall } from './helpers.js';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './tactical-effects.js';
+import { parsePowerRollState, applyRollMod } from './helpers.js';
 import { registerDeathTrackerHooks, runReviveUI, runPowerWordKillUI } from './death-tracker.js';
 import { applySquadLabels, autoRenameGroups, registerSquadLabelHooks } from './squad-labels.js';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.js';
@@ -36,6 +37,8 @@ const api = {
   installMacros:        installMacros,
   distributeAbilities:  distributeAbilities,
   fall:                 applyFall,
+  parsePowerRollState:  parsePowerRollState,
+  applyRollMod:         applyRollMod,
   socket:           null,
 };
 
@@ -73,6 +76,10 @@ Hooks.once('init', () => {
   game.settings.register(M, 'restrictGrabButtons', {
     name: 'Restrict Manual Grab Buttons to GM', hint: 'If enabled, only the GM can see and click the Apply Grab and End Grab buttons in the Grab Panel.',
     scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
+  });
+  game.settings.register(M, 'grabbedBaneEnabled', {
+    name: 'Enable Grabbed Bane', hint: 'Edits abilities posted by a grabbed creature if they don\'t target their grabber to inflict 1 bane.',
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
 
   game.settings.register(M, 'deathTrackerEnabled', {
@@ -226,7 +233,7 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   addHeader('chatInjectDelay', 'General');
 
   bindToggle('forcedMovementEnabled', ['animationStepDelay', 'fallDamageCap', 'gmBypassesRangeCheck']);
-  bindToggle('grabEnabled', ['gmBypassesSizeCheck', 'restrictGrabButtons']);
+  bindToggle('grabEnabled', ['gmBypassesSizeCheck', 'restrictGrabButtons', 'grabbedBaneEnabled']);
   bindToggle('deathTrackerEnabled', ['deathAnimationDuration', 'clearSkullsOnCombatEnd', 'clearEffectsOnRevive']);
   bindToggle('autoTriggeredActionsEnabled', ['autoTriggeredActionsTarget']);
   bindToggle('debugMode', ['cornerCutMode']);
