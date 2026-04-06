@@ -1,4 +1,4 @@
-﻿import { getSetting, safeCreateEmbedded, safeDelete } from './helpers.js';
+﻿import { getSetting, safeCreateEmbedded, safeDelete, canForcedMoveTarget } from './helpers.js';
 
 const TIMEOUT_MS = 60_000;
 const SCALE      = 1.2;
@@ -61,6 +61,7 @@ const ensureGrabHooks = () => {
     window._grabFollowHook = Hooks.on('updateToken', async (doc, changes) => {
       if (!window._activeGrabs?.size) return;
       if (changes.x === undefined && changes.y === undefined) return;
+      if (window._grabFMSuppressed?.has(doc.id)) return; // grabber being force-moved; grabbed creature stays put
       for (const [gid, grab] of window._activeGrabs.entries()) {
         if (doc.id !== grab.grabberTokenId) continue;
         const gt     = canvas.tokens.placeables.find(t => t.id === gid);
@@ -121,11 +122,11 @@ const rehydrateGrabs = () => {
       const grabbedEffect = grabbedTok.actor.effects.find(e => [...(e.statuses ?? [])].includes('grabbed'));
 
       window._activeGrabs.set(grabbedId, {
-        grabbedTokenId:  grabbedId,  
-        grabbedActorId:  grabbedTok.actor.id,  
+        grabbedTokenId:  grabbedId,
+        grabbedActorId:  grabbedTok.actor.id,
         grabbedName:  grabbedTok.name,
-        grabberTokenId:  grabberId,  
-        grabberActorId:  grabberTok.actor.id,  
+        grabberTokenId:  grabberId,
+        grabberActorId:  grabberTok.actor.id,
         grabberName:  grabberTok.name,
         grabberEffectId: effect.id,
         grabbedEffectId: grabbedEffect?.id ?? null,
@@ -165,12 +166,18 @@ export const applyGrab = async (grabberTok, grabbedTok) => {
     tint: '#ffffff', sort: 0,
   }]);
 
+  const grabberSizeObj = grabberTok.actor.system?.combat?.size ?? { value: 1, letter: 'M' };
+  const grabbedSizeObj = grabbedTok.actor.system?.combat?.size ?? { value: 1, letter: 'M' };
+  const speedChanges = sizeRankG(grabberSizeObj) <= sizeRankG(grabbedSizeObj)
+    ? [{ key: 'system.movement.value', mode: 5, value: String(Math.floor((grabberTok.actor.system?.movement?.value ?? 5) / 2)), priority: null }]
+    : [];
+
   const [grabberEffect] = await safeCreateEmbedded(grabberTok.actor, 'ActiveEffect', [{
     name: 'Grabber',
     img: 'icons/magic/control/debuff-chains-shackle-movement-red.webp',
     type: 'base',
     system: { end: { type: 'encounter', roll: '' }, filters: { keywords: [] } },
-    changes: [], disabled: false, transfer: false, statuses: [], flags: {},
+    changes: speedChanges, disabled: false, transfer: false, statuses: [], flags: {},
     duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
     description: '', tint: '#ffffff', sort: 0,
     origin: `macro.grab.${grabberTok.id}.${grabbedTok.id}`,
@@ -216,6 +223,13 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, t
 
   const grabberActor = grabberToken.actor;
   const targetActor  = targetToken.actor;
+
+  if (!forceApply && !(game.user.isGM && getSetting('gmBypassesSizeCheck'))) {
+    if (!canForcedMoveTarget(grabberActor, targetActor)) {
+      ui.notifications.warn(`${grabberToken.name} cannot grab ${targetToken.name} - the target is too large for their size and Might score.`);
+      return;
+    }
+  }
 
   if (forceApply) {
     await applyGrab(grabberToken, targetToken);

@@ -271,7 +271,7 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
 
    const undoLog = [];
 
-   // fall damage undone first — position restore comes after so the token is still "there"
+   // fall damage undone first - position restore comes after so the token is still "there"
    if (staminaSnap) {
      undoLog.push({
        op: 'stamina', uuid: actor.uuid,
@@ -287,7 +287,7 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
      options: { animate: false, teleport: true }
    });
 
-   // restore conditions that were stripped — 'grabbed' is skipped because applyGrab re-creates it with the right origin
+   // restore conditions that were stripped - 'grabbed' is skipped because applyGrab re-creates it with the right origin
    const grabbedTokenIds = new Set(removedGrabs.map(g => g.grabbedTokenId));
    for (const status of removedStatuses) {
      if (status === 'grabbed' && grabbedTokenIds.has(token.id)) continue;
@@ -300,7 +300,7 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
      const effectivePart = effectiveFall !== fallDist ? ` (${effectiveFall} effective after Agility)` : '';
      fallNote = fallDmg > 0
        ? ` Falls ${fallDist} square${fallDist !== 1 ? 's' : ''}${effectivePart}, taking <strong>${fallDmg}</strong> damage.`
-       : ` Falls ${fallDist} square${fallDist !== 1 ? 's' : ''}${effectivePart} — not enough to deal damage.`;
+       : ` Falls ${fallDist} square${fallDist !== 1 ? 's' : ''}${effectivePart} - not enough to deal damage.`;
    }
 
    await ChatMessage.create({
