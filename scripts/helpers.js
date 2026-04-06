@@ -270,6 +270,35 @@ export const safeTeleport = async (tokenDoc, targetX, targetY) => {
   await safeUpdate(tokenDoc, { x: targetX, y: targetY }, { animate: false, teleport: true });
 };
 
+/** Get a token placeable by ID. Tries the faster indexed lookup first, falls back to a full search. */
+export const getTokenById = (id) =>
+  canvas.tokens.get(id) ?? canvas.tokens.placeables.find(t => t.id === id) ?? null;
+
+/** Find an open UI window by its id string. */
+export const getWindowById = (id) => Object.values(ui.windows).find(w => w.id === id) ?? null;
+
+/**
+ * Get the module API, optionally showing an error notification if it isn't available.
+ * @param {boolean} [warn=true] - If true, shows an error notification when the API is missing.
+ */
+export const getModuleApi = (warn = true) => {
+  const api = game.modules.get('draw-steel-combat-tools')?.api ?? null;
+  if (!api && warn) ui.notifications.error('Draw Steel: Combat Tools not active.');
+  return api;
+};
+
+/**
+ * Normalise a Foundry collection value to a plain Array.
+ * Handles: Array, Set, collection objects with a `.contents` array, or plain objects (returns values).
+ */
+export const normalizeCollection = (collection) => {
+  if (!collection) return [];
+  if (Array.isArray(collection)) return collection;
+  if (collection instanceof Set) return [...collection];
+  if (Array.isArray(collection.contents)) return collection.contents;
+  return Object.values(collection);
+};
+
 // ── Chat Message Injection ────────────────────────────────────────────────────
 
 const _injectors     = [];

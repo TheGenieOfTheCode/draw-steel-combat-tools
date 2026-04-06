@@ -1,4 +1,4 @@
-﻿import { getSetting, safeTeleport } from './helpers.js';
+﻿import { getSetting, safeTeleport, getModuleApi } from './helpers.js';
 
 const SKULL_SRC = 'icons/commodities/bones/skull-hollow-worn-blue.webp';
 
@@ -78,7 +78,7 @@ export function registerDeathTrackerHooks() {
     if (window._activeGrabs) {
       for (const [gid, grab] of [...window._activeGrabs.entries()]) {
         if (grab.grabbedTokenId === token.id || grab.grabberTokenId === token.id) {
-          const api = game.modules.get('draw-steel-combat-tools')?.api;
+          const api = getModuleApi(false);
           if (api) await api.endGrab(gid, { silent: false, customMsg: `${actor.name} fell, ending the grab.` });
         }
       }
@@ -190,10 +190,10 @@ export function registerDeathTrackerHooks() {
 
     if (numToKill > 0) {
       const chosenUserId = resolveBreakpointUser();
-      const socket = game.modules.get('draw-steel-combat-tools')?.api?.socket;
+      const api = getModuleApi(false);
+      const socket = api?.socket;
       if (chosenUserId === game.user.id || !socket) {
         // it's us (the GM) - open directly
-        const api = game.modules.get('draw-steel-combat-tools')?.api;
         if (api?.powerWordKill) api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions });
       } else {
         socket.executeAsUser('openSquadBreakpoint', chosenUserId, group.id, numToKill);

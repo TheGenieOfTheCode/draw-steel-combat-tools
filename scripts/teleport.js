@@ -1,7 +1,8 @@
 ﻿import {
   hasTags, GRID as getGRID, toGrid, toWorld, gridDist,
   tokenAt, tileAt, safeUpdate, replayUndo, getWallBlockTop,
-  applyDamage, safeToggleStatusEffect, getSetting, canCurrentlyFly, applyFall, snapStamina
+  applyDamage, safeToggleStatusEffect, getSetting, canCurrentlyFly, applyFall, snapStamina,
+  getTokenById, getWindowById,
 } from './helpers.js';
 import { endGrab, applyGrab } from './grab.js';
 
@@ -318,7 +319,7 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
 export async function runTeleport(macroArgs = []) {
   if (typeof macroArgs === 'object' && !Array.isArray(macroArgs) && Object.keys(macroArgs).length > 0) {
     const { distance, sourceId, animate = true, colorHex = "#a030ff", duration = 600 } = macroArgs;
-    const source = canvas.tokens.get(sourceId) ?? (canvas.tokens.controlled.length === 1 ? canvas.tokens.controlled[0] : null);
+    const source = (sourceId ? getTokenById(sourceId) : null) ?? (canvas.tokens.controlled.length === 1 ? canvas.tokens.controlled[0] : null);
     if (!source) { ui.notifications.warn('DSCT | Source token not found.'); return; }
     await executeTeleport(source, distance || 5, animate, colorHex, duration);
   } else {
@@ -514,7 +515,7 @@ export class TeleportPanel extends Application {
 }
 
 export const toggleTeleportPanel = () => {
-  const existing = Object.values(ui.windows).find(w => w.id === 'dsct-tp-panel');
+  const existing = getWindowById('dsct-tp-panel');
   if (existing) {
     existing.close();
   } else {
@@ -594,8 +595,8 @@ export const registerTeleportHooks = () => {
           // re-apply any grabs that were ended for the teleport
           const grabsToRestore = msg.getFlag('draw-steel-combat-tools', 'grabsToRestore') ?? [];
           for (const { grabberTokenId, grabbedTokenId } of grabsToRestore) {
-            const grabberTok = canvas.tokens.placeables.find(t => t.id === grabberTokenId);
-            const grabbedTok = canvas.tokens.placeables.find(t => t.id === grabbedTokenId);
+            const grabberTok = getTokenById(grabberTokenId);
+            const grabbedTok = getTokenById(grabbedTokenId);
             if (grabberTok && grabbedTok) await applyGrab(grabberTok, grabbedTok);
           }
 
