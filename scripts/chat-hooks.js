@@ -540,6 +540,19 @@ export function registerChatHooks() {
   registerInjector(injectGrabButton);
   registerInjector(injectGrabResolutions);
 
+  // Read the `end` string for a given condition from an ability item's AppliedPowerRollEffects.
+  // Returns the raw DS system string ("turn", "encounter", "save") or null if not found.
+  const getConditionEndFromAbility = (item, conditionId) => {
+    const appliedEffects = item?.system?.power?.effects?.contents?.filter(e => e.type === 'applied') ?? [];
+    for (const eff of appliedEffects) {
+      for (const tier of [1, 2, 3]) {
+        const condEntry = eff.applied?.[`tier${tier}`]?.effects?.[conditionId];
+        if (condEntry?.end) return condEntry.end;
+      }
+    }
+    return null;
+  };
+
   // Replace native frightened/taunted "Apply Effect" buttons with our versioned ones
   registerInjector(function injectConditionButtons(msg, { el }) {
     if (!getSetting('frightenedEnabled') && !getSetting('tauntedEnabled')) return;
@@ -566,9 +579,12 @@ export function registerChatHooks() {
           if (!targets.length) { ui.notifications.warn('Target one or more tokens to apply the condition.'); return; }
           const sourceActor   = speakerTok.actor;
           const sourceTokenId = speakerTok.id;
+          const abilityUuid = normalizeCollection(msg.system?.parts).find(p => p.type === 'abilityUse')?.abilityUuid;
+          const abilityItem = abilityUuid ? await fromUuid(abilityUuid) : null;
+          const endStr = abilityItem ? getConditionEndFromAbility(abilityItem, conditionId) : null;
           for (const t of targets) {
-            if (conditionId === 'frightened') await applyFrightened(t, sourceActor, sourceTokenId);
-            else                              await applyTaunted(t, sourceActor, sourceTokenId);
+            if (conditionId === 'frightened') await applyFrightened(t, sourceActor, sourceTokenId, endStr);
+            else                              await applyTaunted(t, sourceActor, sourceTokenId, endStr);
           }
         });
         btn.replaceWith(newBtn);

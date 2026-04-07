@@ -172,6 +172,7 @@ export const applyGrab = async (grabberTok, grabbedTok) => {
     system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
     disabled: false, transfer: false, flags: {},
     duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0 },
+    description: '@Embed[Compendium.draw-steel.journals.JournalEntry.hDhdILCi65wpBgPZ.JournalEntryPage.aWBP2vfXXM3fzuVn inline]',
     tint: '#ffffff', sort: 0,
   }]);
 

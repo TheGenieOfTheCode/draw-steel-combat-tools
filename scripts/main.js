@@ -11,7 +11,7 @@ import { applySquadLabels, autoRenameGroups, registerSquadLabelHooks } from './s
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.js';
 import { registerModuleButtons } from './module-buttons.js';
 import { installMacros, distributeAbilities, InstallMacrosMenu } from './setup-macros.js';
-import { toggleTeleportPanel, registerTeleportHooks, runTeleport } from './teleport.js';
+import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.js';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions.js';
 
 const api = {
@@ -34,6 +34,7 @@ const api = {
   renameSquads:     autoRenameGroups,
   triggeredActions: applyTriggeredActions,
   teleport:         runTeleport,
+  burstTeleport:    runBurstTeleport,
   teleportUI:       toggleTeleportPanel,
   installMacros:        installMacros,
   distributeAbilities:  distributeAbilities,

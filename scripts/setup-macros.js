@@ -119,6 +119,26 @@ await game.modules.get('draw-steel-combat-tools').api.aidAttack();`
 game.modules.get('draw-steel-combat-tools').api.teleportUI();`
   },
   {
+    name: 'DSCT: Teleport (Direct)',
+    img: 'icons/magic/movement/trail-streak-pink.webp',
+    command:
+`// Teleports the selected (or specified) token without opening the panel.
+// After running, click a valid destination square on the canvas.
+//
+// distance  — maximum teleport range in squares
+// colorHex  — phase-out colour as a hex string (e.g. '#a030ff' for purple, '#00ccff' for cyan)
+//             set animate: false to skip the colour effect entirely
+// duration  — length of the phase-in/out animation in milliseconds
+// sourceId  — (optional) explicit token ID; omit to use the currently controlled token
+await game.modules.get('draw-steel-combat-tools').api.teleport({
+  distance: 5,
+  animate:  true,
+  colorHex: '#a030ff',
+  duration: 600,
+  // sourceId: 'paste-token-id-here',
+});`
+  },
+  {
     name: 'DSCT: Apply Squad Labels',
     img: 'icons/environment/people/group.webp',
     command:
@@ -162,6 +182,76 @@ await game.modules.get('draw-steel-combat-tools').api.distributeAbilities();`
 const token = canvas.tokens.controlled[0] ?? [...game.user.targets][0] ?? null;
 if (!token) { ui.notifications.warn('Select or target a token first.'); return; }
 await game.modules.get('draw-steel-combat-tools').api.fall(token, 0, { silent: false });`
+  },
+  {
+    name: 'DSCT: Burst Teleport',
+    img: 'icons/magic/movement/trail-streak-pink.webp',
+    command:
+`// Teleports every token within a burst area to a new position inside that same area.
+// Control the caster token (burst center), then run.
+//
+// radius   — burst size in squares (e.g. 2 = Burst 2, a 5×5 area around the caster)
+// sourceId — (optional) explicit token ID for the caster; omit to use the controlled token
+//
+// How it works:
+//   1. All non-dead tokens within the burst are added to the queue.
+//   2. Click a highlighted token to choose who teleports next.
+//   3. Click a valid (purple) square in the burst to place them there.
+//   4. Repeat until done, or press Escape to finish early.
+//      Escape during token selection ends the sequence.
+//      Escape during destination selection skips that token.
+await game.modules.get('draw-steel-combat-tools').api.burstTeleport({
+  radius: 2,
+  // sourceId: 'paste-token-id-here',
+});`
+  },
+  {
+    name: 'DSCT: Apply Frightened',
+    img: 'icons/svg/terror.svg',
+    command:
+`// Applies the Frightened condition (DSCT version) to all targeted tokens.
+// Control the source token (the creature causing fear) and target the affected creatures.
+//
+// duration — controls when the condition expires:
+//   'turn'      → End of the target's next turn
+//   'encounter' → End of the encounter (no save)
+//   'save'      → Save ends (encounter roll: 1d10 + save bonus)
+//   null        → Defaults to save ends
+const duration = 'save';
+
+const sourceToken = canvas.tokens.controlled[0];
+const targets     = [...game.user.targets];
+if (!sourceToken) { ui.notifications.warn('Control the source token (the frightening creature).'); return; }
+if (!targets.length) { ui.notifications.warn('Target one or more tokens to apply Frightened to.'); return; }
+
+const api = game.modules.get('draw-steel-combat-tools').api;
+for (const t of targets) {
+  await api.applyFrightened(t, sourceToken.actor, sourceToken.id, duration);
+}`
+  },
+  {
+    name: 'DSCT: Apply Taunted',
+    img: 'systems/draw-steel/assets/icons/flag-banner-fold-fill.svg',
+    command:
+`// Applies the Taunted condition (DSCT version) to all targeted tokens.
+// Control the source token (the creature doing the taunting) and target the affected creatures.
+//
+// duration — controls when the condition expires:
+//   'turn'      → End of the target's next turn
+//   'encounter' → End of the encounter (no save)
+//   'save'      → Save ends (encounter roll: 1d10 + save bonus)
+//   null        → Defaults to save ends
+const duration = 'save';
+
+const sourceToken = canvas.tokens.controlled[0];
+const targets     = [...game.user.targets];
+if (!sourceToken) { ui.notifications.warn('Control the source token (the taunting creature).'); return; }
+if (!targets.length) { ui.notifications.warn('Target one or more tokens to apply Taunted to.'); return; }
+
+const api = game.modules.get('draw-steel-combat-tools').api;
+for (const t of targets) {
+  await api.applyTaunted(t, sourceToken.actor, sourceToken.id, duration);
+}`
   },
 ];
 
