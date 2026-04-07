@@ -272,7 +272,7 @@ export const safeTeleport = async (tokenDoc, targetX, targetY) => {
 
 /** Get a token placeable by ID. Tries the faster indexed lookup first, falls back to a full search. */
 export const getTokenById = (id) =>
-  canvas.tokens.get(id) ?? canvas.tokens.placeables.find(t => t.id === id) ?? null;
+  canvas?.tokens?.get(id) ?? canvas?.tokens?.placeables?.find(t => t.id === id) ?? null;
 
 /** Find an open UI window by its id string. */
 export const getWindowById = (id) => Object.values(ui.windows).find(w => w.id === id) ?? null;

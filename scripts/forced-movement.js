@@ -360,6 +360,14 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     }
   }
 
+  // Restrained creatures cannot be force moved (GM bypass uses same setting as size check).
+  if (targetToken.actor?.statuses?.has('restrained')) {
+    if (!(game.user.isGM && getSetting('gmBypassesSizeCheck'))) {
+      ui.notifications.warn(`${targetToken.name} is restrained and cannot be force moved.`);
+      return;
+    }
+  }
+
   const GRID      = getGRID();
   const stability = ignoreStability ? 0 : (targetToken.actor?.system?.combat?.stability ?? 0);
 
