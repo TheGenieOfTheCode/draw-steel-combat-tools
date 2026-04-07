@@ -12,6 +12,7 @@ import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered
 import { registerModuleButtons } from './module-buttons.js';
 import { installMacros, distributeAbilities, InstallMacrosMenu } from './setup-macros.js';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport } from './teleport.js';
+import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions.js';
 
 const api = {
   forcedMovement:   runForcedMovement,
@@ -39,6 +40,8 @@ const api = {
   fall:                 applyFall,
   parsePowerRollState:  parsePowerRollState,
   applyRollMod:         applyRollMod,
+  applyFrightened:      applyFrightened,
+  applyTaunted:         applyTaunted,
   socket:           null,
 };
 
@@ -80,6 +83,27 @@ Hooks.once('init', () => {
   game.settings.register(M, 'grabbedBaneEnabled', {
     name: 'Enable Grabbed Bane', hint: 'Edits abilities posted by a grabbed creature if they don\'t target their grabber to inflict 1 bane.',
     scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+  });
+
+  game.settings.register(M, 'frightenedEnabled', {
+    name: 'Enable Frightened Automation', hint: 'Applies bane/edge roll modifiers and movement restrictions for the DSCT Frightened condition. Replaces native frightened buttons in chat with our version.',
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+  });
+  game.settings.register(M, 'tauntedEnabled', {
+    name: 'Enable Taunted Automation', hint: 'Applies double-bane roll modifiers (with line-of-effect check) for the DSCT Taunted condition. Replaces native taunted buttons in chat with our version.',
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+  });
+
+  game.settings.register(M, 'bleedingEnabled', {
+    name: 'Enable Bleeding Automation', hint: 'Automatically handles the bleeding condition — triggers a 1d6+1 stamina loss when a bleeding creature uses a main action, triggered action ability, or makes a Might/Agility roll.',
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+  });
+  game.settings.register(M, 'bleedingMode', {
+    name: 'Bleeding Damage Mode',
+    hint: 'Auto-Apply: rolls 1d6+1 and applies the damage immediately with an undo button. Manual: posts the roll for the GM/player to apply.',
+    scope: 'world', config: true, type: String,
+    choices: { 'auto': 'Auto-Apply (with undo)', 'manual': 'Manual (post roll to apply)' },
+    default: 'auto', ...reloadOnChange
   });
 
   game.settings.register(M, 'deathTrackerEnabled', {
@@ -177,6 +201,7 @@ Hooks.once('init', () => {
 
   registerChatHooks();
   registerGrabHooks();
+  registerConditionHooks();
   registerTacticalHooks();
   registerDeathTrackerHooks();
   registerSquadLabelHooks();
@@ -229,6 +254,8 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   addHeader('autoSquadLabelsEnabled', 'Squad Labels');
   addHeader('autoTriggeredActionsEnabled', 'Triggered Actions');
   addHeader('teleportEnabled', 'Teleport');
+  addHeader('frightenedEnabled', 'Conditions');
+  addHeader('bleedingEnabled', 'Bleeding');
   addHeader('showForcedMovementButton', 'Module Buttons');
   addHeader('chatInjectDelay', 'General');
 
@@ -236,6 +263,7 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   bindToggle('grabEnabled', ['gmBypassesSizeCheck', 'restrictGrabButtons', 'grabbedBaneEnabled']);
   bindToggle('deathTrackerEnabled', ['deathAnimationDuration', 'clearSkullsOnCombatEnd', 'clearEffectsOnRevive']);
   bindToggle('autoTriggeredActionsEnabled', ['autoTriggeredActionsTarget']);
+  bindToggle('bleedingEnabled', ['bleedingMode']);
   bindToggle('debugMode', ['cornerCutMode']);
 
   const fmEnabled   = root.querySelector(`[name="${M}.forcedMovementEnabled"]`)?.checked ?? true;
@@ -261,6 +289,7 @@ Hooks.once('socketlib.ready', () => {
   socket.register('createEmbedded',    async (parentUuid, type, data) => { const parent = await fromUuid(parentUuid); if (parent) return await parent.createEmbeddedDocuments(type, data); });
   socket.register('toggleStatusEffect',async (uuid, effectId, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.toggleStatusEffect(effectId, options); });
   socket.register('takeDamage',        async (uuid, amount, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.system.takeDamage(amount, options); });
+  socket.register('rollFreeStrike',     async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });
   socket.register('openSquadBreakpoint', async (groupId, numToKill) => {
     const group = game.combat?.groups?.get(groupId);
     if (!group) return;

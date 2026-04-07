@@ -1,4 +1,5 @@
 ﻿import { getSetting, safeCreateEmbedded, safeDelete, canForcedMoveTarget, getTokenById, getWindowById } from './helpers.js';
+import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from './chat-hooks.js';
 
 const TIMEOUT_MS = 60_000;
 const SCALE      = 1.2;
@@ -251,7 +252,7 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, t
       return;
     }
     if (tier === 2) {
-      ChatMessage.create({ content: `
+      const createdMsg = await ChatMessage.create({ content: `
         <strong>Grab - Tier 2:</strong> ${grabberToken.name} gets hold of ${targetToken.name}!<br>
         ${targetToken.name} may make a free strike:<br>
         <div style="margin: 4px 0;">${buildFreeStrikeButton(targetActor)}</div>
@@ -260,10 +261,10 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, t
           <button type="button" class="apply-effect" data-action="dsct-cancel-grab" style="cursor:pointer;flex:1;border-color:var(--color-text-error);color:var(--color-text-error);"><i class="fa-solid fa-times"></i> Cancel</button>
         </div>
       ` });
-      
+
       const panel = getWindowById('grab-panel');
       if (panel) {
-        panel._pendingConfirm = { grabberToken, targetToken };
+        panel._pendingConfirm = { grabberToken, targetToken, msgId: createdMsg?.id ?? null };
         panel._refreshPanel();
       }
       return;
@@ -560,30 +561,34 @@ export class GrabPanel extends Application {
       await endGrab(e.currentTarget.dataset.endgrab);
     });
     h.find('[data-escapetier2accept]').off('click').on('click', async e => {
-      const id   = e.currentTarget.dataset.escapetier2accept;
-      const grab = window._activeGrabs?.get(id);
+      const id        = e.currentTarget.dataset.escapetier2accept;
+      const grab      = window._activeGrabs?.get(id);
+      const grabberTk = grab ? getTokenById(grab.grabberTokenId) : null;
       this._pendingEscape = null;
+      if (grab && grabberTk) await triggerGrabberFreeStrike(grabberTk, grab);
       await endGrab(id, { silent: true });
-      ChatMessage.create({ content: `<strong>Escape Grab:</strong> ${grab?.grabbedName ?? 'Target'} escapes after taking a free strike.` });
+      await resolveEscapeChatMessage(id, 'accepted');
     });
-    h.find('[data-escapetier2deny]').off('click').on('click', e => {
-      const grab = window._activeGrabs?.get(e.currentTarget.dataset.escapetier2deny);
+    h.find('[data-escapetier2deny]').off('click').on('click', async e => {
+      const id   = e.currentTarget.dataset.escapetier2deny;
+      const grab = window._activeGrabs?.get(id);
       this._pendingEscape = null;
       this._refreshPanel();
       if (grab) ChatMessage.create({ content: `<strong>Escape Grab:</strong> ${grab.grabbedName} stays grabbed.` });
+      await resolveEscapeChatMessage(id, 'denied');
     });
     h.find('[data-confirm-grab]').off('click').on('click', async () => {
       if (!this._pendingConfirm) return;
-      const { grabberToken, targetToken } = this._pendingConfirm;
+      const { grabberToken, targetToken, msgId } = this._pendingConfirm;
       this._pendingConfirm = null;
       await applyGrab(grabberToken, targetToken);
-      ChatMessage.create({ content: `<strong>Grab confirmed:</strong> ${grabberToken.name} grabs ${targetToken.name}!` });
+      await resolveGrabConfirmChatMessage(msgId, 'confirmed');
     });
-    h.find('[data-cancel-grab]').off('click').on('click', () => {
+    h.find('[data-cancel-grab]').off('click').on('click', async () => {
       const pc = this._pendingConfirm;
       this._pendingConfirm = null;
       this._refreshPanel();
-      if (pc) ChatMessage.create({ content: `<strong>Grab cancelled:</strong> ${pc.grabberToken.name} fails to hold ${pc.targetToken.name}.` });
+      if (pc) await resolveGrabConfirmChatMessage(pc.msgId, 'cancelled');
     });
   }
 
