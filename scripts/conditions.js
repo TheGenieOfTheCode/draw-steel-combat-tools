@@ -1,5 +1,5 @@
 import {
-  safeCreateEmbedded, safeDelete, getSetting, toGrid, toCenter, getTokenById,
+  safeCreateEmbedded, safeDelete, getSetting, getTokenById,
 } from './helpers.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -9,26 +9,40 @@ const M = 'draw-steel-combat-tools';
 const FRIGHTENED_ORIGIN = 'dsct-frightened';
 const TAUNTED_ORIGIN    = 'dsct-taunted';
 
-const FRIGHTENED_EFFECT = (sourceActorId, sourceTokenId) => ({
-  name: 'Frightened',
-  img: 'icons/magic/fire/explosion-fireball-medium-purple-pink.webp',
+/**
+ * Convert the Draw Steel system's `end` string (from AppliedPowerRollEffect tier data)
+ * to the ActiveEffect system.end object the DS system reads for condition expiry.
+ * Falls back to save-ends if the string is unrecognised or null.
+ */
+const resolveEffectEnd = (endStr) => {
+  if (endStr === 'turn')      return { type: 'turn' };
+  if (endStr === 'encounter') return { type: 'encounter' };
+  // 'save' and anything else → save ends (encounter + roll)
+  return { type: 'encounter', roll: '1d10 + @combat.save.bonus' };
+};
+
+const FRIGHTENED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, sourceActorUuid) => ({
+  name: `Frightened [${sourceName}]`,
+  img: 'icons/svg/terror.svg',
   type: 'base',
-  system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
+  system: { end: resolveEffectEnd(endStr), source: sourceActorUuid ?? '' },
   changes: [], disabled: false,
   duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0 },
-  description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0,
+  description: '@Embed[Compendium.draw-steel.journals.JournalEntry.hDhdILCi65wpBgPZ.JournalEntryPage.bXiI9vUF3tF78qXg inline]',
+  tint: '#ffffff', transfer: false, statuses: [], sort: 0,
   flags: { [M]: { frightened: { sourceActorId, sourceTokenId } } },
   origin: FRIGHTENED_ORIGIN,
 });
 
-const TAUNTED_EFFECT = (sourceActorId, sourceTokenId) => ({
-  name: 'Taunted',
-  img: 'icons/skills/social/intimidation-impressing.webp',
+const TAUNTED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, sourceActorUuid) => ({
+  name: `Taunted [${sourceName}]`,
+  img: 'systems/draw-steel/assets/icons/flag-banner-fold-fill.svg',
   type: 'base',
-  system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
+  system: { end: resolveEffectEnd(endStr), source: sourceActorUuid ?? '' },
   changes: [], disabled: false,
   duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0 },
-  description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0,
+  description: '@Embed[Compendium.draw-steel.journals.JournalEntry.hDhdILCi65wpBgPZ.JournalEntryPage.9zseFmXdcSw8MuKh inline]',
+  tint: '#ffffff', transfer: false, statuses: [], sort: 0,
   flags: { [M]: { taunted: { sourceActorId, sourceTokenId } } },
   origin: TAUNTED_ORIGIN,
 });
@@ -75,23 +89,23 @@ export const getTauntedData = (actor) => {
 
 // ── Apply / remove conditions ─────────────────────────────────────────────────
 
-export const applyFrightened = async (targetToken, sourceActor, sourceTokenId) => {
+export const applyFrightened = async (targetToken, sourceActor, sourceTokenId, endStr = null) => {
   const actor = targetToken.actor;
   if (!actor) return;
   // Remove any existing DSCT frightened before applying new one
   const existing = actor.appliedEffects?.find(e => e.origin === FRIGHTENED_ORIGIN);
   if (existing) await safeDelete(existing);
-  await safeCreateEmbedded(actor, 'ActiveEffect', [FRIGHTENED_EFFECT(sourceActor.id, sourceTokenId)]);
-  if (getSetting('debugMode')) console.log(`DSCT | Frightened | Applied to ${targetToken.name} with source=${sourceActor.name}`);
+  await safeCreateEmbedded(actor, 'ActiveEffect', [FRIGHTENED_EFFECT(sourceActor.id, sourceTokenId, sourceActor.name, endStr, sourceActor.uuid)]);
+  if (getSetting('debugMode')) console.log(`DSCT | Frightened | Applied to ${targetToken.name} source=${sourceActor.name} end=${endStr}`);
 };
 
-export const applyTaunted = async (targetToken, sourceActor, sourceTokenId) => {
+export const applyTaunted = async (targetToken, sourceActor, sourceTokenId, endStr = null) => {
   const actor = targetToken.actor;
   if (!actor) return;
   const existing = actor.appliedEffects?.find(e => e.origin === TAUNTED_ORIGIN);
   if (existing) await safeDelete(existing);
-  await safeCreateEmbedded(actor, 'ActiveEffect', [TAUNTED_EFFECT(sourceActor.id, sourceTokenId)]);
-  if (getSetting('debugMode')) console.log(`DSCT | Taunted | Applied to ${targetToken.name} with source=${sourceActor.name}`);
+  await safeCreateEmbedded(actor, 'ActiveEffect', [TAUNTED_EFFECT(sourceActor.id, sourceTokenId, sourceActor.name, endStr, sourceActor.uuid)]);
+  if (getSetting('debugMode')) console.log(`DSCT | Taunted | Applied to ${targetToken.name} source=${sourceActor.name} end=${endStr}`);
 };
 
 // ── Movement restriction hook ─────────────────────────────────────────────────
@@ -108,6 +122,10 @@ export const registerConditionHooks = () => {
 
       const data = getFrightenedData(token.actor);
       if (!data) return;
+
+      // Forced movement bypasses the frightened restriction — the token is being repositioned,
+      // not moving voluntarily toward its fear source.
+      if (window._dsctFMBypassFrightened?.has(doc.id)) return;
 
       const sourceTok = getTokenById(data.sourceTokenId);
       if (!sourceTok) return;

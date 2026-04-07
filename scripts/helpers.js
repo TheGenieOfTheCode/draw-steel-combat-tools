@@ -299,6 +299,68 @@ export const normalizeCollection = (collection) => {
   return Object.values(collection);
 };
 
+// ── Canvas Pick Helper ────────────────────────────────────────────────────────
+
+/**
+ * Generic PIXI canvas-click picker.
+ * Creates a full-viewport transparent overlay, redraws on every hover change,
+ * and resolves when the user clicks a valid target. Resolves null on Escape.
+ *
+ * @param {object} opts
+ * @param {(gfx: PIXI.Graphics, hover: *) => void} opts.draw
+ *   Called on init and every hover change. Must fully clear and redraw `gfx`.
+ *   `hover` is the last hitTest result (non-null) or null.
+ * @param {(worldPos: {x,y}) => *|null} opts.hitTest
+ *   Called on pointermove and pointerdown. Return a non-null value for a valid
+ *   target; that value becomes `hover` and is resolved on click. Return null for
+ *   "miss". For hover comparison to work correctly, return the same object
+ *   instance for the same target (e.g. from a pre-built candidates array).
+ * @param {string} [opts.hint]  Shown as a ui.notifications.info on open.
+ * @returns {Promise<*|null>}  The clicked hitTest result, or null on Escape.
+ */
+export const pickCanvasTarget = ({ draw, hitTest, hint }) => new Promise((resolve) => {
+  const graphics = new PIXI.Graphics();
+  canvas.app.stage.addChild(graphics);
+
+  const overlay = new PIXI.Container();
+  overlay.interactive = true;
+  overlay.hitArea = new PIXI.Rectangle(0, 0, canvas.dimensions.width, canvas.dimensions.height);
+  canvas.app.stage.addChild(overlay);
+
+  let hover = null;
+  const redraw = () => { graphics.clear(); draw(graphics, hover); };
+
+  const cleanup = () => {
+    overlay.off('pointermove', onMove);
+    overlay.off('pointerdown', onClick);
+    document.removeEventListener('keydown', onKeyDown);
+    canvas.app.stage.removeChild(overlay);
+    canvas.app.stage.removeChild(graphics);
+    graphics.destroy();
+    overlay.destroy();
+  };
+
+  const onMove = (e) => {
+    const result = hitTest(e.data.getLocalPosition(canvas.app.stage));
+    if (result !== hover) { hover = result; redraw(); }
+  };
+
+  const onClick = (e) => {
+    const result = hitTest(e.data.getLocalPosition(canvas.app.stage));
+    if (result == null) return;
+    cleanup();
+    resolve(result);
+  };
+
+  const onKeyDown = (e) => { if (e.key === 'Escape') { cleanup(); resolve(null); } };
+
+  overlay.on('pointermove', onMove);
+  overlay.on('pointerdown', onClick);
+  document.addEventListener('keydown', onKeyDown);
+  redraw();
+  if (hint) ui.notifications.info(hint);
+});
+
 // ── Chat Message Injection ────────────────────────────────────────────────────
 
 const _injectors     = [];

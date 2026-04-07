@@ -2,7 +2,7 @@
   hasTags, GRID as getGRID, toGrid, toWorld, gridDist,
   tokenAt, tileAt, safeUpdate, replayUndo, getWallBlockTop,
   applyDamage, safeToggleStatusEffect, getSetting, canCurrentlyFly, applyFall, snapStamina,
-  getTokenById, getWindowById,
+  getTokenById, getWindowById, pickCanvasTarget,
 } from './helpers.js';
 import { endGrab, applyGrab } from './grab.js';
 
@@ -523,6 +523,175 @@ export const toggleTeleportPanel = () => {
   }
 };
 
+
+// ── Burst Teleport ────────────────────────────────────────────────────────────
+
+/** All grid cells within Chebyshev `radius` of a token's footprint. Returns Set<"x,y">. */
+const burstCells = (tok, radius) => {
+  const tg = toGrid(tok.document);
+  const w  = tok.document.width  ?? 1;
+  const h  = tok.document.height ?? 1;
+  const cells = new Set();
+  for (let dx = -radius; dx < w + radius; dx++)
+    for (let dy = -radius; dy < h + radius; dy++)
+      cells.add(`${tg.x + dx},${tg.y + dy}`);
+  return cells;
+};
+
+/** Non-dead, visible tokens whose footprint overlaps the burst area. */
+const tokensInBurst = (sourceToken, radius) => {
+  const burst = burstCells(sourceToken, radius);
+  return canvas.tokens.placeables.filter(t => {
+    if (t.actor?.statuses?.has('dead') || t.hidden) return false;
+    const tg = toGrid(t.document);
+    const w  = t.document.width  ?? 1;
+    const h  = t.document.height ?? 1;
+    for (let ix = 0; ix < w; ix++)
+      for (let iy = 0; iy < h; iy++)
+        if (burst.has(`${tg.x + ix},${tg.y + iy}`)) return true;
+    return false;
+  });
+};
+
+/** PIXI picker: click an eligible token to choose who teleports next. */
+const pickBurstToken = (sourceToken, radius, eligible) => {
+  const GRID  = getGRID();
+  const burst = burstCells(sourceToken, radius);
+
+  return pickCanvasTarget({
+    hint: `Click the token to teleport next (${eligible.length} remaining). Escape to finish.`,
+    hitTest: (pos) => {
+      const gpos = toGrid(pos);
+      return eligible.find(t => {
+        const tg = toGrid(t.document);
+        const tw = t.document.width  ?? 1;
+        const th = t.document.height ?? 1;
+        return gpos.x >= tg.x && gpos.x < tg.x + tw && gpos.y >= tg.y && gpos.y < tg.y + th;
+      }) ?? null;
+    },
+    draw: (gfx, hover) => {
+      for (const cell of burst) {
+        const [cx, cy] = cell.split(',').map(Number);
+        gfx.beginFill(0x8844ff, 0.12);
+        gfx.lineStyle(0);
+        gfx.drawRect(cx * GRID, cy * GRID, GRID, GRID);
+        gfx.endFill();
+      }
+      for (const t of eligible) {
+        const tg = toGrid(t.document);
+        const tw = t.document.width  ?? 1;
+        const th = t.document.height ?? 1;
+        const isHover = t === hover;
+        gfx.lineStyle(isHover ? 3 : 2, isHover ? 0xffffff : 0x8844ff, 1);
+        gfx.beginFill(0x8844ff, isHover ? 0.35 : 0.1);
+        gfx.drawRect(tg.x * GRID, tg.y * GRID, tw * GRID, th * GRID);
+        gfx.endFill();
+      }
+    },
+  });
+};
+
+/**
+ * PIXI picker: click a destination within the burst for the moving token.
+ * `claimed` is a Set<"x,y"> of cells already placed by this sequence.
+ * Escape skips this token (returns null) without ending the sequence.
+ */
+const pickBurstDestination = (sourceToken, radius, movingToken, claimed) => {
+  const GRID  = getGRID();
+  const burst = burstCells(sourceToken, radius);
+  const w     = movingToken.document.width  ?? 1;
+  const h     = movingToken.document.height ?? 1;
+
+  // Build valid candidates: top-left grid coord where the full footprint fits,
+  // stays inside the burst, isn't claimed, and isn't blocked by another token.
+  const candidates = [];
+  outer: for (const cell of burst) {
+    const [cx, cy] = cell.split(',').map(Number);
+    for (let ix = 0; ix < w; ix++) {
+      for (let iy = 0; iy < h; iy++) {
+        const key = `${cx + ix},${cy + iy}`;
+        if (!burst.has(key) || claimed.has(key)) continue outer;
+        for (const t of canvas.tokens.placeables) {
+          if (t.id === movingToken.id) continue;
+          if (t.actor?.statuses?.has('dead')) continue;
+          const tg = toGrid(t.document);
+          const tw = t.document.width  ?? 1;
+          const th = t.document.height ?? 1;
+          if (cx + ix >= tg.x && cx + ix < tg.x + tw &&
+              cy + iy >= tg.y && cy + iy < tg.y + th) continue outer;
+        }
+      }
+    }
+    candidates.push({ x: cx, y: cy });
+  }
+
+  if (!candidates.length) {
+    ui.notifications.warn(`DSCT | Burst Teleport | No valid destinations for ${movingToken.name}.`);
+    return Promise.resolve(null);
+  }
+
+  return pickCanvasTarget({
+    hint: `Choose where ${movingToken.name} teleports within the burst. Escape to skip.`,
+    hitTest: (pos) => {
+      const gpos = toGrid(pos);
+      return candidates.find(c =>
+        gpos.x >= c.x && gpos.x < c.x + w && gpos.y >= c.y && gpos.y < c.y + h
+      ) ?? null;
+    },
+    draw: (gfx, hover) => {
+      for (const c of candidates) {
+        const isHover = c === hover;
+        gfx.lineStyle(isHover ? 2 : 0, 0xffffff, 1);
+        gfx.beginFill(0x8844ff, isHover ? 0.55 : 0.25);
+        gfx.drawRect(c.x * GRID, c.y * GRID, GRID * w, GRID * h);
+        gfx.endFill();
+      }
+    },
+  });
+};
+
+/**
+ * Teleports each token within a burst one at a time in user-chosen order.
+ * Click to select who goes next, click to pick their destination within the burst.
+ * Escape during token selection ends the sequence.
+ * Escape during destination selection skips that token.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.sourceId]  Token ID of the caster (burst center). Defaults to controlled token.
+ * @param {number} [opts.radius=2]  Burst radius in squares.
+ */
+export const runBurstTeleport = async ({ sourceId, radius = 2 } = {}) => {
+  const source = (sourceId ? getTokenById(sourceId) : null)
+              ?? (canvas.tokens.controlled.length === 1 ? canvas.tokens.controlled[0] : null);
+  if (!source) { ui.notifications.warn('DSCT | Burst Teleport | Select or specify a source token (the caster).'); return; }
+
+  const remaining = tokensInBurst(source, radius);
+  if (!remaining.length) { ui.notifications.warn('DSCT | Burst Teleport | No tokens found within the burst area.'); return; }
+
+  const claimed = new Set(); // cells already occupied by tokens placed this sequence
+
+  while (remaining.length > 0) {
+    const moving = remaining.length === 1
+      ? remaining[0]
+      : await pickBurstToken(source, radius, remaining);
+
+    if (!moving) break; // Escape during token selection — sequence complete
+
+    remaining.splice(remaining.indexOf(moving), 1);
+
+    const dest = await pickBurstDestination(source, radius, moving, claimed);
+    if (dest === null) continue; // Escape during destination — skip this token
+
+    for (let ix = 0; ix < (moving.document.width  ?? 1); ix++)
+      for (let iy = 0; iy < (moving.document.height ?? 1); iy++)
+        claimed.add(`${dest.x + ix},${dest.y + iy}`);
+
+    const destWorld = toWorld(dest);
+    await safeUpdate(moving.document, { x: destWorld.x, y: destWorld.y }, { animate: false, teleport: true });
+
+    if (getSetting('debugMode')) console.log(`DSCT | BurstTeleport | Moved ${moving.name} to grid (${dest.x},${dest.y})`);
+  }
+};
 
 export const registerTeleportHooks = () => {
   const STATUS_STYLE = 'text-align: center; color: var(--color-text-dark-secondary); font-style: italic; font-size: 11px; padding: 4px; border: 1px dashed var(--color-border-dark-4); border-radius: 3px;';

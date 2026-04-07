@@ -1159,18 +1159,26 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       window._grabFMSuppressed.add(targetToken.id);
     }
 
-    for (let s = 0; s < stepsToAnimate.length; s++) {
-      const stepGrid  = stepsToAnimate[s];
-      const stepWorld = toWorld(stepGrid);
-      const stepElev  = isVertical && reduced > 0
-        ? startElev + Math.round(reducedVert * (s + 1) / reduced)
-        : startElev;
+    // Suspend the frightened movement restriction for the duration of the animation —
+    // forced movement is involuntary repositioning, not voluntary approach.
+    window._dsctFMBypassFrightened ??= new Set();
+    window._dsctFMBypassFrightened.add(targetToken.id);
+    try {
+      for (let s = 0; s < stepsToAnimate.length; s++) {
+        const stepGrid  = stepsToAnimate[s];
+        const stepWorld = toWorld(stepGrid);
+        const stepElev  = isVertical && reduced > 0
+          ? startElev + Math.round(reducedVert * (s + 1) / reduced)
+          : startElev;
 
-      if (isVertical && stepElev !== (targetToken.document.elevation ?? 0)) {
-        await safeUpdate(targetToken.document, { elevation: stepElev });
+        if (isVertical && stepElev !== (targetToken.document.elevation ?? 0)) {
+          await safeUpdate(targetToken.document, { elevation: stepElev });
+        }
+        await safeUpdate(targetToken.document, { x: stepWorld.x, y: stepWorld.y });
+        await new Promise(r => setTimeout(r, getSetting('animationStepDelay')));
       }
-      await safeUpdate(targetToken.document, { x: stepWorld.x, y: stepWorld.y });
-      await new Promise(r => setTimeout(r, getSetting('animationStepDelay')));
+    } finally {
+      window._dsctFMBypassFrightened.delete(targetToken.id);
     }
     const finalElev = isVertical && reduced > 0
       ? startElev + Math.round(reducedVert * (landingStepIndex + 1) / reduced)
