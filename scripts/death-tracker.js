@@ -140,7 +140,7 @@ export function registerDeathTrackerHooks() {
       await safeTeleport(token.document, gravePos.x, gravePos.y);
 
       await ChatMessage.create({
-        content: `<strong>${actor.name}</strong> has fallen.`,
+        content: `<strong>${actor.name}</strong> ${actor.type === 'object' ? 'was destroyed' : 'has fallen'}.`,
         flags: { 'draw-steel-combat-tools': { isDeathMessage: true, deadTokenId: token.id } }
       });
     }

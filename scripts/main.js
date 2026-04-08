@@ -1,5 +1,5 @@
 import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHooks } from './forced-movement.js';
-import { WallBuilderPanel } from './wall-builder.js';
+import { WallBuilderPanel, convertWalls } from './wall-builder.js';
 import { WallBuilderSettingsMenu, MATERIAL_RULE_DEFAULTS, WALL_RESTRICTION_DEFAULTS } from './wall-builder-settings.js';
 import { registerChatHooks, refreshChatInjections } from './chat-hooks.js';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks } from './grab.js';
@@ -43,6 +43,7 @@ const api = {
   applyRollMod:         applyRollMod,
   applyFrightened:      applyFrightened,
   applyTaunted:         applyTaunted,
+  convertWalls:         convertWalls,
   socket:           null,
 };
 

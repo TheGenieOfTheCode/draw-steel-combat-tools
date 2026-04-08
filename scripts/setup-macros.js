@@ -230,6 +230,23 @@ for (const t of targets) {
 }`
   },
   {
+    name: 'DSCT: Convert Walls',
+    img: 'icons/environment/settlement/fence-stone-brick.webp',
+    command:
+`// Converts selected canvas walls into DSCT obstacle tiles. GM only.
+// Switch to the Walls layer (W key), select the walls you want to convert,
+// then run this macro. Each grid square covered by ≥ 50% of a wall gets
+// an invisible obstacle tile. Walls spanning multiple squares are tagged for
+// lazy splitting at collision time during forced movement.
+//
+// material     — 'stone' | 'wood' | 'glass' | 'metal' (or any custom material)
+// heightBottom / heightTop — wall elevation range (omit for unlimited)
+// invisible    — true (default): tiles are alpha 0 (collision only); false: show material texture
+await game.modules.get('draw-steel-combat-tools').api.convertWalls('stone');
+// await game.modules.get('draw-steel-combat-tools').api.convertWalls('wood', 0, 3, true);
+// await game.modules.get('draw-steel-combat-tools').api.convertWalls('stone', '', '', false); // visible tiles`
+  },
+  {
     name: 'DSCT: Apply Taunted',
     img: 'systems/draw-steel/assets/icons/flag-banner-fold-fill.svg',
     command:

@@ -28,6 +28,56 @@ const palette = () => document.body.classList.contains('theme-dark') ? {
 const getBlockTag   = (obj) => getTags(obj).find(t => t.startsWith('wall-block-'));
 const getBlockWalls = (blockTag) => blockTag ? getByTag(blockTag).filter(o => Array.isArray(o.c)) : [];
 
+// ── Wall Converter Geometry ───────────────────────────────────────────────────
+
+/**
+ * Liang-Barsky parametric line/box clip.
+ * Returns [t0, t1] (0 ≤ t0 ≤ t1 ≤ 1) for the visible portion of (x1,y1)→(x2,y2)
+ * inside the box [bx1,by1]→[bx2,by2], or null if fully outside.
+ */
+export const clipSegToBoxT = (x1, y1, x2, y2, bx1, by1, bx2, by2) => {
+  let t0 = 0, t1 = 1;
+  const dx = x2 - x1, dy = y2 - y1;
+  for (const [p, q] of [[-dx, x1 - bx1], [dx, bx2 - x1], [-dy, y1 - by1], [dy, by2 - y1]]) {
+    if (p === 0) { if (q < 0) return null; continue; }
+    const r = q / p;
+    if (p < 0) { if (r > t1) return null; if (r > t0) t0 = r; }
+    else        { if (r < t0) return null; if (r < t1) t1 = r; }
+  }
+  return t0 <= t1 + 1e-9 ? [t0, t1] : null;
+};
+
+/**
+ * Returns a Map keyed by "gx,gy" for every grid square the wall segment
+ * (x1,y1)→(x2,y2) passes through, with coverage data:
+ *   { gx, gy, t0, t1, coverageRatio }
+ * where coverageRatio = (clipped segment length) / GRID.
+ */
+export const squaresForWall = (x1, y1, x2, y2, GRID) => {
+  const result = new Map();
+  const len = Math.hypot(x2 - x1, y2 - y1);
+  if (len < 0.5) return result;
+
+  const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+  const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+  const gxLo = Math.floor(minX / GRID), gxHi = Math.floor(maxX / GRID);
+  const gyLo = Math.floor(minY / GRID), gyHi = Math.floor(maxY / GRID);
+
+  for (let gx = gxLo; gx <= gxHi; gx++) {
+    for (let gy = gyLo; gy <= gyHi; gy++) {
+      const clip = clipSegToBoxT(x1, y1, x2, y2,
+        gx * GRID, gy * GRID, (gx + 1) * GRID, (gy + 1) * GRID);
+      if (!clip) continue;
+      const [t0, t1] = clip;
+      const segLen = (t1 - t0) * len;
+      const coverageRatio = segLen / GRID;
+      if (coverageRatio < 0.01) continue;
+      result.set(`${gx},${gy}`, { gx, gy, t0, t1, coverageRatio });
+    }
+  }
+  return result;
+};
+
 const wallEdges = (gx, gy) => {
   const GRID = getGRID();
   return [
@@ -92,7 +142,7 @@ const restoreOverlappingSight = async (wall) => {
      (w.c[0] === x2 && w.c[1] === y2 && w.c[2] === x1 && w.c[3] === y1))
   );
   for (const pw of partners) {
-    const pwMat = (pw.flags?.tagger?.tags ?? []).find(t => MATERIALS.includes(t));
+    const pwMat = (pw.flags?.tagger?.tags ?? []).find(t => getAllMaterials().includes(t));
     if (pwMat === 'glass') continue;
     const targetSight = WALL_RESTRICTIONS()[pwMat ?? 'stone']?.sight ?? 10;
     if (pw.sight !== targetSight) await pw.update({ sight: targetSight });
@@ -100,7 +150,7 @@ const restoreOverlappingSight = async (wall) => {
 };
 
 const suppressOverlappingSight = async (wall) => {
-  const wallMat = (wall.flags?.tagger?.tags ?? []).find(t => MATERIALS.includes(t));
+  const wallMat = (wall.flags?.tagger?.tags ?? []).find(t => getAllMaterials().includes(t));
   if (wallMat === 'glass') return;
   const [x1, y1, x2, y2] = wall.c;
   const partners = canvas.scene.walls.contents.filter(w =>
@@ -112,7 +162,7 @@ const suppressOverlappingSight = async (wall) => {
   if (partners.length === 0) return;
   if (wall.sight !== 0) await wall.update({ sight: 0 });
   for (const pw of partners) {
-    const pwMat = (pw.flags?.tagger?.tags ?? []).find(t => MATERIALS.includes(t));
+    const pwMat = (pw.flags?.tagger?.tags ?? []).find(t => getAllMaterials().includes(t));
     if (pwMat === 'glass') continue;
     if (pw.sight !== 0) await pw.update({ sight: 0 });
   }
@@ -135,7 +185,7 @@ const fixBlock = async (tile) => {
   const blockTag    = getBlockTag(tile);
   if (!blockTag) return;
   const tags        = getTags(tile);
-  const material    = tags.find(t => MATERIALS.includes(t)) ?? 'stone';
+  const material    = tags.find(t => getAllMaterials().includes(t)) ?? 'stone';
   const restrict    = WALL_RESTRICTIONS()[material];
   const damagedTag  = tags.find(t => t.startsWith('damaged:'));
   const squaresBack = damagedTag ? parseInt(damagedTag.split(':')[1]) : 0;
@@ -150,7 +200,8 @@ const fixBlock = async (tile) => {
     await removeTags(wall, ['broken']);
     await suppressOverlappingSight(wall);
   }
-  await tile.document.update({ 'texture.src': getMaterialIcon(material), alpha: getMaterialAlpha(material) });
+  const fixedAlpha = hasTags(tile, 'wall-converted') ? 0 : getMaterialAlpha(material);
+  await tile.document.update({ 'texture.src': getMaterialIcon(material), alpha: fixedAlpha });
   await removeTags(tile, ['broken', 'partially-broken']);
   if (damagedTag) await removeTags(tile, [damagedTag]);
 };
@@ -186,6 +237,140 @@ const transmuteBlock = async (tile, newMaterial) => {
   }
 };
 
+// ── Wall Converter ────────────────────────────────────────────────────────────
+
+/**
+ * Convert selected canvas walls into DSCT obstacle tiles (GM only).
+ *
+ * For each grid square a selected wall covers with ≥ 50% coverage, a tile is
+ * created with the chosen material. The wall is tagged with 'wall-converted'
+ * and the block IDs of every tile it contributes to, enabling lazy splitting
+ * at collision time. Walls with < 50% coverage everywhere have move:0 set
+ * (movement-blocking stub) and are optionally linked to an adjacent tile.
+ *
+ * @param {string}    material     - 'stone' | 'wood' | 'glass' | 'metal' (or custom)
+ * @param {number|''} heightBottom - Wall bottom elevation ('' = default)
+ * @param {number|''} heightTop    - Wall top elevation ('' = default)
+ */
+export const convertWalls = async (material = 'stone', heightBottom = '', heightTop = '', invisible = true) => {
+  if (!game.user.isGM) { ui.notifications.warn('Only the GM can convert walls.'); return; }
+  const GRID  = getGRID();
+  // Normalise to WallDocuments — controlled gives placeables, but .c and .update() live on the document
+  const walls = [...(canvas.walls.controlled ?? [])].map(w => w.document ?? w);
+  if (!walls.length) {
+    ui.notifications.warn('No walls selected. Switch to the Walls layer, select walls, then click Convert.');
+    return;
+  }
+
+  // Clear all Tagger tags from every selected wall so re-conversion starts from a clean slate
+  for (const wall of walls) {
+    const existing = getTags(wall);
+    if (existing.length) await removeTags(wall, existing);
+  }
+
+  // Map from "gx,gy" key → { gx, gy, blockId }
+  const squareTileMap = new Map();
+
+  // First pass: determine which squares need tiles (coverage ≥ 0.5).
+  // Existing obstacle tiles are reset to the new material/alpha and reused.
+  for (const wall of walls) {
+    const [x1, y1, x2, y2] = wall.c ?? [];
+    const coverage = squaresForWall(x1, y1, x2, y2, GRID);
+    for (const [key, { gx, gy, coverageRatio }] of coverage) {
+      if (coverageRatio < 0.5) continue;
+      if (squareTileMap.has(key)) continue;
+      const existing = tileAt(gx, gy);
+      if (existing && hasTags(existing, 'obstacle')) {
+        const oldTags = getTags(existing);
+        const blockId = oldTags.find(t => t.startsWith('wall-block-'));
+        if (blockId) {
+          // Reset tile: clear all tags, re-apply with new material
+          if (oldTags.length) await removeTags(existing, oldTags);
+          await existing.document.update({
+            'texture.src': getMaterialIcon(material),
+            alpha: invisible ? 0 : getMaterialAlpha(material),
+          });
+          await addTags(existing, ['obstacle', 'breakable', blockId, material]);
+          squareTileMap.set(key, { gx, gy, blockId });
+          continue;
+        }
+      }
+      squareTileMap.set(key, { gx, gy, blockId: null }); // new tile needed
+    }
+  }
+
+  // Create tiles for squares that don't have one yet
+  for (const [, entry] of squareTileMap) {
+    if (entry.blockId) continue;
+    const { gx, gy } = entry;
+    const blockId = `wall-block-${foundry.utils.randomID(8)}`;
+    const tileData = {
+      x: gx * GRID, y: gy * GRID, width: GRID, height: GRID,
+      texture: { src: getMaterialIcon(material) },
+      alpha: invisible ? 0 : getMaterialAlpha(material),
+      hidden: false, locked: false,
+      occlusion: { mode: 0, alpha: 0 },
+      restrictions: { light: false, weather: false },
+      video: { loop: false, autoplay: false, volume: 0 },
+    };
+    if (heightBottom !== '') tileData.elevation = heightBottom - 1;
+    const [tile] = await canvas.scene.createEmbeddedDocuments('Tile', [tileData]);
+    await addTags(tile, ['obstacle', 'breakable', blockId, material]);
+    if (heightBottom !== '' || heightTop !== '') {
+      const hf = {};
+      if (heightBottom !== '') hf.bottom = heightBottom;
+      if (heightTop    !== '') hf.top    = heightTop;
+      await tile.update({ 'flags.wall-height': hf });
+    }
+    entry.blockId = blockId;
+  }
+
+  // Second pass: tag walls with block IDs and apply wall-height if set
+  let wallsConverted = 0, wallsStubbed = 0;
+  const heightUpdate = {};
+  if (heightBottom !== '' || heightTop !== '') {
+    const hf = {};
+    if (heightBottom !== '') hf.bottom = heightBottom;
+    if (heightTop    !== '') hf.top    = heightTop;
+    heightUpdate['flags.wall-height'] = hf;
+  }
+
+  for (const wall of walls) {
+    const [x1, y1, x2, y2] = wall.c ?? [];
+    const coverage = squaresForWall(x1, y1, x2, y2, GRID);
+    const blockIds = [];
+    for (const [key, { coverageRatio }] of coverage) {
+      if (coverageRatio < 0.5) continue;
+      const entry = squareTileMap.get(key);
+      if (entry?.blockId) blockIds.push(entry.blockId);
+    }
+
+    if (blockIds.length > 0) {
+      // obstacle + breakable + material so forced-movement recognises and can break this wall
+      await addTags(wall, ['obstacle', 'breakable', material, 'wall-converted', ...new Set(blockIds)]);
+      if (Object.keys(heightUpdate).length) await wall.update(heightUpdate);
+      wallsConverted++;
+    } else {
+      // Stub: no square has ≥ 50% coverage — disable movement and link to nearest tile.
+      // Not tagged as obstacle/breakable; move:0 makes it impassable without being a breakable block.
+      let adjacentId = null;
+      outer: for (const [, { gx, gy }] of coverage) {
+        for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+          const adj = squareTileMap.get(`${gx+dx},${gy+dy}`);
+          if (adj?.blockId) { adjacentId = adj.blockId; break outer; }
+        }
+      }
+      if (adjacentId) await addTags(wall, ['wall-converted', adjacentId]);
+      await wall.update({ move: 0, ...heightUpdate });
+      wallsStubbed++;
+    }
+  }
+
+  ui.notifications.info(
+    `Converted ${walls.length} wall(s): ${squareTileMap.size} tile(s) created/linked, ${wallsStubbed} stub(s) disabled.`
+  );
+};
+
 export class WallBuilderPanel extends Application {
   constructor() {
     super();
@@ -195,6 +380,8 @@ export class WallBuilderPanel extends Application {
     this._heightBottom = getSetting('wbDefaultHeightBottom') ?? '';
     this._heightTop    = getSetting('wbDefaultHeightTop')    ?? '';
     this._stable       = false;
+    this._invisible    = true;
+    this._stopInspect  = null;
   }
 
   static get defaultOptions() {
@@ -229,7 +416,7 @@ export class WallBuilderPanel extends Application {
             const isBroken        = hasTags(tile, 'broken');
             const isPartialBroken = hasTags(tile, 'partially-broken');
             const isFixable       = isBroken || isPartialBroken;
-            const mat             = getTags(tile).find(t => MATERIALS.includes(t));
+            const mat             = getTags(tile).find(t => getAllMaterials().includes(t));
             let color;
             if (this._mode === 'destroy')       color = 0xcc4444;
             else if (this._mode === 'fix')       color = isFixable ? (isPartialBroken && !isBroken ? 0x88ccff : 0x44aacc) : 0x334455;
@@ -302,20 +489,38 @@ export class WallBuilderPanel extends Application {
     overlay.hitArea = new PIXI.Rectangle(0, 0, canvas.dimensions.width, canvas.dimensions.height);
     canvas.app.stage.addChild(overlay);
 
+    // Draw dim highlights for every obstacle tile so invisible ones are visible during inspect
+    const drawAll = (hoverGpos = null) => {
+      graphics.clear();
+      for (const t of canvas.tiles.placeables) {
+        if (!hasTags(t, 'obstacle')) continue;
+        const tg       = toGrid(t.document);
+        const isBroken = hasTags(t, 'broken');
+        const color    = isBroken ? 0xcc4444 : 0xaaaaff;
+        graphics.beginFill(color, 0.12);
+        graphics.lineStyle(1, color, 0.45);
+        graphics.drawRect(tg.x * GRID, tg.y * GRID, GRID, GRID);
+        graphics.endFill();
+        graphics.lineStyle(0);
+      }
+      if (hoverGpos) {
+        graphics.beginFill(0xaaaaff, 0.28);
+        graphics.drawRect(hoverGpos.x * GRID, hoverGpos.y * GRID, GRID, GRID);
+        graphics.endFill();
+      }
+    };
+
     const onMove = (e) => {
       const gpos = toGrid(e.data.getLocalPosition(canvas.app.stage));
-      graphics.clear();
+      drawAll(gpos);
       const tile = canvas.tiles.placeables.find(t => {
         if (!hasTags(t, 'obstacle')) return false;
         const tg = toGrid(t.document);
         return tg.x === gpos.x && tg.y === gpos.y;
       });
       if (tile) {
-        graphics.beginFill(0xaaaaff, 0.25);
-        graphics.drawRect(gpos.x * GRID, gpos.y * GRID, GRID, GRID);
-        graphics.endFill();
         const tags        = getTags(tile);
-        const mat         = tags.find(t => MATERIALS.includes(t)) ?? '(none)';
+        const mat         = tags.find(t => getAllMaterials().includes(t)) ?? '(none)';
         const blockTag    = tags.find(t => t.startsWith('wall-block-')) ?? null;
         const walls       = blockTag ? getByTag(blockTag).filter(o => Array.isArray(o.c)) : [];
         const bottom      = walls[0]?.flags?.['wall-height']?.bottom ?? '-';
@@ -337,24 +542,42 @@ export class WallBuilderPanel extends Application {
 
     return new Promise((resolve) => {
       const cleanup = () => {
+        this._stopInspect = null;
         overlay.off('pointermove', onMove);
+        overlay.off('pointerdown', onPointerDown);
         document.removeEventListener('keydown', onKeyDown);
         canvas.app.stage.removeChild(overlay);
         canvas.app.stage.removeChild(graphics);
         graphics.destroy();
         overlay.destroy();
         tooltip.remove();
+        this._refreshPanel();
       };
 
-      const onKeyDown = (e) => { if (e.key === 'Escape') { cleanup(); resolve(); } };
+      const onKeyDown    = (e) => { if (e.key === 'Escape') { cleanup(); resolve(); } };
+      const onPointerDown = (e) => { if (e.data.button === 2) { cleanup(); resolve(); } };
+
+      this._stopInspect = () => { cleanup(); resolve(); };
+      this._refreshPanel(); // flip button to "Stop Inspecting"
+
       overlay.on('pointermove', onMove);
+      overlay.on('pointerdown', onPointerDown);
       document.addEventListener('keydown', onKeyDown);
-      ui.notifications.info('Inspect: hover tiles to see info. Escape to exit.');
+      drawAll(); // show highlights immediately on entry
+      ui.notifications.info('Inspect: hover tiles to see info. Right-click, Escape, or Stop Inspecting to exit.');
     });
   }
 
   async _execute() {
-    if (this._mode === 'inspect') { await this._inspect(); return; }
+    if (this._mode === 'inspect') {
+      if (this._stopInspect) { this._stopInspect(); return; }
+      await this._inspect();
+      return;
+    }
+    if (this._mode === 'convert') {
+      await convertWalls(this._material, this._heightBottom, this._heightTop, this._invisible);
+      return;
+    }
     const squares = await this._selectSquares(this._mode !== 'build');
     if (!squares || squares.length === 0) { ui.notifications.info('Cancelled.'); return; }
 
@@ -424,7 +647,7 @@ export class WallBuilderPanel extends Application {
       for (const { x, y } of squares) {
         const tile = tileAt(x, y);
         if (!tile || !hasTags(tile, 'obstacle')) { ui.notifications.warn(`No wall block at (${x},${y}).`); continue; }
-        const oldMat = getTags(tile).find(t => MATERIALS.includes(t)) ?? null;
+        const oldMat = getTags(tile).find(t => getAllMaterials().includes(t)) ?? null;
         await transmuteBlock(tile, this._material);
         undoOps.push(async () => { if (oldMat) await transmuteBlock(tile, oldMat); });
       }
@@ -436,17 +659,26 @@ export class WallBuilderPanel extends Application {
   _refreshPanel() {
     if (!this._html) return;
     const p = palette();
-    const modes = ['build', 'destroy', 'fix', 'transmute', 'break', 'inspect'];
+    const modes = ['build', 'destroy', 'fix', 'transmute', 'break', 'inspect', 'convert'];
     for (const mode of modes) {
       const btn = this._html.find(`#wb-mode-${mode}`)[0];
       if (btn) { btn.style.borderColor = this._mode === mode ? p.accent : p.border; btn.style.color = this._mode === mode ? p.accent : p.text; }
     }
+    const showMat    = this._mode === 'build' || this._mode === 'transmute' || this._mode === 'convert';
+    const showHeight = this._mode === 'build' || this._mode === 'convert';
     const matRow = this._html.find('#wb-material-row')[0];
-    if (matRow) matRow.style.display = (this._mode === 'build' || this._mode === 'transmute') ? 'flex' : 'none';
-    const execBtn = this._html.find('[data-action="execute"]')[0];
-    if (execBtn) execBtn.textContent = this._mode === 'inspect' ? 'Start Inspect' : 'Select Squares';
+    if (matRow) matRow.style.display = showMat ? 'flex' : 'none';
     const heightRow = this._html.find('#wb-height-row')[0];
-    if (heightRow) heightRow.style.display = this._mode === 'build' ? 'flex' : 'none';
+    if (heightRow) heightRow.style.display = showHeight ? 'flex' : 'none';
+    const execBtn = this._html.find('[data-action="execute"]')[0];
+    if (execBtn) {
+      execBtn.textContent = this._mode === 'inspect' && this._stopInspect ? 'Stop Inspecting'
+        : this._mode === 'inspect' ? 'Start Inspect'
+        : this._mode === 'convert' ? 'Convert Selected Walls'
+        : 'Select Squares';
+    }
+    const convertRow = this._html.find('#wb-convert-row')[0];
+    if (convertRow) convertRow.style.display = this._mode === 'convert' ? 'flex' : 'none';
     const matSel = this._html.find('#wb-material-select')[0];
     if (matSel) matSel.value = this._material;
   }
@@ -478,6 +710,12 @@ export class WallBuilderPanel extends Application {
           <button id="wb-mode-transmute" data-mode="transmute" style="padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='transmute'?p.accent:p.border};color:${this._mode==='transmute'?p.accent:p.text};">Transmute</button>
           <button id="wb-mode-break"     data-mode="break"     style="padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='break'?p.accent:p.border};color:${this._mode==='break'?p.accent:p.text};">Break</button>
           <button id="wb-mode-inspect"   data-mode="inspect"   style="padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='inspect'?p.accent:p.border};color:${this._mode==='inspect'?p.accent:p.text};">Inspect</button>
+          <button id="wb-mode-convert"   data-mode="convert"   style="grid-column:span 2;padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='convert'?p.accent:p.border};color:${this._mode==='convert'?p.accent:p.text};">Convert Walls</button>
+        </div>
+
+        <div id="wb-convert-row" style="display:${this._mode==='convert'?'flex':'none'};align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
+          <input id="wb-invisible" type="checkbox" ${this._invisible ? 'checked' : ''} style="width:${s(12)}px;height:${s(12)}px;accent-color:${p.accent};cursor:pointer;">
+          <label for="wb-invisible" style="font-size:${s(9)}px;color:${p.text};cursor:pointer;">Invisible tiles (alpha 0)</label>
         </div>
 
         <div id="wb-material-row" style="display:${(this._mode==='build'||this._mode==='transmute')?'flex':'none'};flex-direction:column;gap:${s(4)}px;margin-bottom:${s(8)}px;">
@@ -538,7 +776,8 @@ export class WallBuilderPanel extends Application {
 
     html.on('input',  '#wb-height-bottom', e => { this._heightBottom = e.target.value === '' ? '' : parseFloat(e.target.value); });
     html.on('input',  '#wb-height-top',    e => { this._heightTop    = e.target.value === '' ? '' : parseFloat(e.target.value); });
-    html.on('change', '#wb-stable',        e => { this._stable = e.target.checked; });
+    html.on('change', '#wb-stable',        e => { this._stable    = e.target.checked; });
+    html.on('change', '#wb-invisible',     e => { this._invisible = e.target.checked; });
     html.on('click',  '[data-mode]',             e => { this._mode = e.currentTarget.dataset.mode; this._refreshPanel(); });
     html.on('change', '#wb-material-select',     e => { this._material = e.target.value; });
     html.on('click',  '[data-action]', async e => {

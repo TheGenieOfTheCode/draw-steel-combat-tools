@@ -12,6 +12,7 @@
   replayUndo, getSetting, getTokenById, getWindowById, getModuleApi,
 } from './helpers.js';
 import { endGrab, applyGrab } from './grab.js';
+import { clipSegToBoxT, squaresForWall } from './wall-builder.js';
 
 
 // Draw Steel rule: you can't move diagonally through the corner of a wall.
@@ -43,6 +44,100 @@ const parseType = (raw) => {
 
 const embeddedUuid = (parent, type, doc) =>
   doc?.uuid ?? `${parent.uuid}.${type}.${doc?._id ?? doc?.id}`;
+
+/**
+ * Split a 'wall-converted' wall at grid square (gx, gy).
+ *
+ * The original wall's coordinates are shrunk to just the portion inside the
+ * square. Any portions outside are created as new wall segments tagged with
+ * their own block IDs (or set to move:0 if they cover no tile significantly).
+ * Undo ops are pushed so this can be reversed as part of forced-movement undo.
+ *
+ * Returns the wall document (now representing only the inside portion).
+ * If the wall doesn't pass through (gx, gy), or is already contained within
+ * the square, the original wall is returned unchanged.
+ */
+const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
+  const GRID = getGRID();
+  const [x1, y1, x2, y2] = wallDoc.c;
+  const clip = clipSegToBoxT(x1, y1, x2, y2,
+    gx * GRID, gy * GRID, (gx + 1) * GRID, (gy + 1) * GRID);
+  if (!clip) return wallDoc;
+
+  const [t0, t1] = clip;
+  const EPS = 1e-4;
+  if (t0 <= EPS && t1 >= 1 - EPS) return wallDoc; // whole wall is already in this square
+
+  const dx  = x2 - x1, dy = y2 - y1;
+  const ip0 = { x: Math.round(x1 + dx * t0), y: Math.round(y1 + dy * t0) };
+  const ip1 = { x: Math.round(x1 + dx * t1), y: Math.round(y1 + dy * t1) };
+
+  const allTags  = getTags(wallDoc);
+  const baseData = {
+    move: wallDoc.move, sight: wallDoc.sight, light: wallDoc.light, sound: wallDoc.sound,
+    dir: wallDoc.dir ?? 0, door: wallDoc.door ?? 0,
+    flags: foundry.utils.deepClone(wallDoc.flags ?? {}),
+  };
+
+  // Determine block ID that belongs to square (gx, gy) via the tile there
+  const squareTile = canvas.tiles.placeables.find(t =>
+    Math.round(t.document.x / GRID) === gx &&
+    Math.round(t.document.y / GRID) === gy &&
+    hasTags(t, 'obstacle')
+  );
+  const squareBlockId = squareTile
+    ? allTags.find(tag => tag.startsWith('wall-block-') && hasTags(squareTile, tag))
+    : null;
+
+  // Shrink original wall to inside portion; record undo to restore full length
+  undoOps.push({ op: 'update', uuid: wallDoc.uuid, data: { c: [x1, y1, x2, y2] } });
+  await safeUpdate(wallDoc, { c: [ip0.x, ip0.y, ip1.x, ip1.y] });
+
+  // Remove excess block IDs from inside wall (keep only this square's) — GM only;
+  // Tagger doesn't have a non-GM socket path, but block-tag removal failure is benign.
+  const blockTagsToRemove = allTags.filter(t => t.startsWith('wall-block-') && t !== squareBlockId);
+  if (blockTagsToRemove.length > 0 && game.user.isGM) {
+    undoOps.push({ op: 'addTags', uuid: wallDoc.uuid, tags: blockTagsToRemove });
+    await removeTags(wallDoc, blockTagsToRemove);
+  }
+
+  // Create a new segment for coords (cx1,cy1)→(cx2,cy2) outside this square
+  const createOutsideSegment = async (cx1, cy1, cx2, cy2) => {
+    const seg    = squaresForWall(cx1, cy1, cx2, cy2, GRID);
+    const segIds = [];
+    for (const [, { gx: sgx, gy: sgy, coverageRatio }] of seg) {
+      if (coverageRatio < 0.5) continue;
+      const sTile = canvas.tiles.placeables.find(t =>
+        Math.round(t.document.x / GRID) === sgx &&
+        Math.round(t.document.y / GRID) === sgy &&
+        hasTags(t, 'obstacle')
+      );
+      if (sTile) {
+        const sId = allTags.find(tag => tag.startsWith('wall-block-') && hasTags(sTile, tag));
+        if (sId) segIds.push(sId);
+      }
+    }
+    // Embed tagger flags at creation time to avoid needing a separate addTags call
+    const taggerTags = segIds.length ? ['wall-converted', ...segIds] : [];
+    const newWallData = {
+      c: [cx1, cy1, cx2, cy2],
+      ...baseData,
+      flags: {
+        ...baseData.flags,
+        tagger: { tags: taggerTags },
+      },
+      // Stubs with no significant coverage can't be moved through
+      ...(segIds.length === 0 ? { move: 0 } : {}),
+    };
+    const created = await safeCreateEmbedded(canvas.scene, 'Wall', [newWallData]);
+    if (created?.[0]) undoOps.push({ op: 'delete', uuid: embeddedUuid(canvas.scene, 'Wall', created[0]) });
+  };
+
+  if (t0 > EPS)     await createOutsideSegment(x1, y1, ip0.x, ip0.y);
+  if (t1 < 1 - EPS) await createOutsideSegment(ip1.x, ip1.y, x2, y2);
+
+  return wallDoc;
+};
 
 const chooseFreeSquare = (targetToken) => new Promise((resolve) => {
   const GRID = getGRID();
@@ -418,7 +513,11 @@ const tilesAtCells = (cells) => {
  * Does NOT apply damage or push the "smashes through" message; the caller handles those.
  * Does push intermediate structural messages (mid-height collapse etc.) to collisionMsgs.
  */
-const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs) => {
+const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs, step = null) => {
+  // If this is a converted long-span wall, split it at the collision square first
+  if (step && hasTags(wall, 'wall-converted')) {
+    wall = await splitConvertedWall(wall, step.x, step.y, undoOps);
+  }
   const blockTag  = getTags(wall).find(t => t.startsWith('wall-block-'));
   const wallBottom = wall.flags?.['wall-height']?.bottom ?? 0;
   const wallTop    = wall.flags?.['wall-height']?.top    ?? Infinity;
@@ -447,6 +546,7 @@ const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs) => {
       collisionMsgs.push(`The top of the ${mat} object collapses into the gap (now ${wallTop - 1 - wallBottom} square${wallTop - 1 - wallBottom !== 1 ? 's' : ''} tall).`);
     } else {
       const origMat      = tile ? getMaterial(tile) : 'stone';
+      const prevAlpha    = tile ? (tile.document.alpha ?? getMaterialAlpha(origMat)) : getMaterialAlpha(origMat);
       const prevWallData = allWalls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
       for (const w of allWalls) {
         await safeUpdate(w, { move: 0, sight: 0, light: 0, sound: 0 });
@@ -455,7 +555,7 @@ const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs) => {
       if (tile) {
         await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
         if (game.user.isGM) await addTags(tile, ['broken']);
-        undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: getMaterialAlpha(origMat) } });
+        undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
         undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
       }
       for (const { wall: w, restrict } of prevWallData) {
@@ -1144,7 +1244,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           if (stepElev >= tileBottom && stepElev < tileTop) {
             landingIndex = i - 1;
             const dmg = 2 + remaining + bonusObjectDmg;
-            if (!noCollisionDamage) await applyDamage(targetToken.actor, dmg);
+            await dmgTarget(dmg);
             collisionMsgs.push(`${targetToken.name} is blocked by a wall at elevation ${stepElev} and takes <strong>${dmg} damage</strong>.`);
             break;
           }
@@ -1185,7 +1285,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           };
           if (remaining >= maxCost) {
             // Break ALL walls; one momentum check covers all of them
-            for (const wall of softWalls) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs);
+            for (const wall of softWalls) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs, step);
             const wallDmg = maxWallDmg + bonusObjectDmg;
             collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(softWalls)} (costs ${maxCost}, deals <strong>${wallDmg} damage</strong>).`);
             await dmgTarget(wallDmg);
@@ -1195,7 +1295,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           } else {
             // Cannot break the hardest wall; break any affordable ones (they're demolished regardless), then stop
             const brokenWalls = softWalls.filter(w => remaining >= (MATERIAL_RULES()[getMaterial(w)]?.cost ?? 99));
-            for (const wall of brokenWalls) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs);
+            for (const wall of brokenWalls) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs, step);
             if (brokenWalls.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(brokenWalls)}.`);
             landingIndex = i - 1;
             const dmg = 2 + remaining + bonusObjectDmg;
@@ -1330,6 +1430,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           const maxTileDmg  = softTiles.reduce((m, t) => Math.max(m, MATERIAL_RULES()[getMaterial(t)]?.damage ?? 0), 0);
           const breakTile = async (tile) => {
             const origMat  = getMaterial(tile);
+            const prevAlpha = tile.document.alpha ?? getMaterialAlpha(origMat);
             const blockTag = getTags(tile).find(t => t.startsWith('wall-block-'));
             if (blockTag) {
               const walls        = getByTag(blockTag).filter(o => Array.isArray(o.c));
@@ -1340,7 +1441,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
               }
               await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
               if (game.user.isGM) await addTags(tile, ['broken']);
-              undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: getMaterialAlpha(origMat) } });
+              undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
               undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
               for (const { wall, restrict } of prevWallData) {
                 undoOps.push({ op: 'update',     uuid: wall.uuid, data: restrict });
@@ -1417,20 +1518,26 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           if (!hasTags(wall, 'obstacle')) {
             landingIndex = i - 1;
             const dmg = 2 + remaining + bonusObjectDmg;
-            if (!noCollisionDamage) await applyDamage(targetToken.actor, dmg);
+            await dmgTarget(dmg);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Hit indestructible wall (no 'obstacle' tag) at step ${i}. dmg=${dmg}`);
             collisionMsgs.push(`${targetToken.name} hits a wall and takes <strong>${dmg} damage</strong>.`);
             break;
           }
 
           if (hasTags(wall, 'obstacle')) {
+            // Split converted long-span walls at this square before any further processing,
+            // so blockTag and allWalls correctly reference only the inside segment.
+            if (hasTags(wall, 'wall-converted')) {
+              wall = await splitConvertedWall(wall, step.x, step.y, undoOps);
+            }
+
             const blockTag = getTags(wall).find(t => t.startsWith('wall-block-'));
             const isBreakable = hasTags(wall, 'breakable');
 
             if (!isBreakable) {
               landingIndex = i - 1;
               const dmg = 2 + remaining + bonusObjectDmg;
-              if (!noCollisionDamage) await applyDamage(targetToken.actor, dmg);
+              await dmgTarget(dmg);
               if (getSetting('debugMode')) console.log(`DSCT | FM | Stopped by non-breakable obstacle wall at step ${i}. dmg=${dmg}`);
               collisionMsgs.push(`${targetToken.name} hits a wall and takes <strong>${dmg} damage</strong>.`);
               break;
@@ -1439,7 +1546,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             const mat  = getMaterial(wall);
             const rule = MATERIAL_RULES()[mat];
             const dmg  = remaining < rule.cost ? 2 + remaining + bonusObjectDmg : rule.damage + bonusObjectDmg;
-            if (!noCollisionDamage) await applyDamage(targetToken.actor, dmg);
+            await dmgTarget(dmg);
 
             if (remaining >= rule.cost) {
               if (blockTag) {
@@ -1469,6 +1576,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                   collisionMsgs.push(`The top of the ${mat} object collapses into the gap (now ${wallTop - 1 - wallBottom} square${wallTop - 1 - wallBottom !== 1 ? 's' : ''} tall).`);
                 } else {
                   const origMat      = tile ? getMaterial(tile) : 'stone';
+                  const prevAlpha    = tile ? (tile.document.alpha ?? getMaterialAlpha(origMat)) : getMaterialAlpha(origMat);
                   const prevWallData = allWalls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
                   for (const w of allWalls) {
                     await safeUpdate(w, { move: 0, sight: 0, light: 0, sound: 0 });
@@ -1477,7 +1585,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                   if (tile) {
                     await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
                     if (game.user.isGM) await addTags(tile, ['broken']);
-                    undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: getMaterialAlpha(origMat) } });
+                    undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
                     undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
                   }
                   for (const { wall: w, restrict } of prevWallData) {
@@ -1538,7 +1646,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           movedSquadGroup.id === blockerSquadGroup.id ? movedSquadGroup : null;
         const prevSharedHP      = sharedGroup?.system?.staminaValue ?? null;
 
-        if (!noCollisionDamage) await applyDamage(targetToken.actor, remaining + bonusCreatureDmg);
+        await dmgTarget(remaining + bonusCreatureDmg);
         const blockerPrev = noCollisionDamage ? null : await applyDamage(blocker.actor, remaining + bonusCreatureDmg, sharedGroup ? null : blockerSquadGroup);
 
         if (blockerPrev && sharedGroup && prevSharedHP !== null) {
@@ -1571,7 +1679,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           if (!isBreakable) {
             landingIndex = i - 1;
             const dmg = 2 + remaining + bonusObjectDmg;
-            if (!noCollisionDamage) await applyDamage(targetToken.actor, dmg);
+            await dmgTarget(dmg);
             collisionMsgs.push(`${targetToken.name} is stopped by an obstacle and takes <strong>${dmg} damage</strong>.`);
             break;
           }
@@ -1579,12 +1687,13 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           const mat  = getMaterial(tile);
           const rule = MATERIAL_RULES()[mat];
           const dmg  = remaining < rule.cost ? 2 + remaining + bonusObjectDmg : rule.damage + bonusObjectDmg;
-          if (!noCollisionDamage) await applyDamage(targetToken.actor, dmg);
+          await dmgTarget(dmg);
 
           if (remaining >= rule.cost) {
             if (blockTag) {
               const walls        = getByTag(blockTag).filter(o => Array.isArray(o.c));
               const origMat      = getMaterial(tile);
+              const prevAlpha    = tile.document.alpha ?? getMaterialAlpha(origMat);
               const prevWallData = walls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
               for (const wall of walls) {
                 await safeUpdate(wall, { move: 0, sight: 0, light: 0, sound: 0 });
@@ -1593,7 +1702,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
               await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
               if (game.user.isGM) await addTags(tile, ['broken']);
 
-              undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: getMaterialAlpha(origMat) } });
+              undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
               undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
               for (const { wall, restrict } of prevWallData) {
                 undoOps.push({ op: 'update',     uuid: wall.uuid, data: restrict });
