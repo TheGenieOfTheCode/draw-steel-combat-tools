@@ -194,6 +194,11 @@ Hooks.once('init', () => {
     choices: { 'block': 'Block Corner Cutting', 'collide': 'Collide on Corner Cuts' },
     default: 'collide', ...reloadOnChange
   });
+  game.settings.register(M, 'legacySingleCellCollisions', {
+    name: 'Legacy Single-Cell Collisions',
+    hint: 'When enabled, forced movement collision uses only the top-left corner cell for all tokens regardless of size. Default (off) checks the full footprint for size 2+ tokens: multiple blockers each take damage once, the mover takes damage once; multiple breakable walls are each broken if movement permits, stopping at the hardest wall that cannot be broken.',
+    scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
+  });
   game.settings.registerMenu(M, 'installMacros', {
     name: 'Install API Macros', label: 'Install Macros',
     hint: 'Creates a folder of ready-to-use macros for every module API function in your Macros sidebar.',
@@ -265,7 +270,7 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   bindToggle('deathTrackerEnabled', ['deathAnimationDuration', 'clearSkullsOnCombatEnd', 'clearEffectsOnRevive']);
   bindToggle('autoTriggeredActionsEnabled', ['autoTriggeredActionsTarget']);
   bindToggle('bleedingEnabled', ['bleedingMode']);
-  bindToggle('debugMode', ['cornerCutMode']);
+  bindToggle('debugMode', ['cornerCutMode', 'legacySingleCellCollisions']);
 
   const fmEnabled   = root.querySelector(`[name="${M}.forcedMovementEnabled"]`)?.checked ?? true;
   const grabEnabled = root.querySelector(`[name="${M}.grabEnabled"]`)?.checked ?? true;
