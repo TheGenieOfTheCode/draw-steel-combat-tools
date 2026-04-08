@@ -1,7 +1,17 @@
 ﻿import { runForcedMovement } from './forced-movement.js';
-import { runGrab, buildFreeStrikeButton } from './grab.js';
+import { applyGrab, buildFreeStrikeButton, sizeRankG } from './grab.js';
 import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection } from './helpers.js';
 import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetween } from './conditions.js';
+
+// DSIDs that allow grabbing more than one creature simultaneously.
+// All other grab abilities default to the standard limit of 1.
+const MULTI_GRAB_LIMITS = {
+  'choking-grasp': 2,
+  'claw-swing':    2,
+  'several-arms':  4,
+  'tentacle-grab': 4,
+  'ribcage-chomp': 4,
+};
 
 const getForcedEffects = (item, tier) => {
   const effectsCollection = item.system?.power?.effects;
@@ -28,14 +38,12 @@ const hasGrabEffect = (item, tier) => {
   const dsid = item.system?._dsid ?? item.toObject().system?._dsid;
   if (dsid === 'grab') return tier >= 2;
 
-  const effectsCollection = item.system?.power?.effects;
-  const effects = normalizeCollection(effectsCollection);
+  const effects = normalizeCollection(item.system?.power?.effects);
   for (const effect of effects) {
-    const tierData = effect[effect.type]?.[`tier${tier}`] ?? effect[`tier${tier}`];
-    if (!tierData) continue;
-    const conditions = tierData.conditions ?? tierData.statuses ?? tierData.status ?? [];
-    const arr = normalizeCollection(conditions);
-    if (arr.some(c => String(c?.id ?? c?.name ?? c).toLowerCase() === 'grabbed')) return true;
+    if (getSetting('debugMode')) console.log(`DSCT | hasGrabEffect | effect.type=${effect.type} tier=${tier}`, effect.applied?.[`tier${tier}`]);
+    if (effect.type === 'applied') {
+      if (effect.applied?.[`tier${tier}`]?.effects?.grabbed) return true;
+    }
   }
   return false;
 };
@@ -94,54 +102,49 @@ const injectGrabButton = (msg, { el }) => {
   const data = msg.getFlag('draw-steel-combat-tools', 'grab');
   if (!data) return;
 
+  // Honour the "Restrict Manual Grab Buttons to GM" setting
+  if (getSetting('restrictGrabButtons') && !game.user.isGM) return;
+
   const nativeBtns = el.querySelectorAll('button[data-action="applyEffect"][data-effect-id="grabbed"]');
   if (!nativeBtns.length) return;
+
+  const maxGrabs = data.maxGrabs ?? 1;
 
   for (const btn of nativeBtns) {
     const newBtn = document.createElement('button');
     newBtn.type = 'button';
     newBtn.className = btn.className ? `${btn.className} dsct-grab-btn` : 'dsct-grab-btn';
-    newBtn.innerHTML = '<i class="fa-solid fa-hand-rock"></i> Execute Grab';
+    newBtn.innerHTML = '<i class="fa-solid fa-hand-rock"></i> Apply Grabbed';
     newBtn.style.cssText = 'cursor:pointer;';
 
     newBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
 
-      const api = getModuleApi();
-      if (!api) return;
-
-      const targets    = [...game.user.targets];
-      const controlled = canvas.tokens.controlled;
-      
       const speakerTok = data.speakerToken ? canvas?.tokens?.get(data.speakerToken) : null;
-      const grabber = controlled.length === 1 ? controlled[0] : speakerTok;
-      
-      let grabbed = targets.length === 1 ? targets[0] : null;
+      const controlled = canvas.tokens.controlled;
+      const grabber    = controlled.length === 1 ? controlled[0] : speakerTok;
+      if (!grabber) { ui.notifications.warn('Control the grabber token or ensure the ability speaker token is on the canvas.'); return; }
 
-      
-      if (!grabbed) {
-        const targetHeaders = el.querySelectorAll('.dice-roll .header[data-uuid]');
-        if (targetHeaders.length === 1) {
-          const uuid = targetHeaders[0].dataset.uuid;
-          const parts = uuid.split('.');
-          const tokenIdx = parts.indexOf('Token');
-          
-          if (tokenIdx !== -1) {
-            const tokenId = parts[tokenIdx + 1];
-            grabbed = getTokenById(tokenId);
-          } else {
-            const actorIdx = parts.indexOf('Actor');
-            const actorId = actorIdx !== -1 ? parts[actorIdx + 1] : parts[parts.length - 1];
-            grabbed = canvas.tokens.placeables.find(t => t.actor?.id === actorId);
+      const targets = [...game.user.targets].filter(t => t.id !== grabber.id);
+      if (!targets.length) { ui.notifications.warn(`Target the creature${maxGrabs > 1 ? 's' : ''} to apply Grabbed to.`); return; }
+      if (targets.length > maxGrabs) { ui.notifications.warn(`This ability can only grab up to ${maxGrabs} creature${maxGrabs !== 1 ? 's' : ''} at once. Target fewer tokens.`); return; }
+
+      // Size check (unless GM bypass is on)
+      if (!(game.user.isGM && getSetting('gmBypassesSizeCheck'))) {
+        for (const t of targets) {
+          if (!canForcedMoveTarget(grabber.actor, t.actor)) {
+            ui.notifications.warn(`${grabber.name} cannot grab ${t.name}: target is too large given their size and Might score.`);
+            return;
           }
         }
       }
 
-      if (!grabber) { ui.notifications.warn('Control the grabber token or ensure the ability speaker token is on the canvas.'); return; }
-      if (!grabbed) { ui.notifications.warn('Target the creature to be grabbed.'); return; }
-
-      await api.grab(grabber, grabbed, { tier: data.tier });
+      // Apply grabs sequentially — no power roll, no free strike opportunity
+      for (const t of targets) {
+        await applyGrab(grabber, t, { maxGrabs });
+        ChatMessage.create({ content: `<strong>Grab:</strong> ${grabber.name} grabs ${t.name}!` });
+      }
     });
 
     btn.replaceWith(newBtn);
@@ -160,7 +163,8 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
         const api = getModuleApi(false);
         const grabber = getTokenById(grabActions.dataset.grabberId);
         const target  = getTokenById(grabActions.dataset.targetId);
-        if (grabber && target) await api?.grab(grabber, target, { forceApply: true });
+        const grabFlag = msg.getFlag('draw-steel-combat-tools', 'grab');
+        if (grabber && target) await api?.grab(grabber, target, { forceApply: true, maxGrabs: grabFlag?.maxGrabs ?? 1 });
         await resolveGrabConfirmChatMessage(msg.id, 'confirmed');
         const panel = getWindowById('grab-panel');
         if (panel) { panel._pendingConfirm = null; panel._refreshPanel(); }
@@ -325,6 +329,7 @@ const injectAllRollMods = (msg, { el }) => {
 
 export function registerChatHooks() {
   const trySetFlag = async (msg, el = null) => {
+    if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | enter msg=${msg.id} author=${msg.author?.name} isMe=${msg.author.id === game.user.id}`);
     if (msg.author.id !== game.user.id) return;
 
     // Bleeding: runs for all message types (including tests) — must be before the ability-parts guard
@@ -352,13 +357,16 @@ export function registerChatHooks() {
     const parts         = normalizeCollection(msg.system?.parts);
     const abilityUse    = parts.find(p => p.type === 'abilityUse');
     const abilityResult = parts.find(p => p.type === 'abilityResult');
+    if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | msg=${msg.id} parts=${parts.length} abilityUuid=${abilityUse?.abilityUuid ?? 'none'} tier=${abilityResult?.tier ?? 'none'}`);
     if (!abilityUse?.abilityUuid || !abilityResult?.tier) return;
 
     const item = await fromUuid(abilityUse.abilityUuid);
+    if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | item=${item?.name ?? 'null'} uuid=${abilityUse.abilityUuid}`);
     if (!item) return;
 
     const dsid = getItemDsid(item);
     const tier = abilityResult.tier;
+    if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | dsid=${dsid} tier=${tier} item.system.power.effects count=${normalizeCollection(item.system?.power?.effects).length}`);
 
     // Power roll mods: requires the live rendered element — dice roll HTML is client-side only.
     // Each condition writes its own key into 'powerRollDeltas'; all are applied together at inject time.
@@ -377,6 +385,19 @@ export function registerChatHooks() {
           const targetingGrabber = targetsInclude(targets, grab.grabberActorId, grab.grabberTokenId);
           if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Grabbed bane check msg=${msg.id} targetingGrabber=${targetingGrabber} targets=${targets.length}`);
           if (!targetingGrabber) pendingDeltas.grabbed = 1;
+
+          // Escape grab size bane — smaller creature escaping a larger grabber takes an extra bane
+          if (!('escapeBane' in existingDeltas) && dsid === 'escape-grab') {
+            const grabberTok = getTokenById(grab.grabberTokenId);
+            if (grabberTok) {
+              const grabbedSize  = speakerTok?.actor?.system?.combat?.size ?? { value: 1, letter: 'M' };
+              const grabberSize  = grabberTok.actor?.system?.combat?.size  ?? { value: 1, letter: 'M' };
+              if (sizeRankG(grabbedSize) < sizeRankG(grabberSize)) {
+                pendingDeltas.escapeBane = 1;
+                if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Escape size bane applied msg=${msg.id}`);
+              }
+            }
+          }
         }
       }
 
@@ -437,6 +458,7 @@ export function registerChatHooks() {
 
     if (!msg.getFlag('draw-steel-combat-tools', 'forcedMovement')) {
       const forced = getForcedEffects(item, tier);
+      if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | forcedEffects=${forced.length} for dsid=${dsid} tier=${tier}`);
       if (forced.length) {
         const range = getItemRange(item);
         await msg.setFlag('draw-steel-combat-tools', 'forcedMovement', {
@@ -450,12 +472,15 @@ export function registerChatHooks() {
     }
 
     if (!msg.getFlag('draw-steel-combat-tools', 'grab') && !_grabFlagInFlight.has(msg.id)) {
-      if (hasGrabEffect(item, tier)) {
+      const grabResult = hasGrabEffect(item, tier);
+      if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | hasGrabEffect=${grabResult} dsid=${dsid} tier=${tier}`);
+      if (grabResult) {
         _grabFlagInFlight.add(msg.id);
         await msg.setFlag('draw-steel-combat-tools', 'grab', {
           speakerToken: msg.speaker?.token ?? null,
           tier,
           dsid,
+          maxGrabs: MULTI_GRAB_LIMITS[dsid] ?? 1,
         });
         _grabFlagInFlight.delete(msg.id);
       }
@@ -539,6 +564,32 @@ export function registerChatHooks() {
   registerInjector(injectForcedButtons);
   registerInjector(injectGrabButton);
   registerInjector(injectGrabResolutions);
+
+  // Inject a Teleport button on any ability whose effect text mentions the word "teleport".
+  // We can't reliably extract distance from prose (wildly inconsistent phrasing across 100+ abilities),
+  // so the button simply opens the Teleport panel and lets the user set the numbers themselves.
+  registerInjector(function injectTeleportButton(msg, { el, buttons, content }) {
+    if (!getSetting('teleportEnabled')) return;
+    if (el.querySelector('.dsct-tp-ability-btn')) return;
+
+    // Only ability messages
+    if (!normalizeCollection(msg.system?.parts).some(p => p.type === 'abilityUse')) return;
+
+    // Check the rendered ability text — the one section that contains effect prose
+    const abilityHTML = el.querySelector('.message-part-html');
+    if (!abilityHTML?.textContent?.toLowerCase().includes('teleport')) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'dsct-tp-ability-btn';
+    btn.innerHTML = '<i class="fa-solid fa-person-through-window"></i> Teleport';
+    btn.style.cssText = 'cursor:pointer;';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      getModuleApi(false)?.teleportUI();
+    });
+    (buttons ?? content ?? el).appendChild(btn);
+  });
 
   // Read the `end` string for a given condition from an ability item's AppliedPowerRollEffects.
   // Returns the raw DS system string ("turn", "encounter", "save") or null if not found.

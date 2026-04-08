@@ -5,7 +5,7 @@ const TIMEOUT_MS = 60_000;
 const SCALE      = 1.2;
 const s          = n => Math.round(n * SCALE);
 
-const sizeRankG = (size) =>
+export const sizeRankG = (size) =>
   size.value >= 2 ? size.value + 2 : ({ T: 0, S: 1, M: 2, L: 3 })[size.letter] ?? 2;
 
 const SIZE_EDGE_EFFECT = {
@@ -63,11 +63,13 @@ const ensureGrabHooks = () => {
       if (!window._activeGrabs?.size) return;
       if (changes.x === undefined && changes.y === undefined) return;
       if (window._grabFMSuppressed?.has(doc.id)) return; // grabber being force-moved; grabbed creature stays put
+      // Capture delta before any awaits — doc.x/y is a live reference and may update
+      // once Foundry finishes processing the first grabbed-token follow-move.
+      const deltaX = (changes.x ?? doc.x) - doc.x;
+      const deltaY = (changes.y ?? doc.y) - doc.y;
       for (const [gid, grab] of window._activeGrabs.entries()) {
         if (doc.id !== grab.grabberTokenId) continue;
-        const gt     = getTokenById(gid);
-        const deltaX = (changes.x ?? doc.x) - doc.x;
-        const deltaY = (changes.y ?? doc.y) - doc.y;
+        const gt = getTokenById(gid);
         if (gt) {
           window._grabFollowActive.add(gid);
           await gt.document.update({ x: gt.document.x + deltaX, y: gt.document.y + deltaY });
@@ -151,15 +153,19 @@ export const registerGrabHooks = () => {
   Hooks.on('canvasReady', rehydrateGrabs);
 };
 
-export const applyGrab = async (grabberTok, grabbedTok) => {
+export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) => {
   if (!window._activeGrabs) window._activeGrabs = new Map();
   if (window._activeGrabs.has(grabbedTok.id)) await endGrab(grabbedTok.id, { silent: true });
 
-  // A grabber can only hold one creature - end any existing grab they have first.
-  for (const [existingGrabbedId, grab] of window._activeGrabs.entries()) {
-    if (grab.grabberTokenId === grabberTok.id) {
-      await endGrab(existingGrabbedId, { silent: false, customMsg: `${grabberTok.name} releases ${grab.grabbedName} to grab a new target.` });
-      break;
+  // Enforce the grabber's simultaneous grab limit.
+  const currentGrabs = [...window._activeGrabs.values()].filter(g => g.grabberTokenId === grabberTok.id);
+  if (currentGrabs.length >= maxGrabs) {
+    if (maxGrabs === 1) {
+      // Standard rule: silently drop the existing grab and replace it.
+      await endGrab(currentGrabs[0].grabbedTokenId, { silent: false, customMsg: `${grabberTok.name} releases ${currentGrabs[0].grabbedName} to grab a new target.` });
+    } else {
+      ui.notifications.warn(`${grabberTok.name} is already grabbing ${maxGrabs} creature${maxGrabs !== 1 ? 's' : ''} (the maximum for this ability).`);
+      return;
     }
   }
 
@@ -226,7 +232,7 @@ export const endGrab = async (grabbedTokenId, { silent = false, customMsg = null
   refreshOpenPanel();
 };
 
-export const runGrab = async (grabberToken, targetToken, { forceApply = false, tier = null } = {}) => {
+export const runGrab = async (grabberToken, targetToken, { forceApply = false, tier = null, maxGrabs = 1 } = {}) => {
   if (!grabberToken) { ui.notifications.warn('No grabber token specified.'); return; }
   if (!targetToken)  { ui.notifications.warn('No target token specified.'); return; }
   if (grabberToken.id === targetToken.id) { ui.notifications.warn('A creature cannot grab itself.'); return; }
@@ -236,13 +242,13 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, t
 
   if (!forceApply && !(game.user.isGM && getSetting('gmBypassesSizeCheck'))) {
     if (!canForcedMoveTarget(grabberActor, targetActor)) {
-      ui.notifications.warn(`${grabberToken.name} cannot grab ${targetToken.name} - the target is too large for their size and Might score.`);
+      ui.notifications.warn(`${grabberToken.name} cannot grab ${targetToken.name}: target is too large given their size and Might score.`);
       return;
     }
   }
 
   if (forceApply) {
-    await applyGrab(grabberToken, targetToken);
+    await applyGrab(grabberToken, targetToken, { maxGrabs });
     ChatMessage.create({ content: `<strong>Grab applied:</strong> ${grabberToken.name} grabs ${targetToken.name}!` });
     return;
   }
@@ -265,12 +271,12 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, t
 
       const panel = getWindowById('grab-panel');
       if (panel) {
-        panel._pendingConfirm = { grabberToken, targetToken, msgId: createdMsg?.id ?? null };
+        panel._pendingConfirm = { grabberToken, targetToken, msgId: createdMsg?.id ?? null, maxGrabs };
         panel._refreshPanel();
       }
       return;
     }
-    await applyGrab(grabberToken, targetToken);
+    await applyGrab(grabberToken, targetToken, { maxGrabs });
     ChatMessage.create({ content: `<strong>Grab - Tier 3:</strong> ${grabberToken.name} grabs ${targetToken.name}!` });
     return;
   }
@@ -355,35 +361,13 @@ export class GrabPanel extends Application {
     const grab       = window._activeGrabs?.get(grabbedTokenId);
     if (!grab) return;
     const grabbedTok = getTokenById(grabbedTokenId);
-    const grabberTok = getTokenById(grab.grabberTokenId);
-    if (!grabbedTok || !grabberTok) return;
+    if (!grabbedTok) return;
 
     const escapeItem = grabbedTok.actor.items.find(i => i.name === 'Escape Grab');
     if (!escapeItem) { ui.notifications.warn(`No "Escape Grab" ability found on ${grab.grabbedName}.`); return; }
 
-    const needsBane = sizeRankG(grabbedTok.actor.system.combat.size) < sizeRankG(grabberTok.actor.system.combat.size);
-    let baneEffectId = null;
-    if (needsBane) {
-      const [bane] = await safeCreateEmbedded(grabbedTok.actor, 'ActiveEffect', [{
-        name: 'Escape Grab (Size Bane)', img: 'icons/svg/downgrade.svg',
-        type: 'abilityModifier',
-        system: { end: { type: 'turn', roll: '' }, filters: { keywords: [] } },
-        changes: [{ key: 'power.roll.banes', mode: 2, value: '1', priority: null }],
-        disabled: false, transfer: false, statuses: [], flags: {},
-        duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
-        description: '', tint: '#ffffff', sort: 0,
-      }]);
-      baneEffectId = bane?.id;
-      await new Promise(r => setTimeout(r, 300));
-    }
-
-    const hookId = Hooks.on('createChatMessage', async (msg) => {
-      const parts = msg.system?.parts?.contents; if (!parts) return;
-      const ar = parts.find(p => p.type === 'abilityResult'); if (!ar) return;
-      Hooks.off('createChatMessage', hookId);
-      if (baneEffectId) { const e = grabbedTok.actor.effects.get(baneEffectId); if (e) await safeDelete(e); }
-    });
-    
+    // Size bane (if applicable) is now injected via the power roll delta system in chat-hooks,
+    // so it applies consistently whether escape is triggered from the panel or the actor sheet.
     ds.helpers.macros.rollItemMacro(escapeItem.uuid);
   }
 
@@ -580,9 +564,9 @@ export class GrabPanel extends Application {
     });
     h.find('[data-confirm-grab]').off('click').on('click', async () => {
       if (!this._pendingConfirm) return;
-      const { grabberToken, targetToken, msgId } = this._pendingConfirm;
+      const { grabberToken, targetToken, msgId, maxGrabs } = this._pendingConfirm;
       this._pendingConfirm = null;
-      await applyGrab(grabberToken, targetToken);
+      await applyGrab(grabberToken, targetToken, { maxGrabs: maxGrabs ?? 1 });
       await resolveGrabConfirmChatMessage(msgId, 'confirmed');
     });
     h.find('[data-cancel-grab]').off('click').on('click', async () => {

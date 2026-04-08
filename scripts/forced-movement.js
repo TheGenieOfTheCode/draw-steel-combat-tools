@@ -1703,6 +1703,24 @@ export const toggleForcedMovementPanel = () => {
   }
 };
 
+/**
+ * Reapply a list of grabs that were ended by forced movement, respecting multi-grab limits.
+ * maxGrabs is derived from how many entries share the same grabberTokenId — this handles
+ * creatures with whitelisted multi-grab abilities (e.g. claw-swing: 2, several-arms: 4).
+ */
+const restoreGrabs = async (grabsToRestore) => {
+  if (!grabsToRestore?.length) return;
+  const maxByGrabber = new Map();
+  for (const { grabberTokenId } of grabsToRestore) {
+    maxByGrabber.set(grabberTokenId, (maxByGrabber.get(grabberTokenId) ?? 0) + 1);
+  }
+  for (const { grabberTokenId, grabbedTokenId } of grabsToRestore) {
+    const grabberTok = getTokenById(grabberTokenId);
+    const grabbedTok = getTokenById(grabbedTokenId);
+    if (grabberTok && grabbedTok) await applyGrab(grabberTok, grabbedTok, { maxGrabs: maxByGrabber.get(grabberTokenId) ?? 1 });
+  }
+};
+
 const handleStaminaRevival = async (undoLog) => {
   const staminaOps   = undoLog.filter(op => op.op === 'stamina');
   const revivedNames = [];
@@ -1860,11 +1878,7 @@ export const registerForcedMovementHooks = () => {
               await replayUndo(entry.undoLog);
               allRevived.push(...await handleStaminaRevival(entry.undoLog));
             }
-            for (const { grabberTokenId, grabbedTokenId } of entry.grabsToRestore ?? []) {
-              const grabberTok = getTokenById(grabberTokenId);
-              const grabbedTok = getTokenById(grabbedTokenId);
-              if (grabberTok && grabbedTok) await applyGrab(grabberTok, grabbedTok);
-            }
+            await restoreGrabs(entry.grabsToRestore);
           }
           const unique = [...new Set(allRevived)];
           ui.notifications.info(unique.length > 0
@@ -1905,11 +1919,7 @@ export const registerForcedMovementHooks = () => {
           await safeUpdate(msg, { 'flags.draw-steel-combat-tools.isUndone': true });
           await replayUndo(undoLog);
           const revivedNames = await handleStaminaRevival(undoLog);
-          for (const { grabberTokenId, grabbedTokenId } of msg.getFlag('draw-steel-combat-tools', 'grabsToRestore') ?? []) {
-            const grabberTok = getTokenById(grabberTokenId);
-            const grabbedTok = getTokenById(grabbedTokenId);
-            if (grabberTok && grabbedTok) await applyGrab(grabberTok, grabbedTok);
-          }
+          await restoreGrabs(msg.getFlag('draw-steel-combat-tools', 'grabsToRestore'));
           ui.notifications.info(revivedNames.length > 0
             ? `Forced movement reversed. Revived: ${[...new Set(revivedNames)].join(', ')}.`
             : 'Forced movement undone.'
