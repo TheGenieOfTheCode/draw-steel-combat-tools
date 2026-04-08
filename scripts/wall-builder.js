@@ -252,7 +252,7 @@ const transmuteBlock = async (tile, newMaterial) => {
  * @param {number|''} heightBottom - Wall bottom elevation ('' = default)
  * @param {number|''} heightTop    - Wall top elevation ('' = default)
  */
-export const convertWalls = async (material = 'stone', heightBottom = '', heightTop = '', invisible = true) => {
+export const convertWalls = async (material = 'stone', heightBottom = '', heightTop = '', invisible = true, stable = true) => {
   if (!game.user.isGM) { ui.notifications.warn('Only the GM can convert walls.'); return; }
   const GRID  = getGRID();
   // Normalise to WallDocuments — controlled gives placeables, but .c and .update() live on the document
@@ -290,7 +290,7 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
             'texture.src': getMaterialIcon(material),
             alpha: invisible ? 0 : getMaterialAlpha(material),
           });
-          await addTags(existing, ['obstacle', 'breakable', blockId, material]);
+          await addTags(existing, ['obstacle', 'breakable', blockId, material, ...(stable ? ['stable'] : [])]);
           squareTileMap.set(key, { gx, gy, blockId });
           continue;
         }
@@ -315,7 +315,7 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
     };
     if (heightBottom !== '') tileData.elevation = heightBottom - 1;
     const [tile] = await canvas.scene.createEmbeddedDocuments('Tile', [tileData]);
-    await addTags(tile, ['obstacle', 'breakable', blockId, material]);
+    await addTags(tile, ['obstacle', 'breakable', blockId, material, ...(stable ? ['stable'] : [])]);
     if (heightBottom !== '' || heightTop !== '') {
       const hf = {};
       if (heightBottom !== '') hf.bottom = heightBottom;
@@ -379,7 +379,7 @@ export class WallBuilderPanel extends Application {
     this._material     = getSetting('wbDefaultMaterial') || 'stone';
     this._heightBottom = getSetting('wbDefaultHeightBottom') ?? '';
     this._heightTop    = getSetting('wbDefaultHeightTop')    ?? '';
-    this._stable       = false;
+    this._stable       = true;
     this._invisible    = true;
     this._stopInspect  = null;
   }

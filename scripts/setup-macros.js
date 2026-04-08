@@ -242,9 +242,10 @@ for (const t of targets) {
 // material     — 'stone' | 'wood' | 'glass' | 'metal' (or any custom material)
 // heightBottom / heightTop — wall elevation range (omit for unlimited)
 // invisible    — true (default): tiles are alpha 0 (collision only); false: show material texture
+// stable       — true (default): prevents Infinity-height bugs when elevation is unset
 await game.modules.get('draw-steel-combat-tools').api.convertWalls('stone');
-// await game.modules.get('draw-steel-combat-tools').api.convertWalls('wood', 0, 3, true);
-// await game.modules.get('draw-steel-combat-tools').api.convertWalls('stone', '', '', false); // visible tiles`
+// await game.modules.get('draw-steel-combat-tools').api.convertWalls('wood', 0, 3, true, true);
+// await game.modules.get('draw-steel-combat-tools').api.convertWalls('stone', '', '', false, false); // visible, unstable`
   },
   {
     name: 'DSCT: Apply Taunted',
