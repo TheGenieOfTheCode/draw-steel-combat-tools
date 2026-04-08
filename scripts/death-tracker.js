@@ -226,21 +226,43 @@ export function registerDeathTrackerHooks() {
     }
   });
 
+  // When a skull tile is deleted, cascade-delete any rubble tiles left by a destroyed object token.
+  Hooks.on('deleteTile', (tileDoc) => {
+    if (!game.users.activeGM?.isSelf) return;
+    const deadTokenId = tileDoc.flags?.['draw-steel-combat-tools']?.deadTokenId;
+    if (!deadTokenId) return;
+    const rubble = canvas.scene?.tiles?.contents?.filter(t =>
+      t.flags?.['draw-steel-combat-tools']?.objectTokenId === deadTokenId
+    ) ?? [];
+    for (const tile of rubble) tile.delete().catch(() => {});
+    if (getSetting('debugMode') && rubble.length > 0) console.log(`DSCT | DT | Deleted ${rubble.length} rubble tile(s) for object token ${deadTokenId}.`);
+  });
+
   Hooks.on('deleteCombat', async () => {
     if (!getSetting('deathTrackerEnabled') || !getSetting('clearSkullsOnCombatEnd') || !game.users.activeGM?.isSelf) return;
 
     const skullIds = game.settings.get('draw-steel-combat-tools', 'deathTrackerSkullIds') ?? [];
+    // Collect token IDs before deletion so we can also purge matching rubble tiles.
+    const deadTokenIds = [];
     for (const id of skullIds) {
       const tile = canvas.scene.tiles.get(id);
       if (tile) {
         const deadTokenId = tile.document.flags?.['draw-steel-combat-tools']?.deadTokenId;
         if (deadTokenId) {
+          deadTokenIds.push(deadTokenId);
           const deadToken = canvas.scene.tokens.get(deadTokenId);
           if (deadToken) await deadToken.delete();
         }
         await tile.document.delete();
       }
     }
+    // Also remove any orphaned rubble tiles for the same token IDs (the deleteTile hook
+    // above normally handles this, but runs per-deletion and may miss stragglers).
+    const deadSet = new Set(deadTokenIds);
+    const orphanRubble = canvas.scene?.tiles?.contents?.filter(t =>
+      deadSet.has(t.flags?.['draw-steel-combat-tools']?.objectTokenId)
+    ) ?? [];
+    for (const tile of orphanRubble) await tile.document.delete();
     await game.settings.set('draw-steel-combat-tools', 'deathTrackerSkullIds', []);
   });
 

@@ -204,6 +204,19 @@ Hooks.once('init', () => {
     hint: 'Creates a folder of ready-to-use macros for every module API function in your Macros sidebar.',
     icon: 'fas fa-scroll', type: InstallMacrosMenu, restricted: true,
   });
+  game.settings.register(M, 'macroPromptMode', {
+    name: 'Sample Macro Import Prompt',
+    hint: 'Controls when Draw Steel: Combat Tools prompts the GM to import sample macros on initialization.',
+    scope: 'world', config: true, type: String,
+    choices: {
+      'ask':          'Ask on every initialization',
+      'skip-update':  'Ask only when the module updates',
+      'never':        'Never ask',
+    },
+    default: 'ask',
+  });
+  game.settings.register(M, 'macroPromptSeenVersion', { scope: 'world', config: false, type: String, default: '' });
+  game.settings.register(M, 'macroAutoImport', { scope: 'world', config: false, type: Boolean, default: false });
 
   registerChatHooks();
   registerGrabHooks();
@@ -264,6 +277,7 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   addHeader('bleedingEnabled', 'Bleeding');
   addHeader('showForcedMovementButton', 'Module Buttons');
   addHeader('chatInjectDelay', 'General');
+  addHeader('macroPromptMode', 'Setup');
 
   bindToggle('forcedMovementEnabled', ['animationStepDelay', 'fallDamageCap', 'gmBypassesRangeCheck']);
   bindToggle('grabEnabled', ['gmBypassesSizeCheck', 'restrictGrabButtons', 'grabbedBaneEnabled']);
@@ -283,6 +297,64 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   if (fmBtnRow   && !fmEnabled)   fmBtnRow.style.display   = 'none';
   if (grabBtnRow && !grabEnabled) grabBtnRow.style.display  = 'none';
   if (tpBtnRow   && !tpEnabled)   tpBtnRow.style.display    = 'none';
+});
+
+Hooks.once('ready', async () => {
+  if (!game.user.isGM) return;
+
+  const M              = 'draw-steel-combat-tools';
+  const currentVersion = game.modules.get(M).version ?? '';
+  const promptMode     = game.settings.get(M, 'macroPromptMode');
+  const seenVersion    = game.settings.get(M, 'macroPromptSeenVersion') ?? '';
+  const autoImport     = game.settings.get(M, 'macroAutoImport') ?? false;
+
+  // 'never': always import silently, no prompt ever.
+  if (promptMode === 'never') { await installMacros({ silent: true }); return; }
+
+  // 'skip-update': between updates, import silently if user previously said yes.
+  // When a new version is detected, fall through to the prompt so the user can re-evaluate.
+  if (promptMode === 'skip-update' && seenVersion === currentVersion) {
+    if (autoImport) await installMacros({ silent: true });
+    return;
+  }
+
+  // 'ask', or 'skip-update' on a new version: show the prompt.
+  const content = `
+    <p>Would you like to import sample macros for <strong>Draw Steel: Combat Tools</strong>?</p>
+    <p>These provide ready-to-use buttons for Forced Movement, Grab, Teleport, and all other module features.</p>
+    <div class="form-group" style="margin-top:12px;">
+      <label style="flex:0 0 auto;margin-right:8px;">Remember my choice:</label>
+      <select id="dsct-macro-prompt-pref" style="flex:1;">
+        <option value="ask">Ask me on next initialization</option>
+        <option value="skip-update">Don't ask until the next update</option>
+        <option value="never">Don't ask again (always import)</option>
+      </select>
+    </div>
+  `;
+
+  const getChoice = (html) => {
+    const root = html instanceof HTMLElement ? html : (html[0] ?? null);
+    return root?.querySelector('#dsct-macro-prompt-pref')?.value ?? 'ask';
+  };
+
+  const result = await Dialog.wait({
+    title: 'Draw Steel: Combat Tools - Sample Macros',
+    content,
+    buttons: {
+      yes: { label: 'Yes, Import',  callback: (html) => ({ doImport: true,  choice: getChoice(html) }) },
+      no:  { label: 'No Thanks',   callback: (html) => ({ doImport: false, choice: getChoice(html) }) },
+    },
+    close: () => null,
+    default: 'yes',
+  });
+
+  if (!result) return;
+
+  const { doImport, choice } = result;
+  await game.settings.set(M, 'macroPromptMode', choice);
+  await game.settings.set(M, 'macroAutoImport', doImport);
+  if (choice === 'skip-update') await game.settings.set(M, 'macroPromptSeenVersion', currentVersion);
+  if (doImport) await installMacros();
 });
 
 //Lesson learned in blood, gooogle things for the program you're trying to mod. Wasted many hours trying to brute force sockets into foundry before I realized socketlib exists!
