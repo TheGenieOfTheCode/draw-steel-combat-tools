@@ -468,6 +468,41 @@ const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs) => {
   }
 };
 
+/**
+ * Place rubble tiles (one per grid square) where a destroyed object token stood.
+ * The death tracker handles the skull tile and token hiding independently.
+ * Each rubble tile is flagged so the death tracker's deleteTile hook can cascade cleanup.
+ */
+const destroyObjectToken = async (objectToken, undoOps) => {
+  const GRID   = getGRID();
+  const blGrid = toGrid(objectToken.document);
+  const blSize = objectToken.actor?.system?.combat?.size?.value ?? objectToken.document.width ?? 1;
+
+  for (let ix = 0; ix < blSize; ix++) {
+    for (let iy = 0; iy < blSize; iy++) {
+      const created = await safeCreateEmbedded(canvas.scene, 'Tile', [{
+        x: (blGrid.x + ix) * GRID, y: (blGrid.y + iy) * GRID,
+        width: GRID, height: GRID,
+        texture: { src: MATERIAL_ICONS.broken, scaleX: 1, scaleY: 1 },
+        alpha: 1, hidden: false, locked: false,
+        occlusion: { mode: 0, alpha: 0 },
+        restrictions: { light: false, weather: false },
+        video: { loop: false, autoplay: false, volume: 0 },
+        flags: { 'draw-steel-combat-tools': { isObjectRubble: true, objectTokenId: objectToken.id } },
+      }]);
+      if (created?.[0]) {
+        undoOps.push({ op: 'delete', uuid: embeddedUuid(canvas.scene, 'Tile', created[0]) });
+      }
+    }
+  }
+
+  // Undo: restore the token to its pre-death position and make it visible again.
+  // The death tracker will have hidden and teleported it, so we need to reverse that.
+  undoOps.push({ op: 'update', uuid: objectToken.document.uuid,
+    data: { hidden: false, x: objectToken.document.x, y: objectToken.document.y, elevation: objectToken.document.elevation ?? 0 },
+    options: { animate: false, teleport: true } });
+};
+
 const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false) => {
   // Grabbed creatures can only be force moved by their grabber.
   const grabState = window._activeGrabs?.get(targetToken.id);
@@ -1172,8 +1207,51 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         }
 
         // Token collision: check the full destination footprint
-        const blockers = tokensAtCells(stepCells, targetToken.id);
-        if (blockers.length > 0) {
+        const blockers         = tokensAtCells(stepCells, targetToken.id);
+        const objectBlockers   = blockers.filter(b => b.actor?.type === 'object');
+        const creatureBlockers = blockers.filter(b => b.actor?.type !== 'object');
+
+        // Object token collision: like breakable tiles; cost = max current stamina across all objects
+        if (objectBlockers.length > 0) {
+          const maxObjCost = objectBlockers.reduce((m, b) => Math.max(m, b.actor?.system?.stamina?.value ?? 0), 0);
+          const dealDmg    = remaining + bonusObjectDmg;
+          if (dealDmg >= maxObjCost) {
+            // All objects destroyed; movement continues (fall through to creature check)
+            for (const obj of objectBlockers) {
+              const objPrev = noCollisionDamage ? null : await applyDamage(obj.actor, dealDmg);
+              if (objPrev) undoOps.push({ op: 'stamina', uuid: obj.actor.uuid, prevValue: objPrev.prevValue, prevTemp: objPrev.prevTemp, squadGroupUuid: null, prevSquadHP: null, squadCombatantIds: [], squadTokenIds: [] });
+            }
+            const moverDmg = maxObjCost + 2;
+            const objNames = objectBlockers.map(o => o.name).join(', ');
+            collisionMsgs.push(`${targetToken.name} smashes through ${objNames} (max ${maxObjCost} stamina). Takes <strong>${moverDmg} damage</strong>.`);
+            await dmgTarget(moverDmg);
+            for (const obj of objectBlockers) await destroyObjectToken(obj, undoOps);
+            costConsumed += Math.max(0, maxObjCost - 1);
+            if (getSetting('debugMode')) console.log(`DSCT | FM | Large token smashed through ${objectBlockers.length} object(s). maxObjCost=${maxObjCost}`);
+            // Fall through: check creature blockers below
+          } else {
+            // Cannot destroy the hardest object; break affordable ones and stop
+            const brokenObjects = objectBlockers.filter(o => dealDmg >= (o.actor?.system?.stamina?.value ?? 0));
+            const survivingObjects = objectBlockers.filter(o => !brokenObjects.includes(o));
+            for (const obj of brokenObjects) {
+              const objPrev = noCollisionDamage ? null : await applyDamage(obj.actor, dealDmg);
+              if (objPrev) undoOps.push({ op: 'stamina', uuid: obj.actor.uuid, prevValue: objPrev.prevValue, prevTemp: objPrev.prevTemp, squadGroupUuid: null, prevSquadHP: null, squadCombatantIds: [], squadTokenIds: [] });
+              await destroyObjectToken(obj, undoOps);
+            }
+            for (const obj of survivingObjects) {
+              const objPrev = noCollisionDamage ? null : await applyDamage(obj.actor, dealDmg);
+              if (objPrev) undoOps.push({ op: 'stamina', uuid: obj.actor.uuid, prevValue: objPrev.prevValue, prevTemp: objPrev.prevTemp, squadGroupUuid: null, prevSquadHP: null, squadCombatantIds: [], squadTokenIds: [] });
+            }
+            landingIndex = i - 1;
+            const stopDmg = 2 + remaining + bonusObjectDmg;
+            await dmgTarget(stopDmg);
+            collisionMsgs.push(`${targetToken.name} is stopped by ${survivingObjects.map(o => o.name).join(', ')} (needs ${maxObjCost} stamina, has ${remaining}). Takes <strong>${stopDmg} damage</strong>.`);
+            if (getSetting('debugMode')) console.log(`DSCT | FM | Large token stopped by object(s) (maxObjCost=${maxObjCost} > remaining=${remaining}).`);
+            break;
+          }
+        }
+
+        if (creatureBlockers.length > 0) {
           landingIndex = i - 1;
           const dmg             = remaining + bonusCreatureDmg;
           const movedSquadGroup = getSquadGroup(targetToken.actor);
@@ -1184,7 +1262,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           // squad must use prevSquadHP=null, otherwise each undo op overwrites the restored
           // value with a stale intermediate snapshot.
           const squadGroupsSnapshotted = new Set();
-          for (const blocker of blockers) {
+          for (const blocker of creatureBlockers) {
             undoOps.push({ op: 'update', uuid: blocker.document.uuid, data: { x: blocker.document.x, y: blocker.document.y, elevation: blocker.document.elevation ?? 0 }, options: { animate: false, teleport: true } });
             const blockerSquadGroup = getSquadGroup(blocker.actor);
             const sharedGroup = movedSquadGroup && blockerSquadGroup && movedSquadGroup.id === blockerSquadGroup.id ? movedSquadGroup : null;
@@ -1214,7 +1292,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             }
             if (blockerPrev) undoOps.push({ op: 'stamina', uuid: blocker.actor.uuid, prevValue: blockerPrev.prevValue, prevTemp: blockerPrev.prevTemp, squadGroupUuid: blockerPrev.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev.prevSquadHP, squadCombatantIds: blockerPrev.squadCombatantIds, squadTokenIds: blockerPrev.squadTokenIds ?? [] });
           }
-          const blockerNames = blockers.map(b => b.name).join(', ');
+          const blockerNames = creatureBlockers.map(b => b.name).join(', ');
           const bonusNote    = bonusCreatureDmg ? ` (${remaining} + ${bonusCreatureDmg} bonus)` : '';
           collisionMsgs.push(`<strong>Collision!</strong> ${targetToken.name} crashes into ${blockerNames} with ${remaining} square${remaining !== 1 ? 's' : ''} remaining. All take <strong>${dmg} damage</strong>${bonusNote}.`);
           break;
@@ -1426,8 +1504,33 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
       const blocker = tokenAt(step.x, step.y, targetToken.id);
       if (blocker) {
+        // Object tokens behave like breakable obstacles: cost = current stamina, deal (cost+2) to mover
+        if (blocker.actor?.type === 'object') {
+          const objectHP  = blocker.actor?.system?.stamina?.value ?? 0;
+          const dealDmg   = remaining + bonusObjectDmg;
+          const objBreaks = dealDmg >= objectHP;
+          const moverDmg  = Math.min(dealDmg, objectHP) + 2;
+
+          const objPrev = noCollisionDamage ? null : await applyDamage(blocker.actor, dealDmg);
+          if (objPrev) undoOps.push({ op: 'stamina', uuid: blocker.actor.uuid, prevValue: objPrev.prevValue, prevTemp: objPrev.prevTemp, squadGroupUuid: null, prevSquadHP: null, squadCombatantIds: [], squadTokenIds: [] });
+          await dmgTarget(moverDmg);
+
+          if (objBreaks) {
+            collisionMsgs.push(`${targetToken.name} smashes through ${blocker.name} (${objectHP} stamina). Takes <strong>${moverDmg} damage</strong>.`);
+            await destroyObjectToken(blocker, undoOps);
+            costConsumed += Math.max(0, objectHP - 1);
+            if (getSetting('debugMode')) console.log(`DSCT | FM | Object ${blocker.name} destroyed (HP=${objectHP}, remaining=${remaining}). Movement continues.`);
+            continue;
+          } else {
+            landingIndex = i - 1;
+            collisionMsgs.push(`${targetToken.name} crashes into ${blocker.name} but cannot destroy it (needs ${objectHP} stamina, has ${remaining}). Takes <strong>${moverDmg} damage</strong>, ${blocker.name} takes <strong>${dealDmg} damage</strong>.`);
+            if (getSetting('debugMode')) console.log(`DSCT | FM | Object ${blocker.name} survived (HP=${objectHP}, remaining=${remaining}). Stopped.`);
+            break;
+          }
+        }
+
         landingIndex = i - 1;
-        
+
         undoOps.push({ op: 'update', uuid: blocker.document.uuid, data: { x: blocker.document.x, y: blocker.document.y, elevation: blocker.document.elevation ?? 0 }, options: { animate: false, teleport: true } });
         const movedSquadGroup   = getSquadGroup(targetToken.actor);
         const blockerSquadGroup = getSquadGroup(blocker.actor);

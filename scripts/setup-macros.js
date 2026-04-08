@@ -255,7 +255,7 @@ for (const t of targets) {
   },
 ];
 
-export const installMacros = async () => {
+export const installMacros = async ({ silent = false } = {}) => {
   if (!game.user.isGM) { ui.notifications.warn('Only the GM can install DSCT macros.'); return; }
 
   let folder = game.folders.find(f => f.type === 'Macro' && f.name === MACRO_FOLDER_NAME);
@@ -280,7 +280,9 @@ export const installMacros = async () => {
     created++;
   }
 
-  ui.notifications.info(`DSCT | Macros: ${created} created, ${updated} updated, ${skipped} up to date. Find them in the Macros sidebar under "${MACRO_FOLDER_NAME}".`);
+  const summary = `DSCT | Macros: ${created} created, ${updated} updated, ${skipped} up to date. Folder: "${MACRO_FOLDER_NAME}".`;
+  if (silent) console.log(summary);
+  else ui.notifications.info(summary);
 };
 
 export const distributeAbilities = async () => {
