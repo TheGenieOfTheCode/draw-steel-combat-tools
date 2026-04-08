@@ -349,6 +349,125 @@ const buildUndoLog = (targetToken, startPos, startElevSnap, movedSnap, undoOps) 
   ...undoOps,
 ];
 
+// ── Size 2+ Collision Helpers ─────────────────────────────────────────────────
+
+/** All grid cells occupied by a token of the given size at top-left (gx, gy). */
+const footprintCells = (gx, gy, size) => {
+  const cells = [];
+  for (let dy = 0; dy < size; dy++)
+    for (let dx = 0; dx < size; dx++)
+      cells.push({ x: gx + dx, y: gy + dy });
+  return cells;
+};
+
+/** Cells in destCells that are not in srcCells (the cells newly entered on this step). */
+const newlyEnteredCells = (srcCells, destCells) => {
+  const srcSet = new Set(srcCells.map(c => `${c.x},${c.y}`));
+  return destCells.filter(c => !srcSet.has(`${c.x},${c.y}`));
+};
+
+/**
+ * Find all distinct, active, elevation-relevant walls crossed as the token's footprint
+ * enters newCells from direction (dx, dy) at stepElev.
+ */
+const wallsAtStep = (newCells, dx, dy, stepElev) => {
+  const seen   = new Set();
+  const result = [];
+  for (const cell of newCells) {
+    const w = wallBetween({ x: cell.x - dx, y: cell.y - dy }, cell);
+    if (!w || seen.has(w.id) || hasTags(w, 'broken')) continue;
+    const wb = w.flags?.['wall-height']?.bottom ?? 0;
+    const wt = w.flags?.['wall-height']?.top    ?? Infinity;
+    if (stepElev >= wt || stepElev < wb) continue;
+    seen.add(w.id);
+    result.push(w);
+  }
+  return result;
+};
+
+/** Find all tokens (excluding excludeId) whose footprint overlaps any cell in the given set. */
+const tokensAtCells = (cells, excludeId) => {
+  const cellSet = new Set(cells.map(c => `${c.x},${c.y}`));
+  const found   = new Map();
+  for (const t of canvas.tokens.placeables) {
+    if (t.id === excludeId || found.has(t.id)) continue;
+    const tg    = toGrid(t.document);
+    const tSize = t.actor?.system?.combat?.size?.value ?? t.document.width ?? 1;
+    outer: for (let dy = 0; dy < tSize; dy++) {
+      for (let dx = 0; dx < tSize; dx++) {
+        if (cellSet.has(`${tg.x + dx},${tg.y + dy}`)) { found.set(t.id, t); break outer; }
+      }
+    }
+  }
+  return [...found.values()];
+};
+
+/** Find all distinct tiles whose top-left corner is at any of the given cells. */
+const tilesAtCells = (cells) => {
+  const seen   = new Set();
+  const result = [];
+  for (const { x, y } of cells) {
+    const t = tileAt(x, y);
+    if (t && !seen.has(t.id)) { seen.add(t.id); result.push(t); }
+  }
+  return result;
+};
+
+/**
+ * Execute the physical breaking of a confirmed-breakable obstacle wall group.
+ * Does NOT apply damage or push the "smashes through" message; the caller handles those.
+ * Does push intermediate structural messages (mid-height collapse etc.) to collisionMsgs.
+ */
+const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs) => {
+  const blockTag  = getTags(wall).find(t => t.startsWith('wall-block-'));
+  const wallBottom = wall.flags?.['wall-height']?.bottom ?? 0;
+  const wallTop    = wall.flags?.['wall-height']?.top    ?? Infinity;
+  if (blockTag) {
+    const allWalls    = getByTag(blockTag).filter(o => Array.isArray(o.c));
+    const tile        = canvas.tiles.placeables.find(t => hasTags(t, blockTag));
+    const isMidHeight = stepElev > wallBottom;
+    const isStable    = tile && hasTags(tile, 'stable');
+    if (isMidHeight && isStable) {
+      await splitTileAtElevation(tile, stepElev, undoOps, collisionMsgs);
+    } else if (isMidHeight && !isStable) {
+      const prevTop    = wallTop;
+      for (const w of allWalls) await safeUpdate(w, { 'flags.wall-height.top': wallTop - 1 });
+      const prevDmgTag = tile ? getTags(tile).find(t => t.startsWith('damaged:')) : null;
+      const prevDmgN   = prevDmgTag ? parseInt(prevDmgTag.split(':')[1]) : 0;
+      if (tile && game.user.isGM) {
+        if (prevDmgTag) await removeTags(tile, [prevDmgTag]);
+        await addTags(tile, [`damaged:${prevDmgN + 1}`]);
+      }
+      for (const w of allWalls) undoOps.push({ op: 'update', uuid: w.uuid, data: { 'flags.wall-height.top': prevTop } });
+      if (tile) {
+        undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: [`damaged:${prevDmgN + 1}`] });
+        if (prevDmgTag) undoOps.push({ op: 'addTags', uuid: tile.document.uuid, tags: [prevDmgTag] });
+      }
+      const mat = getMaterial(wall);
+      collisionMsgs.push(`The top of the ${mat} object collapses into the gap (now ${wallTop - 1 - wallBottom} square${wallTop - 1 - wallBottom !== 1 ? 's' : ''} tall).`);
+    } else {
+      const origMat      = tile ? getMaterial(tile) : 'stone';
+      const prevWallData = allWalls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
+      for (const w of allWalls) {
+        await safeUpdate(w, { move: 0, sight: 0, light: 0, sound: 0 });
+        if (game.user.isGM) await addTags(w, ['broken']);
+      }
+      if (tile) {
+        await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
+        if (game.user.isGM) await addTags(tile, ['broken']);
+        undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: getMaterialAlpha(origMat) } });
+        undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
+      }
+      for (const { wall: w, restrict } of prevWallData) {
+        undoOps.push({ op: 'update',     uuid: w.uuid, data: restrict });
+        undoOps.push({ op: 'removeTags', uuid: w.uuid, tags: ['broken'] });
+      }
+    }
+  } else {
+    await safeDelete(wall);
+  }
+};
+
 const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false) => {
   // Grabbed creatures can only be force moved by their grabber.
   const grabState = window._activeGrabs?.get(targetToken.id);
@@ -370,6 +489,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
   const GRID      = getGRID();
   const stability = ignoreStability ? 0 : (targetToken.actor?.system?.combat?.stability ?? 0);
+  const tokenSize = targetToken.actor?.system?.combat?.size?.value ?? targetToken.document.width ?? 1;
+  const isLargeToken = !getSetting('legacySingleCellCollisions') && tokenSize >= 2;
 
   let effectiveDistance   = distance;
   let effectiveVertical   = verticalHeight;
@@ -426,6 +547,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
   };
 
   
+  const cornerCutMode = getSetting('cornerCutMode');
+
   let autoPath = null;
   if (fastMove && reduced > 0) {
       if (sourceToken && (type === 'Push' || type === 'Pull')) {
@@ -511,10 +634,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     const colorInvalid   = 0xcc4444;
     const colorCollision = 0xff7700; // orange - "you can go here but it'll hurt"
 
-    const cornerCutMode = getSetting('cornerCutMode');
-
-    
-    
     const computeRangeHighlight = () => {
       const reachable = new Set();
       const key = g => `${g.x},${g.y}`;
@@ -643,14 +762,22 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     };
 
     // returns whether a step in the already-drawn path (or a hover step) will cause a collision
-    const stepIsCollision = (from, to) =>
-      wallReachable.has(`${to.x},${to.y}`) ||
-      cornerCutsWall(from, to) ||
-      !!tokenAt(to.x, to.y, targetToken.id);
+    const stepIsCollision = (from, to) => {
+      if (wallReachable.has(`${to.x},${to.y}`) || cornerCutsWall(from, to)) return true;
+      if (isLargeToken) {
+        return tokensAtCells(footprintCells(to.x, to.y, tokenSize), targetToken.id).length > 0;
+      }
+      return !!tokenAt(to.x, to.y, targetToken.id);
+    };
+
+    // Size of the token footprint in world pixels (1x1 for normal tokens, NxN for large)
+    const footW = GRID * tokenSize;
+    const footH = GRID * tokenSize;
 
     const redraw = (hoverGrid) => {
       graphics.clear();
 
+      // Range background -- always 1x1 cells (these mark reachable top-left positions)
       for (const k of rangeHighlight) {
         const [gx, gy] = k.split(',').map(Number);
         const rw = toWorld({ x: gx, y: gy });
@@ -665,21 +792,31 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         graphics.drawRect(rw.x, rw.y, GRID, GRID);
         graphics.endFill();
       }
-      graphics.beginFill(colorStart, 0.35);
-      const sw = toWorld(startGrid);
-      graphics.drawRect(sw.x, sw.y, GRID, GRID);
-      graphics.endFill();
 
-      // draw placed path steps, coloring collision steps darker
+      // Collect all token-footprint cells into a map so overlapping footprints across
+      // adjacent path steps don't stack transparent fills and create a gradient.
+      // Priority: hover and suggestion overwrite placed steps, placed steps overwrite start.
+      const cellMap = new Map();
+
+      const setCells = (gx, gy, color, alpha) => {
+        for (let ix = 0; ix < tokenSize; ix++) {
+          for (let iy = 0; iy < tokenSize; iy++) {
+            cellMap.set(`${gx + ix},${gy + iy}`, { color, alpha });
+          }
+        }
+      };
+
+      // Start position (lowest priority)
+      setCells(startGrid.x, startGrid.y, colorStart, 0.35);
+
+      // Placed path steps
       for (let pi = 0; pi < path.length; pi++) {
         const p    = path[pi];
         const prev = pi > 0 ? path[pi - 1] : startGrid;
-        graphics.beginFill(stepIsCollision(prev, p) ? colorCollision : colorPath, 0.45);
-        const pw = toWorld(p);
-        graphics.drawRect(pw.x, pw.y, GRID, GRID);
-        graphics.endFill();
+        setCells(p.x, p.y, stepIsCollision(prev, p) ? colorCollision : colorPath, 0.45);
       }
 
+      // Hover and suggestion (highest priority, overwrites placed cells)
       if (hoverGrid && path.length < reduced) {
         const prev = path.length ? path[path.length - 1] : startGrid;
         const hk   = `${hoverGrid.x},${hoverGrid.y}`;
@@ -687,35 +824,29 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const destCollision = stepIsCollision(prev, hoverGrid);
 
         if (isValidStep(prev, hoverGrid)) {
-          // single step directly to hover - green or orange depending on collision
-          const hw = toWorld(hoverGrid);
-          graphics.beginFill(destCollision ? colorCollision : colorValid, 0.45);
-          graphics.drawRect(hw.x, hw.y, GRID, GRID);
-          graphics.endFill();
+          setCells(hoverGrid.x, hoverGrid.y, destCollision ? colorCollision : colorValid, 0.45);
         } else if (inRange) {
-          // multi-step suggestion - color each intermediate step individually
           const suggestion = getSuggestedPath(prev, hoverGrid);
           if (suggestion) {
             let suggPrev = prev;
             for (const s of suggestion) {
-              graphics.beginFill(stepIsCollision(suggPrev, s) ? colorCollision : colorSuggest, 0.45);
-              const sw = toWorld(s);
-              graphics.drawRect(sw.x, sw.y, GRID, GRID);
-              graphics.endFill();
+              setCells(s.x, s.y, stepIsCollision(suggPrev, s) ? colorCollision : colorSuggest, 0.45);
               suggPrev = s;
             }
           }
-          // destination tile
-          const hw = toWorld(hoverGrid);
-          graphics.beginFill(destCollision ? colorCollision : colorValid, 0.45);
-          graphics.drawRect(hw.x, hw.y, GRID, GRID);
-          graphics.endFill();
+          setCells(hoverGrid.x, hoverGrid.y, destCollision ? colorCollision : colorValid, 0.45);
         } else {
-          graphics.beginFill(colorInvalid, 0.4);
-          const hw = toWorld(hoverGrid);
-          graphics.drawRect(hw.x, hw.y, GRID, GRID);
-          graphics.endFill();
+          setCells(hoverGrid.x, hoverGrid.y, colorInvalid, 0.4);
         }
+      }
+
+      // Draw each cell exactly once
+      for (const [key, { color, alpha }] of cellMap) {
+        const [gx, gy] = key.split(',').map(Number);
+        const pw = toWorld({ x: gx, y: gy });
+        graphics.beginFill(color, alpha);
+        graphics.drawRect(pw.x, pw.y, GRID, GRID);
+        graphics.endFill();
       }
     };
 
@@ -894,6 +1025,12 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     let costConsumed    = 0;
     const movedSnap     = snapStamina(targetToken.actor);
 
+    // Tracks total damage dealt to the moving token across all collision events this move.
+    let totalTargetDmg = 0;
+    const dmgTarget = async (dmg) => {
+      if (!noCollisionDamage && dmg > 0) { await applyDamage(targetToken.actor, dmg); totalTargetDmg += dmg; }
+    };
+
     for (let i = 0; i < path.length; i++) {
       const step      = path[i];
       const prev      = i > 0 ? path[i - 1] : startGrid;
@@ -926,6 +1063,165 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             break;
           }
         }
+      }
+
+      // ── Size 2+ full-footprint collision ─────────────────────────────────────
+      if (isLargeToken) {
+        const dx        = step.x - prev.x;
+        const dy        = step.y - prev.y;
+        const prevCells = footprintCells(prev.x, prev.y, tokenSize);
+        const stepCells = footprintCells(step.x, step.y, tokenSize);
+        const newCells  = newlyEnteredCells(prevCells, stepCells);
+
+        // Wall collision: check every leading edge of the footprint
+        const hitWalls = wallsAtStep(newCells, dx, dy, stepElev);
+        if (hitWalls.length > 0) {
+          // Any wall without 'obstacle' tag, or non-breakable obstacle, stops movement outright
+          const hardWalls = hitWalls.filter(w => !hasTags(w, 'obstacle') || !hasTags(w, 'breakable'));
+          if (hardWalls.length > 0) {
+            landingIndex = i - 1;
+            const dmg = 2 + remaining + bonusObjectDmg;
+            await dmgTarget(dmg);
+            if (getSetting('debugMode')) console.log(`DSCT | FM | Large token hit indestructible wall at step ${i}. dmg=${dmg}`);
+            collisionMsgs.push(`${targetToken.name} hits a wall and takes <strong>${dmg} damage</strong>.`);
+            break;
+          }
+          // All walls are breakable.
+          // Forced movement is applied to every wall simultaneously; cost = max of all costs,
+          // not the sum (RAW: the momentum check is against each wall independently).
+          const softWalls  = hitWalls;
+          const maxCost    = softWalls.reduce((m, w) => Math.max(m, MATERIAL_RULES()[getMaterial(w)]?.cost ?? 99), 0);
+          const maxWallDmg = softWalls.reduce((m, w) => Math.max(m, MATERIAL_RULES()[getMaterial(w)]?.damage ?? 0), 0);
+          const wallDesc = (walls) => {
+            const counts = {};
+            for (const w of walls) { const m = getMaterial(w); counts[m] = (counts[m] ?? 0) + 1; }
+            return Object.entries(counts).map(([m, n]) => n > 1 ? `${n} ${m} walls` : `a ${m} wall`).join(' and ');
+          };
+          if (remaining >= maxCost) {
+            // Break ALL walls; one momentum check covers all of them
+            for (const wall of softWalls) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs);
+            const wallDmg = maxWallDmg + bonusObjectDmg;
+            collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(softWalls)} (costs ${maxCost}, deals <strong>${wallDmg} damage</strong>).`);
+            await dmgTarget(wallDmg);
+            if (getSetting('debugMode')) console.log(`DSCT | FM | Large token broke ${softWalls.length} wall(s). maxCost=${maxCost}, maxDmg=${maxWallDmg}`);
+            costConsumed += maxCost - 1;
+            continue;
+          } else {
+            // Cannot break the hardest wall; break any affordable ones (they're demolished regardless), then stop
+            const brokenWalls = softWalls.filter(w => remaining >= (MATERIAL_RULES()[getMaterial(w)]?.cost ?? 99));
+            for (const wall of brokenWalls) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs);
+            if (brokenWalls.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(brokenWalls)}.`);
+            landingIndex = i - 1;
+            const dmg = 2 + remaining + bonusObjectDmg;
+            await dmgTarget(dmg);
+            if (getSetting('debugMode')) console.log(`DSCT | FM | Large token stopped (maxCost=${maxCost} > remaining=${remaining}). dmg=${dmg}`);
+            collisionMsgs.push(`${targetToken.name} is stopped by a wall it cannot break through (needs ${maxCost}, has ${remaining}). Takes <strong>${dmg} damage</strong>.`);
+            break;
+          }
+        }
+
+        // Token collision: check the full destination footprint
+        const blockers = tokensAtCells(stepCells, targetToken.id);
+        if (blockers.length > 0) {
+          landingIndex = i - 1;
+          const dmg             = remaining + bonusCreatureDmg;
+          const movedSquadGroup = getSquadGroup(targetToken.actor);
+          // Mover takes damage once regardless of how many creatures are hit (RAW)
+          await dmgTarget(dmg);
+          for (const blocker of blockers) {
+            undoOps.push({ op: 'update', uuid: blocker.document.uuid, data: { x: blocker.document.x, y: blocker.document.y, elevation: blocker.document.elevation ?? 0 }, options: { animate: false, teleport: true } });
+            const blockerSquadGroup = getSquadGroup(blocker.actor);
+            const sharedGroup = movedSquadGroup && blockerSquadGroup && movedSquadGroup.id === blockerSquadGroup.id ? movedSquadGroup : null;
+            const prevSharedHP = sharedGroup?.system?.staminaValue ?? null;
+            const blockerPrev = noCollisionDamage ? null : await applyDamage(blocker.actor, dmg, sharedGroup ? null : blockerSquadGroup);
+            if (blockerPrev && sharedGroup && prevSharedHP !== null) {
+              const sharedMembers = Array.from(sharedGroup.members || []).filter(m => m);
+              blockerPrev.squadGroup        = sharedGroup;
+              blockerPrev.prevSquadHP       = prevSharedHP;
+              blockerPrev.squadCombatantIds = sharedMembers.map(m => m.id);
+              blockerPrev.squadTokenIds     = sharedMembers.map(m => m.tokenId).filter(Boolean);
+            }
+            if (blockerPrev) undoOps.push({ op: 'stamina', uuid: blocker.actor.uuid, prevValue: blockerPrev.prevValue, prevTemp: blockerPrev.prevTemp, squadGroupUuid: blockerPrev.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev.prevSquadHP, squadCombatantIds: blockerPrev.squadCombatantIds, squadTokenIds: blockerPrev.squadTokenIds ?? [] });
+          }
+          const blockerNames = blockers.map(b => b.name).join(', ');
+          const bonusNote    = bonusCreatureDmg ? ` (${remaining} + ${bonusCreatureDmg} bonus)` : '';
+          collisionMsgs.push(`<strong>Collision!</strong> ${targetToken.name} crashes into ${blockerNames} with ${remaining} square${remaining !== 1 ? 's' : ''} remaining. All take <strong>${dmg} damage</strong>${bonusNote}.`);
+          break;
+        }
+
+        // Tile collision: check all obstacle tiles in the destination footprint
+        const hitTiles = tilesAtCells(stepCells).filter(tile => {
+          if (!hasTags(tile, 'obstacle') || hasTags(tile, 'broken')) return false;
+          if (isVertical) {
+            const bt  = getTags(tile).find(t => t.startsWith('wall-block-'));
+            const tws = bt ? getByTag(bt).filter(o => Array.isArray(o.c)) : [];
+            const tBottom = tws[0]?.flags?.['wall-height']?.bottom ?? 0;
+            const tTop    = tws[0]?.flags?.['wall-height']?.top    ?? Infinity;
+            if (stepElev >= tTop || stepElev < tBottom) return false;
+          }
+          return true;
+        });
+        if (hitTiles.length > 0) {
+          const tileDesc = (tiles) => {
+            const counts = {};
+            for (const t of tiles) { const m = getMaterial(t); counts[m] = (counts[m] ?? 0) + 1; }
+            return Object.entries(counts).map(([m, n]) => n > 1 ? `${n} ${m} objects` : `a ${m} object`).join(' and ');
+          };
+          const hardTiles = hitTiles.filter(t => !hasTags(t, 'breakable'));
+          if (hardTiles.length > 0) {
+            landingIndex = i - 1;
+            const dmg = 2 + remaining + bonusObjectDmg;
+            await dmgTarget(dmg);
+            collisionMsgs.push(`${targetToken.name} is stopped by an obstacle and takes <strong>${dmg} damage</strong>.`);
+            break;
+          }
+          // Same parallel-cost logic as walls: cost = max, not sum
+          const softTiles   = hitTiles;
+          const maxTileCost = softTiles.reduce((m, t) => Math.max(m, MATERIAL_RULES()[getMaterial(t)]?.cost ?? 99), 0);
+          const maxTileDmg  = softTiles.reduce((m, t) => Math.max(m, MATERIAL_RULES()[getMaterial(t)]?.damage ?? 0), 0);
+          const breakTile = async (tile) => {
+            const origMat  = getMaterial(tile);
+            const blockTag = getTags(tile).find(t => t.startsWith('wall-block-'));
+            if (blockTag) {
+              const walls        = getByTag(blockTag).filter(o => Array.isArray(o.c));
+              const prevWallData = walls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
+              for (const wall of walls) {
+                await safeUpdate(wall, { move: 0, sight: 0, light: 0, sound: 0 });
+                if (game.user.isGM) await addTags(wall, ['broken']);
+              }
+              await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
+              if (game.user.isGM) await addTags(tile, ['broken']);
+              undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: getMaterialAlpha(origMat) } });
+              undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
+              for (const { wall, restrict } of prevWallData) {
+                undoOps.push({ op: 'update',     uuid: wall.uuid, data: restrict });
+                undoOps.push({ op: 'removeTags', uuid: wall.uuid, tags: ['broken'] });
+              }
+            } else {
+              await safeDelete(tile.document);
+            }
+          };
+          if (remaining >= maxTileCost) {
+            for (const tile of softTiles) await breakTile(tile);
+            const tileDmg = maxTileDmg + bonusObjectDmg;
+            collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(softTiles)} (costs ${maxTileCost}, deals <strong>${tileDmg} damage</strong>).`);
+            await dmgTarget(tileDmg);
+            costConsumed += maxTileCost - 1;
+            continue;
+          } else {
+            // Break affordable tiles, stop at the hardest
+            const brokenTiles = softTiles.filter(t => remaining >= (MATERIAL_RULES()[getMaterial(t)]?.cost ?? 99));
+            for (const tile of brokenTiles) await breakTile(tile);
+            if (brokenTiles.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(brokenTiles)}.`);
+            landingIndex = i - 1;
+            const dmg = 2 + remaining + bonusObjectDmg;
+            await dmgTarget(dmg);
+            collisionMsgs.push(`${targetToken.name} is stopped by an obstacle (needs ${maxTileCost}, has ${remaining}). Takes <strong>${dmg} damage</strong>.`);
+            break;
+          }
+        }
+
+        continue; // no collision; skip the single-cell checks below
       }
 
       let wall = wallBetween(prev, step);
@@ -1159,7 +1455,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       window._grabFMSuppressed.add(targetToken.id);
     }
 
-    // Suspend the frightened movement restriction for the duration of the animation —
+    // Suspend the frightened movement restriction for the duration of the animation;
     // forced movement is involuntary repositioning, not voluntary approach.
     window._dsctFMBypassFrightened ??= new Set();
     window._dsctFMBypassFrightened.add(targetToken.id);
@@ -1250,6 +1546,10 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
     const moveId = foundry.utils.randomID();
     const fullUndoLog = buildUndoLog(targetToken, startPos, startElevSnap, movedSnap, undoOps);
+
+    if (totalTargetDmg > 0) {
+      collisionMsgs.push(`<strong>Total damage to ${targetToken.name}: ${totalTargetDmg}</strong>`);
+    }
 
     if (getSetting('debugMode')) {
       const liveSnap = canvas.scene.tokens.get(targetToken.id);
@@ -1705,7 +2005,7 @@ export const toggleForcedMovementPanel = () => {
 
 /**
  * Reapply a list of grabs that were ended by forced movement, respecting multi-grab limits.
- * maxGrabs is derived from how many entries share the same grabberTokenId — this handles
+ * maxGrabs is derived from how many entries share the same grabberTokenId; this handles
  * creatures with whitelisted multi-grab abilities (e.g. claw-swing: 2, several-arms: 4).
  */
 const restoreGrabs = async (grabsToRestore) => {
