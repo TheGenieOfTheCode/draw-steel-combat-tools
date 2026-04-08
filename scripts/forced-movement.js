@@ -524,7 +524,26 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
   const startElev  = targetToken.document.elevation ?? 0;
   const agility    = targetToken.actor?.system?.characteristics?.agility?.value ?? 0;
   const canFly     = canCurrentlyFly(targetToken.actor);
-  const sourceGrid = sourceToken ? toGrid(sourceToken.document) : null;
+  // Use the center of the source token's footprint for distance calculations.
+  // For a size-2 token this is the grid intersection between its 4 cells;
+  // for size-3 it is the center of the middle cell. Fractional values are
+  // intentional and work correctly with gridDist (Chebyshev, no rounding).
+  const sourceSize = sourceToken
+    ? (sourceToken.actor?.system?.combat?.size?.value ?? sourceToken.document.width ?? 1)
+    : 1;
+  const sourceGrid = sourceToken ? {
+    x: sourceToken.document.x / GRID + sourceSize / 2,
+    y: sourceToken.document.y / GRID + sourceSize / 2,
+  } : null;
+  // Cells occupied by the source token, used to exclude them from the range highlight.
+  const sourceCells = sourceToken
+    ? footprintCells(
+        Math.round(sourceToken.document.x / GRID),
+        Math.round(sourceToken.document.y / GRID),
+        sourceSize
+      )
+    : [];
+  const sourceCellSet = new Set(sourceCells.map(c => `${c.x},${c.y}`));
   const startGrid  = toGrid(targetToken.document);
 
   const buildSummary = () => {
@@ -549,18 +568,40 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
   
   const cornerCutMode = getSetting('cornerCutMode');
 
+  // Half-size offset converts a token top-left grid position to its footprint center.
+  // Used in all Push/Pull distance comparisons for center-to-center distances.
+  const hs = tokenSize / 2;
+  const ctr = (g) => ({ x: g.x + hs, y: g.y + hs });
+
   let autoPath = null;
   if (fastMove && reduced > 0) {
       if (sourceToken && (type === 'Push' || type === 'Pull')) {
           let dx = targetToken.center.x - sourceToken.center.x;
           let dy = targetToken.center.y - sourceToken.center.y;
-          
+
 		if (dx !== 0 || dy !== 0) {
                 let angle = Math.atan2(dy, dx);
                 if (type === 'Pull') angle += Math.PI;
-                
+
                 const dirX = Math.cos(angle);
                 const dirY = Math.sin(angle);
+
+                // Debug: draw the direction line on the canvas for 2 seconds.
+                if (getSetting('debugMode')) {
+                  const dbgGfx = new PIXI.Graphics();
+                  canvas.app.stage.addChild(dbgGfx);
+                  const sc = sourceToken.center;
+                  const tc = targetToken.center;
+                  const lineLen = Math.sqrt(dx * dx + dy * dy) * 1.5;
+                  dbgGfx.lineStyle(3, 0xff0000, 0.9);
+                  dbgGfx.moveTo(sc.x, sc.y);
+                  dbgGfx.lineTo(sc.x + dirX * lineLen, sc.y + dirY * lineLen);
+                  dbgGfx.lineStyle(3, 0x00ffff, 0.9);
+                  dbgGfx.moveTo(sc.x, sc.y);
+                  dbgGfx.lineTo(tc.x, tc.y);
+                  console.log(`DSCT | AutoPath debug | src center=(${sc.x.toFixed(1)},${sc.y.toFixed(1)}) tgt center=(${tc.x.toFixed(1)},${tc.y.toFixed(1)}) angle=${(angle*180/Math.PI).toFixed(1)} deg dirX=${dirX.toFixed(3)} dirY=${dirY.toFixed(3)}`);
+                  setTimeout(() => { canvas.app.stage.removeChild(dbgGfx); dbgGfx.destroy(); }, 2000);
+                }
               
               autoPath = [];
               let currGrid = { ...startGrid };
@@ -576,22 +617,29 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                   let bestScore = Infinity;
 
                   for (const adj of adjacents) {
+                      if (sourceCellSet.has(`${adj.x},${adj.y}`)) continue;
                       if (cornerCutsWall(currGrid, adj) && cornerCutMode === 'block') continue;
-                      let distSource = gridDist(adj, sourceGrid);
-                      let currDistSource = gridDist(currGrid, sourceGrid);
+
+                      // Compare footprint centers (top-left + half-size) to avoid diagonal
+                      // bias when source or target is larger than size 1.
+                      let distSource = gridDist(ctr(adj), sourceGrid);
+                      let currDistSource = gridDist(ctr(currGrid), sourceGrid);
 
                       if (type === 'Push' && distSource <= currDistSource) continue;
                       if (type === 'Pull' && distSource >= currDistSource && distSource !== 0) continue;
 
-                      let c = toCenter(adj);
-                      let vx = c.x - targetToken.center.x;
-                      let vy = c.y - targetToken.center.y;
-                      
-                      
-                      let dot = vx * dirX + vy * dirY;
-                      if (dot <= 0.1) continue; 
+                      // Direction score: use the footprint center of the candidate position,
+                      // not just the center of its top-left cell, so large tokens score correctly.
+                      const adjCenterWorld = {
+                          x: adj.x * GRID + tokenSize * GRID / 2,
+                          y: adj.y * GRID + tokenSize * GRID / 2,
+                      };
+                      let vx = adjCenterWorld.x - targetToken.center.x;
+                      let vy = adjCenterWorld.y - targetToken.center.y;
 
-                      
+                      let dot = vx * dirX + vy * dirY;
+                      if (dot <= 0.1) continue;
+
                       let cross = Math.abs(vx * dirY - vy * dirX);
 
                       // 0.001 is a tiebreaker. without it, candidates with the same perpendicular
@@ -650,8 +698,9 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         ];
         for (const nb of neighbors) {
           if (gridEq(nb, startGrid)) continue;
-          if (type === 'Push' && sourceGrid && gridDist(nb, sourceGrid) <= gridDist(pos, sourceGrid)) continue;
-          if (type === 'Pull' && sourceGrid && gridDist(nb, sourceGrid) >= gridDist(pos, sourceGrid)) continue;
+          if (sourceCellSet.has(key(nb))) continue;
+          if (type === 'Push' && sourceGrid && gridDist(ctr(nb), sourceGrid) <= gridDist(ctr(pos), sourceGrid)) continue;
+          if (type === 'Pull' && sourceGrid && gridDist(ctr(nb), sourceGrid) >= gridDist(ctr(pos), sourceGrid)) continue;
           if (cornerCutsWall(pos, nb) && cornerCutMode === 'block') continue;
           const k = key(nb);
           if (!visited.has(k)) {
@@ -671,9 +720,9 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           { x: pos.x, y: pos.y - 1 }, { x: pos.x, y: pos.y + 1 },
         ]) {
           const nk = key(nb);
-          if (!reachable.has(nk) && !gridEq(nb, startGrid)) {
-            if (type === 'Push' && sourceGrid && gridDist(nb, sourceGrid) <= gridDist(pos, sourceGrid)) continue;
-            if (type === 'Pull' && sourceGrid && gridDist(nb, sourceGrid) >= gridDist(pos, sourceGrid)) continue;
+          if (!reachable.has(nk) && !gridEq(nb, startGrid) && !sourceCellSet.has(nk)) {
+            if (type === 'Push' && sourceGrid && gridDist(ctr(nb), sourceGrid) <= gridDist(ctr(pos), sourceGrid)) continue;
+            if (type === 'Pull' && sourceGrid && gridDist(ctr(nb), sourceGrid) >= gridDist(ctr(pos), sourceGrid)) continue;
             wallReachable.add(nk);
           }
         }
@@ -685,13 +734,14 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     const isValidStep = (from, to) => {
       if (gridDist(from, to) !== 1) return false;
       if (gridEq(to, startGrid)) return false;
+      if (sourceCellSet.has(`${to.x},${to.y}`)) return false;
       for (const p of path) if (gridEq(to, p)) return false;
       if (cornerCutsWall(from, to) && cornerCutMode === 'block') return false;
       if (type === 'Push' && sourceGrid) {
-        if (gridDist(to, sourceGrid) <= gridDist(from, sourceGrid)) return false;
+        if (gridDist(ctr(to), sourceGrid) <= gridDist(ctr(from), sourceGrid)) return false;
       }
       if (type === 'Pull' && sourceGrid) {
-        if (gridDist(to, sourceGrid) >= gridDist(from, sourceGrid)) return false;
+        if (gridDist(ctr(to), sourceGrid) >= gridDist(ctr(from), sourceGrid)) return false;
       }
       return true;
     };
@@ -715,9 +765,10 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           let chosen = null;
           for (const c of candidates) {
             if (gridEq(c, startGrid)) continue;
+            if (sourceCellSet.has(`${c.x},${c.y}`)) continue;
             if (path.some(p => gridEq(p, c)) || steps.some(s => gridEq(s, c))) continue;
-            if (type === 'Push' && sourceGrid && gridDist(c, sourceGrid) <= gridDist(curr, sourceGrid)) continue;
-            if (type === 'Pull' && sourceGrid && gridDist(c, sourceGrid) >= gridDist(curr, sourceGrid)) continue;
+            if (type === 'Push' && sourceGrid && gridDist(ctr(c), sourceGrid) <= gridDist(ctr(curr), sourceGrid)) continue;
+            if (type === 'Pull' && sourceGrid && gridDist(ctr(c), sourceGrid) >= gridDist(ctr(curr), sourceGrid)) continue;
             chosen = c;
             break;
           }
@@ -1128,6 +1179,11 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           const movedSquadGroup = getSquadGroup(targetToken.actor);
           // Mover takes damage once regardless of how many creatures are hit (RAW)
           await dmgTarget(dmg);
+          // Track squad groups already snapshotted so that only the FIRST blocker in a
+          // shared squad records the pre-damage squad HP. Subsequent blockers in the same
+          // squad must use prevSquadHP=null, otherwise each undo op overwrites the restored
+          // value with a stale intermediate snapshot.
+          const squadGroupsSnapshotted = new Set();
           for (const blocker of blockers) {
             undoOps.push({ op: 'update', uuid: blocker.document.uuid, data: { x: blocker.document.x, y: blocker.document.y, elevation: blocker.document.elevation ?? 0 }, options: { animate: false, teleport: true } });
             const blockerSquadGroup = getSquadGroup(blocker.actor);
@@ -1137,9 +1193,24 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             if (blockerPrev && sharedGroup && prevSharedHP !== null) {
               const sharedMembers = Array.from(sharedGroup.members || []).filter(m => m);
               blockerPrev.squadGroup        = sharedGroup;
-              blockerPrev.prevSquadHP       = prevSharedHP;
               blockerPrev.squadCombatantIds = sharedMembers.map(m => m.id);
               blockerPrev.squadTokenIds     = sharedMembers.map(m => m.tokenId).filter(Boolean);
+              // Only the first blocker from this squad gets the HP snapshot; later ones get null.
+              if (!squadGroupsSnapshotted.has(sharedGroup.id)) {
+                squadGroupsSnapshotted.add(sharedGroup.id);
+                blockerPrev.prevSquadHP = prevSharedHP;
+              } else {
+                blockerPrev.prevSquadHP = null;
+              }
+            } else if (blockerPrev && blockerPrev.squadGroup) {
+              // No sharedGroup (blocker's squad doesn't match mover's squad), but blocker
+              // itself may be in a squad. Same dedup applies if two blockers share a squad.
+              const sgId = blockerPrev.squadGroup.id;
+              if (squadGroupsSnapshotted.has(sgId)) {
+                blockerPrev.prevSquadHP = null;
+              } else {
+                squadGroupsSnapshotted.add(sgId);
+              }
             }
             if (blockerPrev) undoOps.push({ op: 'stamina', uuid: blocker.actor.uuid, prevValue: blockerPrev.prevValue, prevTemp: blockerPrev.prevTemp, squadGroupUuid: blockerPrev.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev.prevSquadHP, squadCombatantIds: blockerPrev.squadCombatantIds, squadTokenIds: blockerPrev.squadTokenIds ?? [] });
           }
