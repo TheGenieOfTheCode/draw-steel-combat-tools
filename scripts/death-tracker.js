@@ -70,10 +70,16 @@ export function registerDeathTrackerHooks() {
     const token = actor.isToken ? actor.token.object : canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
     if (!token) return;
 
+    if (getSetting('debugMode')) console.log(`DSCT | DT | createActiveEffect fired for ${actor.name} (${token.id}) statuses=[${statuses.join(',')}] effectId=${effect.id}`);
+
     if (!window._deathTrackerLocks) window._deathTrackerLocks = new Set();
-    if (window._deathTrackerLocks.has(token.id)) return;
+    if (window._deathTrackerLocks.has(token.id)) {
+      if (getSetting('debugMode')) console.log(`DSCT | DT | Lock already held for ${actor.name} (${token.id}), skipping.`);
+      return;
+    }
     window._deathTrackerLocks.add(token.id);
-    setTimeout(() => window._deathTrackerLocks.delete(token.id), 2000); 
+    if (getSetting('debugMode')) console.log(`DSCT | DT | Lock acquired for ${actor.name} (${token.id}).`);
+    setTimeout(() => { window._deathTrackerLocks.delete(token.id); if (getSetting('debugMode')) console.log(`DSCT | DT | Lock released for ${actor.name} (${token.id}).`); }, 2000);
 
     if (window._activeGrabs) {
       for (const [gid, grab] of [...window._activeGrabs.entries()]) {
@@ -153,10 +159,20 @@ export function registerDeathTrackerHooks() {
 
   Hooks.on('updateCombatantGroup', async (group, changes) => {
     if (!getSetting('deathTrackerEnabled') || !game.users.activeGM?.isSelf) return;
-    
+
     const newHp = changes.system?.staminaValue ?? changes.system?.stamina?.value;
     if (newHp === undefined) return;
     if (group.type !== 'squad') return;
+
+    // Guard against re-entrant calls: combatant deletion inside createActiveEffect can
+    // retrigger updateCombatantGroup for the same group while our loop is still running.
+    if (!window._squadDeathLocks) window._squadDeathLocks = new Set();
+    if (window._squadDeathLocks.has(group.id)) {
+      if (getSetting('debugMode')) console.log(`DSCT | DT | updateCombatantGroup re-entrant call skipped for group ${group.id} (already processing).`);
+      return;
+    }
+    window._squadDeathLocks.add(group.id);
+    if (getSetting('debugMode')) console.log(`DSCT | DT | updateCombatantGroup lock acquired for group ${group.id} newHp=${newHp}.`);
 
     
     const minions = Array.from(group.members || []).filter(m => {
@@ -166,38 +182,47 @@ export function registerDeathTrackerHooks() {
       return roleStr === 'minion';
     });
 
-    if (minions.length === 0) return;
-
-    
-    if (newHp <= 0) {
-      const updates = [];
-      for (const minion of minions) {
-         if (minion.actor && !minion.actor.statuses?.has('dead') && !minion.actor.statuses?.has('dying')) {
-            updates.push(minion.actor.toggleStatusEffect('dying', { active: true }));
-         }
-         
-         updates.push(minion.update({ groupId: null })); 
-      }
-      await Promise.allSettled(updates);
+    if (minions.length === 0) {
+      window._squadDeathLocks.delete(group.id);
       return;
     }
 
-    
-    const indivHP = minions[0].actor?.system?.stamina?.max || 1;
-    const currentCount = minions.length;
-    const expectedCount = Math.ceil(newHp / indivHP);
-    const numToKill = currentCount - expectedCount;
-
-    if (numToKill > 0) {
-      const chosenUserId = resolveBreakpointUser();
-      const api = getModuleApi(false);
-      const socket = api?.socket;
-      if (chosenUserId === game.user.id || !socket) {
-        // it's us (the GM) - open directly
-        if (api?.powerWordKill) api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions });
-      } else {
-        socket.executeAsUser('openSquadBreakpoint', chosenUserId, group.id, numToKill);
+    try {
+      if (newHp <= 0) {
+        if (getSetting('debugMode')) console.log(`DSCT | DT | Squad HP reached 0 for group ${group.id}. Killing all ${minions.length} minion(s) sequentially.`);
+        // Apply toggleStatusEffect sequentially to avoid the fixed-ID duplicate-effect
+        // collision that occurs when concurrent calls race to create the same effect ID.
+        for (const minion of minions) {
+          if (!minion.actor) continue;
+          const alreadyDead = minion.actor.statuses?.has('dead') || minion.actor.statuses?.has('dying');
+          if (getSetting('debugMode')) console.log(`DSCT | DT | Minion ${minion.actor.name} (token ${minion.tokenId}) alreadyDead=${alreadyDead}`);
+          if (!alreadyDead) {
+            await minion.actor.toggleStatusEffect('dying', { active: true });
+            if (getSetting('debugMode')) console.log(`DSCT | DT | Applied dying to ${minion.actor.name}.`);
+          }
+          await minion.update({ groupId: null });
+        }
+        return;
       }
+
+      const indivHP = minions[0].actor?.system?.stamina?.max || 1;
+      const currentCount = minions.length;
+      const expectedCount = Math.ceil(newHp / indivHP);
+      const numToKill = currentCount - expectedCount;
+
+      if (numToKill > 0) {
+        const chosenUserId = resolveBreakpointUser();
+        const api = getModuleApi(false);
+        const socket = api?.socket;
+        if (chosenUserId === game.user.id || !socket) {
+          if (api?.powerWordKill) api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions });
+        } else {
+          socket.executeAsUser('openSquadBreakpoint', chosenUserId, group.id, numToKill);
+        }
+      }
+    } finally {
+      window._squadDeathLocks.delete(group.id);
+      if (getSetting('debugMode')) console.log(`DSCT | DT | updateCombatantGroup lock released for group ${group.id}.`);
     }
   });
 
@@ -518,26 +543,25 @@ export const runPowerWordKillUI = (options = {}) => {
         return;
       }
 
-      const deadUpdates = [];
+      // Apply status effects sequentially to avoid the fixed-ID duplicate-effect
+      // collision that occurs when concurrent toggleStatusEffect calls race on the same IDs.
       for (const id of selectedTokens) {
         const t = canvas.tokens.get(id);
-        if (t && t.actor) {
-           if (squadGroup) {
-               
-               if (!t.actor.statuses?.has('dead') && !t.actor.statuses?.has('dying')) {
-                   deadUpdates.push(t.actor.toggleStatusEffect('dying', { active: true }));
-               }
-               const combatant = minionCombatants.find(c => c.tokenId === id);
-               if (combatant) deadUpdates.push(combatant.update({ groupId: null }));
-           } else {
-               
-               if (!t.actor.statuses?.has('dead')) {
-                   deadUpdates.push(t.actor.toggleStatusEffect('dead', { active: true }));
-               }
-           }
+        if (!t?.actor) continue;
+        if (squadGroup) {
+          if (!t.actor.statuses?.has('dead') && !t.actor.statuses?.has('dying')) {
+            if (getSetting('debugMode')) console.log(`DSCT | DT | PWK (squad) applying dying to ${t.actor.name} (${id})`);
+            await t.actor.toggleStatusEffect('dying', { active: true });
+          }
+          const combatant = minionCombatants.find(c => c.tokenId === id);
+          if (combatant) await combatant.update({ groupId: null });
+        } else {
+          if (!t.actor.statuses?.has('dead')) {
+            if (getSetting('debugMode')) console.log(`DSCT | DT | PWK applying dead to ${t.actor.name} (${id})`);
+            await t.actor.toggleStatusEffect('dead', { active: true });
+          }
         }
       }
-      await Promise.allSettled(deadUpdates);
       
       const finalMsg = squadGroup ? `Squad Breakpoint: Killed ${selectedTokens.size} minion(s).` : (selectedTokens.size > 1 ? 'MASS POWER WORD: KILL' : 'POWER WORD: KILL');
       ui.notifications.info(finalMsg);
