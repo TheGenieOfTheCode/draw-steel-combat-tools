@@ -177,7 +177,8 @@ const breakBlock = async (tile) => {
     await addTags(wall, ['broken']);
     await restoreOverlappingSight(wall);
   }
-  await tile.document.update({ 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
+  const brokenAlpha = (hasTags(tile, 'invisible') && getSetting('keepInvisibleWhenBroken')) ? 0 : 0.8;
+  await tile.document.update({ 'texture.src': MATERIAL_ICONS.broken, alpha: brokenAlpha });
   await addTags(tile, ['broken']);
 };
 
@@ -200,7 +201,7 @@ const fixBlock = async (tile) => {
     await removeTags(wall, ['broken']);
     await suppressOverlappingSight(wall);
   }
-  const fixedAlpha = hasTags(tile, 'wall-converted') ? 0 : getMaterialAlpha(material);
+  const fixedAlpha = hasTags(tile, 'invisible') ? 0 : getMaterialAlpha(material);
   await tile.document.update({ 'texture.src': getMaterialIcon(material), alpha: fixedAlpha });
   await removeTags(tile, ['broken', 'partially-broken']);
   if (damagedTag) await removeTags(tile, [damagedTag]);
@@ -290,7 +291,7 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
             'texture.src': getMaterialIcon(material),
             alpha: invisible ? 0 : getMaterialAlpha(material),
           });
-          await addTags(existing, ['obstacle', 'breakable', blockId, material, ...(stable ? ['stable'] : [])]);
+          await addTags(existing, ['obstacle', 'breakable', blockId, material, ...(stable ? ['stable'] : []), ...(invisible ? ['invisible'] : [])]);
           squareTileMap.set(key, { gx, gy, blockId });
           continue;
         }
@@ -315,7 +316,7 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
     };
     if (heightBottom !== '') tileData.elevation = heightBottom - 1;
     const [tile] = await canvas.scene.createEmbeddedDocuments('Tile', [tileData]);
-    await addTags(tile, ['obstacle', 'breakable', blockId, material, ...(stable ? ['stable'] : [])]);
+    await addTags(tile, ['obstacle', 'breakable', blockId, material, ...(stable ? ['stable'] : []), ...(invisible ? ['invisible'] : [])]);
     if (heightBottom !== '' || heightTop !== '') {
       const hf = {};
       if (heightBottom !== '') hf.bottom = heightBottom;

@@ -158,6 +158,11 @@ Hooks.once('init', () => {
   game.settings.register(M, 'wbDefaultHeightBottom', { scope: 'world', config: false, type: String, default: '' });
   game.settings.register(M, 'wbDefaultHeightTop',    { scope: 'world', config: false, type: String, default: '' });
   game.settings.register(M, 'customMaterials',       { scope: 'world', config: false, type: Array,  default: [] });
+  game.settings.register(M, 'keepInvisibleWhenBroken', {
+    name: 'Keep Invisible Wall Tiles Invisible When Broken',
+    hint: 'If enabled, obstacle tiles tagged as invisible (e.g. converted walls created with the invisible option) remain at alpha 0 after being broken. Useful when you want no visual change on the canvas regardless of state.',
+    scope: 'world', config: true, type: Boolean, default: false,
+  });
 
   game.settings.register(M, 'showForcedMovementButton', {
     name: 'Show Forced Movement Button', hint: 'Show the Forced Movement toolbar button in the token controls.',
@@ -172,7 +177,7 @@ Hooks.once('init', () => {
     scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
   game.settings.register(M, 'showWallBuilderButton', {
-    name: 'Show Wall Builder Button', hint: 'Show the Wall Builder toolbar button in the token controls (GM only).',
+    name: 'Show Wall Builder Button', hint: 'Show the Wall Builder toolbar button in the Walls layer controls (GM only).',
     scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
   game.settings.register(M, 'showPowerWordKillButton', {
