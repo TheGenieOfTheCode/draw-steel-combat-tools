@@ -248,7 +248,9 @@ const breakTileFromTop = async (tile, fallDmg, undoOps, collisionMsgs, targetTok
       await safeUpdate(w, { move: 0, sight: 0, light: 0, sound: 0 });
       if (game.user.isGM) await addTags(w, ['broken']);
     }
-    await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
+    const prevAlpha   = tile.document.alpha ?? getMaterialAlpha(mat);
+    const brokenAlpha = (hasTags(tile, 'invisible') && getSetting('keepInvisibleWhenBroken')) ? 0 : 0.8;
+    await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: brokenAlpha });
     if (game.user.isGM) await addTags(tile, ['broken']);
 
     const restrict = WALL_RESTRICTIONS()[mat] ?? WALL_RESTRICTIONS().stone;
@@ -256,7 +258,7 @@ const breakTileFromTop = async (tile, fallDmg, undoOps, collisionMsgs, targetTok
       undoOps.push({ op: 'update', uuid: w.uuid, data: { ...restrict, 'flags.wall-height.top': tileTop, 'flags.wall-height.bottom': tileBottom } });
       undoOps.push({ op: 'removeTags', uuid: w.uuid, tags: ['broken'] });
     }
-    undoOps.push({ op: 'update', uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(mat), alpha: getMaterialAlpha(mat) } });
+    undoOps.push({ op: 'update', uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(mat), alpha: prevAlpha } });
     undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
     if (prevDamagedTag) undoOps.push({ op: 'addTags', uuid: tile.document.uuid, tags: [prevDamagedTag] });
 
@@ -320,13 +322,15 @@ const splitTileAtElevation = async (tile, splitElev, undoOps, collisionMsgs) => 
     [(tg.x + 1) * GRID, tg.y * GRID,   (tg.x + 1) * GRID, (tg.y + 1) * GRID],
   ];
 
-  const topTileAllTags = ['obstacle', 'breakable', topTag, mat, 'broken'];
+  const origIsInvisible = hasTags(tile, 'invisible');
+  const topTileAllTags  = ['obstacle', 'breakable', topTag, mat, 'broken', ...(origIsInvisible ? ['invisible'] : [])];
+  const splitBrokenAlpha = origIsInvisible && getSetting('keepInvisibleWhenBroken') ? 0 : 0.8;
   const createdTiles = await safeCreateEmbedded(canvas.scene, 'Tile', [{
     x: tg.x * GRID, y: tg.y * GRID,
     width: GRID, height: GRID,
     elevation: splitElev,
     texture: { src: MATERIAL_ICONS.broken },
-    alpha: 0.8, hidden: false, locked: false,
+    alpha: splitBrokenAlpha, hidden: false, locked: false,
     occlusion: { mode: 0, alpha: 0 }, restrictions: { light: false, weather: false },
     video: { loop: false, autoplay: false, volume: 0 },
     flags: { tagger: { tags: topTileAllTags } },
@@ -553,7 +557,8 @@ const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs, step 
         if (game.user.isGM) await addTags(w, ['broken']);
       }
       if (tile) {
-        await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
+        const dBrokenAlpha = (hasTags(tile, 'invisible') && getSetting('keepInvisibleWhenBroken')) ? 0 : 0.8;
+        await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: dBrokenAlpha });
         if (game.user.isGM) await addTags(tile, ['broken']);
         undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
         undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
@@ -1217,6 +1222,18 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       if (!noCollisionDamage && dmg > 0) { await applyDamage(targetToken.actor, dmg); totalTargetDmg += dmg; }
     };
 
+    // Returns true if the mover would die from this collision hit and movement should stop.
+    // For minions, live HP is tracked in squadGroup.system.staminaValue, NOT actor.system.stamina.value,
+    // so we can't rely on post-damage stamina.value to detect death. Instead we compare the hit
+    // directly to actor.system.stamina.max (confirmed as per-minion HP by the death-tracker).
+    // For regular tokens we additionally fall back to stamina.value <= 0 for partially-wounded actors.
+    const moverWouldStop = (dmg) => {
+      if (noCollisionDamage) return false;
+      const indivMax = targetToken.actor.system.stamina.max ?? Infinity;
+      if (dmg >= indivMax) return true;
+      return targetToken.actor.system.stamina.value <= 0;
+    };
+
     for (let i = 0; i < path.length; i++) {
       const step      = path[i];
       const prev      = i > 0 ? path[i - 1] : startGrid;
@@ -1290,6 +1307,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(softWalls)} (costs ${maxCost}, deals <strong>${wallDmg} damage</strong>).`);
             await dmgTarget(wallDmg);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token broke ${softWalls.length} wall(s). maxCost=${maxCost}, maxDmg=${maxWallDmg}`);
+            if (moverWouldStop(wallDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
             costConsumed += maxCost - 1;
             continue;
           } else {
@@ -1328,6 +1346,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             for (const obj of objectBlockers) await destroyObjectToken(obj, undoOps);
             costConsumed += Math.max(0, maxObjCost - 1);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token smashed through ${objectBlockers.length} object(s). maxObjCost=${maxObjCost}`);
+            if (moverWouldStop(moverDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
             // Fall through: check creature blockers below
           } else {
             // Cannot destroy the hardest object; break affordable ones and stop
@@ -1439,7 +1458,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                 await safeUpdate(wall, { move: 0, sight: 0, light: 0, sound: 0 });
                 if (game.user.isGM) await addTags(wall, ['broken']);
               }
-              await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
+              const ltBrokenAlpha = (hasTags(tile, 'invisible') && getSetting('keepInvisibleWhenBroken')) ? 0 : 0.8;
+              await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: ltBrokenAlpha });
               if (game.user.isGM) await addTags(tile, ['broken']);
               undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
               undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
@@ -1456,6 +1476,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             const tileDmg = maxTileDmg + bonusObjectDmg;
             collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(softTiles)} (costs ${maxTileCost}, deals <strong>${tileDmg} damage</strong>).`);
             await dmgTarget(tileDmg);
+            if (moverWouldStop(tileDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
             costConsumed += maxTileCost - 1;
             continue;
           } else {
@@ -1583,7 +1604,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                     if (game.user.isGM) await addTags(w, ['broken']);
                   }
                   if (tile) {
-                    await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
+                    const swBrokenAlpha = (hasTags(tile, 'invisible') && getSetting('keepInvisibleWhenBroken')) ? 0 : 0.8;
+                    await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: swBrokenAlpha });
                     if (game.user.isGM) await addTags(tile, ['broken']);
                     undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
                     undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
@@ -1599,6 +1621,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
               collisionMsgs.push(`${targetToken.name} smashes through ${mat} (costs ${rule.cost}, deals ${rule.damage} damage).`);
               costConsumed += rule.cost - 1;
               if (getSetting('debugMode')) console.log(`DSCT | FM | Broke wall (${mat}) at step ${i}. cost=${rule.cost}, costConsumed now=${costConsumed}, remaining after break=${remaining - rule.cost}`);
+              if (moverWouldStop(dmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
               continue;
             }
 
@@ -1628,6 +1651,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             await destroyObjectToken(blocker, undoOps);
             costConsumed += Math.max(0, objectHP - 1);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Object ${blocker.name} destroyed (HP=${objectHP}, remaining=${remaining}). Movement continues.`);
+            if (moverWouldStop(moverDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
             continue;
           } else {
             landingIndex = i - 1;
@@ -1699,7 +1723,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                 await safeUpdate(wall, { move: 0, sight: 0, light: 0, sound: 0 });
                 if (game.user.isGM) await addTags(wall, ['broken']);
               }
-              await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: 0.8 });
+              const stBrokenAlpha = (hasTags(tile, 'invisible') && getSetting('keepInvisibleWhenBroken')) ? 0 : 0.8;
+              await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: stBrokenAlpha });
               if (game.user.isGM) await addTags(tile, ['broken']);
 
               undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
@@ -1714,6 +1739,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             collisionMsgs.push(`${targetToken.name} smashes through ${mat} (costs ${rule.cost}, deals ${rule.damage} damage).`);
             costConsumed += rule.cost - 1;
             if (getSetting('debugMode')) console.log(`DSCT | FM | Broke tile (${mat}) at step ${i}. cost=${rule.cost}, costConsumed now=${costConsumed}, remaining after break=${remaining - rule.cost}`);
+            if (moverWouldStop(dmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
             continue;
           }
 
@@ -2458,8 +2484,8 @@ export const registerForcedMovementHooks = () => {
           const allRevived = [];
           for (const entry of [...entries].reverse()) {
             if (entry.undoLog) {
-              await replayUndo(entry.undoLog);
               allRevived.push(...await handleStaminaRevival(entry.undoLog));
+              await replayUndo(entry.undoLog);
             }
             await restoreGrabs(entry.grabsToRestore);
           }
@@ -2500,8 +2526,8 @@ export const registerForcedMovementHooks = () => {
         const undoLog = msg.getFlag('draw-steel-combat-tools', 'undoLog');
         if (undoLog) {
           await safeUpdate(msg, { 'flags.draw-steel-combat-tools.isUndone': true });
-          await replayUndo(undoLog);
           const revivedNames = await handleStaminaRevival(undoLog);
+          await replayUndo(undoLog);
           await restoreGrabs(msg.getFlag('draw-steel-combat-tools', 'grabsToRestore'));
           ui.notifications.info(revivedNames.length > 0
             ? `Forced movement reversed. Revived: ${[...new Set(revivedNames)].join(', ')}.`
