@@ -93,7 +93,7 @@ const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
   undoOps.push({ op: 'update', uuid: wallDoc.uuid, data: { c: [x1, y1, x2, y2] } });
   await safeUpdate(wallDoc, { c: [ip0.x, ip0.y, ip1.x, ip1.y] });
 
-  // Remove excess block IDs from inside wall (keep only this square's) — GM only;
+  // Remove excess block IDs from inside wall (keep only this square's). GM only;
   // Tagger doesn't have a non-GM socket path, but block-tag removal failure is benign.
   const blockTagsToRemove = allTags.filter(t => t.startsWith('wall-block-') && t !== squareBlockId);
   if (blockTagsToRemove.length > 0 && game.user.isGM) {
@@ -897,14 +897,15 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       // Pull and Slide allow moving the target into the source's space.
       const allowSourceCells = (type === 'Pull' || type === 'Slide');
 
-      // Push and Pull must travel in a straight line.
+      // Push and Pull must travel in a straight line (unless the houserule setting is on).
       // Pull: direction locked immediately toward the source (if sourceGrid is known).
       // Push: direction locks after the first step is placed; resets when path is emptied.
       // Slide: no direction constraint.
+      const straightLineRequired = (type === 'Push' || type === 'Pull') && !getSetting('allowCrookedPushPull');
       let lockedDirX = null;
       let lockedDirY = null;
 
-      if (type === 'Pull' && sourceGrid) {
+      if (straightLineRequired && type === 'Pull' && sourceGrid) {
         const dvx = sourceGrid.x - (startGrid.x + hs);
         const dvy = sourceGrid.y - (startGrid.y + hs);
         const len = Math.sqrt(dvx * dvx + dvy * dvy);
@@ -987,7 +988,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         if (cornerCutsWall(from, to) && cornerCutMode === 'block') return false;
         if (type === 'Push' && sourceGrid && gridDist(ctr(to), sourceGrid) <= gridDist(ctr(from), sourceGrid)) return false;
         if (type === 'Pull' && sourceGrid && gridDist(ctr(to), sourceGrid) >= gridDist(ctr(from), sourceGrid)) return false;
-        if ((type === 'Push' || type === 'Pull') && !isOnLine(to)) return false;
+        if (straightLineRequired && !isOnLine(to)) return false;
         return true;
       };
 
@@ -1013,7 +1014,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
               if (path.some(p => gridEq(p, c)) || steps.some(s => gridEq(s, c))) continue;
               if (type === 'Push' && sourceGrid && gridDist(ctr(c), sourceGrid) <= gridDist(ctr(curr), sourceGrid)) continue;
               if (type === 'Pull' && sourceGrid && gridDist(ctr(c), sourceGrid) >= gridDist(ctr(curr), sourceGrid)) continue;
-              if ((type === 'Push' || type === 'Pull') && !isOnLine(c)) continue;
+              if (straightLineRequired && !isOnLine(c)) continue;
               chosen = c;
               break;
             }
@@ -1146,8 +1147,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const gk   = `${gpos.x},${gpos.y}`;
         const { activeRange, activeWall } = getLineFiltered();
 
-        // Lock Push direction on first step.
-        if (type === 'Push' && path.length === 0 && lockedDirX === null && !gridEq(gpos, startGrid)) {
+        // Lock Push direction on first step (only when straight lines are required).
+        if (straightLineRequired && type === 'Push' && path.length === 0 && lockedDirX === null && !gridEq(gpos, startGrid)) {
           const dvx = (gpos.x + hs) - (startGrid.x + hs);
           const dvy = (gpos.y + hs) - (startGrid.y + hs);
           const len = Math.sqrt(dvx * dvx + dvy * dvy);
@@ -1172,7 +1173,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       const onRightClick = () => {
         if (path.length > 0) {
           path.pop();
-          if (type === 'Push' && path.length === 0) { lockedDirX = null; lockedDirY = null; }
+          if (straightLineRequired && type === 'Push' && path.length === 0) { lockedDirX = null; lockedDirY = null; }
           redraw(hoverGrid);
         }
       };
@@ -1351,6 +1352,11 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       return targetToken.actor.system.stamina.value <= 0;
     };
 
+    // Signal to the death-tracker that FM animation is in progress so that any
+    // breakpoint UI triggered by collision damage is deferred until the token
+    // has finished moving and is at its final position.
+    window._dsctFMActive = true;
+
     for (let i = 0; i < path.length; i++) {
       const step      = path[i];
       const prev      = i > 0 ? path[i - 1] : startGrid;
@@ -1424,7 +1430,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(softWalls)} (costs ${maxCost}, deals <strong>${wallDmg} damage</strong>).`);
             await dmgTarget(wallDmg);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token broke ${softWalls.length} wall(s). maxCost=${maxCost}, maxDmg=${maxWallDmg}`);
-            if (moverWouldStop(wallDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
+            if (moverWouldStop(wallDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact; movement stops.`); landingIndex = i; break; }
             costConsumed += maxCost - 1;
             continue;
           } else {
@@ -1463,7 +1469,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             for (const obj of objectBlockers) await destroyObjectToken(obj, undoOps);
             costConsumed += Math.max(0, maxObjCost - 1);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token smashed through ${objectBlockers.length} object(s). maxObjCost=${maxObjCost}`);
-            if (moverWouldStop(moverDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
+            if (moverWouldStop(moverDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact; movement stops.`); landingIndex = i; break; }
             // Fall through: check creature blockers below
           } else {
             // Cannot destroy the hardest object; break affordable ones and stop
@@ -1593,7 +1599,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             const tileDmg = maxTileDmg + bonusObjectDmg;
             collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(softTiles)} (costs ${maxTileCost}, deals <strong>${tileDmg} damage</strong>).`);
             await dmgTarget(tileDmg);
-            if (moverWouldStop(tileDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
+            if (moverWouldStop(tileDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact; movement stops.`); landingIndex = i; break; }
             costConsumed += maxTileCost - 1;
             continue;
           } else {
@@ -1738,7 +1744,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
               collisionMsgs.push(`${targetToken.name} smashes through ${mat} (costs ${rule.cost}, deals ${rule.damage} damage).`);
               costConsumed += rule.cost - 1;
               if (getSetting('debugMode')) console.log(`DSCT | FM | Broke wall (${mat}) at step ${i}. cost=${rule.cost}, costConsumed now=${costConsumed}, remaining after break=${remaining - rule.cost}`);
-              if (moverWouldStop(dmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
+              if (moverWouldStop(dmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact; movement stops.`); landingIndex = i; break; }
               continue;
             }
 
@@ -1768,7 +1774,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             await destroyObjectToken(blocker, undoOps);
             costConsumed += Math.max(0, objectHP - 1);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Object ${blocker.name} destroyed (HP=${objectHP}, remaining=${remaining}). Movement continues.`);
-            if (moverWouldStop(moverDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
+            if (moverWouldStop(moverDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact; movement stops.`); landingIndex = i; break; }
             continue;
           } else {
             landingIndex = i - 1;
@@ -1856,7 +1862,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             collisionMsgs.push(`${targetToken.name} smashes through ${mat} (costs ${rule.cost}, deals ${rule.damage} damage).`);
             costConsumed += rule.cost - 1;
             if (getSetting('debugMode')) console.log(`DSCT | FM | Broke tile (${mat}) at step ${i}. cost=${rule.cost}, costConsumed now=${costConsumed}, remaining after break=${remaining - rule.cost}`);
-            if (moverWouldStop(dmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact — movement stops.`); landingIndex = i; break; }
+            if (moverWouldStop(dmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact; movement stops.`); landingIndex = i; break; }
             continue;
           }
 
@@ -1936,6 +1942,9 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       const live = canvas.scene.tokens.get(targetToken.id);
       console.log(`DSCT | FM | Post-poll: live(${live?.x},${live?.y},elev=${live?.elevation}) | landing(${landingWorld.x},${landingWorld.y},elev=${targetElev})`);
     }
+
+    // Token is now at its final position; allow deferred breakpoint UIs to open.
+    window._dsctFMActive = false;
 
     // Resolve grabs where this token is the grabber: end or reposition based on adjacency.
     const grabsEnded = [];
@@ -2522,6 +2531,23 @@ const handleStaminaRevival = async (undoLog) => {
     
     if (game.combat && !game.combat.combatants.find(c => c.tokenId === tokenDoc.id)) {
       const savedGroupId = tokenDoc.getFlag('draw-steel-combat-tools', 'savedGroupId');
+
+      // Before re-adding the combatant to the squad, restore the squad group's HP to the
+      // pre-damage value. Without this, updateCombatantGroup fires when the combatant is
+      // added, sees too many members for the current (damaged) HP, and triggers another death.
+      if (savedGroupId) {
+        const squadOp = staminaOps.find(op =>
+          op.squadGroupUuid && op.prevSquadHP !== null &&
+          Array.isArray(op.squadTokenIds) && op.squadTokenIds.includes(tokenDoc.id)
+        );
+        if (squadOp) {
+          const sg = await fromUuid(squadOp.squadGroupUuid);
+          if (sg && sg.system.staminaValue < squadOp.prevSquadHP) {
+            await safeUpdate(sg, { 'system.staminaValue': squadOp.prevSquadHP });
+          }
+        }
+      }
+
       const combatantData = { tokenId: tokenDoc.id, sceneId: canvas.scene.id, actorId: tokenDoc.actorId };
       if (savedGroupId) combatantData.group = savedGroupId;
       await game.combat.createEmbeddedDocuments('Combatant', [combatantData]);

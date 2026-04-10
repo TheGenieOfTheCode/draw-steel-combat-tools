@@ -123,14 +123,14 @@ export const registerConditionHooks = () => {
       const data = getFrightenedData(token.actor);
       if (!data) return;
 
-      // Forced movement bypasses the frightened restriction — the token is being repositioned,
+      // Forced movement bypasses the frightened restriction. The token is being repositioned,
       // not moving voluntarily toward its fear source.
       if (window._dsctFMBypassFrightened?.has(doc.id)) return;
 
       const sourceTok = getTokenById(data.sourceTokenId);
       if (!sourceTok) return;
 
-      // If sight is blocked, creature doesn't know the location — allow movement
+      // If sight is blocked, creature doesn't know the location, so allow movement
       if (sightBlockedBetween(token, sourceTok)) return;
 
       // Calculate whether proposed position is closer to source than current

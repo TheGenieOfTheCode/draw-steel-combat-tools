@@ -10,7 +10,7 @@ const wallsTouch = (a, b) => {
   const sx = bx2 - bx1, sy = by2 - by1;
   const rxs = rx * sy - ry * sx;
   if (Math.abs(rxs) < 1e-10) {
-    // Parallel — only connected if they share an endpoint exactly
+    // Parallel: only connected if they share an endpoint exactly
     return (ax1 === bx1 && ay1 === by1) || (ax1 === bx2 && ay1 === by2) ||
            (ax2 === bx1 && ay2 === by1) || (ax2 === bx2 && ay2 === by2);
   }
@@ -36,7 +36,7 @@ const selectConnectedWalls = (addToSelection = false) => {
 
   const allWalls = canvas.scene.walls.contents;
 
-  // Precompute adjacency list (O(N²) — fast for typical scene sizes)
+  // Precompute adjacency list (O(N²), fast for typical scene sizes)
   const adj = new Map();
   for (const w of allWalls) adj.set(w.id, new Set());
   for (let i = 0; i < allWalls.length; i++) {

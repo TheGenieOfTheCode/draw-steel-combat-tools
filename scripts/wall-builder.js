@@ -256,7 +256,7 @@ const transmuteBlock = async (tile, newMaterial) => {
 export const convertWalls = async (material = 'stone', heightBottom = '', heightTop = '', invisible = true, stable = true) => {
   if (!game.user.isGM) { ui.notifications.warn('Only the GM can convert walls.'); return; }
   const GRID  = getGRID();
-  // Normalise to WallDocuments — controlled gives placeables, but .c and .update() live on the document
+  // Normalise to WallDocuments: controlled gives placeables, but .c and .update() live on the document
   const walls = [...(canvas.walls.controlled ?? [])].map(w => w.document ?? w);
   if (!walls.length) {
     ui.notifications.warn('No walls selected. Switch to the Walls layer, select walls, then click Convert.');
@@ -352,7 +352,7 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
       if (Object.keys(heightUpdate).length) await wall.update(heightUpdate);
       wallsConverted++;
     } else {
-      // Stub: no square has ≥ 50% coverage — disable movement and link to nearest tile.
+      // Stub: no square has >= 50% coverage. Disable movement and link to nearest tile.
       // Not tagged as obstacle/breakable; move:0 makes it impassable without being a breakable block.
       let adjacentId = null;
       outer: for (const [, { gx, gy }] of coverage) {

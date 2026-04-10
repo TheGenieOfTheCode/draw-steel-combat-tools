@@ -214,10 +214,29 @@ export function registerDeathTrackerHooks() {
         const chosenUserId = resolveBreakpointUser();
         const api = getModuleApi(false);
         const socket = api?.socket;
-        if (chosenUserId === game.user.id || !socket) {
-          if (api?.powerWordKill) api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions });
+        const damagedTokenIds = window._lastSquadDamagedTokenIds ? [...window._lastSquadDamagedTokenIds] : [];
+
+        // ONE MUST DIE! ONE MUST DIE! ONE MUST DIE! ONE MUST DIE! ONE MUST DIE!
+        const oneMustDie = () => {
+          if (chosenUserId === game.user.id || !socket) {
+            if (api?.powerWordKill) api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions, damagedTokenIds });
+          } else {
+            socket.executeAsUser('openSquadBreakpoint', chosenUserId, group.id, numToKill, damagedTokenIds);
+          }
+        };
+
+        // If forced movement animation is active, the colliding token is still traveling
+        // to its final position. Defer the breakpoint UI until the animation finishes so
+        // the pre-selection highlight draws at the landing square, not the starting square.
+        if (window._dsctFMActive) {
+          const poll = setInterval(() => {
+            if (!window._dsctFMActive) {
+              clearInterval(poll);
+              oneMustDie();
+            }
+          }, 50);
         } else {
-          socket.executeAsUser('openSquadBreakpoint', chosenUserId, group.id, numToKill);
+          oneMustDie();
         }
       }
     } finally {
@@ -452,17 +471,19 @@ export const runPowerWordKillUI = (options = {}) => {
   const maxTargets = options.maxTargets || Infinity;
   const squadGroup = options.squadGroup || null;
   const minionCombatants = options.minions || [];
+  const damagedTokenIds = options.damagedTokenIds || [];
+  const autoAssign = squadGroup && getSetting('autoAssignDamagedMinion');
 
   window._pwkActive = true;
 
   let npcs = [];
   if (squadGroup) {
       const minionIds = new Set(minionCombatants.map(c => c.tokenId));
-      npcs = canvas.tokens.placeables.filter(t => 
+      npcs = canvas.tokens.placeables.filter(t =>
           minionIds.has(t.id) && !t.actor.statuses?.has('dying') && !t.actor.statuses?.has('dead')
       );
   } else {
-      npcs = canvas.tokens.placeables.filter(t => 
+      npcs = canvas.tokens.placeables.filter(t =>
         t.actor && t.actor.type !== 'hero' && !t.document.hidden && (t.actor.system?.stamina?.value > 0)
       );
   }
@@ -476,24 +497,54 @@ export const runPowerWordKillUI = (options = {}) => {
   const hlName = 'dsct-pwk-hl';
   if (canvas.grid.highlightLayers[hlName]) canvas.grid.destroyHighlightLayer(hlName);
   canvas.grid.addHighlightLayer(hlName);
-  
+
+  const lockedTokens = new Set();
   const selectedTokens = new Set();
 
-  
-  if (squadGroup) {
-      for (const t of game.user.targets) {
-          if (npcs.some(n => n.id === t.id) && selectedTokens.size < maxTargets) {
-              selectedTokens.add(t.id);
+  if (autoAssign && damagedTokenIds.length > 0) {
+    // Find which damaged tokens are valid living squad members.
+    const damagedNpcs = damagedTokenIds.map(id => npcs.find(n => n.id === id)).filter(Boolean);
+
+    if (damagedNpcs.length === maxTargets) {
+      // Exact match: we know exactly who dies. Skip the UI and kill them immediately.
+      window._pwkActive = false;
+      (async () => {
+        for (const npc of damagedNpcs) {
+          if (!npc.actor.statuses?.has('dead') && !npc.actor.statuses?.has('dying')) {
+            await npc.actor.toggleStatusEffect('dying', { active: true });
           }
+          const combatant = minionCombatants.find(c => c.tokenId === npc.id);
+          if (combatant) await combatant.update({ groupId: null });
+        }
+        ui.notifications.info(`Squad Breakpoint: ${damagedNpcs.map(n => n.name).join(', ')} ${damagedNpcs.length === 1 ? 'dies' : 'die'} (auto-assigned).`);
+      })();
+      return;
+    }
+
+    if (damagedNpcs.length > 0 && damagedNpcs.length < maxTargets) {
+      // More deaths needed than damaged minions: lock the damaged ones in, GM picks the rest.
+      for (const npc of damagedNpcs) {
+        lockedTokens.add(npc.id);
+        selectedTokens.add(npc.id);
       }
+    }
+    // If damagedNpcs.length > maxTargets or 0: fall through to normal unassisted selection.
+  } else if (squadGroup) {
+    // Original behaviour when auto-assign is off: preselect from current targets, deselection allowed.
+    for (const t of game.user.targets) {
+      if (npcs.some(n => n.id === t.id) && selectedTokens.size < maxTargets) {
+        selectedTokens.add(t.id);
+      }
+    }
   }
 
   const drawHighlights = () => {
     canvas.grid.clearHighlightLayer(hlName);
     for (const npc of npcs) {
       const isSelected = selectedTokens.has(npc.id);
-      const color = isSelected ? 0xFF0000 : (squadGroup ? 0x8800AA : 0xFF8800); 
-      const border = isSelected ? 0xAA0000 : (squadGroup ? 0x440088 : 0xAA4400);
+      const isLocked   = lockedTokens.has(npc.id);
+      const color = isLocked ? 0xFF6600 : (isSelected ? 0xFF0000 : (squadGroup ? 0x8800AA : 0xFF8800));
+      const border = isLocked ? 0xCC4400 : (isSelected ? 0xAA0000 : (squadGroup ? 0x440088 : 0xAA4400));
 
       const w = Math.max(1, Math.round(npc.document.width));
       const h = Math.max(1, Math.round(npc.document.height));
@@ -542,6 +593,10 @@ export const runPowerWordKillUI = (options = {}) => {
 
     const targetId = clicked[0].id;
     if (selectedTokens.has(targetId)) {
+        if (lockedTokens.has(targetId)) {
+            ui.notifications.warn(`${clicked[0].name} took the damage and cannot be deselected.`);
+            return;
+        }
         selectedTokens.delete(targetId);
     } else {
         if (selectedTokens.size >= maxTargets) {
