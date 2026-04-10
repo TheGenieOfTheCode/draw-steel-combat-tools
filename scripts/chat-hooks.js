@@ -1,6 +1,6 @@
-﻿import { runForcedMovement } from './forced-movement.js';
-import { applyGrab, buildFreeStrikeButton, sizeRankG } from './grab.js';
-import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection } from './helpers.js';
+﻿import { applyGrab, buildFreeStrikeButton, sizeRankG } from './grab.js';
+import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, getSquadGroup } from './helpers.js';
+import { registerAbilityInjectors } from './ability-automation.js';
 import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetween } from './conditions.js';
 
 // DSIDs that allow grabbing more than one creature simultaneously.
@@ -358,13 +358,25 @@ export function registerChatHooks() {
     const abilityUse    = parts.find(p => p.type === 'abilityUse');
     const abilityResult = parts.find(p => p.type === 'abilityResult');
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | msg=${msg.id} parts=${parts.length} abilityUuid=${abilityUse?.abilityUuid ?? 'none'} tier=${abilityResult?.tier ?? 'none'}`);
-    if (!abilityUse?.abilityUuid || !abilityResult?.tier) return;
+    if (!abilityUse?.abilityUuid) return;
 
     const item = await fromUuid(abilityUse.abilityUuid);
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | item=${item?.name ?? 'null'} uuid=${abilityUse.abilityUuid}`);
     if (!item) return;
 
     const dsid = getItemDsid(item);
+
+    // Store per-ability flags for any ability message, even those without a tier result.
+    // Injectors read these synchronously during render.
+    if (!msg.getFlag('draw-steel-combat-tools', 'abilityDsid') && dsid) {
+      await msg.setFlag('draw-steel-combat-tools', 'abilityDsid', dsid);
+    }
+    if (!msg.getFlag('draw-steel-combat-tools', 'areaAbility') && item.system?.keywords?.has('area')) {
+      await msg.setFlag('draw-steel-combat-tools', 'areaAbility', true);
+    }
+
+    if (!abilityResult?.tier) return;
+
     const tier = abilityResult.tier;
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | dsid=${dsid} tier=${tier} item.system.power.effects count=${normalizeCollection(item.system?.power?.effects).length}`);
 
@@ -454,6 +466,10 @@ export function registerChatHooks() {
         await msg.setFlag('draw-steel-combat-tools', 'knockbackBlocked', true);
         ui.notifications.warn('A grabbed creature cannot use the Knockback maneuver.');
       }
+    }
+
+    if (!msg.getFlag('draw-steel-combat-tools', 'areaAbility') && item.system?.keywords?.has('area')) {
+      await msg.setFlag('draw-steel-combat-tools', 'areaAbility', true);
     }
 
     if (!msg.getFlag('draw-steel-combat-tools', 'forcedMovement')) {
@@ -589,6 +605,72 @@ export function registerChatHooks() {
       getModuleApi(false)?.teleportUI();
     });
     (buttons ?? content ?? el).appendChild(btn);
+  });
+
+  registerAbilityInjectors();
+
+  // Minions and Area Effects rule: for area abilities, cap damage dealt to each minion at their
+  // individual stamina max so the squad pool only loses as much as each minion in the area can take.
+  // Non-minion targets receive the full amount. Replaces DS's own apply-damage buttons so the
+  // per-target capping happens before damage hits the pool.
+  registerInjector(function injectAreaDamageCap(msg, { el }) {
+    if (!msg.getFlag('draw-steel-combat-tools', 'areaAbility')) return;
+
+    const origButtons = [...el.querySelectorAll('.apply-damage')];
+    if (!origButtons.length) return;
+
+    for (const origBtn of origButtons) {
+      const btn = origBtn.cloneNode(true);
+      // Remove DS's class and data-action so its querySelector and delegation don't re-attach
+      btn.classList.remove('apply-damage');
+      delete btn.dataset.action;
+      btn.classList.add('dsct-area-dmg-btn');
+      btn.appendChild(document.createTextNode(' (Area)'));
+
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const partEl = btn.closest('[data-message-part]');
+        const partId = partEl?.dataset.messagePart;
+        const idx    = parseInt(btn.dataset.index);
+        const roll   = partId
+          ? msg.system.parts.get(partId)?.rolls?.[idx]
+          : msg.rolls?.[idx];
+        if (!roll) return;
+
+        // Area heals don't need capping; pass through to DS unchanged
+        if (roll.isHeal) {
+          await roll.applyDamage(null, { halfDamage: e.shiftKey });
+          return;
+        }
+
+        const tokens = canvas.tokens.controlled.length
+          ? [...canvas.tokens.controlled]
+          : [...game.user.targets];
+
+        if (!tokens.length) {
+          ui.notifications.error('No tokens selected or targeted.');
+          return;
+        }
+
+        let amount = roll.total;
+        if (e.shiftKey) amount = Math.floor(amount / 2);
+
+        for (const token of tokens) {
+          const actor = token.actor;
+          if (!actor) continue;
+          const squadGroup   = getSquadGroup(actor);
+          const effectiveAmt = squadGroup
+            ? Math.min(amount, actor.system.stamina.max ?? amount)
+            : amount;
+          if (getSetting('debugMode')) console.log(`DSCT | Area Damage | ${actor.name}: rolled=${amount} cap=${actor.system.stamina.max ?? 'n/a'} effective=${effectiveAmt} isMinion=${!!squadGroup}`);
+          await applyDamage(actor, effectiveAmt);
+        }
+      });
+
+      origBtn.replaceWith(btn);
+    }
   });
 
   // Read the `end` string for a given condition from an ability item's AppliedPowerRollEffects.

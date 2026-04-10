@@ -13,6 +13,8 @@ import { registerModuleButtons } from './module-buttons.js';
 import { installMacros, distributeAbilities, InstallMacrosMenu } from './setup-macros.js';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.js';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions.js';
+import { openImNoThreatPanel } from './ability-automation.js';
+import { ImNoThreatSettingsMenu } from './im-no-threat-settings.js';
 
 const api = {
   forcedMovement:   runForcedMovement,
@@ -44,6 +46,7 @@ const api = {
   applyFrightened:      applyFrightened,
   applyTaunted:         applyTaunted,
   convertWalls:         convertWalls,
+  imNoThreat:           openImNoThreatPanel,
   socket:           null,
 };
 
@@ -181,6 +184,32 @@ Hooks.once('init', () => {
     scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
 
+  game.settings.register(M, 'judgementAutomation', {
+    name: 'Enable Judgement Button', hint: 'Injects a Judgement button into chat when the Judgement ability is used.',
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+  });
+  game.settings.register(M, 'markAutomation', {
+    name: 'Enable Mark Buttons', hint: 'Injects Mark buttons into chat when mark abilities (Mark, Fog of War, etc.) are used.',
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+  });
+  game.settings.register(M, 'aidAttackAutomation', {
+    name: 'Enable Aid Attack Button', hint: 'Injects an Aid Attack button into chat when the Aid Attack ability is used.',
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+  });
+  game.settings.register(M, 'imNoThreatEnabled', {
+    name: "Enable I'm No Threat Panel", hint: "Injects an I'm No Threat button into chat when the I'm No Threat ability is used.",
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+  });
+  game.settings.register(M, 'intAnimals', { scope: 'world', config: false, type: Array, default: [] });
+  game.settings.registerMenu(M, 'intAnimalsMenu', {
+    name: "I'm No Threat Animals",
+    label: 'Configure Animals',
+    hint: "Edit the list of animal disguises (name, icon, emoji) available in the I'm No Threat panel.",
+    icon: 'fas fa-paw',
+    type: ImNoThreatSettingsMenu,
+    restricted: true,
+  });
+
   game.settings.registerMenu(M, 'wallBuilderSettings', {
     name: 'Wall Builder Settings', label: 'Configure Wall Builder',
     hint: 'Adjust material costs, damage values, wall restrictions, and wall builder defaults.',
@@ -303,6 +332,7 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   addHeader('teleportEnabled', 'Teleport');
   addHeader('frightenedEnabled', 'Conditions');
   addHeader('bleedingEnabled', 'Bleeding');
+  addHeader('judgementAutomation', 'Ability Automation');
   addHeader('showForcedMovementButton', 'Module Buttons');
 
   bindToggle('forcedMovementEnabled', ['animationStepDelay', 'fallDamageCap', 'gmBypassesRangeCheck']);

@@ -1,4 +1,4 @@
-﻿import { safeCreateEmbedded, safeDelete } from './helpers.js';
+﻿import { safeCreateEmbedded, safeDelete, getItemDsid } from './helpers.js';
 
 const JUDGEMENT_BASE_ORIGIN = 'dsct-judgement';
 const MARK_BASE_ORIGIN      = 'dsct-mark';
@@ -16,9 +16,9 @@ const AID_ATTACK_EFFECT = {
 };
 
 
-const getJudgementOrigin = () => `${JUDGEMENT_BASE_ORIGIN}-${game.user.id}`;
-const getMarkOrigin = () => `${MARK_BASE_ORIGIN}-${game.user.id}`;
+const M = 'draw-steel-combat-tools';
 
+const getJudgementOrigin = () => `${JUDGEMENT_BASE_ORIGIN}-${game.user.id}`;
 
 const removeExistingEffectGlobal = async (origin) => {
   const existing = game.actors.contents
@@ -26,6 +26,19 @@ const removeExistingEffectGlobal = async (origin) => {
     .concat([...canvas.tokens.placeables.flatMap(t => t.actor?.isToken ? [...t.actor.effects] : [])])
     .find(e => e.origin === origin);
   if (existing) await safeDelete(existing);
+};
+
+// Remove all "mark ability" (DSID: mark) marks placed by this user so that reusing Mark overrides
+// any previous marks from that specific ability, without touching marks from other abilities.
+const removeMarkAbilityMarks = async () => {
+  const all = game.actors.contents
+    .flatMap(a => [...a.effects])
+    .concat([...canvas.tokens.placeables.flatMap(t => t.actor?.isToken ? [...t.actor.effects] : [])]);
+  for (const e of all) {
+    if (e.flags?.[M]?.mark?.isMarkAbility && e.flags?.[M]?.mark?.userId === game.user.id) {
+      await safeDelete(e);
+    }
+  }
 };
 
 export const applyJudgement = async () => {
@@ -49,25 +62,51 @@ export const applyJudgement = async () => {
   await ChatMessage.create({ content: `<strong>Judgement:</strong> ${targetToken.name} is judged.` });
 };
 
-export const applyMark = async () => {
+// maxTargets - how many targets this use of the ability allows (default 1)
+// override   - if true (Mark ability only), removes the user's existing Mark-ability marks first
+// dsid       - the DSID of the ability being used, stored on the effect flag for later identification
+// sourceActorId - the actor who used the ability, used to reliably check for Anticipation
+//                 regardless of which tokens are currently controlled.
+export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'other', sourceActorId = null } = {}) => {
   const targets = [...game.user.targets];
-  if (targets.length !== 1) { ui.notifications.warn('Target exactly one creature to mark.'); return; }
-  const targetToken = targets[0];
+  if (!targets.length) { ui.notifications.warn('Target one or more creatures to mark.'); return; }
 
-  const origin = getMarkOrigin();
-  await removeExistingEffectGlobal(origin);
+  // The Mark ability (DSID: mark) gains a second mark slot if the actor has the Anticipation feature.
+  // Prefer the explicit sourceActorId; fall back to the currently controlled token.
+  const resolvedActor = (sourceActorId ? game.actors.get(sourceActorId) : null)
+                      ?? canvas.tokens.controlled[0]?.actor;
+  const resolvedActorId = resolvedActor?.id ?? null;
 
-  const effectData = {
-    name: 'Mark',
-    img: 'icons/skills/targeting/crosshair-pointed-orange.webp',
-    type: 'base',
-    system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
-    changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
-    origin: origin
-  };
+  let effectiveMax = maxTargets;
+  if (dsid === 'mark') {
+    if (resolvedActor?.items.some(i => getItemDsid(i) === 'anticipation')) effectiveMax = Math.max(effectiveMax, 2);
+  }
 
-  await safeCreateEmbedded(targetToken.actor, 'ActiveEffect', [effectData]);
-  await ChatMessage.create({ content: `<strong>Mark:</strong> ${targetToken.name} is marked.` });
+  if (targets.length > effectiveMax) {
+    ui.notifications.warn(`This ability can mark up to ${effectiveMax} target${effectiveMax > 1 ? 's' : ''}.`);
+    return;
+  }
+
+  // Override: clear all previously placed Mark-ability marks from this user before applying new ones.
+  if (override) await removeMarkAbilityMarks();
+
+  const isMarkAbility = dsid === 'mark';
+  for (const targetToken of targets) {
+    const origin = `${MARK_BASE_ORIGIN}-${foundry.utils.randomID()}`;
+    const effectData = {
+      name: 'Mark',
+      img: 'icons/skills/targeting/crosshair-pointed-orange.webp',
+      type: 'base',
+      system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
+      changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
+      origin,
+      flags: { [M]: { mark: { userId: game.user.id, actorId: resolvedActorId, dsid, isMarkAbility } } },
+    };
+    await safeCreateEmbedded(targetToken.actor, 'ActiveEffect', [effectData]);
+  }
+
+  const names = targets.map(t => t.name).join(', ');
+  await ChatMessage.create({ content: `<strong>Mark:</strong> ${names} ${targets.length > 1 ? 'are' : 'is'} marked.` });
 };
 
 
@@ -89,8 +128,10 @@ const triggerProc = async (actor, effect) => {
       content: `<strong>${actor.name} has fallen!</strong> You may use a free triggered action to use @Macro[Judgement]{Judgement} against a new target.`
     });
   } else if (isMark) {
+    const markFlag = effect.flags?.[M]?.mark ?? {};
     await ChatMessage.create({
-      content: `<strong>${actor.name} has fallen!</strong> You may use a free triggered action to use @Macro[Mark]{Mark} a new target within 10 squares.`
+      content: `<strong>${actor.name} has fallen!</strong> You may use a free triggered action to mark a new target within 10 squares.`,
+      flags: { [M]: { markReminder: { dsid: markFlag.dsid ?? 'other', isMarkAbility: markFlag.isMarkAbility ?? false, sourceActorId: markFlag.actorId ?? null } } },
     });
   }
 
@@ -105,8 +146,10 @@ const handleActorDeath = (actor) => {
   );
 
   for (const effect of relevantEffects) {
-    
-    const ownerId = effect.origin.split('-')[2];
+    // Judgement effects store the owner in the origin string; mark effects store it in flags.
+    const ownerId = effect.origin.startsWith(MARK_BASE_ORIGIN)
+      ? effect.flags?.[M]?.mark?.userId
+      : effect.origin.split('-')[2];
     if (game.user.id === ownerId) {
       if (!shouldTrigger(`${actor.id}-${effect.id}`)) continue;
       triggerProc(actor, effect);
