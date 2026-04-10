@@ -680,6 +680,8 @@ const destroyObjectToken = async (objectToken, undoOps) => {
     options: { animate: false, teleport: true } });
 };
 
+const _fmDistCap = () => Math.min(50, Math.ceil(Math.max(canvas.dimensions.sceneWidth, canvas.dimensions.sceneHeight) / canvas.grid.size));
+
 const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false) => {
   // Grabbed creatures can only be force moved by their grabber.
   const grabState = window._activeGrabs?.get(targetToken.id);
@@ -930,9 +932,10 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const visited = new Map();
         visited.set(key(startGrid), 0);
         const queue = [{ pos: startGrid, steps: 0 }];
+        const drawCap = _fmDistCap();
         while (queue.length) {
           const { pos, steps } = queue.shift();
-          if (steps >= reduced) continue;
+          if (steps >= reduced || steps >= drawCap) continue;
           const neighbors = [
             { x: pos.x - 1, y: pos.y - 1 }, { x: pos.x, y: pos.y - 1 }, { x: pos.x + 1, y: pos.y - 1 },
             { x: pos.x - 1, y: pos.y },                                    { x: pos.x + 1, y: pos.y },
