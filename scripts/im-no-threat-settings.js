@@ -427,7 +427,9 @@ export class ImNoThreatSettingsMenu extends FormApplication {
     });
 
     await game.settings.set(M, 'intAnimals', animals);
-    ui.notifications.info("I'm No Threat animal settings saved.");
+    Hooks.callAll('dsct.intAnimalsUpdated');
+    ui.notifications.info("I'm No Threat animal settings saved. Reloading...");
+    foundry.utils.debouncedReload();
   }
 
   async _updateObject() {}

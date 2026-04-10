@@ -42,8 +42,9 @@ export const getMaterial = (obj) => {
 
 export const tokenAt = (gx, gy, excludeId) => canvas.tokens.placeables.find(t => {
   if (t.id === excludeId) return false;
-  const tg = toGrid(t.document);
-  return tg.x === gx && tg.y === gy;
+  const tg   = toGrid(t.document);
+  const size = t.actor?.system?.combat?.size?.value ?? t.document.width ?? 1;
+  return gx >= tg.x && gx < tg.x + size && gy >= tg.y && gy < tg.y + size;
 });
 
 export const tileAt = (gx, gy) => canvas.tiles.placeables.find(t => {

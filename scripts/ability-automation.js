@@ -32,6 +32,10 @@ const INT_ORIGIN       = 'dsct-im-no-threat';
 const INT_OOC_FLAG     = 'imNoThreatOOCVictories';
 const INT_DEFAULT_ICON = 'icons/creatures/mammals/humanoid-fox-cat-archer.webp';
 
+// Tracks actors currently being reverted by the panel or settings hook, to prevent the
+// deleteActiveEffect hook from double-deleting effects that are already being cleaned up.
+const _intRevertingActors = new Set();
+
 const _intIsDark  = () => document.body.classList.contains('theme-dark');
 const _intPalette = () => _intIsDark() ? {
   bg: '#0e0c14', bgInner: '#0a0810', bgBtn: '#1a1628',
@@ -67,6 +71,11 @@ const _intGetAppearance = (doc) => ({
   'ring.subject.scale':     doc.ring?.subject?.scale   ?? 1,
   'ring.subject.texture':   doc.ring?.subject?.texture ?? '',
 });
+
+// Maps actorId -> msgId for actors with a free Mimic pending (from spending Insight on I'm No Threat)
+const _intFreeMimics  = new Map();
+// message IDs already processed for free-mimic granting, so re-renders don't re-add
+const _intGrantedMsgs = new Set();
 
 class ImNoThreatPanel extends Application {
   constructor(actor) {
@@ -108,7 +117,8 @@ class ImNoThreatPanel extends Application {
     if (!this._html) return;
     const illusion = this._illusionActive;
     const token    = this._getToken();
-    const insight  = this._actor.system.hero.primary.value ?? 0;
+    const isHero   = this._actor.type === 'hero';
+    const insight  = isHero ? (this._actor.system.hero.primary.value ?? 0) : (game.actors.malice?.value ?? 0);
     const el       = (id) => this._html.find(id)[0];
     const p        = _intPalette();
 
@@ -134,6 +144,12 @@ class ImNoThreatPanel extends Application {
 
     const insightEl = el('#int-insight-count');
     if (insightEl) insightEl.textContent = `(${insight})`;
+
+    const isFree   = _intFreeMimics.has(this._actor.id);
+    const costEl   = el('#int-mimic-cost');
+    const freeEl   = el('#int-mimic-free');
+    if (costEl) costEl.style.display = isFree ? 'none' : '';
+    if (freeEl) freeEl.style.display = isFree ? '' : 'none';
 
     const wrap = el('#int-drag-handle');
     if (wrap) wrap.style.background = p.bg;
@@ -170,8 +186,9 @@ class ImNoThreatPanel extends Application {
     const token      = this._getToken();
     const currentSrc = token?.document.texture.src ?? this._actor.prototypeToken.texture.src;
     const illusion   = this._illusionActive;
-    const insight    = this._actor.system.hero.primary.value ?? 0;
-    const priLabel   = this._actor.system.hero.primary.label ?? 'Insight';
+    const isHero     = this._actor.type === 'hero';
+    const insight    = isHero ? (this._actor.system.hero.primary.value ?? 0) : (game.actors.malice?.value ?? 0);
+    const priLabel   = isHero ? (this._actor.system.hero.primary.label ?? 'Insight') : 'Malice';
     const mimicSrc   = this._mimicSrc ?? INT_DEFAULT_ICON;
 
     const animalBtns = getAnimals().map(a => `
@@ -233,8 +250,11 @@ class ImNoThreatPanel extends Application {
                 style="font-size:${_s(8)}px;color:${this._mimicName ? p.textMimic : p.textMimicDim};word-break:break-word;">
                 ${this._mimicName ?? 'No Target'}
               </div>
-              <div style="font-size:${_s(7)}px;color:${p.textDim};">
+              <div id="int-mimic-cost" style="font-size:${_s(7)}px;color:${p.textDim};display:${_intFreeMimics.has(this._actor.id) ? 'none' : ''};">
                 1 ${priLabel} <span id="int-insight-count">(${insight})</span>
+              </div>
+              <div id="int-mimic-free" style="font-size:${_s(7)}px;color:${p.accent};display:${_intFreeMimics.has(this._actor.id) ? '' : 'none'};">
+                ✦ Free (spent Insight)
               </div>
             </div>
           </div>
@@ -320,12 +340,21 @@ class ImNoThreatPanel extends Application {
   async _applyMimic() {
     if (!this._mimicSrc) { ui.notifications.error('No target selected to mimic.'); return; }
 
-    const inCombat = !!game.combat?.active;
-    if (inCombat) {
-      if (this._actor.system.hero.primary.value < 1) { ui.notifications.error(`${this._actor.name} doesn't have enough Insight to mimic a target.`); return; }
-    } else {
-      const usedAt = this._actor.getFlag('world', INT_OOC_FLAG);
-      if (usedAt !== undefined && usedAt !== null && this._actor.system.hero.victories === usedAt) { ui.notifications.error('Already used outside of combat since last victory.'); return; }
+    const freeMimic = _intFreeMimics.has(this._actor.id);
+    const inCombat  = !!game.combat?.active;
+
+    const isHero = this._actor.type === 'hero';
+    if (!freeMimic) {
+      if (isHero) {
+        if (inCombat) {
+          if (this._actor.system.hero.primary.value < 1) { ui.notifications.error(`${this._actor.name} doesn't have enough Insight to mimic a target.`); return; }
+        } else {
+          const usedAt = this._actor.getFlag('world', INT_OOC_FLAG);
+          if (usedAt !== undefined && usedAt !== null && this._actor.system.hero.victories === usedAt) { ui.notifications.error('Already used outside of combat since last victory.'); return; }
+        }
+      } else {
+        if ((game.actors.malice?.value ?? 0) < 1) { ui.notifications.error(`Not enough Malice to use Mimic.`); return; }
+      }
     }
 
     const targetToken = game.users.contents.flatMap(u => [...u.targets]).find(t => t.actor?.id !== this._actor.id);
@@ -341,10 +370,17 @@ class ImNoThreatPanel extends Application {
     const targetSize = targetToken.actor.system.combat.size;
     if (_intSizeRank(targetSize) > _intSizeRank(mySize) + 1) { ui.notifications.warn(`${targetToken.name} is too large to mimic (size ${_intFmtSize(targetSize)} vs ${_intFmtSize(mySize)}).`); return; }
 
-    if (inCombat) {
+    if (freeMimic) {
+      const spendMsgId = _intFreeMimics.get(this._actor.id);
+      _intFreeMimics.delete(this._actor.id);
+      if (spendMsgId) game.messages.get(spendMsgId)?.setFlag('draw-steel-combat-tools', 'intFreeMimicUsed', true);
+    } else if (isHero && inCombat) {
       await this._actor.update({ 'system.hero.primary.value': this._actor.system.hero.primary.value - 1 });
-    } else {
+    } else if (isHero) {
       await this._actor.setFlag('world', INT_OOC_FLAG, this._actor.system.hero.victories);
+    } else {
+      const malice = game.actors.malice;
+      if (malice) await game.settings.set('draw-steel', 'malice', { value: Math.max(0, malice.value - 1) });
     }
 
     if (this._illusionActive) await this._endIllusion(false);
@@ -379,9 +415,11 @@ class ImNoThreatPanel extends Application {
   _clearIllusionState() { this._illusionActive = false; this._disguiseName = null; this._activeId = null; }
 
   async _endIllusion(withSurge = false) {
+    _intRevertingActors.add(this._actor.id);
     const token = this._getToken();
     if (token) await token.document.update(_intGetAppearance(this._actor.prototypeToken), { animate: false });
     for (const e of this._actor.effects.filter(e => e.origin === INT_ORIGIN)) await e.delete();
+    _intRevertingActors.delete(this._actor.id);
 
     if (withSurge) {
       await this._actor.update({ 'system.hero.surges': (this._actor.system.hero.surges ?? 0) + 1 });
@@ -538,13 +576,77 @@ export const registerAbilityInjectors = () => {
     if (msg.getFlag('draw-steel-combat-tools', 'abilityDsid') !== 'im-no-threat') return;
     if (el.querySelector('.dsct-im-no-threat-btn')) return;
 
+    const actorId = msg.speaker?.actor ?? null;
+
+    const M_FLAG = 'draw-steel-combat-tools';
+    const spendDetected = !!(actorId && msg.flavor?.toLowerCase().startsWith('spent '));
+    const mimicUsed     = !!msg.getFlag(M_FLAG, 'intFreeMimicUsed');
+
+    // Auto-grant on first render of a spend message; skip if already consumed or re-render
+    if (spendDetected && !mimicUsed && !_intGrantedMsgs.has(msg.id)) {
+      _intFreeMimics.set(actorId, msg.id);
+      _intGrantedMsgs.add(msg.id);
+    }
+
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dsct-im-no-threat-btn';
     btn.innerHTML = '<i class="fa-solid fa-masks-theater"></i> I\'m No Threat';
     btn.style.cssText = 'cursor:pointer;';
-    btn.addEventListener('click', (e) => { e.preventDefault(); getModuleApi(false)?.imNoThreat(game.actors.get(msg.speaker?.actor) ?? null); });
-    (buttons ?? content ?? el).appendChild(btn);
+    btn.addEventListener('click', (e) => { e.preventDefault(); getModuleApi(false)?.imNoThreat(game.actors.get(actorId) ?? null); });
+
+    const container = buttons ?? content ?? el;
+    container.appendChild(btn);
+
+    if (spendDetected) {
+      const badge = document.createElement('div');
+      badge.className = 'dsct-int-spend-badge';
+      if (mimicUsed) {
+        badge.innerHTML = '<i class="fa-solid fa-check"></i> Free Mimic used';
+        badge.style.cssText = 'margin-top:4px;font-size:0.82em;opacity:0.4;padding:2px 0;';
+      } else {
+        badge.innerHTML = '<i class="fa-solid fa-bolt"></i> Spent Insight: Free Mimic ready';
+        badge.style.cssText = 'margin-top:4px;font-size:0.82em;opacity:0.7;padding:2px 0;';
+      }
+      container.appendChild(badge);
+    }
+  });
+
+  // If a player manually deletes an I'm No Threat effect from their sheet, revert their token.
+  Hooks.on('deleteActiveEffect', async (effect) => {
+    if (effect.origin !== INT_ORIGIN) return;
+    const actor = effect.parent;
+    if (!actor) return;
+    if (_intRevertingActors.has(actor.id)) return;
+    _intRevertingActors.add(actor.id);
+    try {
+      // Delete any sibling INT_ORIGIN effects that are still present
+      const remaining = [...actor.effects].filter(e => e.origin === INT_ORIGIN);
+      for (const e of remaining) await e.delete();
+      const tokenDoc = canvas.scene?.tokens.find(t => t.actorId === actor.id);
+      if (tokenDoc) await tokenDoc.update(_intGetAppearance(actor.prototypeToken), { animate: false });
+      const panel = Object.values(ui.windows).find(w => w.id === 'im-no-threat-panel' && w._actor?.id === actor.id);
+      if (panel) { panel._clearIllusionState(); panel._refreshText(); }
+    } finally {
+      _intRevertingActors.delete(actor.id);
+    }
+  });
+
+  // End all active I'm No Threat illusions when the animal settings are saved,
+  // so no disguise persists that uses a removed or changed animal.
+  Hooks.on('dsct.intAnimalsUpdated', async () => {
+    let ended = 0;
+    for (const actor of game.actors) {
+      const illusionEffects = [...actor.effects].filter(e => e.origin === INT_ORIGIN);
+      if (!illusionEffects.length) continue;
+      const tokenDoc = canvas.scene?.tokens.find(t => t.actorId === actor.id);
+      if (tokenDoc) await tokenDoc.update(_intGetAppearance(actor.prototypeToken), { animate: false });
+      for (const e of illusionEffects) await e.delete();
+      const panel = Object.values(ui.windows).find(w => w.id === 'im-no-threat-panel' && w._actor?.id === actor.id);
+      if (panel) panel.close();
+      ended++;
+    }
+    if (ended) ui.notifications.info(`I'm No Threat: ended ${ended} active illusion${ended > 1 ? 's' : ''} due to settings change.`);
   });
 
 };

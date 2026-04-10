@@ -808,14 +808,31 @@ export function registerChatHooks() {
     target.appendChild(btn);
   });
 
-  Hooks.on('createChatMessage',     (msg)     => {
+  const sweepVisibleMessages = () => {
+    document.querySelectorAll('[data-message-id]').forEach(el => {
+      const msg = game.messages.get(el.dataset.messageId);
+      if (msg) scheduleInject(msg);
+    });
+  };
+
+  Hooks.on('createChatMessage', (msg) => {
     // Mark as freshly created so bleeding can trigger; cleared after 5s to prevent retroactive tagging
     _recentlyCreated.add(msg.id);
     setTimeout(() => _recentlyCreated.delete(msg.id), 5000);
     trySetFlag(msg);
+    // Safety sweep: 2 seconds after any new message, re-inject ALL visible messages,
+    // not just the new one, so previously-failed injects get a second chance.
+    setTimeout(sweepVisibleMessages, 2000);
   });
   Hooks.on('updateChatMessage',     (msg)     => { trySetFlag(msg); scheduleInject(msg); });
   Hooks.on('renderChatMessageHTML', (msg, el) => trySetFlag(msg, el).then(() => scheduleInject(msg)));
+
+  // Re-inject all currently visible messages when the chat log renders (e.g. user opens the chat tab)
+  let _chatLogInjectTimer = null;
+  Hooks.on('renderChatLog', () => {
+    clearTimeout(_chatLogInjectTimer);
+    _chatLogInjectTimer = setTimeout(sweepVisibleMessages, 1000);
+  });
 }
 
 export function refreshChatInjections() {
