@@ -63,7 +63,7 @@ const ensureGrabHooks = () => {
       if (!window._activeGrabs?.size) return;
       if (changes.x === undefined && changes.y === undefined) return;
       if (window._grabFMSuppressed?.has(doc.id)) return; // grabber being force-moved; grabbed creature stays put
-      // Capture delta before any awaits — doc.x/y is a live reference and may update
+      // Capture delta before any awaits because doc.x/y is a live reference and may update
       // once Foundry finishes processing the first grabbed-token follow-move.
       const deltaX = (changes.x ?? doc.x) - doc.x;
       const deltaY = (changes.y ?? doc.y) - doc.y;

@@ -133,6 +133,13 @@ export const safeTakeDamage = async (actor, amount, options = {}) => {
   return await getSocket().executeAsGM('takeDamage', actor.uuid, amount, options);
 };
 
+// Returns the ds-quick-strike socketlib socket if compat mode is active, otherwise null.
+const getQuickStrikeSocket = () => {
+  if (!getSetting('quickStrikeCompat')) return null;
+  if (!game.modules.get('ds-quick-strike')?.active) return null;
+  return socketlib.registerModule('ds-quick-strike');
+};
+
 export const applyDamage = async (actor, amount, squadGroupOverride = undefined) => {
   const prevValue   = actor.system.stamina.value;
   const prevTemp    = actor.system.stamina.temporary;
@@ -141,7 +148,35 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined)
   const members = squadGroup ? Array.from(squadGroup.members || []).filter(m => m) : [];
   const squadCombatantIds = members.map(m => m.id);
   const squadTokenIds     = members.map(m => m.tokenId).filter(Boolean);
-  await safeTakeDamage(actor, amount, { type: 'untyped', ignoredImmunities: [] });
+  // Track which tokens were damaged in this action batch so the breakpoint UI can pre-lock them.
+  if (squadGroup && actor.isToken && actor.token?.id) {
+    if (!window._lastSquadDamagedTokenIds) window._lastSquadDamagedTokenIds = new Set();
+    window._lastSquadDamagedTokenIds.add(actor.token.id);
+    clearTimeout(window._lastSquadDamagedTokenIdsTimer);
+    window._lastSquadDamagedTokenIdsTimer = setTimeout(() => { window._lastSquadDamagedTokenIds = null; }, 2000);
+  }
+  const qsSocket = getQuickStrikeSocket();
+  if (qsSocket) {
+    // Route through ds-quick-strike so it appears in that module's chat log with source info and undo.
+    // We still capture prevValue/prevTemp above so DSCT's own undo (position + status) continues working.
+    const tokenId = actor.isToken
+      ? actor.token?.id
+      : canvas.tokens.placeables.find(t => t.actor?.id === actor.id)?.id;
+    await qsSocket.executeAsGM('applyDamageToTarget', {
+      tokenId,
+      amount,
+      type:             'untyped',
+      ignoredImmunities: [],
+      sourceActorName:  game.user.character?.name ?? game.user.name,
+      sourceActorId:    game.user.character?.id ?? null,
+      sourceItemName:   'Draw Steel: Combat Tools',
+      sourcePlayerName: game.user.name,
+      sourceItemId:     null,
+      eventId:          `dsct-${foundry.utils.randomID()}`,
+    });
+  } else {
+    await safeTakeDamage(actor, amount, { type: 'untyped', ignoredImmunities: [] });
+  }
   return { prevTemp, prevValue, prevSquadHP, squadGroup, squadCombatantIds, squadTokenIds };
 };
 
@@ -370,12 +405,12 @@ const _pendingInjects = new Map();
  * Register an injector function to be called on every chat message inject pass.
  *
  * Injectors are called in registration order with (msg, ctx), where ctx contains:
- *   el      — the full message <li> element
- *   header  — .message-header
- *   content — .message-content (may be null)
- *   buttons — .message-part-buttons footer (may be null)
- *   rolls   — .message-part-rolls (may be null)
- *   parts   — NodeList of all [data-message-part] sections
+ *   el      - the full message <li> element
+ *   header  - .message-header
+ *   content - .message-content (may be null)
+ *   buttons - .message-part-buttons footer (may be null)
+ *   rolls   - .message-part-rolls (may be null)
+ *   parts   - NodeList of all [data-message-part] sections
  *
  * Return true from an injector to stop subsequent injectors running (use for
  * full content replacements like the knockback block).
@@ -480,8 +515,8 @@ export const parsePowerRollState = (el) => {
 
 /**
  * Applies a bane/edge delta to a rendered chat message element.
- * Uses the original parsed state (from parsePowerRollState) to ensure idempotency
- * — safe to call on every re-render with the same stored data.
+ * Uses the original parsed state (from parsePowerRollState) to ensure idempotency.
+ * Safe to call on every re-render with the same stored data.
  *
  * @param {HTMLElement} el       - A rendered chat message element
  * @param {object}      baneData - Original roll state from parsePowerRollState

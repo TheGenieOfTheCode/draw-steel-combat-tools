@@ -53,6 +53,35 @@ Hooks.once('init', () => {
   const M = 'draw-steel-combat-tools';
   const reloadOnChange = { onChange: () => SettingsConfig.reloadConfirm({ world: true }) };
 
+  game.settings.register(M, 'chatInjectDelay', {
+    name: 'Chat Button Inject Delay (ms)', hint: 'Time in milliseconds to wait after a chat message renders before injecting forced movement buttons.',
+    scope: 'world', config: true, type: Number, default: 500, range: { min: 100, max: 2000, step: 100 }, ...reloadOnChange
+  });
+
+  game.settings.registerMenu(M, 'installMacros', {
+    name: 'Install API Macros', label: 'Install Macros',
+    hint: 'Creates a folder of ready-to-use macros for every module API function in your Macros sidebar.',
+    icon: 'fas fa-scroll', type: InstallMacrosMenu, restricted: true,
+  });
+  game.settings.register(M, 'macroPromptMode', {
+    name: 'Sample Macro Import Prompt',
+    hint: 'Controls when Draw Steel: Combat Tools prompts the GM to import sample macros on initialization.',
+    scope: 'world', config: true, type: String,
+    choices: {
+      'ask':          'Ask on every initialization',
+      'skip-update':  'Ask only when the module updates',
+      'never':        'Never ask',
+    },
+    default: 'ask',
+  });
+  game.settings.register(M, 'macroPromptSeenVersion', { scope: 'world', config: false, type: String, default: '' });
+  game.settings.register(M, 'macroAutoImport', { scope: 'world', config: false, type: Boolean, default: false });
+
+  game.settings.register(M, 'quickStrikeCompat', {
+    name: 'Draw Steel: Quick Strike',
+    hint: 'Routes collision and fall damage through Quick Strike\'s socket so it appears in its chat log with source info and its undo button. DSCT\'s undo still handles position and status restoration independently.',
+    scope: 'world', config: game.modules.get('ds-quick-strike')?.active ?? false, type: Boolean, default: true, ...reloadOnChange
+  });
   game.settings.register(M, 'forcedMovementEnabled', {
     name: 'Enable Forced Movement', hint: 'Enables the Forced Movement panel and all push/pull/slide mechanics.',
     scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
@@ -97,7 +126,7 @@ Hooks.once('init', () => {
   });
 
   game.settings.register(M, 'bleedingEnabled', {
-    name: 'Enable Bleeding Automation', hint: 'Automatically handles the bleeding condition — triggers a 1d6+1 stamina loss when a bleeding creature uses a main action, triggered action ability, or makes a Might/Agility roll.',
+    name: 'Enable Bleeding Automation', hint: 'Automatically handles the bleeding condition. When a bleeding creature uses a main action, triggered action ability, or makes a Might/Agility roll, it loses 1d6 + their level in stamina.',
     scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
   game.settings.register(M, 'bleedingMode', {
@@ -122,6 +151,11 @@ Hooks.once('init', () => {
   });
   game.settings.register(M, 'clearEffectsOnRevive', {
     name: 'Clear Effects on Revive', hint: 'If enabled, reviving a creature automatically removes all active conditions and effects (except core system states like Winded).',
+    scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
+  });
+  game.settings.register(M, 'autoAssignDamagedMinion', {
+    name: 'Auto-Assign Damaged Minion on Death',
+    hint: 'When a squad takes damage that kills one or more minions, the minion that received the damage is pre-locked into the selection and cannot be deselected. If exactly one minion must die and the damaged minion is identifiable, the selection dialog is skipped entirely.',
     scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
   });
   game.settings.register(M, 'deathTrackerSkullIds', { scope: 'world', config: false, type: Array, default: [] });
@@ -185,10 +219,6 @@ Hooks.once('init', () => {
     scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
 
-  game.settings.register(M, 'chatInjectDelay', {
-    name: 'Chat Button Inject Delay (ms)', hint: 'Time in milliseconds to wait after a chat message renders before injecting forced movement buttons.',
-    scope: 'world', config: true, type: Number, default: 500, range: { min: 100, max: 2000, step: 100 }, ...reloadOnChange
-  });
   game.settings.register(M, 'debugMode', {
     name: 'Debug Mode', hint: 'If enabled, verbose debug messages are printed to the browser console.',
     scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
@@ -205,25 +235,11 @@ Hooks.once('init', () => {
     hint: 'When enabled, forced movement collision uses only the top-left corner cell for all tokens regardless of size. Default (off) checks the full footprint for size 2+ tokens: multiple blockers each take damage once, the mover takes damage once; multiple breakable walls are each broken if movement permits, stopping at the hardest wall that cannot be broken.',
     scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
   });
-  game.settings.registerMenu(M, 'installMacros', {
-    name: 'Install API Macros', label: 'Install Macros',
-    hint: 'Creates a folder of ready-to-use macros for every module API function in your Macros sidebar.',
-    icon: 'fas fa-scroll', type: InstallMacrosMenu, restricted: true,
+  game.settings.register(M, 'allowCrookedPushPull', {
+    name: 'Wiggly Lines for Push/Pull',
+    hint: 'When enabled, Push and Pull are not restricted to a straight line during manual path selection. Houserule option, off by default.',
+    scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
   });
-  game.settings.register(M, 'macroPromptMode', {
-    name: 'Sample Macro Import Prompt',
-    hint: 'Controls when Draw Steel: Combat Tools prompts the GM to import sample macros on initialization.',
-    scope: 'world', config: true, type: String,
-    choices: {
-      'ask':          'Ask on every initialization',
-      'skip-update':  'Ask only when the module updates',
-      'never':        'Never ask',
-    },
-    default: 'ask',
-  });
-  game.settings.register(M, 'macroPromptSeenVersion', { scope: 'world', config: false, type: String, default: '' });
-  game.settings.register(M, 'macroAutoImport', { scope: 'world', config: false, type: Boolean, default: false });
-
   registerChatHooks();
   registerGrabHooks();
   registerConditionHooks();
@@ -251,7 +267,10 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
 
   const settingRow = (key) => {
     const input = root.querySelector(`[name="${M}.${key}"]`);
-    return input ? (input.closest('.form-group') ?? input.closest('li') ?? input.parentElement) : null;
+    if (input) return input.closest('.form-group') ?? input.closest('li') ?? input.parentElement;
+    // registerMenu buttons don't use name inputs, so find them by data-key instead
+    const btn = root.querySelector(`[data-key="${M}.${key}"]`);
+    return btn ? (btn.closest('.form-group') ?? btn.closest('li') ?? btn.parentElement) : null;
   };
 
   const addHeader = (beforeKey, label) => {
@@ -273,6 +292,9 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
     update();
   };
 
+  addHeader('chatInjectDelay', 'General');
+  addHeader('installMacros', 'Setup');
+  addHeader('quickStrikeCompat', 'Compatability');
   addHeader('forcedMovementEnabled', 'Forced Movement');
   addHeader('grabEnabled', 'Grab');
   addHeader('deathTrackerEnabled', 'Death Tracker');
@@ -282,15 +304,13 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   addHeader('frightenedEnabled', 'Conditions');
   addHeader('bleedingEnabled', 'Bleeding');
   addHeader('showForcedMovementButton', 'Module Buttons');
-  addHeader('chatInjectDelay', 'General');
-  addHeader('macroPromptMode', 'Setup');
 
   bindToggle('forcedMovementEnabled', ['animationStepDelay', 'fallDamageCap', 'gmBypassesRangeCheck']);
   bindToggle('grabEnabled', ['gmBypassesSizeCheck', 'restrictGrabButtons', 'grabbedBaneEnabled']);
-  bindToggle('deathTrackerEnabled', ['deathAnimationDuration', 'clearSkullsOnCombatEnd', 'clearEffectsOnRevive']);
+  bindToggle('deathTrackerEnabled', ['deathAnimationDuration', 'clearSkullsOnCombatEnd', 'clearEffectsOnRevive', 'autoAssignDamagedMinion']);
   bindToggle('autoTriggeredActionsEnabled', ['autoTriggeredActionsTarget']);
   bindToggle('bleedingEnabled', ['bleedingMode']);
-  bindToggle('debugMode', ['cornerCutMode', 'legacySingleCellCollisions']);
+  bindToggle('debugMode', ['cornerCutMode', 'legacySingleCellCollisions', 'allowCrookedPushPull']);
 
   const fmEnabled   = root.querySelector(`[name="${M}.forcedMovementEnabled"]`)?.checked ?? true;
   const grabEnabled = root.querySelector(`[name="${M}.grabEnabled"]`)?.checked ?? true;
@@ -374,7 +394,7 @@ Hooks.once('socketlib.ready', () => {
   socket.register('toggleStatusEffect',async (uuid, effectId, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.toggleStatusEffect(effectId, options); });
   socket.register('takeDamage',        async (uuid, amount, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.system.takeDamage(amount, options); });
   socket.register('rollFreeStrike',     async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });
-  socket.register('openSquadBreakpoint', async (groupId, numToKill) => {
+  socket.register('openSquadBreakpoint', async (groupId, numToKill, damagedTokenIds = []) => {
     const group = game.combat?.groups?.get(groupId);
     if (!group) return;
     const minions = Array.from(group.members || []).filter(m => {
@@ -382,7 +402,7 @@ Hooks.once('socketlib.ready', () => {
       const sys = m.actor.system;
       return String(sys?.monster?.organization || sys?.role?.value || sys?.role || m.actor.type).toLowerCase().trim() === 'minion';
     });
-    api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions });
+    api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions, damagedTokenIds });
   });
 
   console.log('DSCT | Sockets registered successfully');

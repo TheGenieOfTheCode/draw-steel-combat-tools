@@ -140,7 +140,7 @@ const injectGrabButton = (msg, { el }) => {
         }
       }
 
-      // Apply grabs sequentially — no power roll, no free strike opportunity
+      // Apply grabs sequentially: no power roll, no free strike opportunity
       for (const t of targets) {
         await applyGrab(grabber, t, { maxGrabs });
         ChatMessage.create({ content: `<strong>Grab:</strong> ${grabber.name} grabs ${t.name}!` });
@@ -236,7 +236,7 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
 };
 
 /**
- * Trigger the grabber's Melee Free Strike — routes to their controlling player if online,
+ * Trigger the grabber's Melee Free Strike. Routes to their controlling player if online,
  * falls back to GM. Call this from both the chat button and the grab panel button.
  * @param {Token} grabberTok
  * @param {object} grab  - entry from window._activeGrabs
@@ -262,7 +262,7 @@ export const triggerGrabberFreeStrike = async (grabberTok, grab) => {
 };
 
 /**
- * Resolve an escape grab chat message — sets the escapeResolved flag so the chat UI updates.
+ * Resolve an escape grab chat message. Sets the escapeResolved flag so the chat UI updates.
  * @param {string} grabbedTokenId
  * @param {'accepted'|'denied'} resolution
  */
@@ -277,7 +277,7 @@ export const resolveEscapeChatMessage = async (grabbedTokenId, resolution) => {
 };
 
 /**
- * Resolve a tier-2 grab confirm chat message — updates the content in place.
+ * Resolve a tier-2 grab confirm chat message. Updates the content in place.
  * @param {string} msgId
  * @param {'confirmed'|'cancelled'} resolution
  */
@@ -316,7 +316,7 @@ const targetsInclude = (targets, actorId, tokenId) =>
 
 // Reads the accumulated bane/edge deltas from flags and applies them once.
 // Each system contributing banes/edges writes its own key into 'powerRollDeltas'.
-// This ensures multiple conditions never conflict — they all combine into one pass.
+// This ensures multiple conditions never conflict; they all combine into one pass.
 const injectAllRollMods = (msg, { el }) => {
   const base   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
   const deltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas');
@@ -332,7 +332,7 @@ export function registerChatHooks() {
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | enter msg=${msg.id} author=${msg.author?.name} isMe=${msg.author.id === game.user.id}`);
     if (msg.author.id !== game.user.id) return;
 
-    // Bleeding: runs for all message types (including tests) — must be before the ability-parts guard
+    // Bleeding: runs for all message types (including tests); must be before the ability-parts guard
     if (el && getSetting('bleedingEnabled') && _recentlyCreated.has(msg.id) && !msg.getFlag('draw-steel-combat-tools', 'bleedingTriggered') && !_bleedingInFlight.has(msg.id)) {
       const speakerTokenId = msg.speaker?.token;
       const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
@@ -368,7 +368,7 @@ export function registerChatHooks() {
     const tier = abilityResult.tier;
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | dsid=${dsid} tier=${tier} item.system.power.effects count=${normalizeCollection(item.system?.power?.effects).length}`);
 
-    // Power roll mods: requires the live rendered element — dice roll HTML is client-side only.
+    // Power roll mods: requires the live rendered element because dice roll HTML is client-side only.
     // Each condition writes its own key into 'powerRollDeltas'; all are applied together at inject time.
     if (el && !_powerRollModInFlight.has(msg.id)) {
       const existingBase   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
@@ -386,7 +386,7 @@ export function registerChatHooks() {
           if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Grabbed bane check msg=${msg.id} targetingGrabber=${targetingGrabber} targets=${targets.length}`);
           if (!targetingGrabber) pendingDeltas.grabbed = 1;
 
-          // Escape grab size bane — smaller creature escaping a larger grabber takes an extra bane
+          // Escape grab size bane: smaller creature escaping a larger grabber takes an extra bane
           if (!('escapeBane' in existingDeltas) && dsid === 'escape-grab') {
             const grabberTok = getTokenById(grab.grabberTokenId);
             if (grabberTok) {
@@ -401,7 +401,7 @@ export function registerChatHooks() {
         }
       }
 
-      // Frightened bane — bane on rolls against non-source targets
+      // Frightened bane: bane on rolls against non-source targets
       if (getSetting('frightenedEnabled') && !('frightened' in existingDeltas)) {
         const speakerTokenId = msg.speaker?.token;
         const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
@@ -414,7 +414,7 @@ export function registerChatHooks() {
         }
       }
 
-      // Taunted double-bane — on rolls that don't target the taunting creature (if LoE exists)
+      // Taunted double-bane: on rolls that don't target the taunting creature (if LoE exists)
       if (getSetting('tauntedEnabled') && !('taunted' in existingDeltas)) {
         const speakerTokenId = msg.speaker?.token;
         const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
@@ -519,7 +519,7 @@ export function registerChatHooks() {
       }
     }
 
-    // Frightened: speaker is the source of fear — targets of this ability get an edge injected
+    // Frightened: speaker is the source of fear, so targets of this ability get an edge injected
     if (el && getSetting('frightenedEnabled') && !('frightenedSource' in (msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas') ?? {})) && !_powerRollModInFlight.has(msg.id)) {
       const speakerTokenId = msg.speaker?.token;
       const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
@@ -528,7 +528,7 @@ export function registerChatHooks() {
         for (const t of targets) {
           const fd = getFrightenedData(t.actor);
           if (fd && (fd.sourceActorId === speakerTok.actor?.id || fd.sourceTokenId === speakerTokenId)) {
-            // This target is frightened of the speaker — speaker gets edge
+            // This target is frightened of the speaker, so speaker gets edge
             const existingDeltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas') ?? {};
             if (!('frightenedSource' in existingDeltas)) {
               const existingBase = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
@@ -558,7 +558,7 @@ export function registerChatHooks() {
     div.className = 'message-content';
     div.innerHTML = '<p><em>A grabbed creature cannot use the Knockback maneuver.</em></p>';
     el.appendChild(div);
-    return true; // stop further injectors — message content replaced
+    return true; // stop further injectors; message content replaced
   });
   registerInjector(injectAllRollMods);
   registerInjector(injectForcedButtons);
@@ -575,7 +575,7 @@ export function registerChatHooks() {
     // Only ability messages
     if (!normalizeCollection(msg.system?.parts).some(p => p.type === 'abilityUse')) return;
 
-    // Check the rendered ability text — the one section that contains effect prose
+    // Check the rendered ability text, the one section that contains effect prose
     const abilityHTML = el.querySelector('.message-part-html');
     if (!abilityHTML?.textContent?.toLowerCase().includes('teleport')) return;
 
@@ -660,16 +660,17 @@ export function registerChatHooks() {
       if (applied) {
         div.innerHTML = `<em><i class="fa-solid fa-droplet"></i> Bleeding damage applied.</em>`;
       } else {
-        // Auto-apply on first render — post the roll as its own message with the undo button injected there
+        // Auto-apply on first render: post the roll as its own message with the undo button injected there
         (async () => {
           const actor = await fromUuid(data.actorUuid);
           if (!actor) return;
-          const roll = await new Roll('1d6 + 1').evaluate();
+          const level = actor.system.level ?? 1;
+          const roll = await new Roll(`1d6 + ${level}`).evaluate();
           const dmg  = roll.total;
           const prevValue = actor.system.stamina.value;
           const prevTemp  = actor.system.stamina.temporary;
           const rollMsg = await roll.toMessage({
-            flavor: `<strong>Bleeding</strong> — ${actor.name} loses stamina`,
+            flavor: `<strong>Bleeding</strong> (1d6 + ${level}): ${actor.name} loses stamina`,
             speaker: ChatMessage.getSpeaker({ token: getTokenById(data.tokenId)?.document }),
             flags: { 'draw-steel-combat-tools': { bleedingRoll: {
               actorUuid: data.actorUuid, dmg, prevValue, prevTemp, sourceMsgId: msg.id,
@@ -682,12 +683,14 @@ export function registerChatHooks() {
         div.innerHTML = `<em>Bleeding: applying damage…</em>`;
       }
     } else {
-      // Manual mode — post a roll button
+      // Manual mode: post a roll button
       if (el.querySelector('.dsct-bleed-roll-btn')) return;
-      div.innerHTML = `<button type="button" class="dsct-bleed-roll-btn" style="cursor:pointer;"><i class="fa-solid fa-droplet"></i> Roll Bleeding Damage (1d6+1)</button>`;
+      div.innerHTML = `<button type="button" class="dsct-bleed-roll-btn" style="cursor:pointer;"><i class="fa-solid fa-droplet"></i> Roll Bleeding Damage (1d6 + level)</button>`;
       div.querySelector('.dsct-bleed-roll-btn')?.addEventListener('click', async () => {
-        const roll = await new Roll('1d6 + 1').evaluate();
-        roll.toMessage({ flavor: `Bleeding damage — apply manually`, speaker: { token: data.tokenId } });
+        const actor = await fromUuid(data.actorUuid);
+        const level = actor?.system?.level ?? 1;
+        const roll = await new Roll(`1d6 + ${level}`).evaluate();
+        roll.toMessage({ flavor: `Bleeding damage (1d6 + ${level}), apply manually`, speaker: { token: data.tokenId } });
       });
     }
     target.appendChild(div);
@@ -724,7 +727,7 @@ export function registerChatHooks() {
   });
 
   Hooks.on('createChatMessage',     (msg)     => {
-    // Mark as freshly created so bleeding can trigger — cleared after 5s to prevent retroactive tagging
+    // Mark as freshly created so bleeding can trigger; cleared after 5s to prevent retroactive tagging
     _recentlyCreated.add(msg.id);
     setTimeout(() => _recentlyCreated.delete(msg.id), 5000);
     trySetFlag(msg);

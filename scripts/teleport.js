@@ -675,12 +675,12 @@ export const runBurstTeleport = async ({ sourceId, radius = 2 } = {}) => {
       ? remaining[0]
       : await pickBurstToken(source, radius, remaining);
 
-    if (!moving) break; // Escape during token selection — sequence complete
+    if (!moving) break; // Escape during token selection; sequence complete
 
     remaining.splice(remaining.indexOf(moving), 1);
 
     const dest = await pickBurstDestination(source, radius, moving, claimed);
-    if (dest === null) continue; // Escape during destination — skip this token
+    if (dest === null) continue; // Escape during destination; skip this token
 
     for (let ix = 0; ix < (moving.document.width  ?? 1); ix++)
       for (let iy = 0; iy < (moving.document.height ?? 1); iy++)
