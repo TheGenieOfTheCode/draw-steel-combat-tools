@@ -75,7 +75,9 @@ if (!token) {
     name: 'DSCT: Revive',
     img: 'icons/magic/life/heart-cross-strong-flame-green.webp',
     command:
-`// Opens the Revive UI for selecting a dead token to bring back. GM only.
+`// Opens the Revive UI. GM only.
+// Skulls on the canvas are highlighted green. Click one or more to select them (they turn blue),
+// then press ENTER to revive all selected creatures. Right-Click or Escape to cancel.
 game.modules.get('draw-steel-combat-tools').api.revive();`
   },
   {
@@ -98,9 +100,11 @@ await game.modules.get('draw-steel-combat-tools').api.judgement();`
     name: 'DSCT: Mark',
     img: 'icons/skills/targeting/crosshair-pointed-orange.webp',
     command:
-`// Applies the Mark effect to the targeted token. Target exactly one token then run.
-// When the marked target dies, a prompt appears to use a free triggered action to mark a new target within 10 squares.
-await game.modules.get('draw-steel-combat-tools').api.mark();`
+`// Applies the Mark effect to the targeted token(s) using the Mark ability (DSID: mark).
+// Target one token (or two if the actor has Anticipation), then run.
+// When a marked target dies, a prompt appears to use a free triggered action to mark a new target within 10 squares.
+// Reusing this macro clears any previous marks placed by the Mark ability and applies fresh ones.
+await game.modules.get('draw-steel-combat-tools').api.mark({ maxTargets: 1, override: true, dsid: 'mark' });`
   },
   {
     name: 'DSCT: Aid Attack',
@@ -271,7 +275,27 @@ for (const t of targets) {
   await api.applyTaunted(t, sourceToken.actor, sourceToken.id, duration);
 }`
   },
+  {
+    name: "DSCT: I'm No Threat",
+    img: 'icons/creatures/mammals/humanoid-fox-cat-archer.webp',
+    command:
+`// Opens the I'm No Threat panel for the selected or targeted token.
+// Control or target the Harlequin actor, then run.
+// The panel tracks OOC victories, manages the I'm No Threat illusion effect, and handles the Harlequin Illusion roll.
+const token = canvas.tokens.controlled[0] ?? [...game.user.targets][0] ?? null;
+const actor = token?.actor ?? null;
+game.modules.get('draw-steel-combat-tools').api.imNoThreat(actor);`
+  },
 ];
+
+// Maps macro names to the module setting key that gates them.
+// If the setting is false when installMacros runs, the macro is removed (if it exists) and not recreated.
+const MACRO_SETTINGS = {
+  'DSCT: Judgement':     'judgementAutomation',
+  'DSCT: Mark':          'markAutomation',
+  'DSCT: Aid Attack':    'aidAttackAutomation',
+  "DSCT: I'm No Threat": 'imNoThreatEnabled',
+};
 
 export const installMacros = async ({ silent = false } = {}) => {
   if (!game.user.isGM) { ui.notifications.warn('Only the GM can install DSCT macros.'); return; }
@@ -279,12 +303,24 @@ export const installMacros = async ({ silent = false } = {}) => {
   let folder = game.folders.find(f => f.type === 'Macro' && f.name === MACRO_FOLDER_NAME);
   if (!folder) folder = await Folder.create({ name: MACRO_FOLDER_NAME, type: 'Macro' });
 
+  const M = 'draw-steel-combat-tools';
+
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let removed = 0;
 
   for (const data of MACROS) {
+    const settingKey = MACRO_SETTINGS[data.name];
+    const isDisabled = settingKey && game.settings.get(M, settingKey) === false;
+
     const exists = game.macros.find(m => m.name === data.name && m.folder?.id === folder.id);
+
+    if (isDisabled) {
+      if (exists) { await exists.delete(); removed++; }
+      continue;
+    }
+
     if (exists) {
       if (exists.command !== data.command || exists.img !== data.img) {
         await exists.update({ command: data.command, img: data.img });
@@ -298,7 +334,9 @@ export const installMacros = async ({ silent = false } = {}) => {
     created++;
   }
 
-  const summary = `DSCT | Macros: ${created} created, ${updated} updated, ${skipped} up to date. Folder: "${MACRO_FOLDER_NAME}".`;
+  const parts = [`${created} created`, `${updated} updated`, `${skipped} up to date`];
+  if (removed) parts.push(`${removed} removed`);
+  const summary = `DSCT | Macros: ${parts.join(', ')}. Folder: "${MACRO_FOLDER_NAME}".`;
   if (silent) console.log(summary);
   else ui.notifications.info(summary);
 };

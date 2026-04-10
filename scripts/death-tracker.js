@@ -324,74 +324,87 @@ const resolveBreakpointUser = () => {
 };
 
 export const runReviveUI = () => {
-  const skulls = canvas.tiles.placeables.filter(t => t.document.flags?.['draw-steel-combat-tools']?.deadTokenId);
+  if (!game.user.isGM) { ui.notifications.warn("Revive is a GM-only tool."); return; }
 
-  if (!skulls.length) {
-    ui.notifications.warn("No valid skulls found for revival.");
-    return;
-  }
+  const skulls = canvas.tiles.placeables.filter(t => t.document.flags?.['draw-steel-combat-tools']?.deadTokenId);
+  if (!skulls.length) { ui.notifications.warn("No valid skulls found for revival."); return; }
+
+  if (window._reviveActive) return;
+  window._reviveActive = true;
 
   const hlName = 'dsct-revive-hl';
   if (canvas.grid.highlightLayers[hlName]) canvas.grid.destroyHighlightLayer(hlName);
-  const hl = canvas.grid.addHighlightLayer(hlName);
+  canvas.grid.addHighlightLayer(hlName);
 
-  for (const skull of skulls) {
-    const gx = Math.floor(skull.x / canvas.grid.size) * canvas.grid.size;
-    const gy = Math.floor(skull.y / canvas.grid.size) * canvas.grid.size;
-    canvas.grid.highlightPosition(hlName, { x: gx, y: gy, color: 0x00FF00, border: 0x00AA00 });
-  }
+  const selected = new Set(); // tile IDs
 
-  ui.notifications.info("Click on a highlighted skull to revive the creature. Right-click anywhere to cancel.");
-
-  const finish = () => {
-    canvas.grid.destroyHighlightLayer(hlName);
-    canvas.stage.off('mousedown', onClick);
+  const drawHighlights = () => {
+    canvas.grid.clearHighlightLayer(hlName);
+    for (const skull of skulls) {
+      const gx = Math.floor(skull.x / canvas.grid.size) * canvas.grid.size;
+      const gy = Math.floor(skull.y / canvas.grid.size) * canvas.grid.size;
+      const isSelected = selected.has(skull.id);
+      canvas.grid.highlightPosition(hlName, {
+        x: gx, y: gy,
+        color:  isSelected ? 0x00CCFF : 0x00FF00,
+        border: isSelected ? 0x0088AA : 0x00AA00,
+      });
+    }
   };
 
-  const onClick = async (event) => {
+  drawHighlights();
+  ui.notifications.info("REVIVE | Click skulls to select them, press ENTER to revive, or Right-Click to cancel.");
+
+  const finish = () => {
+    window._reviveActive = false;
+    canvas.grid.destroyHighlightLayer(hlName);
+    canvas.stage.off('mousedown', onClick);
+    document.removeEventListener('keydown', onKey);
+  };
+
+  const onClick = (event) => {
     if (event.data.originalEvent.button === 2) {
       finish();
       ui.notifications.info("Revival cancelled.");
       return;
     }
-    
     if (event.data.originalEvent.button !== 0) return;
-    
+
     const pos = event.data.getLocalPosition(canvas.app.stage);
-    
-    const clickedSkulls = skulls.filter(s => {
-       return pos.x >= s.x && pos.x <= s.x + s.document.width &&
-              pos.y >= s.y && pos.y <= s.y + s.document.height;
-    });
+    const clicked = skulls.filter(s =>
+      pos.x >= s.x && pos.x <= s.x + s.document.width &&
+      pos.y >= s.y && pos.y <= s.y + s.document.height
+    );
+    if (!clicked.length) return;
 
-    if (!clickedSkulls.length) return; 
-    finish();
+    // If every skull at this position is already selected, deselect all; otherwise select all.
+    const allSelected = clicked.every(s => selected.has(s.id));
+    for (const s of clicked) {
+      if (allSelected) selected.delete(s.id);
+      else selected.add(s.id);
+    }
+    drawHighlights();
+  };
 
-    if (clickedSkulls.length === 1) {
-       const id = clickedSkulls[0].document.flags['draw-steel-combat-tools'].deadTokenId;
-       await executeRevival(id, clickedSkulls[0]);
-    } else {
-       let buttons = {};
-       for (const s of clickedSkulls) {
-           const id = s.document.flags['draw-steel-combat-tools'].deadTokenId;
-           const tok = canvas.scene.tokens.get(id);
-           if (!tok) continue;
-           buttons[s.id] = {
-               label: `${tok.name} (${id})`,
-               callback: () => executeRevival(id, s)
-           };
-       }
-       buttons.cancel = { label: "Cancel" };
-       
-       new Dialog({
-           title: "Overlapping Skulls Found",
-           content: "<p>Multiple fallen creatures are in this space. Which one do you want to revive?</p>",
-           buttons: buttons
-       }).render(true);
+  const onKey = async (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      finish();
+      if (!selected.size) { ui.notifications.warn("No skulls selected for revival."); return; }
+      for (const tileId of selected) {
+        const skull = canvas.tiles.get(tileId);
+        if (!skull) continue;
+        const tokenId = skull.document.flags['draw-steel-combat-tools'].deadTokenId;
+        await executeRevival(tokenId, skull);
+      }
+    } else if (event.key === 'Escape') {
+      finish();
+      ui.notifications.info("Revival cancelled.");
     }
   };
 
   canvas.stage.on('mousedown', onClick);
+  document.addEventListener('keydown', onKey);
 };
 
 const executeRevival = async (tokenId, explicitTile = null) => {
@@ -613,7 +626,8 @@ export const runPowerWordKillUI = (options = {}) => {
     if (event.key === 'Enter') {
       event.preventDefault(); 
       finish();
-      canvas.tokens.releaseAll(); 
+      canvas.tokens.releaseAll();
+      [...game.user.targets].forEach(t => t.setTarget(false, { releaseOthers: false }));
       
       if (selectedTokens.size === 0) {
         ui.notifications.warn("No targets selected.");
