@@ -442,6 +442,78 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
   return finalElev;
 };
 
+// Applies falling damage for a creature that was force-moved downward into an unbreakable surface.
+// Uses the forced movement distance as the fall distance, with Agility treated as 0, per the rules.
+// Called for the not-blocked vertical-downward case where the creature lands freely on the ground.
+const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landingGrid, undoOps, collisionMsgs, noFallDamage = false) => {
+  const GRID   = getGRID();
+  const canFly = canCurrentlyFly(targetToken.actor);
+  if (canFly) return finalElev;
+
+  const tilesBelow = canvas.tiles.placeables
+    .filter(t => {
+      const tg = toGrid(t.document);
+      if (tg.x !== landingGrid.x || tg.y !== landingGrid.y) return false;
+      if (!hasTags(t, 'obstacle') || hasTags(t, 'broken')) return false;
+      const top = getWallBlockTop(t) ?? 0;
+      return (top - 1) < finalElev;
+    })
+    .sort((a, b) => (getWallBlockTop(b) ?? 0) - (getWallBlockTop(a) ?? 0));
+
+  const topTile        = tilesBelow[0] ?? null;
+  const landingSurface = topTile ? ((getWallBlockTop(topTile) ?? 1) - 1) : 0;
+  const effectiveFall  = forcedDist; // Agility treated as 0
+
+  if (noFallDamage) {
+    await safeUpdate(targetToken.document, { elevation: landingSurface });
+    collisionMsgs.push(`${targetToken.name} is slammed ${forcedDist} square${forcedDist !== 1 ? 's' : ''} downward but takes no fall damage.`);
+    return landingSurface;
+  }
+
+  if (effectiveFall >= 2) {
+    const fallDmg = Math.min(effectiveFall * 2, getSetting('fallDamageCap'));
+    await applyDamage(targetToken.actor, fallDmg);
+    collisionMsgs.push(`${targetToken.name} is slammed ${forcedDist} square${forcedDist !== 1 ? 's' : ''} downward into the ground and takes <strong>${fallDmg} damage</strong> (Agility treated as 0), landing prone.`);
+
+    let actualLanding = landingSurface;
+    if (topTile) {
+      const newTop = await breakTileFromTop(topTile, fallDmg, undoOps, collisionMsgs, targetToken);
+      if (newTop !== null) actualLanding = newTop;
+    }
+
+    await safeUpdate(targetToken.document, { elevation: actualLanding });
+    await safeToggleStatusEffect(targetToken.actor, 'prone', { active: true });
+    undoOps.push({ op: 'status', uuid: targetToken.actor.uuid, effectId: 'prone', active: false });
+
+    const landedOn = tokenAt(landingGrid.x, landingGrid.y, targetToken.id);
+    if (landedOn) {
+      undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { animate: false, teleport: true } });
+      await applyDamage(landedOn.actor, fallDmg);
+      collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
+      const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
+      const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
+      if (fallerSize > blockerMight) {
+        await safeToggleStatusEffect(landedOn.actor, 'prone', { active: true });
+        undoOps.push({ op: 'status', uuid: landedOn.actor.uuid, effectId: 'prone', active: false });
+        collisionMsgs.push(`${landedOn.name} is knocked prone.`);
+      }
+      const chosen = await chooseFreeSquare(targetToken);
+      if (chosen) {
+        await safeUpdate(targetToken.document, { x: chosen.x * GRID, y: chosen.y * GRID });
+        collisionMsgs.push(`${targetToken.name} lands in a nearby free space.`);
+      } else {
+        collisionMsgs.push(`${targetToken.name} could not find a free space to land.`);
+      }
+    }
+
+    return actualLanding;
+  } else {
+    await safeUpdate(targetToken.document, { elevation: landingSurface });
+    if (effectiveFall > 0) collisionMsgs.push(`${targetToken.name} is slammed 1 square downward into the ground. Less than 2 squares, no fall damage.`);
+    return landingSurface;
+  }
+};
+
 const buildUndoLog = (targetToken, startPos, startElevSnap, movedSnap, undoOps) => [
   { op: 'update',  uuid: targetToken.document.uuid, data: { x: startPos.x, y: startPos.y, elevation: startElevSnap }, options: { animate: false, teleport: true } },
   { op: 'stamina', uuid: targetToken.actor.uuid, prevValue: movedSnap.prevValue, prevTemp: movedSnap.prevTemp, squadGroupUuid: movedSnap.squadGroup?.uuid ?? null, prevSquadHP: movedSnap.prevSquadHP, squadCombatantIds: movedSnap.squadCombatantIds, squadTokenIds: movedSnap.squadTokenIds ?? [] },
@@ -757,7 +829,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                   let bestScore = Infinity;
 
                   for (const adj of adjacents) {
-                      if (sourceCellSet.has(`${adj.x},${adj.y}`)) continue;
+                      if (type === 'Push' && sourceCellSet.has(`${adj.x},${adj.y}`)) continue;
                       if (cornerCutsWall(currGrid, adj) && cornerCutMode === 'block') continue;
 
                       // Compare footprint centers (top-left + half-size) to avoid diagonal
@@ -812,293 +884,324 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
       const path     = [];
       const graphics = new PIXI.Graphics();
-    canvas.app.stage.addChild(graphics);
+      canvas.app.stage.addChild(graphics);
 
-    const colorRange   = 0xffff00;
-    const colorPath      = 0x4488ff;
-    const colorStart     = 0xffaa00;
-    const colorValid     = 0x44cc44;
-    const colorSuggest   = 0x88ffbb;
-    const colorInvalid   = 0xcc4444;
-    const colorCollision = 0xff7700; // orange - "you can go here but it'll hurt"
+      const colorRange    = 0xffff00;
+      const colorPath     = 0x4488ff;
+      const colorStart    = 0xffaa00;
+      const colorValid    = 0x44cc44;
+      const colorSuggest  = 0x88ffbb;
+      const colorInvalid  = 0xcc4444;
+      const colorCollision = 0xff7700;
 
-    const computeRangeHighlight = () => {
-      const reachable = new Set();
-      const key = g => `${g.x},${g.y}`;
-      const visited = new Map();
-      visited.set(key(startGrid), 0);
-      const queue = [{ pos: startGrid, steps: 0 }];
-      while (queue.length) {
-        const { pos, steps } = queue.shift();
-        if (steps >= reduced) continue;
-        const neighbors = [
-          { x: pos.x - 1, y: pos.y - 1 }, { x: pos.x, y: pos.y - 1 }, { x: pos.x + 1, y: pos.y - 1 },
-          { x: pos.x - 1, y: pos.y },                                    { x: pos.x + 1, y: pos.y },
-          { x: pos.x - 1, y: pos.y + 1 }, { x: pos.x, y: pos.y + 1 }, { x: pos.x + 1, y: pos.y + 1 },
-        ];
-        for (const nb of neighbors) {
-          if (gridEq(nb, startGrid)) continue;
-          if (sourceCellSet.has(key(nb))) continue;
-          if (type === 'Push' && sourceGrid && gridDist(ctr(nb), sourceGrid) <= gridDist(ctr(pos), sourceGrid)) continue;
-          if (type === 'Pull' && sourceGrid && gridDist(ctr(nb), sourceGrid) >= gridDist(ctr(pos), sourceGrid)) continue;
-          if (cornerCutsWall(pos, nb) && cornerCutMode === 'block') continue;
-          const k = key(nb);
-          if (!visited.has(k)) {
-            visited.set(k, steps + 1);
-            reachable.add(k);
-            queue.push({ pos: nb, steps: steps + 1 });
-          }
-        }
+      // Pull and Slide allow moving the target into the source's space.
+      const allowSourceCells = (type === 'Pull' || type === 'Slide');
+
+      // Push and Pull must travel in a straight line.
+      // Pull: direction locked immediately toward the source (if sourceGrid is known).
+      // Push: direction locks after the first step is placed; resets when path is emptied.
+      // Slide: no direction constraint.
+      let lockedDirX = null;
+      let lockedDirY = null;
+
+      if (type === 'Pull' && sourceGrid) {
+        const dvx = sourceGrid.x - (startGrid.x + hs);
+        const dvy = sourceGrid.y - (startGrid.y + hs);
+        const len = Math.sqrt(dvx * dvx + dvy * dvy);
+        if (len > 0) { lockedDirX = dvx / len; lockedDirY = dvy / len; }
       }
-      // cells blocked by a wall (orthogonally adjacent to reachable) - still selectable, will trigger collision
-      const wallReachable = new Set();
-      for (const k of reachable) {
-        const [rx, ry] = k.split(',').map(Number);
-        const pos = { x: rx, y: ry };
-        for (const nb of [
-          { x: pos.x - 1, y: pos.y }, { x: pos.x + 1, y: pos.y },
-          { x: pos.x, y: pos.y - 1 }, { x: pos.x, y: pos.y + 1 },
-        ]) {
-          const nk = key(nb);
-          if (!reachable.has(nk) && !gridEq(nb, startGrid) && !sourceCellSet.has(nk)) {
+
+      // Returns true if cell g (grid top-left) lies on the locked direction line.
+      // Cells whose center is within 0.71 grid units perpendicularly are included,
+      // which keeps both options available on shallow-angle diagonals.
+      const isOnLine = (g) => {
+        if (lockedDirX === null) return true;
+        const cx = (g.x + hs) - (startGrid.x + hs);
+        const cy = (g.y + hs) - (startGrid.y + hs);
+        const dot   = cx * lockedDirX + cy * lockedDirY;
+        const cross = cx * lockedDirY - cy * lockedDirX;
+        return dot > 0 && Math.abs(cross) < 0.71;
+      };
+
+      const computeRangeHighlight = () => {
+        const reachable = new Set();
+        const key = g => `${g.x},${g.y}`;
+        const visited = new Map();
+        visited.set(key(startGrid), 0);
+        const queue = [{ pos: startGrid, steps: 0 }];
+        while (queue.length) {
+          const { pos, steps } = queue.shift();
+          if (steps >= reduced) continue;
+          const neighbors = [
+            { x: pos.x - 1, y: pos.y - 1 }, { x: pos.x, y: pos.y - 1 }, { x: pos.x + 1, y: pos.y - 1 },
+            { x: pos.x - 1, y: pos.y },                                    { x: pos.x + 1, y: pos.y },
+            { x: pos.x - 1, y: pos.y + 1 }, { x: pos.x, y: pos.y + 1 }, { x: pos.x + 1, y: pos.y + 1 },
+          ];
+          for (const nb of neighbors) {
+            if (gridEq(nb, startGrid)) continue;
+            if (!allowSourceCells && sourceCellSet.has(key(nb))) continue;
             if (type === 'Push' && sourceGrid && gridDist(ctr(nb), sourceGrid) <= gridDist(ctr(pos), sourceGrid)) continue;
             if (type === 'Pull' && sourceGrid && gridDist(ctr(nb), sourceGrid) >= gridDist(ctr(pos), sourceGrid)) continue;
-            wallReachable.add(nk);
+            if (cornerCutsWall(pos, nb) && cornerCutMode === 'block') continue;
+            const k = key(nb);
+            if (!visited.has(k)) {
+              visited.set(k, steps + 1);
+              reachable.add(k);
+              queue.push({ pos: nb, steps: steps + 1 });
+            }
           }
         }
-      }
-      return { reachable, wallReachable };
-    };
-    const { reachable: rangeHighlight, wallReachable } = computeRangeHighlight();
-
-    const isValidStep = (from, to) => {
-      if (gridDist(from, to) !== 1) return false;
-      if (gridEq(to, startGrid)) return false;
-      if (sourceCellSet.has(`${to.x},${to.y}`)) return false;
-      for (const p of path) if (gridEq(to, p)) return false;
-      if (cornerCutsWall(from, to) && cornerCutMode === 'block') return false;
-      if (type === 'Push' && sourceGrid) {
-        if (gridDist(ctr(to), sourceGrid) <= gridDist(ctr(from), sourceGrid)) return false;
-      }
-      if (type === 'Pull' && sourceGrid) {
-        if (gridDist(ctr(to), sourceGrid) >= gridDist(ctr(from), sourceGrid)) return false;
-      }
-      return true;
-    };
-
-    // in collide mode: greedy diagonal-first - shortest possible path, corner cuts allowed (they collide).
-    // in block mode: BFS so it routes around corners rather than through them.
-    const getSuggestedPath = (from, to) => {
-      const remaining = reduced - path.length;
-      if (cornerCutMode === 'collide') {
-        const steps = [];
-        let curr = { ...from };
-        while (!gridEq(curr, to)) {
-          if (steps.length >= remaining) return null;
-          const dx = Math.sign(to.x - curr.x);
-          const dy = Math.sign(to.y - curr.y);
-          // prefer diagonal, then cardinal along each axis
-          const candidates = [];
-          if (dx !== 0 && dy !== 0) candidates.push({ x: curr.x + dx, y: curr.y + dy });
-          if (dx !== 0) candidates.push({ x: curr.x + dx, y: curr.y });
-          if (dy !== 0) candidates.push({ x: curr.x, y: curr.y + dy });
-          let chosen = null;
-          for (const c of candidates) {
-            if (gridEq(c, startGrid)) continue;
-            if (sourceCellSet.has(`${c.x},${c.y}`)) continue;
-            if (path.some(p => gridEq(p, c)) || steps.some(s => gridEq(s, c))) continue;
-            if (type === 'Push' && sourceGrid && gridDist(ctr(c), sourceGrid) <= gridDist(ctr(curr), sourceGrid)) continue;
-            if (type === 'Pull' && sourceGrid && gridDist(ctr(c), sourceGrid) >= gridDist(ctr(curr), sourceGrid)) continue;
-            chosen = c;
-            break;
+        const wallReachable = new Set();
+        for (const k of reachable) {
+          const [rx, ry] = k.split(',').map(Number);
+          const pos = { x: rx, y: ry };
+          for (const nb of [
+            { x: pos.x - 1, y: pos.y }, { x: pos.x + 1, y: pos.y },
+            { x: pos.x, y: pos.y - 1 }, { x: pos.x, y: pos.y + 1 },
+          ]) {
+            const nk = key(nb);
+            if (!reachable.has(nk) && !gridEq(nb, startGrid) && (allowSourceCells || !sourceCellSet.has(nk))) {
+              if (type === 'Push' && sourceGrid && gridDist(ctr(nb), sourceGrid) <= gridDist(ctr(pos), sourceGrid)) continue;
+              if (type === 'Pull' && sourceGrid && gridDist(ctr(nb), sourceGrid) >= gridDist(ctr(pos), sourceGrid)) continue;
+              wallReachable.add(nk);
+            }
           }
-          if (!chosen) return null;
-          steps.push(chosen);
-          curr = chosen;
         }
-        return steps.length > 0 ? steps : null;
-      }
-      // block mode - BFS routing around corners
-      const key = g => `${g.x},${g.y}`;
-      const parent = new Map();
-      parent.set(key(from), null);
-      const queue = [from];
-      while (queue.length) {
-        const curr = queue.shift();
-        if (gridEq(curr, to)) {
+        return { reachable, wallReachable };
+      };
+      const { reachable: rangeHighlight, wallReachable } = computeRangeHighlight();
+
+      // For Push/Pull with a locked direction, filter highlights to cells on the line.
+      const getLineFiltered = () => {
+        if (lockedDirX === null) return { activeRange: rangeHighlight, activeWall: wallReachable };
+        const activeRange = new Set([...rangeHighlight].filter(k => { const [x,y] = k.split(',').map(Number); return isOnLine({x,y}); }));
+        const activeWall  = new Set([...wallReachable ].filter(k => { const [x,y] = k.split(',').map(Number); return isOnLine({x,y}); }));
+        return { activeRange, activeWall };
+      };
+
+      const isValidStep = (from, to) => {
+        if (gridDist(from, to) !== 1) return false;
+        if (gridEq(to, startGrid)) return false;
+        if (!allowSourceCells && sourceCellSet.has(`${to.x},${to.y}`)) return false;
+        for (const p of path) if (gridEq(to, p)) return false;
+        if (cornerCutsWall(from, to) && cornerCutMode === 'block') return false;
+        if (type === 'Push' && sourceGrid && gridDist(ctr(to), sourceGrid) <= gridDist(ctr(from), sourceGrid)) return false;
+        if (type === 'Pull' && sourceGrid && gridDist(ctr(to), sourceGrid) >= gridDist(ctr(from), sourceGrid)) return false;
+        if ((type === 'Push' || type === 'Pull') && !isOnLine(to)) return false;
+        return true;
+      };
+
+      // In collide mode: greedy diagonal-first - shortest possible path, corner cuts allowed (they collide).
+      // In block mode: BFS so it routes around corners rather than through them.
+      const getSuggestedPath = (from, to) => {
+        const remaining = reduced - path.length;
+        if (cornerCutMode === 'collide') {
           const steps = [];
-          let k = key(to);
-          while (parent.get(k) !== null) {
-            const [x, y] = k.split(',').map(Number);
-            steps.unshift({ x, y });
-            k = parent.get(k);
+          let curr = { ...from };
+          while (!gridEq(curr, to)) {
+            if (steps.length >= remaining) return null;
+            const dx = Math.sign(to.x - curr.x);
+            const dy = Math.sign(to.y - curr.y);
+            const candidates = [];
+            if (dx !== 0 && dy !== 0) candidates.push({ x: curr.x + dx, y: curr.y + dy });
+            if (dx !== 0) candidates.push({ x: curr.x + dx, y: curr.y });
+            if (dy !== 0) candidates.push({ x: curr.x, y: curr.y + dy });
+            let chosen = null;
+            for (const c of candidates) {
+              if (gridEq(c, startGrid)) continue;
+              if (!allowSourceCells && sourceCellSet.has(`${c.x},${c.y}`)) continue;
+              if (path.some(p => gridEq(p, c)) || steps.some(s => gridEq(s, c))) continue;
+              if (type === 'Push' && sourceGrid && gridDist(ctr(c), sourceGrid) <= gridDist(ctr(curr), sourceGrid)) continue;
+              if (type === 'Pull' && sourceGrid && gridDist(ctr(c), sourceGrid) >= gridDist(ctr(curr), sourceGrid)) continue;
+              if ((type === 'Push' || type === 'Pull') && !isOnLine(c)) continue;
+              chosen = c;
+              break;
+            }
+            if (!chosen) return null;
+            steps.push(chosen);
+            curr = chosen;
           }
-          return steps.length > 0 && steps.length <= remaining ? steps : null;
+          return steps.length > 0 ? steps : null;
         }
-        const neighbors = [
-          { x: curr.x - 1, y: curr.y - 1 }, { x: curr.x, y: curr.y - 1 }, { x: curr.x + 1, y: curr.y - 1 },
-          { x: curr.x - 1, y: curr.y },                                      { x: curr.x + 1, y: curr.y },
-          { x: curr.x - 1, y: curr.y + 1 }, { x: curr.x, y: curr.y + 1 }, { x: curr.x + 1, y: curr.y + 1 },
-        ];
-        for (const nb of neighbors) {
-          const k = key(nb);
-          if (!parent.has(k) && isValidStep(curr, nb)) {
-            parent.set(k, key(curr));
-            queue.push(nb);
+        const key = g => `${g.x},${g.y}`;
+        const parent = new Map();
+        parent.set(key(from), null);
+        const queue = [from];
+        while (queue.length) {
+          const curr = queue.shift();
+          if (gridEq(curr, to)) {
+            const steps = [];
+            let k = key(to);
+            while (parent.get(k) !== null) {
+              const [x, y] = k.split(',').map(Number);
+              steps.unshift({ x, y });
+              k = parent.get(k);
+            }
+            return steps.length > 0 && steps.length <= remaining ? steps : null;
+          }
+          const neighbors = [
+            { x: curr.x - 1, y: curr.y - 1 }, { x: curr.x, y: curr.y - 1 }, { x: curr.x + 1, y: curr.y - 1 },
+            { x: curr.x - 1, y: curr.y },                                      { x: curr.x + 1, y: curr.y },
+            { x: curr.x - 1, y: curr.y + 1 }, { x: curr.x, y: curr.y + 1 }, { x: curr.x + 1, y: curr.y + 1 },
+          ];
+          for (const nb of neighbors) {
+            const k = key(nb);
+            if (!parent.has(k) && isValidStep(curr, nb)) {
+              parent.set(k, key(curr));
+              queue.push(nb);
+            }
+          }
+          if (parent.size > 10000) break;
+        }
+        return null;
+      };
+
+      const stepIsCollision = (from, to) => {
+        if (wallReachable.has(`${to.x},${to.y}`) || cornerCutsWall(from, to)) return true;
+        if (isLargeToken) return tokensAtCells(footprintCells(to.x, to.y, tokenSize), targetToken.id).length > 0;
+        return !!tokenAt(to.x, to.y, targetToken.id);
+      };
+
+      const overlay = new PIXI.Container();
+      overlay.interactive = true;
+      overlay.hitArea     = new PIXI.Rectangle(0, 0, canvas.dimensions.width, canvas.dimensions.height);
+      canvas.app.stage.addChild(overlay);
+      let hoverGrid = null;
+
+      const redraw = (hover) => {
+        graphics.clear();
+        const { activeRange, activeWall } = getLineFiltered();
+        const lineActive = lockedDirX !== null && (type === 'Push' || type === 'Pull');
+
+        for (const k of rangeHighlight) {
+          const [gx, gy] = k.split(',').map(Number);
+          const rw = toWorld({ x: gx, y: gy });
+          graphics.beginFill(colorRange, lineActive && !activeRange.has(k) ? 0.05 : 0.18);
+          graphics.drawRect(rw.x, rw.y, GRID, GRID);
+          graphics.endFill();
+        }
+        for (const k of wallReachable) {
+          const [gx, gy] = k.split(',').map(Number);
+          const rw = toWorld({ x: gx, y: gy });
+          graphics.beginFill(colorCollision, lineActive && !activeWall.has(k) ? 0.04 : 0.15);
+          graphics.drawRect(rw.x, rw.y, GRID, GRID);
+          graphics.endFill();
+        }
+
+        const cellMap = new Map();
+        const setCells = (gx, gy, color, alpha) => {
+          for (let ix = 0; ix < tokenSize; ix++)
+            for (let iy = 0; iy < tokenSize; iy++)
+              cellMap.set(`${gx + ix},${gy + iy}`, { color, alpha });
+        };
+
+        setCells(startGrid.x, startGrid.y, colorStart, 0.35);
+
+        for (let pi = 0; pi < path.length; pi++) {
+          const p    = path[pi];
+          const prev = pi > 0 ? path[pi - 1] : startGrid;
+          setCells(p.x, p.y, stepIsCollision(prev, p) ? colorCollision : colorPath, 0.45);
+        }
+
+        if (hover && path.length < reduced) {
+          const prev = path.length ? path[path.length - 1] : startGrid;
+          const hk   = `${hover.x},${hover.y}`;
+          const inRange = activeRange.has(hk) || activeWall.has(hk);
+          const destCollision = stepIsCollision(prev, hover);
+
+          if (isValidStep(prev, hover)) {
+            setCells(hover.x, hover.y, destCollision ? colorCollision : colorValid, 0.45);
+          } else if (inRange) {
+            const suggestion = getSuggestedPath(prev, hover);
+            if (suggestion) {
+              let suggPrev = prev;
+              for (const s of suggestion) {
+                setCells(s.x, s.y, stepIsCollision(suggPrev, s) ? colorCollision : colorSuggest, 0.45);
+                suggPrev = s;
+              }
+            }
+            setCells(hover.x, hover.y, destCollision ? colorCollision : colorValid, 0.45);
+          } else {
+            setCells(hover.x, hover.y, colorInvalid, 0.4);
           }
         }
-        if (parent.size > 10000) break;
-      }
-      return null;
-    };
 
-    // returns whether a step in the already-drawn path (or a hover step) will cause a collision
-    const stepIsCollision = (from, to) => {
-      if (wallReachable.has(`${to.x},${to.y}`) || cornerCutsWall(from, to)) return true;
-      if (isLargeToken) {
-        return tokensAtCells(footprintCells(to.x, to.y, tokenSize), targetToken.id).length > 0;
-      }
-      return !!tokenAt(to.x, to.y, targetToken.id);
-    };
-
-    // Size of the token footprint in world pixels (1x1 for normal tokens, NxN for large)
-    const footW = GRID * tokenSize;
-    const footH = GRID * tokenSize;
-
-    const redraw = (hoverGrid) => {
-      graphics.clear();
-
-      // Range background -- always 1x1 cells (these mark reachable top-left positions)
-      for (const k of rangeHighlight) {
-        const [gx, gy] = k.split(',').map(Number);
-        const rw = toWorld({ x: gx, y: gy });
-        graphics.beginFill(colorRange, 0.18);
-        graphics.drawRect(rw.x, rw.y, GRID, GRID);
-        graphics.endFill();
-      }
-      for (const k of wallReachable) {
-        const [gx, gy] = k.split(',').map(Number);
-        const rw = toWorld({ x: gx, y: gy });
-        graphics.beginFill(colorCollision, 0.15);
-        graphics.drawRect(rw.x, rw.y, GRID, GRID);
-        graphics.endFill();
-      }
-
-      // Collect all token-footprint cells into a map so overlapping footprints across
-      // adjacent path steps don't stack transparent fills and create a gradient.
-      // Priority: hover and suggestion overwrite placed steps, placed steps overwrite start.
-      const cellMap = new Map();
-
-      const setCells = (gx, gy, color, alpha) => {
-        for (let ix = 0; ix < tokenSize; ix++) {
-          for (let iy = 0; iy < tokenSize; iy++) {
-            cellMap.set(`${gx + ix},${gy + iy}`, { color, alpha });
-          }
+        for (const [k, { color, alpha }] of cellMap) {
+          const [gx, gy] = k.split(',').map(Number);
+          const pw = toWorld({ x: gx, y: gy });
+          graphics.beginFill(color, alpha);
+          graphics.drawRect(pw.x, pw.y, GRID, GRID);
+          graphics.endFill();
         }
       };
 
-      // Start position (lowest priority)
-      setCells(startGrid.x, startGrid.y, colorStart, 0.35);
-
-      // Placed path steps
-      for (let pi = 0; pi < path.length; pi++) {
-        const p    = path[pi];
-        const prev = pi > 0 ? path[pi - 1] : startGrid;
-        setCells(p.x, p.y, stepIsCollision(prev, p) ? colorCollision : colorPath, 0.45);
-      }
-
-      // Hover and suggestion (highest priority, overwrites placed cells)
-      if (hoverGrid && path.length < reduced) {
-        const prev = path.length ? path[path.length - 1] : startGrid;
-        const hk   = `${hoverGrid.x},${hoverGrid.y}`;
-        const inRange = rangeHighlight.has(hk) || wallReachable.has(hk);
-        const destCollision = stepIsCollision(prev, hoverGrid);
-
-        if (isValidStep(prev, hoverGrid)) {
-          setCells(hoverGrid.x, hoverGrid.y, destCollision ? colorCollision : colorValid, 0.45);
-        } else if (inRange) {
-          const suggestion = getSuggestedPath(prev, hoverGrid);
-          if (suggestion) {
-            let suggPrev = prev;
-            for (const s of suggestion) {
-              setCells(s.x, s.y, stepIsCollision(suggPrev, s) ? colorCollision : colorSuggest, 0.45);
-              suggPrev = s;
-            }
-          }
-          setCells(hoverGrid.x, hoverGrid.y, destCollision ? colorCollision : colorValid, 0.45);
-        } else {
-          setCells(hoverGrid.x, hoverGrid.y, colorInvalid, 0.4);
-        }
-      }
-
-      // Draw each cell exactly once
-      for (const [key, { color, alpha }] of cellMap) {
-        const [gx, gy] = key.split(',').map(Number);
-        const pw = toWorld({ x: gx, y: gy });
-        graphics.beginFill(color, alpha);
-        graphics.drawRect(pw.x, pw.y, GRID, GRID);
-        graphics.endFill();
-      }
-    };
-
-    const overlay = new PIXI.Container();
-    overlay.interactive = true;
-    overlay.hitArea     = new PIXI.Rectangle(0, 0, canvas.dimensions.width, canvas.dimensions.height);
-    canvas.app.stage.addChild(overlay);
-    let hoverGrid = null;
-
-    const onMove = (e) => {
-      hoverGrid = toGrid(e.data.getLocalPosition(canvas.app.stage));
-      redraw(hoverGrid);
-    };
-
-    const onClick = (e) => {
-      const gpos = toGrid(e.data.getLocalPosition(canvas.app.stage));
-      const prev = path.length ? path[path.length - 1] : startGrid;
-      const gk   = `${gpos.x},${gpos.y}`;
-      if (isValidStep(prev, gpos)) {
-        path.push(gpos);
-        if (path.length === reduced) { cleanup(); resolve(path); return; }
+      const onMove = (e) => {
+        hoverGrid = toGrid(e.data.getLocalPosition(canvas.app.stage));
         redraw(hoverGrid);
-      } else if (rangeHighlight.has(gk) || wallReachable.has(gk)) {
-        const suggestion = getSuggestedPath(prev, gpos);
-        if (!suggestion) { ui.notifications.warn('No valid path to that square.'); return; }
-        for (const s of suggestion) path.push(s);
-        // for collision destinations the final cell must be included so the execution loop hits the wall
-        if (!gridEq(path[path.length - 1], gpos)) path.push(gpos);
-        cleanup(); resolve(path);
-      } else {
-        ui.notifications.warn('Invalid step for ' + type + '.');
-      }
-    };
+      };
 
-    const onRightClick = () => { if (path.length > 0) { path.pop(); redraw(hoverGrid); } };
+      const onClick = (e) => {
+        const gpos = toGrid(e.data.getLocalPosition(canvas.app.stage));
+        const prev = path.length ? path[path.length - 1] : startGrid;
+        const gk   = `${gpos.x},${gpos.y}`;
+        const { activeRange, activeWall } = getLineFiltered();
 
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') { cleanup(); resolve(null); }
-      if (e.key === 'Enter')  { cleanup(); resolve(path); }
-    };
+        // Lock Push direction on first step.
+        if (type === 'Push' && path.length === 0 && lockedDirX === null && !gridEq(gpos, startGrid)) {
+          const dvx = (gpos.x + hs) - (startGrid.x + hs);
+          const dvy = (gpos.y + hs) - (startGrid.y + hs);
+          const len = Math.sqrt(dvx * dvx + dvy * dvy);
+          if (len > 0) { lockedDirX = dvx / len; lockedDirY = dvy / len; }
+        }
 
-    const cleanup = () => {
-      overlay.off('pointermove', onMove);
-      overlay.off('pointerdown', onClick);
-      overlay.off('rightdown',   onRightClick);
-      document.removeEventListener('keydown', onKeyDown);
-      canvas.app.stage.removeChild(overlay);
-      canvas.app.stage.removeChild(graphics);
-      graphics.destroy();
-      overlay.destroy();
-    };
+        if (isValidStep(prev, gpos)) {
+          path.push(gpos);
+          if (path.length === reduced) { cleanup(); resolve(path); return; }
+          redraw(hoverGrid);
+        } else if (activeRange.has(gk) || activeWall.has(gk)) {
+          const suggestion = getSuggestedPath(prev, gpos);
+          if (!suggestion) { ui.notifications.warn('No valid path to that square.'); return; }
+          for (const s of suggestion) path.push(s);
+          if (!gridEq(path[path.length - 1], gpos)) path.push(gpos);
+          cleanup(); resolve(path);
+        } else {
+          ui.notifications.warn('Invalid step for ' + type + '.');
+        }
+      };
 
-    overlay.on('pointermove', onMove);
-    overlay.on('pointerdown', onClick);
-    overlay.on('rightdown',   onRightClick);
-    document.addEventListener('keydown', onKeyDown);
-    redraw(null);
-    const vertNote = isVertical ? ` vertical ${reducedVert}` : '';
-    ui.notifications.info(`${type} ${reduced}${vertNote}: click squares to trace path. Right-click to undo. Enter to confirm. Escape to cancel.`);
-  });
-  } 
+      const onRightClick = () => {
+        if (path.length > 0) {
+          path.pop();
+          if (type === 'Push' && path.length === 0) { lockedDirX = null; lockedDirY = null; }
+          redraw(hoverGrid);
+        }
+      };
+
+      const onKeyDown = (e) => {
+        if (e.key === 'Escape') { cleanup(); resolve(null); }
+        if (e.key === 'Enter')  { cleanup(); resolve(path); }
+      };
+
+      const cleanup = () => {
+        overlay.off('pointermove', onMove);
+        overlay.off('pointerdown', onClick);
+        overlay.off('rightdown',   onRightClick);
+        document.removeEventListener('keydown', onKeyDown);
+        canvas.app.stage.removeChild(overlay);
+        canvas.app.stage.removeChild(graphics);
+        graphics.destroy();
+        overlay.destroy();
+      };
+
+      overlay.on('pointermove', onMove);
+      overlay.on('pointerdown', onClick);
+      overlay.on('rightdown',   onRightClick);
+      document.addEventListener('keydown', onKeyDown);
+      redraw(null);
+      const vertNote = isVertical ? ` vertical ${reducedVert}` : '';
+      ui.notifications.info(`${type} ${reduced}${vertNote}: click squares to trace path. Right-click to undo. Enter to confirm. Escape to cancel.`);
+    });
+  }
 
   const path = finalPath;
   if (!path || (path.length === 0 && !isVertical)) {
@@ -1131,6 +1234,18 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             const dmg = 2 + remaining + bonusObjectDmg;
             if (!noCollisionDamage) await applyDamage(targetToken.actor, dmg);
             collisionMsgs.push(`${targetToken.name} is blocked by a wall and takes <strong>${dmg} damage</strong>.`);
+            if (dir === -1) {
+              const ffd = Math.abs(reducedVert);
+              if (!noFallDamage && ffd >= 2) {
+                const fallDmg = Math.min(ffd * 2, getSetting('fallDamageCap'));
+                await applyDamage(targetToken.actor, fallDmg);
+                collisionMsgs.push(`${targetToken.name} also takes <strong>${fallDmg} damage</strong> from being slammed into the surface (Agility treated as 0), landing prone.`);
+                await safeToggleStatusEffect(targetToken.actor, 'prone', { active: true });
+                undoOps.push({ op: 'status', uuid: targetToken.actor.uuid, effectId: 'prone', active: false });
+              } else if (!noFallDamage && ffd === 1) {
+                collisionMsgs.push(`${targetToken.name} is slammed 1 square downward into the surface. Less than 2 squares, no fall damage.`);
+              }
+            }
             blocked = true;
             break;
           }
@@ -1152,7 +1267,9 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
       await safeUpdate(targetToken.document, { elevation: finalElev });
       const vertTargetElev = !blocked
-        ? await applyFallDamage(targetToken, finalElev, startGrid, agility, canFly, undoOps, collisionMsgs, fallReduction, noFallDamage)
+        ? (dir === -1
+          ? await applyForcedFallDamage(targetToken, Math.abs(reducedVert), finalElev, startGrid, undoOps, collisionMsgs, noFallDamage)
+          : await applyFallDamage(targetToken, finalElev, startGrid, agility, canFly, undoOps, collisionMsgs, fallReduction, noFallDamage))
         : finalElev;
 
       
@@ -2157,7 +2274,7 @@ export class ForcedMovementPanel extends Application {
               <select id="fm-type" style="width:${s(60)}px;">
                 <option value="Push">Push</option><option value="Pull">Pull</option><option value="Slide">Slide</option>
               </select>
-              <input type="number" id="fm-dist" value="1" min="1" step="1" style="width:${s(30)}px;text-align:center;" title="Squares">
+              <input type="number" id="fm-dist" value="1" min="0" step="1" style="width:${s(30)}px;text-align:center;" title="Squares">
             </div>
           </div>
 
@@ -2224,9 +2341,11 @@ export class ForcedMovementPanel extends Application {
     
     const updateExecButton = () => {
       const type = html.find('#fm-type').val() || 'Move';
-      const dist = html.find('#fm-dist').val() || '1';
+      const dist = html.find('#fm-dist').val() ?? '0';
       const isVert = html.find('#fm-vert-check').is(':checked');
-      html.find('#fm-exec-text').text(`Execute ${isVert ? 'Vertical ' : ''}${type} ${dist}`);
+      const vertDist = html.find('#fm-vert-dist').val();
+      const label = (dist === '0' && isVert) ? `Execute Vertical ${type} ${vertDist || dist}` : `Execute ${isVert ? 'Vertical ' : ''}${type} ${dist}`;
+      html.find('#fm-exec-text').text(label);
     };
     html.find('input, select').on('change input', updateExecButton);
     updateExecButton(); 
@@ -2243,7 +2362,7 @@ export class ForcedMovementPanel extends Application {
         if (this._targetTokens.length === 0) { ui.notifications.warn("DSCT | You must target at least one token."); return; }
 
         const type = html.find('#fm-type').val();
-        const distance = parseInt(html.find('#fm-dist').val()) || 1;
+        const distance = parseInt(html.find('#fm-dist').val() ?? '0');
         const isVertical = html.find('#fm-vert-check').is(':checked');
         const rawVert = html.find('#fm-vert-dist').val();
 
