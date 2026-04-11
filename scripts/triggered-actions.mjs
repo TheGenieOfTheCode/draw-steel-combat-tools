@@ -1,6 +1,6 @@
-﻿import { safeCreateEmbedded, safeDelete, safeUpdate, getSetting, getTokenById } from './helpers.js';
+import { safeCreateEmbedded, safeDelete, safeUpdate, getSetting, getTokenById } from './helpers.mjs';
 
-const TRIGGER_ORIGIN = 'dsct-triggered-action';
+const M = 'draw-steel-combat-tools';
 
 const TRIGGER_EFFECT = {
   name: "Unspent Triggered Action",
@@ -9,7 +9,7 @@ const TRIGGER_EFFECT = {
   system: { end: { type: "encounter", roll: "" }, filters: { keywords: [] } },
   changes: [], disabled: false,
   duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
-  description: "", tint: "#ffffff", transfer: false, statuses: [], sort: 0, flags: {}
+  description: "", tint: "#ffffff", transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'triggered-action' } }
 };
 
 const getActorFromCombatant = (combatant) => {
@@ -27,18 +27,16 @@ const shouldApply = (actor, mode, targetedIds = new Set()) => {
 };
 
 const enableEffect = async (actor) => {
-  const existing = actor.effects.find(e => e.origin === TRIGGER_ORIGIN);
+  const existing = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
   if (existing) {
     if (existing.disabled) await safeUpdate(existing, { disabled: false });
     return;
   }
-  const effectData = foundry.utils.deepClone(TRIGGER_EFFECT);
-  effectData.origin = TRIGGER_ORIGIN;
-  await safeCreateEmbedded(actor, 'ActiveEffect', [effectData]);
+  await safeCreateEmbedded(actor, 'ActiveEffect', [foundry.utils.deepClone(TRIGGER_EFFECT)]);
 };
 
 const disableEffect = async (actor) => {
-  const effect = actor.effects.find(e => e.origin === TRIGGER_ORIGIN);
+  const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
   if (effect && !effect.disabled) await safeUpdate(effect, { disabled: true });
 };
 
@@ -61,7 +59,7 @@ export const applyTriggeredActions = async (mode = null, silent = false) => {
   for (const token of canvas.tokens.placeables) {
     const actor = token.actor;
     if (!actor) continue;
-    const effect = actor.effects.find(e => e.origin === TRIGGER_ORIGIN);
+    const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
     if (!effect) continue;
 
     if (!shouldApply(actor, resolvedMode, targetedIds)) {
@@ -106,7 +104,7 @@ export const registerTriggeredActionHooks = () => {
       const actor = getActorFromCombatant(combatant);
       if (!actor) continue;
       
-      const effect = actor.effects.find(e => e.origin === TRIGGER_ORIGIN);
+      const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
       if (effect && effect.disabled) {
         await safeUpdate(effect, { disabled: false });
       }
@@ -137,7 +135,7 @@ export const registerTriggeredActionHooks = () => {
     for (const token of canvas.tokens.placeables) {
       const actor = token.actor;
       if (!actor) continue;
-      const effect = actor.effects.find(e => e.origin === TRIGGER_ORIGIN);
+      const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
       if (effect) await safeDelete(effect);
     }
   });

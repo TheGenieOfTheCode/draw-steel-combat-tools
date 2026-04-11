@@ -1,25 +1,11 @@
-﻿import {
+import {
   hasTags, GRID as getGRID, toGrid, toWorld, gridDist,
   tokenAt, tileAt, safeUpdate, replayUndo, getWallBlockTop,
   applyDamage, safeToggleStatusEffect, getSetting, canCurrentlyFly, applyFall, snapStamina,
   getTokenById, getWindowById, pickCanvasTarget,
-} from './helpers.js';
-import { endGrab, applyGrab } from './grab.js';
-
-
-const SCALE = 1.2;
-const s = n => Math.round(n * SCALE);
-const palette = () => document.body.classList.contains('theme-dark') ? {
-  bg: '#0e0c14', bgInner: '#0a0810', bgBtn: '#1a1628',
-  border: '#2a2040', borderOuter: '#4a3870',
-  text: '#8a88a0', textDim: '#3a3050', textLabel: '#4a3870',
-  accent: '#7a50c0', accentRed: '#802020', accentGreen: '#206040',
-} : {
-  bg: '#f0eef8', bgInner: '#e4e0f0', bgBtn: '#dbd8ec',
-  border: '#b0a8cc', borderOuter: '#7060a8',
-  text: '#3a3060', textDim: '#8880aa', textLabel: '#5040a0',
-  accent: '#7a50c0', accentRed: '#a03030', accentGreen: '#206040',
-};
+  s, palette, injectPanelChrome,
+} from './helpers.mjs';
+import { endGrab, applyGrab } from './grab.mjs';
 
 
 const chooseTeleportSquare = (sourceToken, maxDist) => new Promise((resolve) => {
@@ -360,19 +346,8 @@ export class TeleportPanel extends Application {
   }
 
   async _renderInner(data) {
-    const styleId = 'tp-panel-style';
-    const styleEl = document.getElementById(styleId) ?? document.head.appendChild(Object.assign(document.createElement('style'), { id: styleId }));
+    injectPanelChrome(this.options.id);
     const p = palette();
-    styleEl.textContent = `
-      #dsct-tp-panel .window-content { padding:0; background:${p.bg}; overflow-y:auto; }
-      #dsct-tp-panel { border:1px solid ${p.borderOuter}; border-radius:3px; box-shadow:0 0 12px rgba(0,0,0,0.4); }
-      #dsct-tp-panel .window-header { display:none !important; }
-      #dsct-tp-panel .window-content { border-radius:3px; }
-      #dsct-tp-panel button:hover { filter:brightness(1.15); }
-      #dsct-tp-panel input[type="number"], #dsct-tp-panel input[type="text"] { background:${p.bgBtn}; color:${p.text}; border:1px solid ${p.border}; border-radius:2px; font-size:${s(9)}px; padding:${s(2)}px; }
-      #dsct-tp-panel input[type="number"]:focus, #dsct-tp-panel input[type="text"]:focus { outline:none; border-color:${p.accent}; }
-      #dsct-tp-panel input[type="checkbox"] { accent-color:${p.accent}; margin:0; }
-    `;
 
     const sourceSrc   = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
     const sourceLabel = this._sourceToken?.name ?? 'Select exactly 1 token';
@@ -524,7 +499,7 @@ export const toggleTeleportPanel = () => {
 };
 
 
-// ── Burst Teleport ────────────────────────────────────────────────────────────
+// -- Burst Teleport ------------------------------------------------------------
 
 /** All grid cells within Chebyshev `radius` of a token's footprint. Returns Set<"x,y">. */
 const burstCells = (tok, radius) => {

@@ -1,8 +1,6 @@
-﻿import { safeCreateEmbedded, safeDelete, getItemDsid } from './helpers.js';
+import { safeCreateEmbedded, safeDelete, getItemDsid } from './helpers.mjs';
 
-const JUDGEMENT_BASE_ORIGIN = 'dsct-judgement';
-const MARK_BASE_ORIGIN      = 'dsct-mark';
-const AID_ATTACK_ORIGIN     = 'dsct-aid-attack';
+const M = 'draw-steel-combat-tools';
 
 const AID_ATTACK_EFFECT = {
   name: 'Aid Attack (Target)',
@@ -12,19 +10,15 @@ const AID_ATTACK_EFFECT = {
   changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
   disabled: false,
   duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0 },
-  description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: {},
+  description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'aid-attack' } },
 };
 
 
-const M = 'draw-steel-combat-tools';
-
-const getJudgementOrigin = () => `${JUDGEMENT_BASE_ORIGIN}-${game.user.id}`;
-
-const removeExistingEffectGlobal = async (origin) => {
+const removeExistingJudgement = async () => {
   const existing = game.actors.contents
     .flatMap(a => [...a.effects])
     .concat([...canvas.tokens.placeables.flatMap(t => t.actor?.isToken ? [...t.actor.effects] : [])])
-    .find(e => e.origin === origin);
+    .find(e => e.getFlag(M, 'judgement')?.userId === game.user.id);
   if (existing) await safeDelete(existing);
 };
 
@@ -46,8 +40,7 @@ export const applyJudgement = async () => {
   if (targets.length !== 1) { ui.notifications.warn('Target exactly one creature to judge.'); return; }
   const targetToken = targets[0];
 
-  const origin = getJudgementOrigin();
-  await removeExistingEffectGlobal(origin);
+  await removeExistingJudgement();
 
   const effectData = {
     name: 'Judged',
@@ -55,7 +48,7 @@ export const applyJudgement = async () => {
     type: 'base',
     system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
     changes: [],
-    origin: origin
+    flags: { [M]: { judgement: { userId: game.user.id } } },
   };
 
   await safeCreateEmbedded(targetToken.actor, 'ActiveEffect', [effectData]);
@@ -92,14 +85,12 @@ export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'othe
 
   const isMarkAbility = dsid === 'mark';
   for (const targetToken of targets) {
-    const origin = `${MARK_BASE_ORIGIN}-${foundry.utils.randomID()}`;
     const effectData = {
       name: 'Mark',
       img: 'icons/skills/targeting/crosshair-pointed-orange.webp',
       type: 'base',
       system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
       changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
-      origin,
       flags: { [M]: { mark: { userId: game.user.id, actorId: resolvedActorId, dsid, isMarkAbility } } },
     };
     await safeCreateEmbedded(targetToken.actor, 'ActiveEffect', [effectData]);
@@ -120,8 +111,8 @@ const shouldTrigger = (key) => {
 };
 
 const triggerProc = async (actor, effect) => {
-  const isJudgement = effect.origin.startsWith(JUDGEMENT_BASE_ORIGIN);
-  const isMark = effect.origin.startsWith(MARK_BASE_ORIGIN);
+  const isJudgement = !!effect.getFlag(M, 'judgement');
+  const isMark = !!effect.getFlag(M, 'mark');
 
   if (isJudgement) {
     await ChatMessage.create({
@@ -141,15 +132,11 @@ const triggerProc = async (actor, effect) => {
 const handleActorDeath = (actor) => {
   if (!actor) return;
   const relevantEffects = actor.effects.filter(e =>
-    e.origin?.startsWith(JUDGEMENT_BASE_ORIGIN) ||
-    e.origin?.startsWith(MARK_BASE_ORIGIN)
+    e.getFlag(M, 'judgement') || e.getFlag(M, 'mark')
   );
 
   for (const effect of relevantEffects) {
-    // Judgement effects store the owner in the origin string; mark effects store it in flags.
-    const ownerId = effect.origin.startsWith(MARK_BASE_ORIGIN)
-      ? effect.flags?.[M]?.mark?.userId
-      : effect.origin.split('-')[2];
+    const ownerId = effect.getFlag(M, 'mark')?.userId ?? effect.getFlag(M, 'judgement')?.userId;
     if (game.user.id === ownerId) {
       if (!shouldTrigger(`${actor.id}-${effect.id}`)) continue;
       triggerProc(actor, effect);
@@ -168,12 +155,10 @@ export const applyAidAttack = async () => {
   const targetActor = targetToken.actor;
   const targetTokenId = targetToken.id;
 
-  const existing = targetActor.effects.find(e => e.origin === AID_ATTACK_ORIGIN);
+  const existing = targetActor.effects.find(e => e.getFlag(M, 'effectType') === 'aid-attack');
   if (existing) await safeDelete(existing);
 
-  const effectData = foundry.utils.deepClone(AID_ATTACK_EFFECT);
-  effectData.origin = AID_ATTACK_ORIGIN;
-  await safeCreateEmbedded(targetActor, 'ActiveEffect', [effectData]);
+  await safeCreateEmbedded(targetActor, 'ActiveEffect', [foundry.utils.deepClone(AID_ATTACK_EFFECT)]);
 
   await ChatMessage.create({ content: `<strong>Aid Attack:</strong> The next ally ability roll against <strong>${targetActor.name}</strong> has an edge.` });
 
@@ -182,7 +167,7 @@ export const applyAidAttack = async () => {
   const cleanup = async (reason) => {
     Hooks.off('createChatMessage', rollHookId);
     Hooks.off('deleteCombat', combatEndHookId);
-    const effect = targetActor.effects.find(e => e.origin === AID_ATTACK_ORIGIN);
+    const effect = targetActor.effects.find(e => e.getFlag(M, 'effectType') === 'aid-attack');
     if (effect) await safeDelete(effect);
     ui.notifications.info(`Aid Attack on ${targetActor.name} cleared - ${reason}.`);
   };

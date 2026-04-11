@@ -1,10 +1,144 @@
-﻿export const getSetting = (key) => game.settings.get('draw-steel-combat-tools', key);
+export const getSetting = (key) => game.settings.get('draw-steel-combat-tools', key);
 
-export const hasTags    = (obj, tag)  => Tagger.hasTags(obj, tag);
-export const getTags    = (obj)       => Tagger.getTags(obj);
-export const getByTag   = (tag)       => Tagger.getByTag(tag);
-export const addTags    = (obj, tags) => Tagger.addTags(obj, tags);
-export const removeTags = (obj, tags) => Tagger.removeTags(obj, tags);
+// -- Panel scaling & theming --------------------------------------------------
+
+export const PANEL_SCALE = 1.2;
+export const s = (n) => Math.round(n * PANEL_SCALE);
+
+const PALETTE_DARK = {
+  '--dsct-bg':           '#0e0c14',
+  '--dsct-bg-inner':     '#0a0810',
+  '--dsct-bg-btn':       '#1a1628',
+  '--dsct-border':       '#2a2040',
+  '--dsct-border-outer': '#4a3870',
+  '--dsct-text':         '#8a88a0',
+  '--dsct-text-dim':     '#3a3050',
+  '--dsct-text-label':   '#4a3870',
+  '--dsct-accent':       '#7a50c0',
+  '--dsct-accent-red':   '#802020',
+  '--dsct-accent-green': '#206040',
+  '--dsct-text-active':    '#c0a8e8',
+  '--dsct-text-mimic':     '#9a7a5a',
+  '--dsct-text-mimic-dim': '#3a3050',
+  '--dsct-border-panel':   '#1e1a24',
+  '--dsct-mimic-label':    '#6a5080',
+  '--dsct-animal-label':   '#6a5a8a',
+  '--dsct-close-fg':       '#6a5a8a',
+};
+const PALETTE_LIGHT = {
+  '--dsct-bg':           '#f0eef8',
+  '--dsct-bg-inner':     '#e4e0f0',
+  '--dsct-bg-btn':       '#dbd8ec',
+  '--dsct-border':       '#b0a8cc',
+  '--dsct-border-outer': '#7060a8',
+  '--dsct-text':         '#3a3060',
+  '--dsct-text-dim':     '#8880aa',
+  '--dsct-text-label':   '#5040a0',
+  '--dsct-accent':       '#7a50c0',
+  '--dsct-accent-red':   '#a03030',
+  '--dsct-accent-green': '#206040',
+  '--dsct-text-active':    '#4030a0',
+  '--dsct-text-mimic':     '#7a5a30',
+  '--dsct-text-mimic-dim': '#9088b0',
+  '--dsct-border-panel':   '#c8c0e0',
+  '--dsct-mimic-label':    '#5a4070',
+  '--dsct-animal-label':   '#6a5a8a',
+  '--dsct-close-fg':       '#7060a8',
+};
+
+export const initPalette = () => {
+  const pal = document.body.classList.contains('theme-dark') ? PALETTE_DARK : PALETTE_LIGHT;
+  for (const [k, v] of Object.entries(pal)) document.documentElement.style.setProperty(k, v);
+};
+
+/**
+ * Inject per-panel window chrome styles using CSS custom properties.
+ * Call once at the top of each panel's _renderInner. Safe to call on every re-render.
+ */
+export const injectPanelChrome = (appId) => {
+  const styleId = `${appId}-chrome`;
+  const el = document.getElementById(styleId)
+    ?? document.head.appendChild(Object.assign(document.createElement('style'), { id: styleId }));
+  el.textContent = `
+    #${appId} { border:1px solid var(--dsct-border-outer) !important; border-radius:3px; box-shadow:0 0 12px rgba(0,0,0,0.4); }
+    #${appId} .window-header { display:none !important; }
+    #${appId} .window-content { padding:0 !important; background:var(--dsct-bg) !important; overflow-y:auto; border-radius:3px; }
+    #${appId} button:hover { filter:brightness(1.15); }
+    #${appId} input[type="number"], #${appId} input[type="text"], #${appId} select { background:var(--dsct-bg-btn); color:var(--dsct-text); border:1px solid var(--dsct-border); border-radius:2px; font-size:11px; padding:2px; }
+    #${appId} input:focus, #${appId} select:focus { outline:none; border-color:var(--dsct-accent); }
+    #${appId} input[type="checkbox"] { accent-color:var(--dsct-accent); margin:0; }
+    #${appId} select:disabled { opacity:0.35; }
+  `;
+};
+
+/**
+ * Thin palette shim for panel HTML templates.
+ * Returns CSS variable references so inline styles automatically
+ * pick up the current theme without per-panel style injection.
+ */
+export const palette = () => ({
+  bg:          'var(--dsct-bg)',
+  bgInner:     'var(--dsct-bg-inner)',
+  bgBtn:       'var(--dsct-bg-btn)',
+  border:      'var(--dsct-border)',
+  borderPanel: 'var(--dsct-border-panel)',
+  borderOuter: 'var(--dsct-border-outer)',
+  text:        'var(--dsct-text)',
+  textDim:     'var(--dsct-text-dim)',
+  textLabel:   'var(--dsct-text-label)',
+  textActive:  'var(--dsct-text-active)',
+  textMimic:   'var(--dsct-text-mimic)',
+  textMimicDim:'var(--dsct-text-mimic-dim)',
+  accent:      'var(--dsct-accent)',
+  accentRed:   'var(--dsct-accent-red)',
+  accentGreen: 'var(--dsct-accent-green)',
+  mimicLabel:  'var(--dsct-mimic-label)',
+  animalLabel: 'var(--dsct-animal-label)',
+  closeFg:     'var(--dsct-close-fg)',
+});
+
+// -- Tag System ---------------------------------------------------------------
+
+const taggerActive = () => game.modules.get('tagger')?.active;
+
+// Internal flag-based tag system. Used when Tagger is unavailable.
+// Tags are stored as a string array in flags['draw-steel-combat-tools'].tags on each document.
+const M = 'draw-steel-combat-tools';
+const _doc  = (obj) => obj?.document ?? obj;
+const _tags = (obj) => _doc(obj)?.getFlag(M, 'tags') ?? [];
+
+export const hasTags = (obj, tag) => {
+  if (taggerActive()) return Tagger.hasTags(obj, tag);
+  const tags = _tags(obj);
+  return Array.isArray(tag) ? tag.every(t => tags.includes(t)) : tags.includes(tag);
+};
+
+export const getTags = (obj) => taggerActive() ? Tagger.getTags(obj) : _tags(obj);
+
+export const getByTag = (tag) => {
+  if (taggerActive()) return Tagger.getByTag(tag);
+  const results = [];
+  for (const w of canvas.scene?.walls?.contents ?? [])  { if (_tags(w).includes(tag))  results.push(w); }
+  for (const t of canvas.scene?.tiles?.contents ?? [])  { if (_tags(t).includes(tag))  results.push(t); }
+  for (const t of canvas.scene?.tokens?.contents ?? []) { if (_tags(t).includes(tag))  results.push(t); }
+  return results;
+};
+
+export const addTags = async (obj, tags) => {
+  if (taggerActive()) return Tagger.addTags(obj, tags);
+  const doc  = _doc(obj);
+  const curr = _tags(obj);
+  await doc.setFlag(M, 'tags', [...new Set([...curr, ...tags])]);
+};
+
+export const removeTags = async (obj, tags) => {
+  if (taggerActive()) return Tagger.removeTags(obj, tags);
+  const doc  = _doc(obj);
+  const curr = _tags(obj);
+  await doc.setFlag(M, 'tags', curr.filter(t => !tags.includes(t)));
+};
+
+// -- Grid & Coordinates -------------------------------------------------------
 
 export const GRID = () => canvas.grid.size;
 
@@ -13,6 +147,8 @@ export const toWorld  = (grid)  => ({ x: grid.x * GRID(), y: grid.y * GRID() });
 export const toCenter = (grid)  => ({ x: grid.x * GRID() + GRID() / 2, y: grid.y * GRID() + GRID() / 2 });
 export const gridEq   = (a, b)  => a.x === b.x && a.y === b.y;
 export const gridDist = (a, b)  => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+
+// -- Materials ----------------------------------------------------------------
 
 export const MATERIAL_RULES    = () => getSetting('materialRules');
 export const WALL_RESTRICTIONS = () => getSetting('wallRestrictions');
@@ -39,6 +175,8 @@ export const getMaterial = (obj) => {
   }
   return 'wood';
 };
+
+// -- Canvas Queries -----------------------------------------------------------
 
 export const tokenAt = (gx, gy, excludeId) => canvas.tokens.placeables.find(t => {
   if (t.id === excludeId) return false;
@@ -73,6 +211,8 @@ export const wallBetween = (fromGrid, toGrid_) => {
   }
   return null;
 };
+
+// -- Document Helpers ---------------------------------------------------------
 
 export const getSquadGroup = (actor) => {
   const combatant = game.combat?.combatants.find(c => c.actorId === actor.id);
@@ -141,6 +281,8 @@ const getQuickStrikeSocket = () => {
   return socketlib.registerModule('ds-quick-strike');
 };
 
+// -- Damage & Stamina ---------------------------------------------------------
+
 export const applyDamage = async (actor, amount, squadGroupOverride = undefined) => {
   const prevValue   = actor.system.stamina.value;
   const prevTemp    = actor.system.stamina.temporary;
@@ -201,6 +343,8 @@ export const snapStamina = (actor) => {
   };
 };
 
+// -- Elevation & Flying -------------------------------------------------------
+
 export const hasFly = (actor) => {
   const types = actor?.system?.movement?.types;
   if (types instanceof Set) return types.has('fly');
@@ -243,7 +387,7 @@ const buildFallMessage = (name, fallDist, effectiveFall, dmg) => {
   if (effectiveFall === fallDist) {
     // agility didn't reduce anything - skip the redundant "(X effective)" clause
     return dmg > 0
-      ? `${distPart}, dealing <strong>${dmg}</strong> fall damage (${effectiveFall * 2} × ½ effective).`
+      ? `${distPart}, dealing <strong>${dmg}</strong> fall damage (${effectiveFall * 2} � � effective).`
       : `${distPart} but the fall is too short to deal damage.`;
   }
   const effectivePart = ` (<strong>${effectiveFall}</strong> effective after Agility reduction)`;
@@ -264,6 +408,8 @@ export const canForcedMoveTarget = (attackerActor, targetActor) => {
   return attackerRank >= targetRank;
 };
 
+// -- Item Helpers -------------------------------------------------------------
+
 export const getItemDsid = (item) => item.system?._dsid ?? item.toObject().system?._dsid ?? null;
 
 export const getItemRange = (item) => {
@@ -277,6 +423,8 @@ export const getItemRange = (item) => {
   if (dist.type === 'cube' || dist.type === 'wall') return p + s;
   return p;
 };
+
+// -- Wall Block Queries -------------------------------------------------------
 
 export const getWallBlockTileAt = (gx, gy) => {
   return canvas.tiles.placeables.find(t => {
@@ -300,6 +448,8 @@ export const getWallBlockTop = (tile) => {
   const { walls } = getWallBlockWalls(tile);
   return walls[0]?.flags?.['wall-height']?.top ?? null;
 };
+
+// -- Token & Window Utilities -------------------------------------------------
 
 export const safeTeleport = async (tokenDoc, targetX, targetY) => {
   canvas.tokens.releaseAll();
@@ -335,7 +485,7 @@ export const normalizeCollection = (collection) => {
   return Object.values(collection);
 };
 
-// ── Canvas Pick Helper ────────────────────────────────────────────────────────
+// -- Canvas Pick Helper -------------------------------------------------------
 
 /**
  * Generic PIXI canvas-click picker.
@@ -397,7 +547,7 @@ export const pickCanvasTarget = ({ draw, hitTest, hint }) => new Promise((resolv
   if (hint) ui.notifications.info(hint);
 });
 
-// ── Chat Message Injection ────────────────────────────────────────────────────
+// -- Chat Message Injection ---------------------------------------------------
 
 const _injectors     = [];
 const _pendingInjects = new Map();
@@ -454,7 +604,7 @@ export const scheduleInject = (msg) => {
   _pendingInjects.set(msg.id, id);
 };
 
-// ── Power Roll Bane/Edge Helpers ─────────────────────────────────────────────
+// -- Power Roll Bane/Edge Helpers ---------------------------------------------
 
 export const tierOf = (total) => total <= 11 ? 1 : total <= 16 ? 2 : 3;
 
@@ -469,7 +619,7 @@ export const formatRollModLabel = (n) => {
 /**
  * Parses the current bane/edge state from a live rendered chat message element.
  * Finds the "Ability Roll" dice section and extracts the base values (stripping any
- * existing ±2 modifier so the result represents the clean pre-bane state).
+ * existing �2 modifier so the result represents the clean pre-bane state).
  *
  * @param {HTMLElement} el - A rendered chat message element (from renderChatMessageHTML)
  * @returns {{ originalTotal, originalNet, baseFormula, baseTooltip, isCritical } | null}
@@ -523,7 +673,7 @@ export const parsePowerRollState = (el) => {
  * @param {object}      baneData - Original roll state from parsePowerRollState
  * @param {number}      delta    - How many banes (+) or edges (-) to add to the original state.
  *                                 e.g. +1 adds one bane, -2 adds double edge.
- *                                 Final net is always capped to ±2.
+ *                                 Final net is always capped to �2.
  */
 export const applyRollMod = (el, baneData, delta) => {
   const { originalTotal, originalNet, baseFormula, baseTooltip, isCritical } = baneData;

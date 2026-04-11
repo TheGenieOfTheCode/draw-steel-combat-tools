@@ -1,0 +1,130 @@
+/* ── CSS Custom Properties (set by initPalette in helpers.js) ─────────── */
+:root {
+  --dsct-bg:           #f0eef8;
+  --dsct-bg-inner:     #e4e0f0;
+  --dsct-bg-btn:       #dbd8ec;
+  --dsct-border:       #b0a8cc;
+  --dsct-border-outer: #7060a8;
+  --dsct-text:         #3a3060;
+  --dsct-text-dim:     #8880aa;
+  --dsct-text-label:   #5040a0;
+  --dsct-accent:       #7a50c0;
+  --dsct-accent-red:   #a03030;
+  --dsct-accent-green: #206040;
+  --dsct-text-active:    #4030a0;
+  --dsct-text-mimic:     #7a5a30;
+  --dsct-text-mimic-dim: #9088b0;
+  --dsct-border-panel:   #c8c0e0;
+  --dsct-mimic-label:    #5a4070;
+  --dsct-animal-label:   #6a5a8a;
+  --dsct-close-fg:       #7060a8;
+}
+
+/* ── Panel layout classes ─────────────────────────────────────────────── */
+.dsct-panel {
+  padding: 10px;
+  background: var(--dsct-bg);
+  font-family: Georgia, serif;
+  border-radius: 4px;
+  cursor: move;
+}
+
+.dsct-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+.dsct-panel-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--dsct-text-label);
+}
+
+.dsct-close-btn {
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin-left: auto;
+  background: var(--dsct-bg-btn);
+  border: 1px solid var(--dsct-border);
+  color: var(--dsct-text-dim);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  padding: 0;
+}
+.dsct-close-btn:hover { color: var(--dsct-text) !important; }
+
+.dsct-section {
+  padding: 7px;
+  border: 1px solid var(--dsct-border);
+  border-radius: 4px;
+  background: var(--dsct-bg-inner);
+  margin-bottom: 7px;
+}
+
+.dsct-section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--dsct-text-label);
+  margin-bottom: 5px;
+}
+
+.dsct-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--dsct-border);
+}
+
+.dsct-execute-btn {
+  width: 100%;
+  padding: 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: bold;
+  background: var(--dsct-bg-btn);
+  border: 1px solid var(--dsct-accent);
+  color: var(--dsct-accent);
+}
+
+/* ── Token preview ────────────────────────────────────────────────────── */
+.dsct-token-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.dsct-token-img {
+  border-radius: 4px;
+  object-fit: contain;
+  border: 1px solid var(--dsct-border);
+  background: var(--dsct-bg);
+}
+
+.dsct-token-name {
+  font-size: 10px;
+  color: var(--dsct-text);
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+.dsct-token-name.dim { color: var(--dsct-text-dim); }
+
+.dsct-arrow {
+  font-size: 19px;
+  color: var(--dsct-text-dim);
+  flex-shrink: 0;
+}

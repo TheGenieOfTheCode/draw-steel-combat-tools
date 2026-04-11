@@ -1,7 +1,7 @@
-﻿import { applyGrab, buildFreeStrikeButton, sizeRankG } from './grab.js';
-import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, getSquadGroup } from './helpers.js';
-import { registerAbilityInjectors } from './ability-automation.js';
-import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetween } from './conditions.js';
+import { applyGrab, buildFreeStrikeButton, sizeRankG } from './grab.mjs';
+import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, getSquadGroup } from './helpers.mjs';
+import { registerAbilityInjectors } from './ability-automation.mjs';
+import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetween } from './conditions.mjs';
 
 // DSIDs that allow grabbing more than one creature simultaneously.
 // All other grab abilities default to the standard limit of 1.
@@ -323,7 +323,7 @@ const injectAllRollMods = (msg, { el }) => {
   if (!base?.originalTotal || !deltas) return;
 
   const totalDelta = Object.values(deltas).reduce((sum, d) => sum + d, 0);
-  if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | msg=${msg.id} deltas=${JSON.stringify(deltas)} totalDelta=${totalDelta} originalNet=${base.originalNet} → finalNet=${Math.max(-2, Math.min(2, base.originalNet + totalDelta))} isCritical=${base.isCritical}`);
+  if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | msg=${msg.id} deltas=${JSON.stringify(deltas)} totalDelta=${totalDelta} originalNet=${base.originalNet} ? finalNet=${Math.max(-2, Math.min(2, base.originalNet + totalDelta))} isCritical=${base.isCritical}`);
   applyRollMod(el, base, totalDelta);
 };
 
@@ -413,7 +413,7 @@ export function registerChatHooks() {
         }
       }
 
-      // Frightened bane: bane on rolls against non-source targets
+      // Frightened bane: bane on rolls against the source of fear
       if (getSetting('frightenedEnabled') && !('frightened' in existingDeltas)) {
         const speakerTokenId = msg.speaker?.token;
         const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
@@ -422,7 +422,7 @@ export function registerChatHooks() {
           const targets = [...game.user.targets];
           const targetingSource = targetsInclude(targets, fd.sourceActorId, fd.sourceTokenId);
           if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Frightened bane check msg=${msg.id} targetingSource=${targetingSource}`);
-          if (!targetingSource) pendingDeltas.frightened = 1;
+          if (targetingSource) pendingDeltas.frightened = 1;
         }
       }
 
@@ -645,9 +645,9 @@ export function registerChatHooks() {
           return;
         }
 
-        const tokens = canvas.tokens.controlled.length
-          ? [...canvas.tokens.controlled]
-          : [...game.user.targets];
+        const tokens = game.user.targets.size
+          ? [...game.user.targets]
+          : [...canvas.tokens.controlled];
 
         if (!tokens.length) {
           ui.notifications.error('No tokens selected or targeted.');
@@ -666,6 +666,61 @@ export function registerChatHooks() {
             : amount;
           if (getSetting('debugMode')) console.log(`DSCT | Area Damage | ${actor.name}: rolled=${amount} cap=${actor.system.stamina.max ?? 'n/a'} effective=${effectiveAmt} isMinion=${!!squadGroup}`);
           await applyDamage(actor, effectiveAmt);
+        }
+      });
+
+      origBtn.replaceWith(btn);
+    }
+  });
+
+  // For non-area abilities, replace the apply-damage button so damage routes through our applyDamage
+  // function. This ensures squad tracking (for breakpoint auto-assign) and QS integration work
+  // the same way they do for area abilities and forced movement damage.
+  registerInjector(function injectSingleTargetDamage(msg, { el }) {
+    if (msg.getFlag('draw-steel-combat-tools', 'areaAbility')) return;
+
+    const origButtons = [...el.querySelectorAll('.apply-damage')];
+    if (!origButtons.length) return;
+
+    for (const origBtn of origButtons) {
+      const btn = origBtn.cloneNode(true);
+      btn.classList.remove('apply-damage');
+      delete btn.dataset.action;
+      btn.classList.add('dsct-single-dmg-btn');
+
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const partEl = btn.closest('[data-message-part]');
+        const partId = partEl?.dataset.messagePart;
+        const idx    = parseInt(btn.dataset.index);
+        const roll   = partId
+          ? msg.system.parts.get(partId)?.rolls?.[idx]
+          : msg.rolls?.[idx];
+        if (!roll) return;
+
+        if (roll.isHeal) {
+          await roll.applyDamage(null, { halfDamage: e.shiftKey });
+          return;
+        }
+
+        const tokens = game.user.targets.size
+          ? [...game.user.targets]
+          : [...canvas.tokens.controlled];
+
+        if (!tokens.length) {
+          ui.notifications.error('No tokens selected or targeted.');
+          return;
+        }
+
+        let amount = roll.total;
+        if (e.shiftKey) amount = Math.floor(amount / 2);
+
+        for (const token of tokens) {
+          const actor = token.actor;
+          if (!actor) continue;
+          await applyDamage(actor, amount);
         }
       });
 
@@ -762,7 +817,7 @@ export function registerChatHooks() {
           await msg.setFlag('draw-steel-combat-tools', 'bleedingApplied', { dmg, rollMsgId: rollMsg?.id });
           if (getSetting('debugMode')) console.log(`DSCT | Bleeding | Auto-applied ${dmg} damage to ${actor.name}`);
         })();
-        div.innerHTML = `<em>Bleeding: applying damage…</em>`;
+        div.innerHTML = `<em>Bleeding: applying damage�</em>`;
       }
     } else {
       // Manual mode: post a roll button

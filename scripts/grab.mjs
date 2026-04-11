@@ -1,9 +1,9 @@
-﻿import { getSetting, safeCreateEmbedded, safeDelete, canForcedMoveTarget, getTokenById, getWindowById } from './helpers.js';
-import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from './chat-hooks.js';
+import { getSetting, safeCreateEmbedded, safeDelete, canForcedMoveTarget, getTokenById, getWindowById, s, palette, injectPanelChrome } from './helpers.mjs';
+import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from './chat-integration.mjs';
+
+const M = 'draw-steel-combat-tools';
 
 const TIMEOUT_MS = 60_000;
-const SCALE      = 1.2;
-const s          = n => Math.round(n * SCALE);
 
 export const sizeRankG = (size) =>
   size.value >= 2 ? size.value + 2 : ({ T: 0, S: 1, M: 2, L: 3 })[size.letter] ?? 2;
@@ -26,18 +26,6 @@ export const buildFreeStrikeButton = (actor) => {
   return dmg !== undefined ? `[[/damage ${dmg}]]{Free Strike (${dmg} damage)}` : `<em>(No Melee Free Strike found)</em>`;
 };
 
-const palette = () => document.body.classList.contains('theme-dark') ? {
-  bg: '#0e0c14', bgInner: '#0a0810', bgBtn: '#1a1628',
-  border: '#2a2040', borderOuter: '#4a3870',
-  text: '#8a88a0', textDim: '#3a3050', textLabel: '#4a3870',
-  accent: '#7a50c0', accentRed: '#802020', accentGreen: '#206040',
-} : {
-  bg: '#f0eef8', bgInner: '#e4e0f0', bgBtn: '#dbd8ec',
-  border: '#b0a8cc', borderOuter: '#7060a8',
-  text: '#3a3060', textDim: '#8880aa', textLabel: '#5040a0',
-  accent: '#7a50c0', accentRed: '#a03030', accentGreen: '#206040',
-};
-
 const refreshOpenPanel = () => {
   const panel = getWindowById('grab-panel');
   if (panel) panel._refreshPanel();
@@ -48,13 +36,18 @@ const ensureGrabHooks = () => {
   if (!window._grabRepositioning) window._grabRepositioning = new Set();
 
   if (!window._grabPreHook) {
-    window._grabPreHook = Hooks.on('preUpdateToken', (doc, changes) => {
+    window._grabPreHook = Hooks.on('preUpdateToken', async (doc, changes) => {
       if (window._grabFollowActive?.has(doc.id))    return;
       if (window._grabRepositioning?.has(doc.id))   return;
       if (!window._activeGrabs?.has(doc.id))        return;
       if (changes.x === undefined && changes.y === undefined) return;
-      delete changes.x; delete changes.y;
-      ui.notifications.warn(`${window._activeGrabs.get(doc.id).grabbedName} is grabbed and cannot move!`);
+      if (getSetting('allowIllegalMovement')) {
+        ui.notifications.warn(`${window._activeGrabs.get(doc.id).grabbedName} is grabbed and cannot move. Moving ends the grab.`);
+        await endGrab(doc.id, { silent: true });
+      } else {
+        delete changes.x; delete changes.y;
+        ui.notifications.warn(`${window._activeGrabs.get(doc.id).grabbedName} is grabbed and cannot move!`);
+      }
     });
   }
 
@@ -108,14 +101,11 @@ const rehydrateGrabs = () => {
 
   for (const token of canvas.tokens.placeables) {
     if (!token.actor) continue;
-    const grabberEffects = token.actor.effects.filter(e => e.name === 'Grabber' && e.origin?.startsWith('macro.grab.'));
-    
+    const grabberEffects = token.actor.effects.filter(e => e.name === 'Grabber' && e.getFlag(M, 'grab'));
+
     for (const effect of grabberEffects) {
-      const parts = effect.origin.split('.');
-      if (parts.length !== 4) continue;
-      
-      const grabberId = parts[2];
-      const grabbedId = parts[3];
+      const { grabberId, grabbedId } = effect.getFlag(M, 'grab') ?? {};
+      if (!grabberId || !grabbedId) continue;
 
       const grabberTok = getTokenById(grabberId);
       const grabbedTok = getTokenById(grabbedId);
@@ -178,7 +168,7 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
     system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
     disabled: false, transfer: false, flags: {},
     duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0 },
-    description: '@Embed[Compendium.draw-steel.journals.JournalEntry.hDhdILCi65wpBgPZ.JournalEntryPage.aWBP2vfXXM3fzuVn inline]',
+    description: '<p>You have speed 0, cannot be force moved except by the creature, object, or effect that has you grabbed, and cannot use the Knockback maneuver. You take a bane on abilities that do not target the creature, object, or effect that has you grabbed.</p><p>You can attempt to escape using the <strong>Escape Grab</strong> maneuver. If you teleport, or if either you or the creature grabbing you is force moved so that you are no longer adjacent, the grab ends.</p><p>If the creature grabbing you moves, they bring you with them.</p>',
     tint: '#ffffff', sort: 0,
   }]);
 
@@ -195,8 +185,9 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
     system: { end: { type: 'encounter', roll: '' }, filters: { keywords: [] } },
     changes: speedChanges, disabled: false, transfer: false, statuses: [], flags: {},
     duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
-    description: '', tint: '#ffffff', sort: 0,
-    origin: `macro.grab.${grabberTok.id}.${grabbedTok.id}`,
+    description: '<p>You can use a maneuver to move the grabbed creature into an unoccupied space adjacent to you. You can release the grabbed creature at any time to end the grab (no action required). If you are force moved so that you are no longer adjacent to the grabbed creature, the grab ends.</p><p>You can grab only creatures of your size or smaller. If your Might score is 2 or higher, you can grab creatures larger than you with a size equal to or less than your Might score. Unless otherwise indicated, you can grab only one creature at a time.</p><p>If your size is equal to or less than the size of the creature you have grabbed, your speed is halved while you have them grabbed.</p>',
+    tint: '#ffffff', sort: 0,
+    flags: { [M]: { grab: { grabberId: grabberTok.id, grabbedId: grabbedTok.id } } },
   }]);
 
   const grabbedEffect = grabbedTok.actor.effects.find(e => [...(e.statuses ?? [])].includes('grabbed'));
@@ -578,16 +569,8 @@ export class GrabPanel extends Application {
   }
 
   async _renderInner(data) {
-    const styleId = 'grab-panel-style';
-    const styleEl = document.getElementById(styleId) ?? document.head.appendChild(Object.assign(document.createElement('style'), { id: styleId }));
+    injectPanelChrome(this.options.id);
     const p = palette();
-    styleEl.textContent = `
-      #grab-panel .window-content { padding:0; background:${p.bg}; overflow-y:auto; }
-      #grab-panel { border:1px solid ${p.borderOuter}; border-radius:3px; box-shadow:0 0 12px rgba(0,0,0,0.4); }
-      #grab-panel .window-header { display:none !important; }
-      #grab-panel .window-content { border-radius:3px; }
-      #grab-panel button:hover { filter:brightness(1.15); }
-    `;
 
     const grabberSrc   = this._grabberToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
     const grabberLabel = this._grabberToken?.name ?? 'No token selected';

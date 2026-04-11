@@ -1,51 +1,51 @@
 import {
   safeCreateEmbedded, safeDelete, getSetting, getTokenById,
-} from './helpers.js';
+} from './helpers.mjs';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const M = 'draw-steel-combat-tools';
 
-const FRIGHTENED_ORIGIN = 'dsct-frightened';
-const TAUNTED_ORIGIN    = 'dsct-taunted';
 
 /**
- * Convert the Draw Steel system's `end` string (from AppliedPowerRollEffect tier data)
- * to the ActiveEffect system.end object the DS system reads for condition expiry.
- * Falls back to save-ends if the string is unrecognised or null.
+ * Resolve a duration string to the fields needed for ActiveEffect creation.
+ * Returns { duration, systemEnd } or null for unlimited.
+ * Any valid DS expiry value (turnEnd, roundEnd, combatEnd, combatStart, etc.) passes through directly.
  */
 const resolveEffectEnd = (endStr) => {
-  if (endStr === 'turn')      return { type: 'turn' };
-  if (endStr === 'encounter') return { type: 'encounter' };
-  // 'save' and anything else → save ends (encounter + roll)
-  return { type: 'encounter', roll: '1d10 + @combat.save.bonus' };
+  if (!endStr || endStr === 'unlimited') return null;
+  if (endStr === 'save') return { duration: { expiry: 'save' }, systemEnd: { roll: '1d10 + @combat.save.bonus' } };
+  return { duration: { expiry: endStr }, systemEnd: null };
 };
 
-const FRIGHTENED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, sourceActorUuid) => ({
+const FRIGHTENED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, sourceActorUuid) => {
+  const end = resolveEffectEnd(endStr);
+  return {
   name: `Frightened [${sourceName}]`,
   img: 'icons/svg/terror.svg',
   type: 'base',
-  system: { end: resolveEffectEnd(endStr), source: sourceActorUuid ?? '' },
+  system: { ...(end?.systemEnd ? { end: end.systemEnd } : {}), source: sourceActorUuid ?? '' },
+  duration: end?.duration ?? {},
   changes: [], disabled: false,
-  duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0 },
   description: '@Embed[Compendium.draw-steel.journals.JournalEntry.hDhdILCi65wpBgPZ.JournalEntryPage.bXiI9vUF3tF78qXg inline]',
   tint: '#ffffff', transfer: false, statuses: [], sort: 0,
   flags: { [M]: { frightened: { sourceActorId, sourceTokenId } } },
-  origin: FRIGHTENED_ORIGIN,
-});
+};};
 
-const TAUNTED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, sourceActorUuid) => ({
+const TAUNTED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, sourceActorUuid) => {
+  const end = resolveEffectEnd(endStr);
+  return {
   name: `Taunted [${sourceName}]`,
   img: 'systems/draw-steel/assets/icons/flag-banner-fold-fill.svg',
   type: 'base',
-  system: { end: resolveEffectEnd(endStr), source: sourceActorUuid ?? '' },
+  system: { ...(end?.systemEnd ? { end: end.systemEnd } : {}), source: sourceActorUuid ?? '' },
+  duration: end?.duration ?? {},
   changes: [], disabled: false,
-  duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0 },
   description: '@Embed[Compendium.draw-steel.journals.JournalEntry.hDhdILCi65wpBgPZ.JournalEntryPage.9zseFmXdcSw8MuKh inline]',
   tint: '#ffffff', transfer: false, statuses: [], sort: 0,
   flags: { [M]: { taunted: { sourceActorId, sourceTokenId } } },
-  origin: TAUNTED_ORIGIN,
-});
+};};
+
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -78,12 +78,12 @@ const distSq = (tokA, tokB) => {
 // ── Get condition data from an actor's effects ────────────────────────────────
 
 export const getFrightenedData = (actor) => {
-  const effect = actor?.appliedEffects?.find(e => e.origin === FRIGHTENED_ORIGIN);
+  const effect = actor?.appliedEffects?.find(e => e.getFlag(M, 'frightened'));
   return effect?.flags?.[M]?.frightened ?? null;
 };
 
 export const getTauntedData = (actor) => {
-  const effect = actor?.appliedEffects?.find(e => e.origin === TAUNTED_ORIGIN);
+  const effect = actor?.appliedEffects?.find(e => e.getFlag(M, 'taunted'));
   return effect?.flags?.[M]?.taunted ?? null;
 };
 
@@ -93,7 +93,7 @@ export const applyFrightened = async (targetToken, sourceActor, sourceTokenId, e
   const actor = targetToken.actor;
   if (!actor) return;
   // Remove any existing DSCT frightened before applying new one
-  const existing = actor.appliedEffects?.find(e => e.origin === FRIGHTENED_ORIGIN);
+  const existing = actor.appliedEffects?.find(e => e.getFlag(M, 'frightened'));
   if (existing) await safeDelete(existing);
   await safeCreateEmbedded(actor, 'ActiveEffect', [FRIGHTENED_EFFECT(sourceActor.id, sourceTokenId, sourceActor.name, endStr, sourceActor.uuid)]);
   if (getSetting('debugMode')) console.log(`DSCT | Frightened | Applied to ${targetToken.name} source=${sourceActor.name} end=${endStr}`);
@@ -102,7 +102,7 @@ export const applyFrightened = async (targetToken, sourceActor, sourceTokenId, e
 export const applyTaunted = async (targetToken, sourceActor, sourceTokenId, endStr = null) => {
   const actor = targetToken.actor;
   if (!actor) return;
-  const existing = actor.appliedEffects?.find(e => e.origin === TAUNTED_ORIGIN);
+  const existing = actor.appliedEffects?.find(e => e.getFlag(M, 'taunted'));
   if (existing) await safeDelete(existing);
   await safeCreateEmbedded(actor, 'ActiveEffect', [TAUNTED_EFFECT(sourceActor.id, sourceTokenId, sourceActor.name, endStr, sourceActor.uuid)]);
   if (getSetting('debugMode')) console.log(`DSCT | Taunted | Applied to ${targetToken.name} source=${sourceActor.name} end=${endStr}`);
@@ -145,8 +145,12 @@ export const registerConditionHooks = () => {
       const proposedDist = distSq(proposed, sourceTok);
 
       if (proposedDist < currentDist) {
-        delete changes.x; delete changes.y;
-        ui.notifications.warn(`${doc.name} is frightened of ${sourceTok.name} and cannot move closer!`);
+        if (getSetting('allowIllegalMovement')) {
+          ui.notifications.warn(`${doc.name} is frightened of ${sourceTok.name} and cannot willingly move closer.`);
+        } else {
+          delete changes.x; delete changes.y;
+          ui.notifications.warn(`${doc.name} is frightened of ${sourceTok.name} and cannot move closer!`);
+        }
       }
     });
   }
