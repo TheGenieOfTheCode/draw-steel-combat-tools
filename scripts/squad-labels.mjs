@@ -1,7 +1,7 @@
-﻿import { safeCreateEmbedded, safeDelete, getSetting } from './helpers.js';
+import { safeCreateEmbedded, safeDelete, getSetting } from './helpers.mjs';
 
-const SQUAD_ORIGIN = 'dsct-squad-label';
-const ICON_PATH    = 'modules/draw-steel-combat-tools/assets/icons';
+const M         = 'draw-steel-combat-tools';
+const ICON_PATH = 'modules/draw-steel-combat-tools/assets/icons';
 
 const GROUP_TINTS = {
   1:  '#ff4444',
@@ -45,7 +45,7 @@ export const applySquadLabels = async () => {
   const allTokens = canvas.tokens.placeables;
   for (const token of allTokens) {
     if (!token.actor) continue;
-    const effects = token.actor.effects.filter(e => e.origin === SQUAD_ORIGIN);
+    const effects = token.actor.effects.filter(e => e.getFlag(M, 'effectType') === 'squad-label');
     for (const effect of effects) {
       await safeDelete(effect);
     }
@@ -85,12 +85,11 @@ export const applySquadLabels = async () => {
         name: group.name,
         img,
         type: "base",
-        origin: SQUAD_ORIGIN,
         system: { end: { type: "encounter", roll: "" }, filters: { keywords: [] } },
         changes: [],
         disabled: false,
         duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
-        description: "", tint, transfer: false, statuses: [], sort: 0, flags: {}
+        description: "", tint, transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'squad-label' } }
       };
 
       await safeCreateEmbedded(actor, 'ActiveEffect', [effectData]);

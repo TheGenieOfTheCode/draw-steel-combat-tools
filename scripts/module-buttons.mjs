@@ -120,20 +120,21 @@ export const registerModuleButtons = () => {
         title: 'Power Word: Kill',
         icon: 'fas fa-skull',
         button: true,
-        visible: game.user.isGM && S('showPowerWordKillButton'),
+        visible: game.user.isGM && S('showPowerWordKillButton') && S('deathTrackerEnabled'),
         onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.powerWordKill()
+      },
+      'dsct-dc': {
+        name: 'dsct-dc',
+        title: 'Damage & Conditions',
+        icon: 'fas fa-bolt',
+        button: true,
+        visible: S('showDamageConditionsButton'),
+        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.damageConditionsUI()
       },
     });
 
     addTools(wallControl, {
-      'dsct-wall': {
-        name: 'dsct-wall',
-        title: 'Wall Builder',
-        icon: 'fas fa-dungeon',
-        button: true,
-        visible: game.user.isGM && S('showWallBuilderButton'),
-        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.wallBuilder()
-      },
+      'dsct-wall': { name: 'dsct-wall', title: 'Wall Builder', icon: 'fas fa-dungeon', button: true, visible: game.user.isGM && S('showWallBuilderButton'), onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.wallBuilder() },
       'dsct-select-connected': {
         name: 'dsct-select-connected',
         title: 'Select Connected Walls (Shift: add to selection)',

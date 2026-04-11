@@ -4,19 +4,23 @@
   "description": "<p>Draw Steel combat automation tools.</p>",
   "version": "1.0.0",
   "socket": true,
-  "compatibility": { "minimum": "13", "verified": "13" },
+  "compatibility": { "minimum": "13", "verified": "14" },
   "authors": [{ "name": "Ady", "discord": "AdyGenie" }],
   "url": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools",
   "relationships": {
     "systems": [{ "id": "draw-steel", "type": "system", "compatibility": {} }],
     "requires": [
-      { "id": "tagger", "type": "module", "manifest": "https://github.com/fantasycalendar/FoundryVTT-Tagger/releases/latest/download/module.json", "compatibility": { "minimum": "1.0" } },
-      { "id": "wall-height", "type": "module", "compatibility": { "minimum": "7.0" } },
       { "id": "socketlib", "type": "module", "compatibility": { "minimum": "1.1.3" } },
       { "id": "color-picker", "type": "module", "compatibility": { "minimum": "1.7" } }
     ]
   },
   "esmodules": [
-    "scripts/main.js"
+    "scripts/main.mjs"
+  ],
+  "styles": [
+    "styles/module.css"
+  ],
+  "languages": [
+    { "lang": "en", "name": "English", "path": "lang/en.json" }
   ]
 }

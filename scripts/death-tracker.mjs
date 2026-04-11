@@ -1,4 +1,4 @@
-﻿import { getSetting, safeTeleport, getModuleApi } from './helpers.js';
+import { getSetting, safeTeleport, getModuleApi } from './helpers.mjs';
 
 const SKULL_SRC = 'icons/commodities/bones/skull-hollow-worn-blue.webp';
 
@@ -56,7 +56,14 @@ const getGraveyardPosition = (tokenDoc) => {
 };
 
 export function registerDeathTrackerHooks() {
-  
+
+  // Suppress the Draw Steel system's built-in minion selection dialog so our PWK UI handles breakpoints instead.
+  Hooks.once('ready', () => {
+    if (getSetting('overrideMinionDefeat') && ds?.applications?.apps?.DefeatedMinionSelection) {
+      ds.applications.apps.DefeatedMinionSelection.create = async () => null;
+    }
+  });
+
   Hooks.on('createActiveEffect', async (effect) => {
     if (!getSetting('deathTrackerEnabled')) return;
     if (!game.users.activeGM?.isSelf) return;
@@ -110,16 +117,17 @@ export function registerDeathTrackerHooks() {
     }
 
     if (canvas.tokens.get(token.id)) {
+      // tileSize is half a grid square. With anchorX/Y=0.5, x,y is the center of the tile in V14.
       const tileSize = Math.round(token.document.width * canvas.grid.size / 2);
-      const tileX    = token.center.x - tileSize / 2;
-      const tileY    = token.center.y - tileSize / 2;
+      const tileX    = token.center.x;
+      const tileY    = token.center.y;
 
       const [tile] = await canvas.scene.createEmbeddedDocuments('Tile', [{
         texture: { src: SKULL_SRC, scaleX: 1, scaleY: 1, tint: '#ffffff', anchorX: 0.5, anchorY: 0.5 },
         x: tileX, y: tileY,
         width: tileSize, height: tileSize,
         rotation: 0, alpha: 1, hidden: false, locked: false,
-        occlusion: { mode: 0, alpha: 0 },
+        occlusion: { modes: [], alpha: 0 },
         restrictions: { light: false, weather: false },
         video: { loop: false, autoplay: false, volume: 0 },
         flags: {
@@ -150,7 +158,7 @@ export function registerDeathTrackerHooks() {
     if (group.type !== 'squad') return;
     const newVal = changes.system?.staminaValue;
     if (newVal === undefined || newVal <= 0) return;
-    const members = Array.from(group.members || []).filter(m => m?.actor);
+    const members = Array.from(group.members || []).filter(m => m?.actor && !m.defeated);
     if (!members.length) return;
     const indivHP = members[0].actor?.system?.stamina?.max ?? 1;
     const maxHP   = members.length * indivHP;
@@ -158,23 +166,17 @@ export function registerDeathTrackerHooks() {
   });
 
   Hooks.on('updateCombatantGroup', async (group, changes) => {
-    if (!getSetting('deathTrackerEnabled') || !game.users.activeGM?.isSelf) return;
+    if (!getSetting('deathTrackerEnabled') || !getSetting('overrideMinionDefeat') || !game.users.activeGM?.isSelf) return;
 
     const newHp = changes.system?.staminaValue ?? changes.system?.stamina?.value;
     if (newHp === undefined) return;
     if (group.type !== 'squad') return;
 
-    // Guard against re-entrant calls: combatant deletion inside createActiveEffect can
-    // retrigger updateCombatantGroup for the same group while our loop is still running.
     if (!window._squadDeathLocks) window._squadDeathLocks = new Set();
-    if (window._squadDeathLocks.has(group.id)) {
-      if (getSetting('debugMode')) console.log(`DSCT | DT | updateCombatantGroup re-entrant call skipped for group ${group.id} (already processing).`);
-      return;
-    }
+    if (window._squadDeathLocks.has(group.id)) return;
     window._squadDeathLocks.add(group.id);
-    if (getSetting('debugMode')) console.log(`DSCT | DT | updateCombatantGroup lock acquired for group ${group.id} newHp=${newHp}.`);
 
-    
+    const defeatedStatusId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
     const minions = Array.from(group.members || []).filter(m => {
       if (!m || !m.actor) return false;
       const sys = m.actor.system;
@@ -182,41 +184,30 @@ export function registerDeathTrackerHooks() {
       return roleStr === 'minion';
     });
 
-    if (minions.length === 0) {
-      window._squadDeathLocks.delete(group.id);
-      return;
-    }
+    if (minions.length === 0) { window._squadDeathLocks.delete(group.id); return; }
 
     try {
       if (newHp <= 0) {
-        if (getSetting('debugMode')) console.log(`DSCT | DT | Squad HP reached 0 for group ${group.id}. Killing all ${minions.length} minion(s) sequentially.`);
-        // Apply toggleStatusEffect sequentially to avoid the fixed-ID duplicate-effect
-        // collision that occurs when concurrent calls race to create the same effect ID.
+        // Wipe the squad: mark all surviving minions as defeated.
         for (const minion of minions) {
           if (!minion.actor) continue;
-          const alreadyDead = minion.actor.statuses?.has('dead') || minion.actor.statuses?.has('dying');
-          if (getSetting('debugMode')) console.log(`DSCT | DT | Minion ${minion.actor.name} (token ${minion.tokenId}) alreadyDead=${alreadyDead}`);
-          if (!alreadyDead) {
-            await minion.actor.toggleStatusEffect('dying', { active: true });
-            if (getSetting('debugMode')) console.log(`DSCT | DT | Applied dying to ${minion.actor.name}.`);
+          const alreadyDefeated = minion.actor.statuses?.has(defeatedStatusId);
+          if (!alreadyDefeated) {
+            await minion.actor.toggleStatusEffect(defeatedStatusId, { overlay: true, active: true });
+            await minion.update({ defeated: true });
           }
-          await minion.update({ groupId: null });
         }
         return;
       }
 
       const indivHP = minions[0].actor?.system?.stamina?.max || 1;
-      const currentCount = minions.length;
-      const expectedCount = Math.ceil(newHp / indivHP);
-      const numToKill = currentCount - expectedCount;
+      const numToKill = minions.length - Math.ceil(newHp / indivHP);
 
       if (numToKill > 0) {
         const chosenUserId = resolveBreakpointUser();
         const api = getModuleApi(false);
         const socket = api?.socket;
         const damagedTokenIds = window._lastSquadDamagedTokenIds ? [...window._lastSquadDamagedTokenIds] : [];
-
-        // ONE MUST DIE! ONE MUST DIE! ONE MUST DIE! ONE MUST DIE! ONE MUST DIE!
         const oneMustDie = () => {
           if (chosenUserId === game.user.id || !socket) {
             if (api?.powerWordKill) api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions, damagedTokenIds });
@@ -224,24 +215,14 @@ export function registerDeathTrackerHooks() {
             socket.executeAsUser('openSquadBreakpoint', chosenUserId, group.id, numToKill, damagedTokenIds);
           }
         };
-
-        // If forced movement animation is active, the colliding token is still traveling
-        // to its final position. Defer the breakpoint UI until the animation finishes so
-        // the pre-selection highlight draws at the landing square, not the starting square.
         if (window._dsctFMActive) {
-          const poll = setInterval(() => {
-            if (!window._dsctFMActive) {
-              clearInterval(poll);
-              oneMustDie();
-            }
-          }, 50);
+          const poll = setInterval(() => { if (!window._dsctFMActive) { clearInterval(poll); oneMustDie(); } }, 50);
         } else {
           oneMustDie();
         }
       }
     } finally {
       window._squadDeathLocks.delete(group.id);
-      if (getSetting('debugMode')) console.log(`DSCT | DT | updateCombatantGroup lock released for group ${group.id}.`);
     }
   });
 
@@ -303,23 +284,17 @@ export function registerDeathTrackerHooks() {
   });
 }
 
-// pick the best online user to handle a squad breakpoint selection:
-// 1. the player whose turn it currently is (if they're online and own a hero)
-// 2. the author of the most recent chat message (catches off-turn player abilities)
-// 3. the active GM as a last resort
 const resolveBreakpointUser = () => {
   const combatant = game.combat?.combatant;
   if (combatant?.actor?.type === 'hero') {
     const owner = game.users.find(u => !u.isGM && u.active && combatant.actor.testUserPermission(u, 'OWNER'));
     if (owner) return owner.id;
   }
-
   const lastMsg = game.messages.contents[game.messages.contents.length - 1];
   if (lastMsg) {
     const author = game.users.get(lastMsg.author?.id ?? lastMsg.user?.id);
     if (author && !author.isGM && author.active) return author.id;
   }
-
   return game.users.activeGM?.id ?? game.user.id;
 };
 
@@ -333,18 +308,18 @@ export const runReviveUI = () => {
   window._reviveActive = true;
 
   const hlName = 'dsct-revive-hl';
-  if (canvas.grid.highlightLayers[hlName]) canvas.grid.destroyHighlightLayer(hlName);
-  canvas.grid.addHighlightLayer(hlName);
+  if (canvas.interface.grid.highlightLayers[hlName]) canvas.interface.grid.destroyHighlightLayer(hlName);
+  canvas.interface.grid.addHighlightLayer(hlName);
 
   const selected = new Set(); // tile IDs
 
   const drawHighlights = () => {
-    canvas.grid.clearHighlightLayer(hlName);
+    canvas.interface.grid.clearHighlightLayer(hlName);
     for (const skull of skulls) {
       const gx = Math.floor(skull.x / canvas.grid.size) * canvas.grid.size;
       const gy = Math.floor(skull.y / canvas.grid.size) * canvas.grid.size;
       const isSelected = selected.has(skull.id);
-      canvas.grid.highlightPosition(hlName, {
+      canvas.interface.grid.highlightPosition(hlName, {
         x: gx, y: gy,
         color:  isSelected ? 0x00CCFF : 0x00FF00,
         border: isSelected ? 0x0088AA : 0x00AA00,
@@ -357,7 +332,7 @@ export const runReviveUI = () => {
 
   const finish = () => {
     window._reviveActive = false;
-    canvas.grid.destroyHighlightLayer(hlName);
+    canvas.interface.grid.destroyHighlightLayer(hlName);
     canvas.stage.off('mousedown', onClick);
     document.removeEventListener('keydown', onKey);
   };
@@ -418,16 +393,29 @@ const executeRevival = async (tokenId, explicitTile = null) => {
   const tile = explicitTile || canvas.tiles.placeables.find(t => t.document.flags?.['draw-steel-combat-tools']?.deadTokenId === tokenId);
 
   if (tile) {
-      const gx = Math.floor(tile.x / canvas.grid.size) * canvas.grid.size;
-      const gy = Math.floor(tile.y / canvas.grid.size) * canvas.grid.size;
-      await safeTeleport(tokenDoc, gx, gy);
+      // tile.document.x/y are the scene coordinates. With anchorX/Y=0.5, the doc position
+      // is the tile center, so subtract half the tile size to get the token's top-left grid snap.
+      const tileDocX = tile.document.x;
+      const tileDocY = tile.document.y;
+      const tileW    = tile.document.width;
+      const tileH    = tile.document.height;
+      const rawX = tileDocX - tileW / 2;
+      const rawY = tileDocY - tileH / 2;
+      const snapped = canvas.grid.getSnappedPoint({ x: rawX, y: rawY }, { mode: CONST.GRID_SNAPPING_MODES.TOP_LEFT_CORNER });
+      await safeTeleport(tokenDoc, snapped.x, snapped.y);
   }
+
+  // Mirror the system's own defeated-toggle pattern: update combatant AND toggle the status effect.
+  const combatant = game.combat?.combatants.find(c => c.tokenId === tokenId);
+  if (combatant?.defeated) await combatant.update({ defeated: false });
 
   const actor = tokenDoc.actor;
   const isMinion = actor ? String(actor.system?.monster?.organization || '').toLowerCase().trim() === 'minion' : false;
   if (actor) {
-      await actor.toggleStatusEffect('dead', { active: false });
-      if (isMinion) await actor.toggleStatusEffect('dying', { active: false });
+      const defeatedStatusId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+      if (actor.statuses?.has(defeatedStatusId)) {
+          await actor.toggleStatusEffect(defeatedStatusId, { overlay: true, active: false });
+      }
 
       const currentStamina = actor.system.stamina?.value || 0;
       if (currentStamina <= 0) {
@@ -455,7 +443,6 @@ const executeRevival = async (tokenId, explicitTile = null) => {
 
   await tokenDoc.update({ hidden: false });
 
-  
   if (game.combat && !game.combat.combatants.find(c => c.tokenId === tokenId)) {
     const savedGroupId = tokenDoc.getFlag('draw-steel-combat-tools', 'savedGroupId');
     const group = savedGroupId ? game.combat.groups.get(savedGroupId) : null;
@@ -464,7 +451,7 @@ const executeRevival = async (tokenId, explicitTile = null) => {
     await game.combat.createEmbeddedDocuments('Combatant', [combatantData]);
     if (group && isMinion) {
       const minionMaxHP = tokenDoc.actor?.system?.stamina?.max ?? 0;
-      if (minionMaxHP > 0) await group.update({ 'system.staminaValue': group.system.staminaValue + minionMaxHP });
+      if (minionMaxHP > 0) await group.update({ 'system.staminaValue': (group.system.staminaValue ?? 0) + minionMaxHP });
     }
     if (savedGroupId) await tokenDoc.unsetFlag('draw-steel-combat-tools', 'savedGroupId');
   }
@@ -473,11 +460,13 @@ const executeRevival = async (tokenId, explicitTile = null) => {
   ui.notifications.info(`${tokenDoc.name} has been revived!`);
 };
 
-export const runPowerWordKillUI = (options = {}) => {
+export const runPowerWordKillUI = async (options = {}) => {
   if (!game.user.isGM) {
     ui.notifications.warn("POWER WORD: KILL is a GM-only tool.");
     return;
   }
+
+  if (!getSetting('deathTrackerEnabled')) return;
 
   if (window._pwkActive) return;
 
@@ -489,17 +478,10 @@ export const runPowerWordKillUI = (options = {}) => {
 
   window._pwkActive = true;
 
-  let npcs = [];
-  if (squadGroup) {
-      const minionIds = new Set(minionCombatants.map(c => c.tokenId));
-      npcs = canvas.tokens.placeables.filter(t =>
-          minionIds.has(t.id) && !t.actor.statuses?.has('dying') && !t.actor.statuses?.has('dead')
-      );
-  } else {
-      npcs = canvas.tokens.placeables.filter(t =>
-        t.actor && t.actor.type !== 'hero' && !t.document.hidden && (t.actor.system?.stamina?.value > 0)
-      );
-  }
+  const minionTokenIds = new Set(minionCombatants.map(m => m.tokenId));
+  const npcs = squadGroup
+    ? canvas.tokens.placeables.filter(t => minionTokenIds.has(t.id) && !t.document.hidden && !t.document.defeated)
+    : canvas.tokens.placeables.filter(t => t.actor && t.actor.type !== 'hero' && !t.document.hidden && (t.actor.system?.stamina?.value > 0));
 
   if (!npcs.length) {
     ui.notifications.warn("No valid targets found on the board.");
@@ -508,56 +490,40 @@ export const runPowerWordKillUI = (options = {}) => {
   }
 
   const hlName = 'dsct-pwk-hl';
-  if (canvas.grid.highlightLayers[hlName]) canvas.grid.destroyHighlightLayer(hlName);
-  canvas.grid.addHighlightLayer(hlName);
+  if (canvas.interface.grid.highlightLayers[hlName]) canvas.interface.grid.destroyHighlightLayer(hlName);
+  canvas.interface.grid.addHighlightLayer(hlName);
 
   const lockedTokens = new Set();
   const selectedTokens = new Set();
 
   if (autoAssign && damagedTokenIds.length > 0) {
-    // Find which damaged tokens are valid living squad members.
-    const damagedNpcs = damagedTokenIds.map(id => npcs.find(n => n.id === id)).filter(Boolean);
-
-    if (damagedNpcs.length === maxTargets) {
-      // Exact match: we know exactly who dies. Skip the UI and kill them immediately.
+    for (const id of damagedTokenIds) {
+      if (npcs.find(t => t.id === id) && selectedTokens.size < maxTargets) {
+        lockedTokens.add(id);
+        selectedTokens.add(id);
+      }
+    }
+    // If the number of damaged minions equals the number that must die, skip the UI entirely.
+    if (lockedTokens.size === maxTargets) {
       window._pwkActive = false;
-      (async () => {
-        for (const npc of damagedNpcs) {
-          if (!npc.actor.statuses?.has('dead') && !npc.actor.statuses?.has('dying')) {
-            await npc.actor.toggleStatusEffect('dying', { active: true });
-          }
-          const combatant = minionCombatants.find(c => c.tokenId === npc.id);
-          if (combatant) await combatant.update({ groupId: null });
+      for (const id of lockedTokens) {
+        const t = canvas.tokens.get(id);
+        if (t?.actor && !t.actor.statuses?.has('dead')) {
+          await t.actor.toggleStatusEffect('dead', { active: true });
         }
-        ui.notifications.info(`Squad Breakpoint: ${damagedNpcs.map(n => n.name).join(', ')} ${damagedNpcs.length === 1 ? 'dies' : 'die'} (auto-assigned).`);
-      })();
+      }
+      ui.notifications.info(lockedTokens.size > 1 ? 'MASS POWER WORD: KILL' : 'POWER WORD: KILL');
       return;
-    }
-
-    if (damagedNpcs.length > 0 && damagedNpcs.length < maxTargets) {
-      // More deaths needed than damaged minions: lock the damaged ones in, GM picks the rest.
-      for (const npc of damagedNpcs) {
-        lockedTokens.add(npc.id);
-        selectedTokens.add(npc.id);
-      }
-    }
-    // If damagedNpcs.length > maxTargets or 0: fall through to normal unassisted selection.
-  } else if (squadGroup) {
-    // Original behaviour when auto-assign is off: preselect from current targets, deselection allowed.
-    for (const t of game.user.targets) {
-      if (npcs.some(n => n.id === t.id) && selectedTokens.size < maxTargets) {
-        selectedTokens.add(t.id);
-      }
     }
   }
 
   const drawHighlights = () => {
-    canvas.grid.clearHighlightLayer(hlName);
+    canvas.interface.grid.clearHighlightLayer(hlName);
     for (const npc of npcs) {
       const isSelected = selectedTokens.has(npc.id);
       const isLocked   = lockedTokens.has(npc.id);
-      const color = isLocked ? 0xFF6600 : (isSelected ? 0xFF0000 : (squadGroup ? 0x8800AA : 0xFF8800));
-      const border = isLocked ? 0xCC4400 : (isSelected ? 0xAA0000 : (squadGroup ? 0x440088 : 0xAA4400));
+      const color = isSelected ? 0xFF0000 : 0xFF8800;
+      const border = isSelected ? 0xAA0000 : 0xAA4400;
 
       const w = Math.max(1, Math.round(npc.document.width));
       const h = Math.max(1, Math.round(npc.document.height));
@@ -566,21 +532,18 @@ export const runPowerWordKillUI = (options = {}) => {
         for (let dy = 0; dy < h; dy++) {
           const gx = Math.floor(npc.x / canvas.grid.size) * canvas.grid.size + (dx * canvas.grid.size);
           const gy = Math.floor(npc.y / canvas.grid.size) * canvas.grid.size + (dy * canvas.grid.size);
-          canvas.grid.highlightPosition(hlName, { x: gx, y: gy, color, border });
+          canvas.interface.grid.highlightPosition(hlName, { x: gx, y: gy, color, border });
         }
       }
     }
   };
 
   drawHighlights();
-  const infoMsg = squadGroup 
-    ? `SQUAD BREAKPOINT | Select ${maxTargets} minion(s) to die. Press ENTER to confirm.`
-    : `POWER WORD: KILL | Click NPCs to select them, press ENTER to execute, or Right-Click to cancel.`;
-  ui.notifications.info(infoMsg);
+  ui.notifications.info(`POWER WORD: KILL | Click NPCs to select them, press ENTER to execute, or Right-Click to cancel.`);
 
   const finish = () => {
     window._pwkActive = false;
-    canvas.grid.destroyHighlightLayer(hlName);
+    canvas.interface.grid.destroyHighlightLayer(hlName);
     canvas.stage.off('mousedown', onClick);
     document.removeEventListener('keydown', onKey);
   };
@@ -588,7 +551,7 @@ export const runPowerWordKillUI = (options = {}) => {
   const onClick = (event) => {
     if (event.data.originalEvent.button === 2) {
       finish();
-      ui.notifications.info(squadGroup ? "Squad Breakpoint cancelled." : "POWER WORD: KILL cancelled.");
+      ui.notifications.info("POWER WORD: KILL cancelled.");
       return;
     }
     
@@ -602,18 +565,24 @@ export const runPowerWordKillUI = (options = {}) => {
        return pos.x >= t.x && pos.x <= t.x + w && pos.y >= t.y && pos.y <= t.y + h;
     });
 
-    if (!clicked.length) return; 
+    if (!clicked.length) return;
 
     const targetId = clicked[0].id;
     if (selectedTokens.has(targetId)) {
         if (lockedTokens.has(targetId)) {
-            ui.notifications.warn(`${clicked[0].name} took the damage and cannot be deselected.`);
+            if (!onClick._warnCooldown) {
+                ui.notifications.warn(`${clicked[0].name} took the damage and cannot be deselected.`);
+                onClick._warnCooldown = setTimeout(() => { delete onClick._warnCooldown; }, 3000);
+            }
             return;
         }
         selectedTokens.delete(targetId);
     } else {
         if (selectedTokens.size >= maxTargets) {
-            ui.notifications.warn(`You can only select up to ${maxTargets} target(s).`);
+            if (!onClick._warnCooldown) {
+                ui.notifications.warn(`You must select exactly ${maxTargets} target${maxTargets !== 1 ? 's' : ''}.`);
+                onClick._warnCooldown = setTimeout(() => { delete onClick._warnCooldown; }, 3000);
+            }
             return;
         }
         selectedTokens.add(targetId);
@@ -639,23 +608,13 @@ export const runPowerWordKillUI = (options = {}) => {
       for (const id of selectedTokens) {
         const t = canvas.tokens.get(id);
         if (!t?.actor) continue;
-        if (squadGroup) {
-          if (!t.actor.statuses?.has('dead') && !t.actor.statuses?.has('dying')) {
-            if (getSetting('debugMode')) console.log(`DSCT | DT | PWK (squad) applying dying to ${t.actor.name} (${id})`);
-            await t.actor.toggleStatusEffect('dying', { active: true });
-          }
-          const combatant = minionCombatants.find(c => c.tokenId === id);
-          if (combatant) await combatant.update({ groupId: null });
-        } else {
-          if (!t.actor.statuses?.has('dead')) {
-            if (getSetting('debugMode')) console.log(`DSCT | DT | PWK applying dead to ${t.actor.name} (${id})`);
-            await t.actor.toggleStatusEffect('dead', { active: true });
-          }
+        if (!t.actor.statuses?.has('dead')) {
+          if (getSetting('debugMode')) console.log(`DSCT | DT | PWK applying dead to ${t.actor.name} (${id})`);
+          await t.actor.toggleStatusEffect('dead', { active: true });
         }
       }
-      
-      const finalMsg = squadGroup ? `Squad Breakpoint: Killed ${selectedTokens.size} minion(s).` : (selectedTokens.size > 1 ? 'MASS POWER WORD: KILL' : 'POWER WORD: KILL');
-      ui.notifications.info(finalMsg);
+
+      ui.notifications.info(selectedTokens.size > 1 ? 'MASS POWER WORD: KILL' : 'POWER WORD: KILL');
       
     } else if (event.key === 'Escape') {
       finish();

@@ -1,0 +1,203 @@
+{
+  "DSCT": {
+    "setting": {
+      "chatInjectDelay": {
+        "name": "Chat Button Inject Delay (ms)",
+        "hint": "Time in milliseconds to wait after a chat message renders before injecting forced movement buttons."
+      },
+      "installMacros": {
+        "name": "Install API Macros",
+        "label": "Install Macros",
+        "hint": "Creates a folder of ready-to-use macros for every module API function in your Macros sidebar."
+      },
+      "macroPromptMode": {
+        "name": "Sample Macro Import Prompt",
+        "hint": "Controls when Draw Steel: Combat Tools prompts the GM to import sample macros on initialization.",
+        "choice": {
+          "ask": "Ask on every initialization",
+          "skipUpdate": "Ask only when the module updates",
+          "never": "Never ask"
+        }
+      },
+      "quickStrikeCompat": {
+        "name": "Draw Steel: Quick Strike",
+        "hint": "Routes collision and fall damage through Quick Strike's socket so it appears in its chat log with source info and its undo button. DSCT's undo still handles position and status restoration independently."
+      },
+      "forcedMovementEnabled": {
+        "name": "Enable Forced Movement",
+        "hint": "Enables the Forced Movement panel and all push/pull/slide mechanics."
+      },
+      "animationStepDelay": {
+        "name": "Animation Step Delay (ms)",
+        "hint": "Time in milliseconds between each square of animated forced movement. Set to 0 to disable animation."
+      },
+      "fallDamageCap": {
+        "name": "Fall Damage Cap",
+        "hint": "Maximum damage a creature can take from a single fall."
+      },
+      "gmBypassesRangeCheck": {
+        "name": "GM Bypasses Range Check",
+        "hint": "When enabled, the GM can execute forced movement from chat buttons regardless of range."
+      },
+      "grabEnabled": {
+        "name": "Enable Grab System",
+        "hint": "Enables the Grab panel and all grab mechanics."
+      },
+      "gmBypassesSizeCheck": {
+        "name": "GM Bypasses Size Check",
+        "hint": "When enabled, the GM can execute Knockback and Grab regardless of target size."
+      },
+      "restrictGrabButtons": {
+        "name": "Restrict Manual Grab Buttons to GM",
+        "hint": "If enabled, only the GM can see and click the Apply Grab and End Grab buttons in the Grab Panel."
+      },
+      "grabbedBaneEnabled": {
+        "name": "Enable Grabbed Bane",
+        "hint": "Edits abilities posted by a grabbed creature if they don't target their grabber to inflict 1 bane."
+      },
+      "allowIllegalMovement": {
+        "name": "Allow Illegal Movement",
+        "hint": "When enabled, movement that would normally be blocked (moving toward a fear source while frightened, or moving while grabbed) is allowed but a reminder notification is shown instead."
+      },
+      "frightenedEnabled": {
+        "name": "Enable Frightened Automation",
+        "hint": "Applies bane/edge roll modifiers and movement restrictions for the DSCT Frightened condition. Replaces native frightened buttons in chat with our version."
+      },
+      "tauntedEnabled": {
+        "name": "Enable Taunted Automation",
+        "hint": "Applies double-bane roll modifiers (with line-of-effect check) for the DSCT Taunted condition. Replaces native taunted buttons in chat with our version."
+      },
+      "bleedingEnabled": {
+        "name": "Enable Bleeding Automation",
+        "hint": "Automatically handles the bleeding condition. When a bleeding creature uses a main action, triggered action ability, or makes a Might/Agility roll, it loses 1d6 + their level in stamina."
+      },
+      "bleedingMode": {
+        "name": "Bleeding Damage Mode",
+        "hint": "Auto-Apply: rolls 1d6+1 and applies the damage immediately with an undo button. Manual: posts the roll for the GM/player to apply.",
+        "choice": {
+          "auto": "Auto-Apply (with undo)",
+          "manual": "Manual (post roll to apply)"
+        }
+      },
+      "deathTrackerEnabled": {
+        "name": "Enable Death Tracker",
+        "hint": "Automatically removes dead enemies from combat, triggers a death animation, and places a skull marker."
+      },
+      "deathAnimationDuration": {
+        "name": "Death Animation Duration (ms)",
+        "hint": "How long the red fade-out animation lasts before the token is removed. Set to 0 to skip."
+      },
+      "clearSkullsOnCombatEnd": {
+        "name": "Clear Skulls on Combat End",
+        "hint": "If enabled, all skull tiles placed during a combat encounter are deleted when combat ends."
+      },
+      "clearEffectsOnRevive": {
+        "name": "Clear Effects on Revive",
+        "hint": "If enabled, reviving a creature automatically removes all active conditions and effects (except core system states like Winded)."
+      },
+      "autoAssignDamagedMinion": {
+        "name": "Auto-Assign Damaged Minion on Death",
+        "hint": "When a squad takes damage that kills one or more minions, the minion that received the damage is pre-locked into the selection and cannot be deselected. If exactly one minion must die and the damaged minion is identifiable, the selection dialog is skipped entirely."
+      },
+      "overrideMinionDefeat": {
+        "name": "Override Minion Defeat UI",
+        "hint": "Replace the Draw Steel system's minion defeat selection dialog with the Death Tracker's Power Word: Kill UI. When disabled, the system's built-in dialog is used instead."
+      },
+      "autoSquadLabelsEnabled": {
+        "name": "Enable Squad Labels",
+        "hint": "Automatically apply squad label icons to tokens when combat starts."
+      },
+      "autoTriggeredActionsEnabled": {
+        "name": "Enable Triggered Action Tracker",
+        "hint": "Automatically place the Unspent Triggered Action effect on combatants when combat starts."
+      },
+      "autoTriggeredActionsTarget": {
+        "name": "Triggered Action Tracker Targets",
+        "hint": "Who should receive the Triggered Action tracker at the start of combat?",
+        "choice": {
+          "ALL": "All Combatants",
+          "HEROES": "Heroes Only",
+          "NPCS": "NPCs Only"
+        }
+      },
+      "teleportEnabled": {
+        "name": "Enable Teleport Tool",
+        "hint": "Adds a teleport button to the token controls for phasing tokens across the map."
+      },
+      "judgementAutomation": {
+        "name": "Enable Judgement Button",
+        "hint": "Injects a Judgement button into chat when the Judgement ability is used."
+      },
+      "markAutomation": {
+        "name": "Enable Mark Buttons",
+        "hint": "Injects Mark buttons into chat when mark abilities (Mark, Fog of War, etc.) are used."
+      },
+      "aidAttackAutomation": {
+        "name": "Enable Aid Attack Button",
+        "hint": "Injects an Aid Attack button into chat when the Aid Attack ability is used."
+      },
+      "imNoThreatEnabled": {
+        "name": "Enable I'm No Threat Panel",
+        "hint": "Injects an I'm No Threat button into chat when the I'm No Threat ability is used."
+      },
+      "intAnimalsMenu": {
+        "name": "I'm No Threat Animals",
+        "label": "Configure Animals",
+        "hint": "Edit the list of animal disguises (name, icon, emoji) available in the I'm No Threat panel."
+      },
+      "wallBuilderSettings": {
+        "name": "Wall Builder Settings",
+        "label": "Configure Wall Builder",
+        "hint": "Adjust material costs, damage values, wall restrictions, and wall builder defaults."
+      },
+      "keepInvisibleWhenBroken": {
+        "name": "Keep Invisible Wall Tiles Invisible When Broken",
+        "hint": "If enabled, obstacle tiles tagged as invisible (e.g. converted walls created with the invisible option) remain at alpha 0 after being broken. Useful when you want no visual change on the canvas regardless of state."
+      },
+      "showWallBuilderButton": {
+        "name": "Show Wall Builder Button",
+        "hint": "Show the Wall Builder toolbar button in the Walls layer controls (GM only)."
+      },
+      "showForcedMovementButton": {
+        "name": "Show Forced Movement Button",
+        "hint": "Show the Forced Movement toolbar button in the token controls."
+      },
+      "showGrabButton": {
+        "name": "Show Grab Button",
+        "hint": "Show the Grab Panel toolbar button in the token controls."
+      },
+      "showTeleportButton": {
+        "name": "Show Teleport Button",
+        "hint": "Show the Teleport toolbar button in the token controls."
+      },
+      "showPowerWordKillButton": {
+        "name": "Show Power Word Kill Button",
+        "hint": "Show the Power Word Kill toolbar button in the token controls (GM only)."
+      },
+      "showDamageConditionsButton": {
+        "name": "Show Damage & Conditions Button",
+        "hint": "Show the Damage & Conditions toolbar button in the token controls."
+      },
+      "debugMode": {
+        "name": "Debug Mode",
+        "hint": "If enabled, verbose debug messages are printed to the browser console."
+      },
+      "cornerCutMode": {
+        "name": "Corner Cut Movement",
+        "hint": "Collide on Corner Cuts (default): diagonal movement clipping a wall corner is allowed but triggers collision damage.\nBlock Corner Cutting: diagonal movement through a wall corner is forbidden entirely.",
+        "choice": {
+          "block": "Block Corner Cutting",
+          "collide": "Collide on Corner Cuts"
+        }
+      },
+      "legacySingleCellCollisions": {
+        "name": "Legacy Single-Cell Collisions",
+        "hint": "When enabled, forced movement collision uses only the top-left corner cell for all tokens regardless of size. Default (off) checks the full footprint for size 2+ tokens: multiple blockers each take damage once, the mover takes damage once; multiple breakable walls are each broken if movement permits, stopping at the hardest wall that cannot be broken."
+      },
+      "allowCrookedPushPull": {
+        "name": "Wiggly Lines for Push/Pull",
+        "hint": "When enabled, Push and Pull are not restricted to a straight line during manual path selection. Houserule option, off by default."
+      }
+    }
+  }
+}
