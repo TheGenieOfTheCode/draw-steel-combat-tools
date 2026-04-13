@@ -32,7 +32,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     }
   }
 
-  // Restrained creatures cannot be force moved (GM bypass uses same setting as size check).
+  // Restrained creatures cannot be force moved (GM can bypass using the same setting as size check).
   if (targetToken.actor?.statuses?.has('restrained')) {
     if (!(game.user.isGM && getSetting('gmBypassesSizeCheck'))) {
       ui.notifications.warn(`${targetToken.name} is restrained and cannot be force moved.`);
@@ -78,9 +78,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
   const agility    = targetToken.actor?.system?.characteristics?.agility?.value ?? 0;
   const canFly     = canCurrentlyFly(targetToken.actor);
   // Use the center of the source token's footprint for distance calculations.
-  // For a size-2 token this is the grid intersection between its 4 cells;
-  // for size-3 it is the center of the middle cell. Fractional values are
-  // intentional and work correctly with gridDist (diagonals count as 1, same as DS movement).
+  // For even-sized tokens (size 2, 4) this is the grid intersection between their inner cells; for odd-sized tokens (size 3, 5) it is the center of the middle cell. Fractional values are intentional and work correctly with gridDist (diagonals count as 1, same as DS movement).
   const sourceSize = sourceToken
     ? (sourceToken.actor?.system?.combat?.size?.value ?? sourceToken.document.width ?? 1)
     : 1;
