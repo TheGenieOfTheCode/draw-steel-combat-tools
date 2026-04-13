@@ -14,7 +14,9 @@ const GROUP_TINTS = {
   8:  '#aa44ff',
   9:  '#00ff88',
   10: '#ff88aa',
-};nnexport const autoRenameGroups = async () => {
+};
+
+export const autoRenameGroups = async () => {
   if (!game.combat) return;
   
   let groupNum = 1;
