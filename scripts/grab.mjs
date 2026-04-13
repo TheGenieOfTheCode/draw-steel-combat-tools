@@ -304,7 +304,7 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, t
       const ar = parts.find(p => p.type === 'abilityResult'); if (!ar) return;
       await cleanup(ar.tier);
     });
-    timeoutId = setTimeout(() => { ui.notifications.warn('Roll not detected.'); cleanup(null); }, TIMEOUT_MS);
+    timeoutId = setTimeout(async () => { ui.notifications.warn('Roll not detected.'); await cleanup(null); }, TIMEOUT_MS);
     ds.helpers.macros.rollItemMacro(grabItem.uuid);
   });
 
@@ -565,7 +565,7 @@ export class GrabPanel extends Application {
     });
   }
 
-  async _renderInner(data) {
+  async _renderInner(_data) {
     injectPanelChrome(this.options.id);
     const p = palette();
 
