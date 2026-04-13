@@ -35,35 +35,34 @@ const INT_DEFAULT_ICON = 'icons/creatures/mammals/humanoid-fox-cat-archer.webp';
 
 // Tracks actors currently being reverted by the panel or settings hook, to prevent the
 // deleteActiveEffect hook from double-deleting effects that are already being cleaned up.
-const _intRevertingActors = new Set();
+const revertingActors = new Set();
 
-const _intPalette = palette;
 
-const _intSizeRank = (size) => size.value >= 2 ? size.value + 2 : ({ T: 0, S: 1, M: 2, L: 3 })[size.letter] ?? 2;
-const _intFmtSize  = (size) => size.value >= 2 ? `${size.value}` : `${size.value}${size.letter}`;
+const sizeRank = (size) => size.value >= 2 ? size.value + 2 : ({ T: 0, S: 1, M: 2, L: 3 })[size.letter] ?? 2;
+const fmtSize  = (size) => size.value >= 2 ? `${size.value}` : `${size.value}${size.letter}`;
 
-const _intGetAppearance = (doc) => ({
+const snapAppearance = (doc) => ({
   width: doc.width, height: doc.height, rotation: doc.rotation ?? 0,
-  'texture.src':            doc.texture.src,
-  'texture.anchorX':        doc.texture.anchorX        ?? 0.5,
-  'texture.anchorY':        doc.texture.anchorY        ?? 0.5,
-  'texture.scaleX':         doc.texture.scaleX         ?? 1,
-  'texture.scaleY':         doc.texture.scaleY         ?? 1,
-  'texture.rotation':       doc.texture.rotation       ?? 0,
-  'texture.tint':           doc.texture.tint           ?? '#ffffff',
+  'texture.src': doc.texture.src,
+  'texture.anchorX': doc.texture.anchorX ?? 0.5,
+  'texture.anchorY': doc.texture.anchorY ?? 0.5,
+  'texture.scaleX': doc.texture.scaleX ?? 1,
+  'texture.scaleY': doc.texture.scaleY ?? 1,
+  'texture.rotation': doc.texture.rotation ?? 0,
+  'texture.tint': doc.texture.tint ?? '#ffffff',
   'texture.alphaThreshold': doc.texture.alphaThreshold ?? 0.75,
-  'ring.enabled':           doc.ring?.enabled          ?? false,
-  'ring.colors.ring':       doc.ring?.colors?.ring     ?? '#ffffff',
+  'ring.enabled': doc.ring?.enabled ?? false,
+  'ring.colors.ring': doc.ring?.colors?.ring ?? '#ffffff',
   'ring.colors.background': doc.ring?.colors?.background ?? '#ffffff',
-  'ring.effects':           doc.ring?.effects          ?? 0,
-  'ring.subject.scale':     doc.ring?.subject?.scale   ?? 1,
-  'ring.subject.texture':   doc.ring?.subject?.texture ?? '',
+  'ring.effects': doc.ring?.effects ?? 0,
+  'ring.subject.scale': doc.ring?.subject?.scale ?? 1,
+  'ring.subject.texture': doc.ring?.subject?.texture ?? '',
 });
 
 // Maps actorId -> msgId for actors with a free Mimic pending (from spending Insight on I'm No Threat)
-const _intFreeMimics  = new Map();
+const freeMimicsByActor  = new Map();
 // message IDs already processed for free-mimic granting, so re-renders don't re-add
-const _intGrantedMsgs = new Set();
+const grantedMimicMsgs = new Set();
 
 class ImNoThreatPanel extends Application {
   constructor(actor) {
@@ -108,7 +107,7 @@ class ImNoThreatPanel extends Application {
     const isHero   = this._actor.type === 'hero';
     const insight  = isHero ? (this._actor.system.hero.primary.value ?? 0) : (game.actors.malice?.value ?? 0);
     const el       = (id) => this._html.find(id)[0];
-    const p        = _intPalette();
+    const p        = palette();
 
     const statusEl = el('#int-status-label');
     if (statusEl) { statusEl.textContent = illusion ? (this._disguiseName ?? '') : 'No illusion active'; statusEl.style.color = illusion ? p.textActive : p.textDim; }
@@ -133,7 +132,7 @@ class ImNoThreatPanel extends Application {
     const insightEl = el('#int-insight-count');
     if (insightEl) insightEl.textContent = `(${insight})`;
 
-    const isFree   = _intFreeMimics.has(this._actor.id);
+    const isFree   = freeMimicsByActor.has(this._actor.id);
     const costEl   = el('#int-mimic-cost');
     const freeEl   = el('#int-mimic-free');
     if (costEl) costEl.style.display = isFree ? 'none' : '';
@@ -161,7 +160,7 @@ class ImNoThreatPanel extends Application {
 
   async _renderInner() {
     injectPanelChrome(this.options.id);
-    const p = _intPalette();
+    const p = palette();
 
     const token      = this._getToken();
     const currentSrc = token?.document.texture.src ?? this._actor.prototypeToken.texture.src;
@@ -230,10 +229,10 @@ class ImNoThreatPanel extends Application {
                 style="font-size:${_s(8)}px;color:${this._mimicName ? p.textMimic : p.textMimicDim};word-break:break-word;">
                 ${this._mimicName ?? 'No Target'}
               </div>
-              <div id="int-mimic-cost" style="font-size:${_s(7)}px;color:${p.textDim};display:${_intFreeMimics.has(this._actor.id) ? 'none' : ''};">
+              <div id="int-mimic-cost" style="font-size:${_s(7)}px;color:${p.textDim};display:${freeMimicsByActor.has(this._actor.id) ? 'none' : ''};">
                 1 ${priLabel} <span id="int-insight-count">(${insight})</span>
               </div>
-              <div id="int-mimic-free" style="font-size:${_s(7)}px;color:${p.accent};display:${_intFreeMimics.has(this._actor.id) ? '' : 'none'};">
+              <div id="int-mimic-free" style="font-size:${_s(7)}px;color:${p.accent};display:${freeMimicsByActor.has(this._actor.id) ? '' : 'none'};">
                 ? Free (spent Insight)
               </div>
             </div>
@@ -311,7 +310,7 @@ class ImNoThreatPanel extends Application {
     const token = this._guardSingleToken();
     if (!token) return;
     if (this._illusionActive) await this._endIllusion(false);
-    await token.document.update({ ..._intGetAppearance(this._actor.prototypeToken), 'texture.src': animal.src, 'texture.scaleX': 1, 'texture.scaleY': 1 }, { animate: false });
+    await token.document.update({ ...snapAppearance(this._actor.prototypeToken), 'texture.src': animal.src, 'texture.scaleX': 1, 'texture.scaleY': 1 }, { animate: false });
     const name = `${animal.emoji} ${animal.name}`;
     await this._activateIllusion(name, animal.id);
     const animalMsg = await ChatMessage.create({ content: `<strong>I'm No Threat</strong> <em>${this._actor.name} takes on the appearance of a <strong>${name}</strong>.</em><br><br>Strikes gain an edge, and Disengage gains +1 distance.`, flags: { [M]: { intIllusion: { actorId: this._actor.id } } } });
@@ -321,7 +320,7 @@ class ImNoThreatPanel extends Application {
   async _applyMimic() {
     if (!this._mimicSrc) { ui.notifications.error('No target selected to mimic.'); return; }
 
-    const freeMimic = _intFreeMimics.has(this._actor.id);
+    const freeMimic = freeMimicsByActor.has(this._actor.id);
     const inCombat  = !!game.combat?.active;
 
     const isHero = this._actor.type === 'hero';
@@ -349,11 +348,11 @@ class ImNoThreatPanel extends Application {
 
     const mySize     = this._actor.system.combat.size;
     const targetSize = targetToken.actor.system.combat.size;
-    if (_intSizeRank(targetSize) > _intSizeRank(mySize) + 1) { ui.notifications.warn(`${targetToken.name} is too large to mimic (size ${_intFmtSize(targetSize)} vs ${_intFmtSize(mySize)}).`); return; }
+    if (sizeRank(targetSize) > sizeRank(mySize) + 1) { ui.notifications.warn(`${targetToken.name} is too large to mimic (size ${fmtSize(targetSize)} vs ${fmtSize(mySize)}).`); return; }
 
     if (freeMimic) {
-      const spendMsgId = _intFreeMimics.get(this._actor.id);
-      _intFreeMimics.delete(this._actor.id);
+      const spendMsgId = freeMimicsByActor.get(this._actor.id);
+      freeMimicsByActor.delete(this._actor.id);
       if (spendMsgId) game.messages.get(spendMsgId)?.setFlag('draw-steel-combat-tools', 'intFreeMimicUsed', true);
     } else if (isHero && inCombat) {
       await this._actor.update({ 'system.hero.primary.value': this._actor.system.hero.primary.value - 1 });
@@ -365,7 +364,7 @@ class ImNoThreatPanel extends Application {
     }
 
     if (this._illusionActive) await this._endIllusion(false);
-    await token.document.update({ ..._intGetAppearance(targetToken.document), 'texture.scaleX': 1, 'texture.scaleY': 1 }, { animate: false });
+    await token.document.update({ ...snapAppearance(targetToken.document), 'texture.scaleX': 1, 'texture.scaleY': 1 }, { animate: false });
     await this._activateIllusion(targetToken.name, 'mimic');
 
     const mimicMsg = await ChatMessage.create({ content: `<strong>I'm No Threat</strong> <em>${this._actor.name} appears as <strong>${targetToken.name}</strong>, their allies may mistake ${this._actor.name} for the real thing.</em><br><br>This illusion covers your entire body, including clothing and armor, and alters your voice to sound like that of the creature. You gain an edge on tests made to convince the creature's allies that you are the creature.<br><br>Strikes gain an edge, and Disengage gains +1 distance.`, flags: { [M]: { intIllusion: { actorId: this._actor.id } } } });
@@ -399,11 +398,11 @@ class ImNoThreatPanel extends Application {
   _clearIllusionState() { this._illusionActive = false; this._disguiseName = null; this._activeId = null; this._illusionMsgId = null; }
 
   async _endIllusion(withSurge = false) {
-    _intRevertingActors.add(this._actor.id);
+    revertingActors.add(this._actor.id);
     const token = this._getToken();
-    if (token) await token.document.update(_intGetAppearance(this._actor.prototypeToken), { animate: false });
+    if (token) await token.document.update(snapAppearance(this._actor.prototypeToken), { animate: false });
     for (const e of this._actor.effects.filter(e => e.getFlag(M, 'effectType') === 'int')) await e.delete();
-    _intRevertingActors.delete(this._actor.id);
+    revertingActors.delete(this._actor.id);
 
     if (this._illusionMsgId) {
       const illusionMsg = game.messages.get(this._illusionMsgId);
@@ -572,9 +571,9 @@ export const registerAbilityInjectors = () => {
     const mimicUsed     = !!msg.getFlag(M_FLAG, 'intFreeMimicUsed');
 
     // Auto-grant on first render of a spend message; skip if already consumed or re-render
-    if (spendDetected && !mimicUsed && !_intGrantedMsgs.has(msg.id)) {
-      _intFreeMimics.set(actorId, msg.id);
-      _intGrantedMsgs.add(msg.id);
+    if (spendDetected && !mimicUsed && !grantedMimicMsgs.has(msg.id)) {
+      freeMimicsByActor.set(actorId, msg.id);
+      grantedMimicMsgs.add(msg.id);
     }
 
     const btn = document.createElement('button');
@@ -640,18 +639,18 @@ export const registerAbilityInjectors = () => {
     if (effect.getFlag(M, 'effectType') !== 'int') return;
     const actor = effect.parent;
     if (!actor) return;
-    if (_intRevertingActors.has(actor.id)) return;
-    _intRevertingActors.add(actor.id);
+    if (revertingActors.has(actor.id)) return;
+    revertingActors.add(actor.id);
     try {
       // Delete any sibling I'm No Threat effects that are still present
       const remaining = [...actor.effects].filter(e => e.getFlag(M, 'effectType') === 'int');
       for (const e of remaining) await e.delete();
       const tokenDoc = canvas.scene?.tokens.find(t => t.actorId === actor.id);
-      if (tokenDoc) await tokenDoc.update(_intGetAppearance(actor.prototypeToken), { animate: false });
+      if (tokenDoc) await tokenDoc.update(snapAppearance(actor.prototypeToken), { animate: false });
       const panel = Object.values(ui.windows).find(w => w.id === 'im-no-threat-panel' && w._actor?.id === actor.id);
       if (panel) { panel._clearIllusionState(); panel._refreshText(); }
     } finally {
-      _intRevertingActors.delete(actor.id);
+      revertingActors.delete(actor.id);
     }
   });
 
@@ -663,7 +662,7 @@ export const registerAbilityInjectors = () => {
       const illusionEffects = [...actor.effects].filter(e => e.getFlag(M, 'effectType') === 'int');
       if (!illusionEffects.length) continue;
       const tokenDoc = canvas.scene?.tokens.find(t => t.actorId === actor.id);
-      if (tokenDoc) await tokenDoc.update(_intGetAppearance(actor.prototypeToken), { animate: false });
+      if (tokenDoc) await tokenDoc.update(snapAppearance(actor.prototypeToken), { animate: false });
       for (const e of illusionEffects) await e.delete();
       const panel = Object.values(ui.windows).find(w => w.id === 'im-no-threat-panel' && w._actor?.id === actor.id);
       if (panel) panel.close();
@@ -800,7 +799,7 @@ const INT_EMOJI_LIST = [
   ['??','heart organ'],               ['??','brain mind'],
 ];
 
-// Singleton picker state
+// only one picker open at a time; these hold its DOM element and callback
 let _pickerEl   = null;
 let _pickerCb   = null;
 let _outsideOff = null;
@@ -840,7 +839,7 @@ const _getOrCreatePicker = () => {
   el.style.setProperty('--dsct-ep-accent', '#7a50c0');
 
   el.innerHTML = `
-    <input id="dsct-int-epicker-search" type="text" placeholder="Search emojis…"
+    <input id="dsct-int-epicker-search" type="text" placeholder="Search emojisï¿½"
       style="width:100%;box-sizing:border-box;padding:5px 8px;margin-bottom:6px;
              background:${btn};border:1px solid ${bdr};border-radius:4px;
              color:${txt};font-family:Georgia,serif;font-size:0.9em;outline:none;">
@@ -919,7 +918,7 @@ const buildRow = (idx, animal, p) => `
       <input type="hidden" name="anid-${idx}" value="${animal.id}">
     </td>
     <td style="padding:4px 6px;">
-      <input type="text" name="name-${idx}" value="${animal.name}" placeholder="Name…"
+      <input type="text" name="name-${idx}" value="${animal.name}" placeholder="Nameï¿½"
         style="width:100%;box-sizing:border-box;text-align:center;background:${p.bgBtn};border:1px solid ${p.border};
                color:${p.accent};font-weight:bold;border-radius:3px;padding:4px 6px;">
     </td>

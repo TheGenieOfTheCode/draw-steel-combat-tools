@@ -80,7 +80,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
   // Use the center of the source token's footprint for distance calculations.
   // For a size-2 token this is the grid intersection between its 4 cells;
   // for size-3 it is the center of the middle cell. Fractional values are
-  // intentional and work correctly with gridDist (Chebyshev, no rounding).
+  // intentional and work correctly with gridDist (diagonals count as 1, same as DS movement).
   const sourceSize = sourceToken
     ? (sourceToken.actor?.system?.combat?.size?.value ?? sourceToken.document.width ?? 1)
     : 1;
@@ -335,7 +335,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       };
 
       // In collide mode: greedy diagonal-first - shortest possible path, corner cuts allowed (they collide).
-      // In block mode: BFS so it routes around corners rather than through them.
+      // In block mode: flood-fills outward to find a path around corners instead of through them.
       const getSuggestedPath = (from, to) => {
         const remaining = reduced - path.length;
         if (cornerCutMode === 'collide') {
@@ -1277,8 +1277,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     
     
     {
-      // canvas.scene.tokens does not update synchronously after a safeUpdate call.
-      // if we write the undo log before the position propagates we capture stale coords
+      // canvas.scene.tokens doesn't reflect a position update immediately after safeUpdate.
+      // if we write the undo log before the new position is readable we capture the old coords
       // and the undo button sends the token back to where it already was. very confusing.
       const destX = landingWorld.x;
       const destY = landingWorld.y;
@@ -1311,7 +1311,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const grabbedTok = getTokenById(grabbedId);
         if (!grabbedTok) { await endGrab(grabbedId, { silent: true }); continue; }
         const grabbedGrid = toGrid(grabbedTok.document);
-        // Chebyshev distance from grabbed cell to nearest cell in grabber's footprint
+        // grid distance (diagonals = 1) from the grabbed token to the nearest cell of the grabber
         const nearX = Math.max(grabberGrid.x, Math.min(grabbedGrid.x, grabberGrid.x + grabberSize - 1));
         const nearY = Math.max(grabberGrid.y, Math.min(grabbedGrid.y, grabberGrid.y + grabberSize - 1));
         const dist  = Math.max(Math.abs(grabbedGrid.x - nearX), Math.abs(grabbedGrid.y - nearY));

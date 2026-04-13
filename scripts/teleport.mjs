@@ -501,7 +501,7 @@ export const toggleTeleportPanel = () => {
 
 // -- Burst Teleport ------------------------------------------------------------
 
-/** All grid cells within Chebyshev `radius` of a token's footprint. Returns Set<"x,y">. */
+// all grid cells within `radius` squares of a token's footprint (diagonals count as 1). returns Set<"x,y">.
 const burstCells = (tok, radius) => {
   const tg = toGrid(tok.document);
   const w  = tok.document.width  ?? 1;
@@ -513,7 +513,7 @@ const burstCells = (tok, radius) => {
   return cells;
 };
 
-/** Non-dead, visible tokens whose footprint overlaps the burst area. */
+// alive, visible tokens that are at least partially inside the burst area.
 const tokensInBurst = (sourceToken, radius) => {
   const burst = burstCells(sourceToken, radius);
   return canvas.tokens.placeables.filter(t => {

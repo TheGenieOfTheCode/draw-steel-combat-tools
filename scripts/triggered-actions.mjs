@@ -53,10 +53,7 @@ export const applyTriggeredActions = async (mode = null, silent = false) => {
   if (resolvedMode === 'TARGETED' && !targetedIds.size) {
     if (!silent) ui.notifications.warn('Target at least one token for TARGETED mode.');
     return;
-  }
-
-
-  for (const token of canvas.tokens.placeables) {
+  }nn  for (const token of canvas.tokens.placeables) {
     const actor = token.actor;
     if (!actor) continue;
     const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
@@ -65,10 +62,7 @@ export const applyTriggeredActions = async (mode = null, silent = false) => {
     if (!shouldApply(actor, resolvedMode, targetedIds)) {
       await safeDelete(effect);
     }
-  }
-
-
-  for (const combatant of game.combat.combatants.contents) {
+  }nn  for (const combatant of game.combat.combatants.contents) {
     const actor = getActorFromCombatant(combatant);
     if (!actor) continue;
 

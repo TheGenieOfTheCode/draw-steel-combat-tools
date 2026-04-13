@@ -190,8 +190,8 @@ export const tileAt = (gx, gy) => canvas.tiles.placeables.find(t => {
   return tg.x === gx && tg.y === gy;
 });
 
-// strict cross product: two segments that only touch at a shared endpoint do NOT count as crossing.
-// this is the root cause of the diagonal corner-clipping problem. see forced-movement.js for the workaround.
+// note: two segments that only share a tip do NOT count as crossing here.
+// this is intentional and is the root cause of the diagonal corner-clipping problem. see forced-movement.js for the workaround.
 export const segmentsIntersect = (ax, ay, bx, by, cx, cy, dx, dy) => {
   const cross = (ox, oy, px, py, qx, qy) => (px - ox) * (qy - oy) - (py - oy) * (qx - ox);
   const d1 = cross(cx, cy, dx, dy, ax, ay);
@@ -352,8 +352,8 @@ export const hasFly = (actor) => {
   return false;
 };
 
-// a prone or restrained flyer can't use flight to cancel a fall - restrained sets effective speed to 0 as a condition,
-// which isn't reflected in the base movement.speed stat, so we have to check the status directly
+// a prone or restrained flyer can't use flight to cancel a fall. restrained locks speed to 0
+// as a status effect, not via movement.speed, so we check the status directly rather than the stat.
 export const canCurrentlyFly = (actor) => {
   if (!hasFly(actor)) return false;
   if (actor?.statuses?.has('prone'))      return false;
@@ -387,7 +387,7 @@ const buildFallMessage = (name, fallDist, effectiveFall, dmg) => {
   if (effectiveFall === fallDist) {
     // agility didn't reduce anything - skip the redundant "(X effective)" clause
     return dmg > 0
-      ? `${distPart}, dealing <strong>${dmg}</strong> fall damage (${effectiveFall * 2} × ½ effective).`
+      ? `${distPart}, dealing <strong>${dmg}</strong> fall damage (${effectiveFall * 2} ï¿½ ï¿½ effective).`
       : `${distPart} but the fall is too short to deal damage.`;
   }
   const effectivePart = ` (<strong>${effectiveFall}</strong> effective after Agility reduction)`;
@@ -619,7 +619,7 @@ export const formatRollModLabel = (n) => {
 /**
  * Parses the current bane/edge state from a live rendered chat message element.
  * Finds the "Ability Roll" dice section and extracts the base values (stripping any
- * existing ±2 modifier so the result represents the clean pre-bane state).
+ * existing ï¿½2 modifier so the result represents the clean pre-bane state).
  *
  * @param {HTMLElement} el - A rendered chat message element (from renderChatMessageHTML)
  * @returns {{ originalTotal, originalNet, baseFormula, baseTooltip, isCritical } | null}
@@ -673,7 +673,7 @@ export const parsePowerRollState = (el) => {
  * @param {object}      baneData - Original roll state from parsePowerRollState
  * @param {number}      delta    - How many banes (+) or edges (-) to add to the original state.
  *                                 e.g. +1 adds one bane, -2 adds double edge.
- *                                 Final net is always capped to ±2.
+ *                                 Final net is always capped to ï¿½2.
  */
 export const applyRollMod = (el, baneData, delta) => {
   const { originalTotal, originalNet, baseFormula, baseTooltip, isCritical } = baneData;

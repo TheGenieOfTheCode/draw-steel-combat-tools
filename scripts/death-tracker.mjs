@@ -603,8 +603,8 @@ export const runPowerWordKillUI = async (options = {}) => {
         return;
       }
 
-      // Apply status effects sequentially to avoid the fixed-ID duplicate-effect
-      // collision that occurs when concurrent toggleStatusEffect calls race on the same IDs.
+      // Apply one at a time; doing them all at once can produce duplicate effects
+      // because every call tries to write the same effect ID at the same moment.
       for (const id of selectedTokens) {
         const t = canvas.tokens.get(id);
         if (!t?.actor) continue;

@@ -314,9 +314,9 @@ const getRollCharacteristics = (el) => {
 const targetsInclude = (targets, actorId, tokenId) =>
   targets.some(t => (actorId && t.actor?.id === actorId) || (tokenId && t.id === tokenId));
 
-// Reads the accumulated bane/edge deltas from flags and applies them once.
-// Each system contributing banes/edges writes its own key into 'powerRollDeltas'.
-// This ensures multiple conditions never conflict; they all combine into one pass.
+// Reads the running bane/edge totals from flags and applies them all at once.
+// Each condition writes its own key into 'powerRollDeltas' so they never overwrite each other.
+// Combining them here keeps multiple active conditions from stepping on each other.
 const injectAllRollMods = (msg, { el }) => {
   const base   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
   const deltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas');
@@ -367,7 +367,7 @@ export function registerChatHooks() {
     const dsid = getItemDsid(item);
 
     // Store per-ability flags for any ability message, even those without a tier result.
-    // Injectors read these synchronously during render.
+    // Injectors read these immediately when the message renders.
     if (!msg.getFlag('draw-steel-combat-tools', 'abilityDsid') && dsid) {
       await msg.setFlag('draw-steel-combat-tools', 'abilityDsid', dsid);
     }
@@ -564,7 +564,7 @@ export function registerChatHooks() {
 
   };
 
-  // Injectors run in order; returning true stops the chain (used for full replacements)
+  // Injectors run in order; returning true skips all remaining injectors (used when one completely replaces a message)
   registerInjector(function injectKnockbackBlock(msg, { el }) {
     if (!msg.getFlag('draw-steel-combat-tools', 'knockbackBlocked')) return;
     for (const child of [...el.children]) {
@@ -817,7 +817,7 @@ export function registerChatHooks() {
           await msg.setFlag('draw-steel-combat-tools', 'bleedingApplied', { dmg, rollMsgId: rollMsg?.id });
           if (getSetting('debugMode')) console.log(`DSCT | Bleeding | Auto-applied ${dmg} damage to ${actor.name}`);
         })();
-        div.innerHTML = `<em>Bleeding: applying damage…</em>`;
+        div.innerHTML = `<em>Bleeding: applying damageï¿½</em>`;
       }
     } else {
       // Manual mode: post a roll button

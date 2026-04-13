@@ -1,8 +1,5 @@
-/**
- * Returns true if two wall segments touch or cross (shared endpoint OR intersection).
- * Uses the parametric cross-product method; collinear/parallel walls with a shared
- * endpoint are caught by the explicit endpoint equality fallback.
- */
+// true if two wall segments share an endpoint or cross each other.
+// walls that run parallel and only touch at a tip are caught by the endpoint equality check.
 const wallsTouch = (a, b) => {
   const [ax1, ay1, ax2, ay2] = a.c;
   const [bx1, by1, bx2, by2] = b.c;
@@ -21,12 +18,8 @@ const wallsTouch = (a, b) => {
   return t >= -EPS && t <= 1 + EPS && u >= -EPS && u <= 1 + EPS;
 };
 
-/**
- * Flood-fill selection of walls connected to the currently controlled walls.
- * Two walls are considered connected if they share an endpoint or their segments
- * geometrically intersect.  If addToSelection is true the result is merged with
- * the existing selection; otherwise the selection is replaced.
- */
+// Flood-fills outward from all currently selected walls to every wall that touches or crosses them.
+// addToSelection=true merges with the existing selection instead of replacing it.
 const selectConnectedWalls = (addToSelection = false) => {
   const controlled = canvas.walls.controlled;
   if (!controlled.length) {
@@ -36,7 +29,7 @@ const selectConnectedWalls = (addToSelection = false) => {
 
   const allWalls = canvas.scene.walls.contents;
 
-  // Precompute adjacency list (O(N²), fast for typical scene sizes)
+  // Build a map of which walls touch which; checks every pair, fine for typical scene sizes
   const adj = new Map();
   for (const w of allWalls) adj.set(w.id, new Set());
   for (let i = 0; i < allWalls.length; i++) {
@@ -48,7 +41,7 @@ const selectConnectedWalls = (addToSelection = false) => {
     }
   }
 
-  // BFS from all currently selected walls
+  // Walk outward from the selected walls, collecting every connected neighbor
   const visited = new Set(controlled.map(w => w.id));
   const queue   = [...visited];
   while (queue.length) {

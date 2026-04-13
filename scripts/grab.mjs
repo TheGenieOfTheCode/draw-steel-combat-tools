@@ -56,8 +56,8 @@ const ensureGrabHooks = () => {
       if (!window._activeGrabs?.size) return;
       if (changes.x === undefined && changes.y === undefined) return;
       if (window._grabFMSuppressed?.has(doc.id)) return; // grabber being force-moved; grabbed creature stays put
-      // Capture delta before any awaits because doc.x/y is a live reference and may update
-      // once Foundry finishes processing the first grabbed-token follow-move.
+      // Read the movement offset now, before any awaits, because doc.x/y will have
+      // already changed by the time Foundry finishes processing the first follow-move.
       const deltaX = (changes.x ?? doc.x) - doc.x;
       const deltaY = (changes.y ?? doc.y) - doc.y;
       for (const [gid, grab] of window._activeGrabs.entries()) {

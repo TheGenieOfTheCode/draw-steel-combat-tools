@@ -552,7 +552,7 @@ const wallsAtStep = (newCells, dx, dy, stepElev) => {
   return result;
 };
 
-/** Find all tokens (excluding excludeId) whose footprint overlaps any cell in the given set. */
+// all tokens (excluding excludeId) that occupy at least one cell in the given set.
 const tokensAtCells = (cells, excludeId) => {
   const cellSet = new Set(cells.map(c => `${c.x},${c.y}`));
   const found   = new Map();

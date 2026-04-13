@@ -14,29 +14,29 @@ const DAMAGE_TYPES = [
 
 // Duration options for all conditions
 const DUR_OPTIONS = [
-  { value: 'save',        label: 'Save Ends',        abbr: 'Save'  },
-  { value: 'turnEnd',     label: 'End of Turn',       abbr: 'EoT'   },
-  { value: 'turnStart',   label: 'Start of Turn',     abbr: 'SoT'   },
-  { value: 'roundEnd',    label: 'End of Round',      abbr: 'EoR'   },
-  { value: 'roundStart',  label: 'Start of Round',    abbr: 'SoR'   },
-  { value: 'combatEnd',   label: 'End of Encounter',  abbr: 'EoE'   },
-  { value: 'combatStart', label: 'Start of Encounter',abbr: 'SoE'   },
-  { value: 'respite',     label: 'Respite',           abbr: 'Rest'  },
-  { value: 'unlimited',   label: 'Unlimited',         abbr: ''      },
+  { value: 'save',        label: 'Save Ends',          abbr: 'Save' },
+  { value: 'turnEnd',     label: 'End of Turn',        abbr: 'EoT' },
+  { value: 'turnStart',   label: 'Start of Turn',      abbr: 'SoT' },
+  { value: 'roundEnd',    label: 'End of Round',       abbr: 'EoR' },
+  { value: 'roundStart',  label: 'Start of Round',     abbr: 'SoR' },
+  { value: 'combatEnd',   label: 'End of Encounter',   abbr: 'EoE' },
+  { value: 'combatStart', label: 'Start of Encounter', abbr: 'SoE' },
+  { value: 'respite',     label: 'Respite',            abbr: 'Rest' },
+  { value: 'unlimited',   label: 'Unlimited',          abbr: '' },
 ];
 
 // All conditions available in the panel (one at a time)
 const ALL_CONDITIONS = [
-  { id: 'bleeding',   label: 'Bleeding'              },
-  { id: 'dazed',      label: 'Dazed'                 },
+  { id: 'bleeding',   label: 'Bleeding' },
+  { id: 'dazed',      label: 'Dazed' },
   { id: 'frightened', label: 'Frightened', requiresSource: true, dsct: true },
-  { id: 'judged',     label: 'Judged',                             dsct: true },
-  { id: 'marked',     label: 'Marked',                             dsct: true },
-  { id: 'prone',      label: 'Prone'                 },
-  { id: 'restrained', label: 'Restrained'            },
-  { id: 'slowed',     label: 'Slowed'                },
-  { id: 'taunted',    label: 'Taunted',  requiresSource: true, dsct: true },
-  { id: 'weakened',   label: 'Weakened'              },
+  { id: 'judged',     label: 'Judged',     dsct: true },
+  { id: 'marked',     label: 'Marked',     dsct: true },
+  { id: 'prone',      label: 'Prone' },
+  { id: 'restrained', label: 'Restrained' },
+  { id: 'slowed',     label: 'Slowed' },
+  { id: 'taunted',    label: 'Taunted',    requiresSource: true, dsct: true },
+  { id: 'weakened',   label: 'Weakened' },
 ];
 
 const durAbbr = (endStr) => {

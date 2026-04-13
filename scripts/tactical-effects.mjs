@@ -58,8 +58,7 @@ export const applyJudgement = async () => {
 // maxTargets - how many targets this use of the ability allows (default 1)
 // override   - if true (Mark ability only), removes the user's existing Mark-ability marks first
 // dsid       - the DSID of the ability being used, stored on the effect flag for later identification
-// sourceActorId - the actor who used the ability, used to reliably check for Anticipation
-//                 regardless of which tokens are currently controlled.
+// sourceActorId - the actor who used the ability, used to reliably check for Anticipation regardless of which tokens are currently controlled.
 export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'other', sourceActorId = null } = {}) => {
   const targets = [...game.user.targets];
   if (!targets.length) { ui.notifications.warn('Target one or more creatures to mark.'); return; }

@@ -2,16 +2,13 @@ import {
   safeCreateEmbedded, safeDelete, getSetting, getTokenById,
 } from './helpers.mjs';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// -- constants ----------------------------------------------------------------
 
 const M = 'draw-steel-combat-tools';
 
 
-/**
- * Resolve a duration string to the fields needed for ActiveEffect creation.
- * Returns { duration, systemEnd } or null for unlimited.
- * Any valid DS expiry value (turnEnd, roundEnd, combatEnd, combatStart, etc.) passes through directly.
- */
+// Maps a duration string (turnEnd, save, etc.) to { duration, systemEnd } for ActiveEffect creation.
+// Returns null for unlimited.
 const resolveEffectEnd = (endStr) => {
   if (!endStr || endStr === 'unlimited') return null;
   if (endStr === 'save') return { duration: { expiry: 'save' }, systemEnd: { roll: '1d10 + @combat.save.bonus' } };
@@ -47,9 +44,9 @@ const TAUNTED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, source
 };};
 
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- helpers ------------------------------------------------------------------
 
-/** Check whether any sight-blocking wall lies between two token placeables. */
+// true if any vision-blocking wall crosses the line between the two tokens.
 export const sightBlockedBetween = (tokA, tokB) => {
   if (!tokA || !tokB) return true;
   const from = { x: tokA.center.x, y: tokA.center.y };
@@ -68,14 +65,14 @@ export const sightBlockedBetween = (tokA, tokB) => {
   return false;
 };
 
-/** Euclidean squared distance between two token placeables (for direction checks). */
+// squared center-to-center distance; used to compare directions without sqrt.
 const distSq = (tokA, tokB) => {
   const dx = tokA.center.x - tokB.center.x;
   const dy = tokA.center.y - tokB.center.y;
   return dx * dx + dy * dy;
 };
 
-// ── Get condition data from an actor's effects ────────────────────────────────
+// -- condition getters --------------------------------------------------------
 
 export const getFrightenedData = (actor) => {
   const effect = actor?.appliedEffects?.find(e => e.getFlag(M, 'frightened'));
@@ -87,7 +84,7 @@ export const getTauntedData = (actor) => {
   return effect?.flags?.[M]?.taunted ?? null;
 };
 
-// ── Apply / remove conditions ─────────────────────────────────────────────────
+// -- apply / remove -----------------------------------------------------------
 
 export const applyFrightened = async (targetToken, sourceActor, sourceTokenId, endStr = null) => {
   const actor = targetToken.actor;
@@ -108,7 +105,7 @@ export const applyTaunted = async (targetToken, sourceActor, sourceTokenId, endS
   if (getSetting('debugMode')) console.log(`DSCT | Taunted | Applied to ${targetToken.name} source=${sourceActor.name} end=${endStr}`);
 };
 
-// ── Movement restriction hook ─────────────────────────────────────────────────
+// -- movement restriction hook ------------------------------------------------
 
 export const registerConditionHooks = () => {
   // Block frightened tokens from voluntarily moving closer to their fear source
