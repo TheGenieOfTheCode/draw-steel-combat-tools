@@ -81,7 +81,6 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   const settingRow = (key) => {
     const input = root.querySelector(`[name="${M}.${key}"]`);
     if (input) return input.closest('.form-group') ?? input.closest('li') ?? input.parentElement;
-    // registerMenu buttons don't use name inputs, so find them by data-key instead
     const btn = root.querySelector(`[data-key="${M}.${key}"]`);
     return btn ? (btn.closest('.form-group') ?? btn.closest('li') ?? btn.parentElement) : null;
   };
@@ -148,17 +147,17 @@ Hooks.once('ready', async () => {
   const seenVersion    = game.settings.get(M, 'macroPromptSeenVersion') ?? '';
   const autoImport     = game.settings.get(M, 'macroAutoImport') ?? false;
 
-  // 'never': always import silently, no prompt ever.
-  if (promptMode === 'never') { await installMacros({ silent: true }); return; }
+  // If we get 'never': never ask again, import silently only if the user previously said yes.
+  if (promptMode === 'never') { if (autoImport) await installMacros({ silent: true }); return; }
 
-  // 'skip-update': between updates, import silently if user previously said yes.
+  // If we get 'skip-update': between updates, import silently if user previously said yes.
   // When a new version is detected, fall through to the prompt so the user can re-evaluate.
   if (promptMode === 'skip-update' && seenVersion === currentVersion) {
     if (autoImport) await installMacros({ silent: true });
     return;
   }
 
-  // 'ask', or 'skip-update' on a new version: show the prompt.
+  // If we get 'ask', or 'skip-update' on a new version: we show the prompt.
   const content = `
     <p>Would you like to import sample macros for <strong>Draw Steel: Combat Tools</strong>?</p>
     <p>These provide ready-to-use buttons for Forced Movement, Grab, Teleport, and all other module features.</p>
@@ -167,7 +166,7 @@ Hooks.once('ready', async () => {
       <select id="dsct-macro-prompt-pref" style="flex:1;">
         <option value="ask">Ask me on next initialization</option>
         <option value="skip-update">Don't ask until the next update</option>
-        <option value="never">Don't ask again (always import)</option>
+        <option value="never">Don't ask again</option>
       </select>
     </div>
   `;

@@ -18,6 +18,69 @@ const getBlockWalls = (blockTag) => blockTag ? getByTag(blockTag).filter(o => Ar
 
 // -- Wall Converter Geometry ---------------------------------------------------
 
+// True if two wall segments share an endpoint or cross each other. Walls that run parallel and only touch at a tip are caught by the endpoint equality check.
+const wallsTouch = (a, b) => {
+  const [ax1, ay1, ax2, ay2] = a.c;
+  const [bx1, by1, bx2, by2] = b.c;
+  const rx = ax2 - ax1, ry = ay2 - ay1;
+  const sx = bx2 - bx1, sy = by2 - by1;
+  const rxs = rx * sy - ry * sx;
+  if (Math.abs(rxs) < 1e-10) {
+    // Parallel: only connected if they share an endpoint exactly
+    return (ax1 === bx1 && ay1 === by1) || (ax1 === bx2 && ay1 === by2) ||
+           (ax2 === bx1 && ay2 === by1) || (ax2 === bx2 && ay2 === by2);
+  }
+  const qpx = bx1 - ax1, qpy = by1 - ay1;
+  const t = (qpx * sy - qpy * sx) / rxs;
+  const u = (qpx * ry - qpy * rx) / rxs;
+  const EPS = 1e-10;
+  return t >= -EPS && t <= 1 + EPS && u >= -EPS && u <= 1 + EPS;
+};
+
+// Flood-fills outward from all currently selected walls to every wall that touches or crosses them. addToSelection=true merges with the existing selection instead of replacing it.
+export const selectConnectedWalls = (addToSelection = false) => {
+  const controlled = canvas.walls.controlled;
+  if (!controlled.length) {
+    ui.notifications.warn('Select at least one wall first.');
+    return;
+  }
+
+  const allWalls = canvas.scene.walls.contents;
+
+  // Build a map of which walls touch which; checks every pair, fine for typical scene sizes
+  const adj = new Map();
+  for (const w of allWalls) adj.set(w.id, new Set());
+  for (let i = 0; i < allWalls.length; i++) {
+    for (let j = i + 1; j < allWalls.length; j++) {
+      if (wallsTouch(allWalls[i], allWalls[j])) {
+        adj.get(allWalls[i].id).add(allWalls[j].id);
+        adj.get(allWalls[j].id).add(allWalls[i].id);
+      }
+    }
+  }
+
+  // Walk outward from the selected walls, collecting every connected neighbor
+  const visited = new Set(controlled.map(w => w.id));
+  const queue   = [...visited];
+  while (queue.length) {
+    const id = queue.shift();
+    for (const neighborId of (adj.get(id) ?? [])) {
+      if (visited.has(neighborId)) continue;
+      visited.add(neighborId);
+      queue.push(neighborId);
+    }
+  }
+
+  // Apply selection
+  if (!addToSelection) canvas.walls.releaseAll();
+  for (const placeable of canvas.walls.placeables) {
+    if (visited.has(placeable.id) && !placeable.controlled)
+      placeable.control({ releaseOthers: false });
+  }
+
+  ui.notifications.info(`Selected ${visited.size} connected wall${visited.size !== 1 ? 's' : ''}.`);
+};
+
 /**
  * Liang-Barsky parametric line/box clip.
  * Returns [t0, t1] (0 = t0 = t1 = 1) for the visible portion of (x1,y1)?(x2,y2)
@@ -337,7 +400,7 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
     }
 
     if (blockIds.length > 0) {
-      // obstacle + breakable + material so forced-movement recognises and can break this wall
+      // Obstacle + breakable + material so forced-movement recognises and can break this wall
       if (retainRestrictions) {
         await wall.setFlag('draw-steel-combat-tools', 'originalRestrictions', { move: wall.move, sight: wall.sight, light: wall.light, sound: wall.sound });
       } else {
@@ -528,7 +591,7 @@ export class WallBuilderPanel extends Application {
         const damagedTag  = tags.find(t => t.startsWith('damaged:'));
         const damagedN    = damagedTag ? parseInt(damagedTag.split(':')[1]) : 0;
         const status      = isBroken ? 'Broken' : isPartial ? `Partially Broken (${damagedN} sq off top)` : 'Intact';
-        tooltip.textContent = `Material : ${mat}\nHeight   : ${bottom} – ${top}\nStatus   : ${status}\nStable   : ${isStable ? 'Yes' : 'No'}\nTag      : ${blockTag ?? '(none)'}`;
+        tooltip.textContent = `Material : ${mat}\nHeight   : ${bottom} ï¿½ ${top}\nStatus   : ${status}\nStable   : ${isStable ? 'Yes' : 'No'}\nTag      : ${blockTag ?? '(none)'}`;
         tooltip.style.display = 'block';
       } else {
         tooltip.style.display = 'none';
@@ -587,8 +650,7 @@ export class WallBuilderPanel extends Application {
         const { tileId } = await placeBlock(x, y, this._material, this._heightBottom, this._heightTop, this._stable);
         undoOps.push(async () => { const tile = canvas.tiles.get(tileId); if (tile) await destroyBlock(tile); });
       }
-      // single-slot undo. build twice and the first operation is gone forever.
-      // a real undo stack would be nice but 95% of the time you only want to undo the last thing.
+      // Single-slot undo. Build twice and the first operation is gone forever. A real undo stack would be nice but 95% of the time you only want to undo the last thing.
       window._wallBuilderUndo = undoOps.length ? async () => { for (const op of undoOps) await op(); ui.notifications.info('Wall build undone.'); } : null;
       ui.notifications.info(`Placed ${undoOps.length} wall block${undoOps.length !== 1 ? 's' : ''}.`);
     }
@@ -838,7 +900,7 @@ const buildRow = (idx, origName, isBase, iconSrc, r, rs, p) => {
           style="width:52px;text-align:center;">
       </td>
       <td style="text-align:center;padding:4px 6px;">
-        <input type="text" name="matname-${idx}" value="${origName}" placeholder="name…"
+        <input type="text" name="matname-${idx}" value="${origName}" placeholder="nameï¿½"
           style="width:100%;box-sizing:border-box;text-align:center;background:${p.bgBtn};border:1px solid ${p.border};
                  color:${p.accent};font-weight:bold;border-radius:3px;padding:4px 6px;">
       </td>

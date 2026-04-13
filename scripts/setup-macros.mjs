@@ -1,3 +1,5 @@
+//This whole thing is just because I don't want to continue trying to figure out compendiums, I will eventually and then this will be depracated.
+
 const MACRO_FOLDER_NAME = 'Draw Steel: Combat Tools';
 
 const MACROS = [
@@ -288,7 +290,7 @@ game.modules.get('draw-steel-combat-tools').api.imNoThreat(actor);`
   },
 ];
 
-// Maps macro names to the module setting key that gates them.
+// This maps macro names to the module setting key that gates them.
 // If the setting is false when installMacros runs, the macro is removed (if it exists) and not recreated.
 const MACRO_SETTINGS = {
   'DSCT: Judgement':     'judgementAutomation',

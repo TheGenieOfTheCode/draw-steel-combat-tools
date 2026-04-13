@@ -22,8 +22,7 @@ const removeExistingJudgement = async () => {
   if (existing) await safeDelete(existing);
 };
 
-// Remove all "mark ability" (DSID: mark) marks placed by this user so that reusing Mark overrides
-// any previous marks from that specific ability, without touching marks from other abilities.
+// Remove all "mark ability" (DSID: mark) marks placed by this user so that reusing Mark overrides any previous marks from that specific ability, without touching marks from other abilities.
 const removeMarkAbilityMarks = async () => {
   const all = game.actors.contents
     .flatMap(a => [...a.effects])
@@ -55,16 +54,12 @@ export const applyJudgement = async () => {
   await ChatMessage.create({ content: `<strong>Judgement:</strong> ${targetToken.name} is judged.` });
 };
 
-// maxTargets - how many targets this use of the ability allows (default 1)
-// override   - if true (Mark ability only), removes the user's existing Mark-ability marks first
-// dsid       - the DSID of the ability being used, stored on the effect flag for later identification
-// sourceActorId - the actor who used the ability, used to reliably check for Anticipation regardless of which tokens are currently controlled.
+// maxTargets sets the per-use target cap (default 1). override clears existing Mark-ability marks first. dsid is stored on the effect flag for later identification. sourceActorId is used to check for the Anticipation feature.
 export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'other', sourceActorId = null } = {}) => {
   const targets = [...game.user.targets];
   if (!targets.length) { ui.notifications.warn('Target one or more creatures to mark.'); return; }
 
-  // The Mark ability (DSID: mark) gains a second mark slot if the actor has the Anticipation feature.
-  // Prefer the explicit sourceActorId; fall back to the currently controlled token.
+  // The Mark ability (DSID: mark) gains a second mark slot if the actor has the Anticipation feature. Prefer the explicit sourceActorId; fall back to the currently controlled token.
   const resolvedActor = (sourceActorId ? game.actors.get(sourceActorId) : null)
                       ?? canvas.tokens.controlled[0]?.actor;
   const resolvedActorId = resolvedActor?.id ?? null;

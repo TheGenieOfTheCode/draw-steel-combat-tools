@@ -33,8 +33,7 @@ const _INT_EFFECT_PASSIVE = {
 const INT_OOC_FLAG     = 'imNoThreatOOCVictories';
 const INT_DEFAULT_ICON = 'icons/creatures/mammals/humanoid-fox-cat-archer.webp';
 
-// Tracks actors currently being reverted by the panel or settings hook, to prevent the
-// deleteActiveEffect hook from double-deleting effects that are already being cleaned up.
+// Tracks actors currently being reverted by the panel or settings hook, to prevent the deleteActiveEffect hook from double-deleting effects that are already being cleaned up.
 const revertingActors = new Set();
 
 
@@ -61,7 +60,7 @@ const snapAppearance = (doc) => ({
 
 // Maps actorId -> msgId for actors with a free Mimic pending (from spending Insight on I'm No Threat)
 const freeMimicsByActor  = new Map();
-// message IDs already processed for free-mimic granting, so re-renders don't re-add
+// Message IDs already processed for free-mimic granting, so re-renders don't re-add
 const grantedMimicMsgs = new Set();
 
 class ImNoThreatPanel extends Application {

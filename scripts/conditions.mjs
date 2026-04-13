@@ -46,7 +46,7 @@ const TAUNTED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, source
 
 // -- helpers ------------------------------------------------------------------
 
-// true if any vision-blocking wall crosses the line between the two tokens.
+// True if any vision-blocking wall crosses the line between the two tokens.
 export const sightBlockedBetween = (tokA, tokB) => {
   if (!tokA || !tokB) return true;
   const from = { x: tokA.center.x, y: tokA.center.y };
@@ -65,7 +65,7 @@ export const sightBlockedBetween = (tokA, tokB) => {
   return false;
 };
 
-// squared center-to-center distance; used to compare directions without sqrt.
+// Squared center-to-center distance; used to compare directions without sqrt.
 const distSq = (tokA, tokB) => {
   const dx = tokA.center.x - tokB.center.x;
   const dy = tokA.center.y - tokB.center.y;
@@ -120,8 +120,7 @@ export const registerConditionHooks = () => {
       const data = getFrightenedData(token.actor);
       if (!data) return;
 
-      // Forced movement bypasses the frightened restriction. The token is being repositioned,
-      // not moving voluntarily toward its fear source.
+      // Forced movement bypasses the frightened restriction. The token is being repositioned, not moving voluntarily toward its fear source.
       if (window._dsctFMBypassFrightened?.has(doc.id)) return;
 
       const sourceTok = getTokenById(data.sourceTokenId);
