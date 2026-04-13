@@ -51,10 +51,7 @@ export const initPalette = () => {
   for (const [k, v] of Object.entries(pal)) document.documentElement.style.setProperty(k, v);
 };
 
-/**
- * Inject per-panel window chrome styles using CSS custom properties.
- * Call once at the top of each panel's _renderInner. Safe to call on every re-render.
- */
+// This injects per-panel window chrome styles using CSS custom properties. Call once at the top of each panel's _renderInner. Safe to call on every re-render.
 export const injectPanelChrome = (appId) => {
   const styleId = `${appId}-chrome`;
   const el = document.getElementById(styleId)
@@ -71,11 +68,7 @@ export const injectPanelChrome = (appId) => {
   `;
 };
 
-/**
- * Thin palette shim for panel HTML templates.
- * Returns CSS variable references so inline styles automatically
- * pick up the current theme without per-panel style injection.
- */
+// This is a thin palette shim for panel HTML templates. Returns CSS variable references so inline styles automatically pick up the current theme without per-panel style injection.
 export const palette = () => ({
   bg:          'var(--dsct-bg)',
   bgInner:     'var(--dsct-bg-inner)',
@@ -101,8 +94,7 @@ export const palette = () => ({
 
 const taggerActive = () => game.modules.get('tagger')?.active;
 
-// Internal flag-based tag system. Used when Tagger is unavailable.
-// Tags are stored as a string array in flags['draw-steel-combat-tools'].tags on each document.
+// Internal flag-based tag system. Used when Tagger is unavailable. Tags are stored as a string array in flags['draw-steel-combat-tools'].tags on each document.
 const M = 'draw-steel-combat-tools';
 const _doc  = (obj) => obj?.document ?? obj;
 const _tags = (obj) => _doc(obj)?.getFlag(M, 'tags') ?? [];
@@ -190,8 +182,7 @@ export const tileAt = (gx, gy) => canvas.tiles.placeables.find(t => {
   return tg.x === gx && tg.y === gy;
 });
 
-// note: two segments that only share a tip do NOT count as crossing here.
-// this is intentional and is the root cause of the diagonal corner-clipping problem. see forced-movement.js for the workaround.
+// This was a headache, corner cutting in foundry is determined by weird sub-pixel measurements which are inconsistent so this bypasses that by allowing corner-cutting. See cornerCutsWall in forced-movement-collision.mjs for the workaround that stops it, since Draw Steel rules don't allow corner cutting around walls.
 export const segmentsIntersect = (ax, ay, bx, by, cx, cy, dx, dy) => {
   const cross = (ox, oy, px, py, qx, qy) => (px - ox) * (qy - oy) - (py - oy) * (qx - ox);
   const d1 = cross(cx, cy, dx, dy, ax, ay);
@@ -300,8 +291,7 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined)
   }
   const qsSocket = getQuickStrikeSocket();
   if (qsSocket) {
-    // Route through ds-quick-strike so it appears in that module's chat log with source info and undo.
-    // We still capture prevValue/prevTemp above so DSCT's own undo (position + status) continues working.
+    // Route through ds-quick-strike so it appears in that module's chat log with source info and undo. We still capture prevValue/prevTemp above so DSCT's own undo (position + status) continues working.
     const tokenId = actor.isToken
       ? actor.token?.id
       : canvas.tokens.placeables.find(t => t.actor?.id === actor.id)?.id;
@@ -352,8 +342,7 @@ export const hasFly = (actor) => {
   return false;
 };
 
-// a prone or restrained flyer can't use flight to cancel a fall. restrained locks speed to 0
-// as a status effect, not via movement.speed, so we check the status directly rather than the stat.
+// A prone or restrained flyer can't use flight to cancel a fall. Restrained locks speed to 0 as a status effect, not via movement.speed, so we check the status directly rather than the stat.
 export const canCurrentlyFly = (actor) => {
   if (!hasFly(actor)) return false;
   if (actor?.statuses?.has('prone'))      return false;
@@ -370,11 +359,11 @@ export const applyFall = async (token, targetElev = 0, { silent = true } = {}) =
     const agility = token.actor?.system?.characteristics?.agility?.value ?? 0;
     effectiveFall = Math.max(0, fallDist - agility);
     const cap     = getSetting('fallDamageCap');
-    // effective fall under 2 squares isn't enough to deal damage
+    // Effective fall under 2 squares isn't enough to deal damage
     dmg = effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, cap);
     if (dmg > 0) await applyDamage(token.actor, dmg);
   }
-  // always land at targetElev - flyers glide down, everyone else falls
+  // Always land at targetElev - flyers glide down, everyone else falls
   await safeUpdate(token.document, { elevation: targetElev }, { animate: false, teleport: true });
   if (!silent) {
     await ChatMessage.create({ content: buildFallMessage(token.name, fallDist, effectiveFall, dmg) });
@@ -385,7 +374,7 @@ export const applyFall = async (token, targetElev = 0, { silent = true } = {}) =
 const buildFallMessage = (name, fallDist, effectiveFall, dmg) => {
   const distPart = `<strong>${name}</strong> falls <strong>${fallDist}</strong> square${fallDist !== 1 ? 's' : ''}`;
   if (effectiveFall === fallDist) {
-    // agility didn't reduce anything - skip the redundant "(X effective)" clause
+    // Agility didn't reduce anything - skip the redundant "(X effective)" clause
     return dmg > 0
       ? `${distPart}, dealing <strong>${dmg}</strong> fall damage (${effectiveFall * 2} � � effective).`
       : `${distPart} but the fall is too short to deal damage.`;
@@ -456,27 +445,21 @@ export const safeTeleport = async (tokenDoc, targetX, targetY) => {
   await safeUpdate(tokenDoc, { x: targetX, y: targetY }, { animate: false, teleport: true });
 };
 
-/** Get a token placeable by ID. Tries the faster indexed lookup first, falls back to a full search. */
+// This gets a token placeable by ID. Tries the faster indexed lookup first, falls back to a full search.
 export const getTokenById = (id) =>
   canvas?.tokens?.get(id) ?? canvas?.tokens?.placeables?.find(t => t.id === id) ?? null;
 
-/** Find an open UI window by its id string. */
+// This finds an open UI window by its id string.
 export const getWindowById = (id) => Object.values(ui.windows).find(w => w.id === id) ?? null;
 
-/**
- * Get the module API, optionally showing an error notification if it isn't available.
- * @param {boolean} [warn=true] - If true, shows an error notification when the API is missing.
- */
+// This gets the module API. If warn is true (default), shows an error notification when the API is missing.
 export const getModuleApi = (warn = true) => {
   const api = game.modules.get('draw-steel-combat-tools')?.api ?? null;
   if (!api && warn) ui.notifications.error('Draw Steel: Combat Tools not active.');
   return api;
 };
 
-/**
- * Normalise a Foundry collection value to a plain Array.
- * Handles: Array, Set, collection objects with a `.contents` array, or plain objects (returns values).
- */
+// This normalises a Foundry collection value to a plain Array. Handles Array, Set, collection objects with a .contents array, or plain objects (returns values).
 export const normalizeCollection = (collection) => {
   if (!collection) return [];
   if (Array.isArray(collection)) return collection;
@@ -487,23 +470,7 @@ export const normalizeCollection = (collection) => {
 
 // -- Canvas Pick Helper -------------------------------------------------------
 
-/**
- * Generic PIXI canvas-click picker.
- * Creates a full-viewport transparent overlay, redraws on every hover change,
- * and resolves when the user clicks a valid target. Resolves null on Escape.
- *
- * @param {object} opts
- * @param {(gfx: PIXI.Graphics, hover: *) => void} opts.draw
- *   Called on init and every hover change. Must fully clear and redraw `gfx`.
- *   `hover` is the last hitTest result (non-null) or null.
- * @param {(worldPos: {x,y}) => *|null} opts.hitTest
- *   Called on pointermove and pointerdown. Return a non-null value for a valid
- *   target; that value becomes `hover` and is resolved on click. Return null for
- *   "miss". For hover comparison to work correctly, return the same object
- *   instance for the same target (e.g. from a pre-built candidates array).
- * @param {string} [opts.hint]  Shown as a ui.notifications.info on open.
- * @returns {Promise<*|null>}  The clicked hitTest result, or null on Escape.
- */
+// This is a generic PIXI canvas-click picker. Creates a full-viewport transparent overlay and resolves when the user clicks a valid target, or null on Escape. opts.draw is called on init and every hover change and must fully clear and redraw the graphics. opts.hitTest is called on move and click - return a non-null value for a hit (that value becomes hover and resolves on click). opts.hint is shown as a notification on open.
 export const pickCanvasTarget = ({ draw, hitTest, hint }) => new Promise((resolve) => {
   const graphics = new PIXI.Graphics();
   canvas.app.stage.addChild(graphics);

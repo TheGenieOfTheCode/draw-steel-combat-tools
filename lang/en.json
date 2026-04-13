@@ -16,7 +16,7 @@
         "choice": {
           "ask": "Ask on every initialization",
           "skipUpdate": "Ask only when the module updates",
-          "never": "Never ask"
+          "never": "Don't ask again"
         }
       },
       "quickStrikeCompat": {

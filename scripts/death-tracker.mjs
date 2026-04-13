@@ -9,8 +9,7 @@ const getGraveyardPosition = (tokenDoc) => {
   const tw = tokenW * gs;
   const th = tokenH * gs;
 
-  // two tokens dying in the same tick will race to claim the same graveyard square and stack on top of each other.
-  // the reservation set gives each placement a 5 second hold so they land somewhere different.
+  // Two tokens dying in the same tick will race to claim the same graveyard square and stack on top of each other. The reservation set gives each placement a 5 second hold so they land somewhere different.
   if (!window._graveyardReservations) window._graveyardReservations = new Set();
 
   const isOccupied = (testX, testY) => {
@@ -57,7 +56,7 @@ const getGraveyardPosition = (tokenDoc) => {
 
 export function registerDeathTrackerHooks() {
 
-  // Suppress the Draw Steel system's built-in minion selection dialog so our PWK UI handles breakpoints instead.
+  // Apologies to the dev responsible for the built-in minion selection dialog, I made my own version before v14 launched, and I tried making it work nicely with the official implementation, but I just like mine better. Users can still opt out from the settings and by turning off "Override Minion Defeat UI".
   Hooks.once('ready', () => {
     if (getSetting('overrideMinionDefeat') && ds?.applications?.apps?.DefeatedMinionSelection) {
       ds.applications.apps.DefeatedMinionSelection.create = async () => null;
@@ -256,8 +255,7 @@ export function registerDeathTrackerHooks() {
         await tile.document.delete();
       }
     }
-    // Also remove any orphaned rubble tiles for the same token IDs (the deleteTile hook
-    // above normally handles this, but runs per-deletion and may miss stragglers).
+    // Also remove any orphaned rubble tiles for the same token IDs (the deleteTile hook above normally handles this, but runs per-deletion and may miss stragglers).
     const deadSet = new Set(deadTokenIds);
     const orphanRubble = canvas.scene?.tiles?.contents?.filter(t =>
       deadSet.has(t.flags?.['draw-steel-combat-tools']?.objectTokenId)
@@ -393,8 +391,7 @@ const executeRevival = async (tokenId, explicitTile = null) => {
   const tile = explicitTile || canvas.tiles.placeables.find(t => t.document.flags?.['draw-steel-combat-tools']?.deadTokenId === tokenId);
 
   if (tile) {
-      // tile.document.x/y are the scene coordinates. With anchorX/Y=0.5, the doc position
-      // is the tile center, so subtract half the tile size to get the token's top-left grid snap.
+      // tile.document.x/y are the scene coordinates. With anchorX/Y=0.5, the doc position is the tile center, so subtract half the tile size to get the token's top-left grid snap.
       const tileDocX = tile.document.x;
       const tileDocY = tile.document.y;
       const tileW    = tile.document.width;
@@ -425,8 +422,7 @@ const executeRevival = async (tokenId, explicitTile = null) => {
       await new Promise(r => setTimeout(r, 250));
 
       if (getSetting('clearEffectsOnRevive')) {
-          // IDs ending in '0000000000' are core system states from the Draw Steel system.
-          // deleting them breaks the actor in ways that are not immediately obvious and very annoying to debug.
+          // IDs ending in '0000000000' are core system states from the Draw Steel system. Deleting them breaks the actor in ways that are not immediately obvious and very annoying to debug.
           const validEffectIds = actor.effects
               .filter(e => !e.id.endsWith('0000000000'))
               .map(e => e.id);
@@ -603,8 +599,7 @@ export const runPowerWordKillUI = async (options = {}) => {
         return;
       }
 
-      // Apply one at a time; doing them all at once can produce duplicate effects
-      // because every call tries to write the same effect ID at the same moment.
+      // Apply one at a time; doing them all at once can produce duplicate effects because every call tries to write the same effect ID at the same moment.
       for (const id of selectedTokens) {
         const t = canvas.tokens.get(id);
         if (!t?.actor) continue;

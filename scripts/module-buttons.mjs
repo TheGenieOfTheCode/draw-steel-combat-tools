@@ -1,67 +1,4 @@
-// true if two wall segments share an endpoint or cross each other.
-// walls that run parallel and only touch at a tip are caught by the endpoint equality check.
-const wallsTouch = (a, b) => {
-  const [ax1, ay1, ax2, ay2] = a.c;
-  const [bx1, by1, bx2, by2] = b.c;
-  const rx = ax2 - ax1, ry = ay2 - ay1;
-  const sx = bx2 - bx1, sy = by2 - by1;
-  const rxs = rx * sy - ry * sx;
-  if (Math.abs(rxs) < 1e-10) {
-    // Parallel: only connected if they share an endpoint exactly
-    return (ax1 === bx1 && ay1 === by1) || (ax1 === bx2 && ay1 === by2) ||
-           (ax2 === bx1 && ay2 === by1) || (ax2 === bx2 && ay2 === by2);
-  }
-  const qpx = bx1 - ax1, qpy = by1 - ay1;
-  const t = (qpx * sy - qpy * sx) / rxs;
-  const u = (qpx * ry - qpy * rx) / rxs;
-  const EPS = 1e-10;
-  return t >= -EPS && t <= 1 + EPS && u >= -EPS && u <= 1 + EPS;
-};
-
-// Flood-fills outward from all currently selected walls to every wall that touches or crosses them.
-// addToSelection=true merges with the existing selection instead of replacing it.
-const selectConnectedWalls = (addToSelection = false) => {
-  const controlled = canvas.walls.controlled;
-  if (!controlled.length) {
-    ui.notifications.warn('Select at least one wall first.');
-    return;
-  }
-
-  const allWalls = canvas.scene.walls.contents;
-
-  // Build a map of which walls touch which; checks every pair, fine for typical scene sizes
-  const adj = new Map();
-  for (const w of allWalls) adj.set(w.id, new Set());
-  for (let i = 0; i < allWalls.length; i++) {
-    for (let j = i + 1; j < allWalls.length; j++) {
-      if (wallsTouch(allWalls[i], allWalls[j])) {
-        adj.get(allWalls[i].id).add(allWalls[j].id);
-        adj.get(allWalls[j].id).add(allWalls[i].id);
-      }
-    }
-  }
-
-  // Walk outward from the selected walls, collecting every connected neighbor
-  const visited = new Set(controlled.map(w => w.id));
-  const queue   = [...visited];
-  while (queue.length) {
-    const id = queue.shift();
-    for (const neighborId of (adj.get(id) ?? [])) {
-      if (visited.has(neighborId)) continue;
-      visited.add(neighborId);
-      queue.push(neighborId);
-    }
-  }
-
-  // Apply selection
-  if (!addToSelection) canvas.walls.releaseAll();
-  for (const placeable of canvas.walls.placeables) {
-    if (visited.has(placeable.id) && !placeable.controlled)
-      placeable.control({ releaseOthers: false });
-  }
-
-  ui.notifications.info(`Selected ${visited.size} connected wall${visited.size !== 1 ? 's' : ''}.`);
-};
+import { selectConnectedWalls } from './wall-builder.mjs';
 
 const addTools = (control, tools) => {
   if (!control) return;
@@ -80,7 +17,6 @@ export const registerModuleButtons = () => {
   Hooks.on('getSceneControlButtons', (controls) => {
     const tokenControl = controls.tokens || controls.token;
     const wallControl  = controls.walls  || controls.wall;
-
     const S = (key) => game.settings.get('draw-steel-combat-tools', key);
 
     addTools(tokenControl, {
@@ -127,7 +63,14 @@ export const registerModuleButtons = () => {
     });
 
     addTools(wallControl, {
-      'dsct-wall': { name: 'dsct-wall', title: 'Wall Builder', icon: 'fas fa-dungeon', button: true, visible: game.user.isGM && S('showWallBuilderButton'), onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.wallBuilder() },
+      'dsct-wall': {
+        name: 'dsct-wall',
+        title: 'Wall Builder',
+        icon: 'fas fa-dungeon',
+        button: true,
+        visible: game.user.isGM && S('showWallBuilderButton'),
+        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.wallBuilder()
+      },
       'dsct-select-connected': {
         name: 'dsct-select-connected',
         title: 'Select Connected Walls (Shift: add to selection)',

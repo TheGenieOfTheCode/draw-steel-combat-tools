@@ -3,8 +3,7 @@ import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerR
 import { registerAbilityInjectors } from './ability-automation.mjs';
 import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetween } from './conditions.mjs';
 
-// DSIDs that allow grabbing more than one creature simultaneously.
-// All other grab abilities default to the standard limit of 1.
+// DSIDs that allow grabbing more than one creature simultaneously. All other grab abilities default to the standard limit of 1.
 const MULTI_GRAB_LIMITS = {
   'choking-grasp': 2,
   'claw-swing':    2,
@@ -302,8 +301,7 @@ const getActionType = (el) => {
   return el.querySelector('document-embed dd.type')?.textContent?.trim() ?? '';
 };
 
-// Returns the characteristics used by the ability roll ("Might", "Agility", etc.)
-// Also checks the test flavor text for standalone Might/Agility tests.
+// Returns the characteristics used by the ability roll ("Might", "Agility", etc.). Also checks the test flavor text for standalone Might/Agility tests.
 const getRollCharacteristics = (el) => {
   const rollLine  = el.querySelector('document-embed .powerResult strong')?.textContent ?? '';
   const flavorTxt = el.querySelector('.message-part-flavor')?.textContent?.trim() ?? '';
@@ -314,9 +312,7 @@ const getRollCharacteristics = (el) => {
 const targetsInclude = (targets, actorId, tokenId) =>
   targets.some(t => (actorId && t.actor?.id === actorId) || (tokenId && t.id === tokenId));
 
-// Reads the running bane/edge totals from flags and applies them all at once.
-// Each condition writes its own key into 'powerRollDeltas' so they never overwrite each other.
-// Combining them here keeps multiple active conditions from stepping on each other.
+// Reads the running bane/edge totals from flags and applies them all at once. Each condition writes its own key into 'powerRollDeltas' so they never overwrite each other. Combining them here keeps multiple active conditions from stepping on each other.
 const injectAllRollMods = (msg, { el }) => {
   const base   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
   const deltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas');
@@ -366,8 +362,7 @@ export function registerChatHooks() {
 
     const dsid = getItemDsid(item);
 
-    // Store per-ability flags for any ability message, even those without a tier result.
-    // Injectors read these immediately when the message renders.
+    // Store per-ability flags for any ability message, even those without a tier result. Injectors read these immediately when the message renders.
     if (!msg.getFlag('draw-steel-combat-tools', 'abilityDsid') && dsid) {
       await msg.setFlag('draw-steel-combat-tools', 'abilityDsid', dsid);
     }
@@ -380,8 +375,7 @@ export function registerChatHooks() {
     const tier = abilityResult.tier;
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | dsid=${dsid} tier=${tier} item.system.power.effects count=${normalizeCollection(item.system?.power?.effects).length}`);
 
-    // Power roll mods: requires the live rendered element because dice roll HTML is client-side only.
-    // Each condition writes its own key into 'powerRollDeltas'; all are applied together at inject time.
+    // Power roll mods: requires the live rendered element because dice roll HTML is client-side only. Each condition writes its own key into 'powerRollDeltas'; all are applied together at inject time.
     if (el && !_powerRollModInFlight.has(msg.id)) {
       const existingBase   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
       const existingDeltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas') ?? {};
@@ -581,9 +575,7 @@ export function registerChatHooks() {
   registerInjector(injectGrabButton);
   registerInjector(injectGrabResolutions);
 
-  // Inject a Teleport button on any ability whose effect text mentions the word "teleport".
-  // We can't reliably extract distance from prose (wildly inconsistent phrasing across 100+ abilities),
-  // so the button simply opens the Teleport panel and lets the user set the numbers themselves.
+  // Inject a Teleport button on any ability whose effect text mentions the word "teleport". We can't reliably extract distance from prose (wildly inconsistent phrasing across 100+ abilities), so the button simply opens the Teleport panel and lets the user set the numbers themselves.
   registerInjector(function injectTeleportButton(msg, { el, buttons, content }) {
     if (!getSetting('teleportEnabled')) return;
     if (el.querySelector('.dsct-tp-ability-btn')) return;
@@ -609,10 +601,7 @@ export function registerChatHooks() {
 
   registerAbilityInjectors();
 
-  // Minions and Area Effects rule: for area abilities, cap damage dealt to each minion at their
-  // individual stamina max so the squad pool only loses as much as each minion in the area can take.
-  // Non-minion targets receive the full amount. Replaces DS's own apply-damage buttons so the
-  // per-target capping happens before damage hits the pool.
+  // Minions and Area Effects rule: for area abilities, cap damage dealt to each minion at their individual stamina max so the squad pool only loses as much as each minion in the area can take. Non-minion targets receive the full amount. Replaces DS's own apply-damage buttons so the per-target capping happens before damage hits the pool.
   registerInjector(function injectAreaDamageCap(msg, { el }) {
     if (!msg.getFlag('draw-steel-combat-tools', 'areaAbility')) return;
 
@@ -673,9 +662,7 @@ export function registerChatHooks() {
     }
   });
 
-  // For non-area abilities, replace the apply-damage button so damage routes through our applyDamage
-  // function. This ensures squad tracking (for breakpoint auto-assign) and QS integration work
-  // the same way they do for area abilities and forced movement damage.
+  // For non-area abilities, replace the apply-damage button so damage routes through our applyDamage function. This ensures squad tracking (for breakpoint auto-assign) and QS integration work the same way they do for area abilities and forced movement damage.
   registerInjector(function injectSingleTargetDamage(msg, { el }) {
     if (msg.getFlag('draw-steel-combat-tools', 'areaAbility')) return;
 
@@ -728,8 +715,7 @@ export function registerChatHooks() {
     }
   });
 
-  // Read the `end` string for a given condition from an ability item's AppliedPowerRollEffects.
-  // Returns the raw DS system string ("turn", "encounter", "save") or null if not found.
+  // Reads the `end` string for a given condition from an ability item's AppliedPowerRollEffects. Returns the raw DS system string ("turn", "encounter", "save") or null if not found.
   const getConditionEndFromAbility = (item, conditionId) => {
     const appliedEffects = item?.system?.power?.effects?.contents?.filter(e => e.type === 'applied') ?? [];
     for (const eff of appliedEffects) {
@@ -875,8 +861,7 @@ export function registerChatHooks() {
     _recentlyCreated.add(msg.id);
     setTimeout(() => _recentlyCreated.delete(msg.id), 5000);
     trySetFlag(msg);
-    // Safety sweep: 2 seconds after any new message, re-inject ALL visible messages,
-    // not just the new one, so previously-failed injects get a second chance.
+    // Safety sweep: 2 seconds after any new message, re-inject ALL visible messages, not just the new one, so previously-failed injects get a second chance.
     setTimeout(sweepVisibleMessages, 2000);
   });
   Hooks.on('updateChatMessage',     (msg)     => { trySetFlag(msg); scheduleInject(msg); });

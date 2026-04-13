@@ -3,11 +3,8 @@ import {
 } from './helpers.mjs';
 import { applyGrab } from './grab.mjs';
 
-/**
- * Reapply a list of grabs that were ended by forced movement, respecting multi-grab limits.
- * maxGrabs is derived from how many entries share the same grabberTokenId; this handles
- * creatures with whitelisted multi-grab abilities (e.g. claw-swing: 2, several-arms: 4).
- */
+//Reapply a list of grabs that were ended by forced movement, respecting multi-grab limits.
+//maxGrabs is derived from how many entries share the same grabberTokenId; this handles creatures with whitelisted multi-grab abilities (e.g. claw-swing: 2, several-arms: 4).
 const restoreGrabs = async (grabsToRestore) => {
   if (!grabsToRestore?.length) return;
   const maxByGrabber = new Map();
@@ -95,9 +92,7 @@ const handleStaminaRevival = async (undoLog) => {
     if (game.combat && !game.combat.combatants.find(c => c.tokenId === tokenDoc.id)) {
       const savedGroupId = tokenDoc.getFlag('draw-steel-combat-tools', 'savedGroupId');
 
-      // Before re-adding the combatant to the squad, restore the squad group's HP to the
-      // pre-damage value. Without this, updateCombatantGroup fires when the combatant is
-      // added, sees too many members for the current (damaged) HP, and triggers another death.
+      // Before re-adding the combatant to the squad, this restores the squad group's HP to the pre-damage value. Without this, updateCombatantGroup fires when the combatant is added, sees too many members for the current (damaged) HP, and triggers another death.
       if (savedGroupId) {
         const squadOp = staminaOps.find(op =>
           op.squadGroupUuid && op.prevSquadHP !== null &&

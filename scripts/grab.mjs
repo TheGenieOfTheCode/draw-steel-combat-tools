@@ -56,8 +56,7 @@ const ensureGrabHooks = () => {
       if (!window._activeGrabs?.size) return;
       if (changes.x === undefined && changes.y === undefined) return;
       if (window._grabFMSuppressed?.has(doc.id)) return; // grabber being force-moved; grabbed creature stays put
-      // Read the movement offset now, before any awaits, because doc.x/y will have
-      // already changed by the time Foundry finishes processing the first follow-move.
+      // Read the movement offset now, before any awaits, because doc.x/y will have already changed by the time Foundry finishes processing the first follow-move.
       const deltaX = (changes.x ?? doc.x) - doc.x;
       const deltaY = (changes.y ?? doc.y) - doc.y;
       for (const [gid, grab] of window._activeGrabs.entries()) {
@@ -93,9 +92,7 @@ const removeGrabHooks = () => {
 };
 
 const rehydrateGrabs = () => {
-  // the entire grab state lives in a window global and evaporates on reload.
-  // we rebuild it here by scanning every token for the 'Grabber' effect and parsing the token IDs
-  // we baked into the effect origin when the grab started. it works, it's just not pretty.
+  // The entire grab state lives in a window global and "evaporates" on reload. This rebuilds it by scanning every token for the 'Grabber' effect and parsing the token IDs baked into the effect origin when the grab started. It works, it's just not pretty.
   window._activeGrabs = new Map();
   if (!canvas?.tokens?.placeables) return;
 

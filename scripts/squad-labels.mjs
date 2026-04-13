@@ -37,7 +37,6 @@ export const applySquadLabels = async () => {
     ui.notifications.warn("No active combat encounter found.");
     return;
   }
-
   
   const allTokens = canvas.tokens.placeables;
   for (const token of allTokens) {
@@ -47,7 +46,6 @@ export const applySquadLabels = async () => {
       await safeDelete(effect);
     }
   }
-
   
   for (const group of game.combat.groups?.contents ?? []) {
     const match = group.name.match(/^Group (\d+)([a-z]?)$/i);
@@ -92,7 +90,6 @@ export const applySquadLabels = async () => {
       await safeCreateEmbedded(actor, 'ActiveEffect', [effectData]);
     }
   }
-
   
   if (!game.combat.started) {
     ui.notifications.info("Squad labels applied.");
@@ -103,13 +100,8 @@ export const registerSquadLabelHooks = () => {
   Hooks.on('combatStart', async (combat, updateData) => {
     
     if (!getSetting('autoSquadLabelsEnabled')) return;
-
     
     if (!game.users.activeGM?.isSelf) return;
-
-    
-    
-    
     
     await new Promise(resolve => setTimeout(resolve, 500));
 
