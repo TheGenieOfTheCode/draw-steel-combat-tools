@@ -27,7 +27,7 @@ export const autoRenameGroups = async () => {
     if (!combatants.length) continue;
     
     
-    if (!combatants.every(c => c.actor?.type !== 'hero')) continue;
+    if (combatants.some(c => c.actor?.type === 'hero')) continue;
 
     await group.update({ name: `Group ${groupNum}` });
     groupNum++;
@@ -60,7 +60,7 @@ export const applySquadLabels = async () => {
 
     const combatants = [...group.members];
     if (!combatants.length) continue;
-    if (!combatants.every(c => c.actor?.type !== 'hero')) continue;
+    if (combatants.some(c => c.actor?.type === 'hero')) continue;
 
     const tint      = GROUP_TINTS[num] ?? '#ffffff';
     const suffix    = letter === 'b' ? 'B' : '';
