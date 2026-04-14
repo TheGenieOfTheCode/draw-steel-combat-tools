@@ -47,12 +47,49 @@ const hasGrabEffect = (item, tier) => {
   return false;
 };
 
+// Resets states to baseStates then replays every modifier in order.
+// Distance is additive across modifiers; everything else is last-write-wins.
+const replayModifiers = (baseStates, stack, states) => {
+  for (let i = 0; i < states.length; i++) {
+    const base = baseStates[i];
+    const st   = states[i];
+    st.distance          = base.distance;
+    st.movement          = base.movement;
+    st.vertical          = base.vertical;
+    st.verticalDistance  = base.verticalDistance;
+    st.fallReduction     = base.fallReduction;
+    st.noFallDamage      = base.noFallDamage;
+    st.noCollisionDamage = base.noCollisionDamage;
+    st.ignoreStability   = base.ignoreStability;
+    st.fastMove          = base.fastMove;
+    for (const entry of stack) {
+      const m = entry.modState[i];
+      if (!m) continue;
+      st.distance         += m.distanceDelta;
+      st.movement          = m.movement;
+      st.vertical          = m.vertical;
+      st.verticalDistance  = m.verticalDistance;
+      st.fallReduction     = m.fallReduction;
+      st.noFallDamage      = m.noFallDamage;
+      st.noCollisionDamage = m.noCollisionDamage;
+      st.ignoreStability   = m.ignoreStability;
+      st.fastMove          = m.fastMove;
+    }
+  }
+  console.log(`DSCT | replayModifiers | stack depth=${stack.length} states=${JSON.stringify(states.map(st => ({ movement: st.movement, distance: st.distance })))}`);
+};
+
 class FmModifyPanel extends Application {
-  constructor(effectName, msgId) {
+  constructor(states, baseStates, modifierStack, effects, btnEls, makeLabel, msgId) {
     super();
-    this._effectName = effectName;
-    this._msgId      = msgId;
-    console.log(`DSCT | FmModifyPanel constructed | effectName=${effectName} msgId=${msgId}`);
+    this._states         = states;
+    this._baseStates     = baseStates;
+    this._modifierStack  = modifierStack;
+    this._effects        = effects;
+    this._btnEls         = btnEls;
+    this._makeLabel      = makeLabel;
+    this._msgId          = msgId;
+    console.log(`DSCT | FmModifyPanel constructed | effects=${effects.length} msgId=${msgId}`);
   }
 
   static get defaultOptions() {
@@ -62,17 +99,82 @@ class FmModifyPanel extends Application {
     });
   }
 
+  // Reads DOM inputs for effect index i into st. Initialise st from current state first
+  // so that missing fields fall back to whatever is already accumulated, not undefined.
+  _readInputs(root, i, st) {
+    st.movement          = root.querySelector(`[data-field="type-${i}"]`)?.value       ?? st.movement;
+    st.distance          = parseInt(root.querySelector(`[data-field="distance-${i}"]`)?.value) || 0;
+    st.vertical          = root.querySelector(`[data-field="vertical-${i}"]`)?.checked ?? st.vertical;
+    const vdRaw          = root.querySelector(`[data-field="vertDist-${i}"]`)?.value   ?? '';
+    st.verticalDistance  = vdRaw !== '' ? (parseInt(vdRaw) || '') : '';
+    st.fallReduction     = parseInt(root.querySelector(`[data-field="fallRed-${i}"]`)?.value) || 0;
+    st.noFallDamage      = root.querySelector(`[data-field="noFall-${i}"]`)?.checked   ?? st.noFallDamage;
+    st.noCollisionDamage = root.querySelector(`[data-field="noCol-${i}"]`)?.checked    ?? st.noCollisionDamage;
+    st.ignoreStability   = root.querySelector(`[data-field="ignoreStab-${i}"]`)?.checked ?? st.ignoreStability;
+    st.fastMove          = root.querySelector(`[data-field="fast-${i}"]`)?.checked     ?? st.fastMove;
+  }
+
   async _renderInner(_data) {
-    console.log(`DSCT | FmModifyPanel._renderInner | effectName=${this._effectName}`);
+    console.log(`DSCT | FmModifyPanel._renderInner | effects=${this._effects.length}`);
     injectPanelChrome(this.options.id);
     const p = palette();
+
+    const effectSections = this._states.map((state, i) => {
+      const effectName = this._effects[i]?.name ?? this._makeLabel(state);
+      return `
+        ${this._states.length > 1 ? `<div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">${effectName}</div>` : ''}
+        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;gap:${s(4)}px;">
+
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Distance</div>
+            <div style="display:flex;gap:${s(3)}px;align-items:center;">
+              <select data-field="type-${i}" style="width:${s(60)}px;">
+                <option value="push"  ${state.movement === 'push'  ? 'selected' : ''}>Push</option>
+                <option value="pull"  ${state.movement === 'pull'  ? 'selected' : ''}>Pull</option>
+                <option value="slide" ${state.movement === 'slide' ? 'selected' : ''}>Slide</option>
+              </select>
+              <span style="font-size:${s(8)}px;color:${p.textDim};" title="Current effective distance">${state.distance}</span>
+              <span style="font-size:${s(9)}px;color:${p.textDim};">±</span>
+              <input type="number" data-field="distance-${i}" value="0" step="1"
+                style="width:${s(26)}px;text-align:center;" title="Distance delta — adds to current effective distance">
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+              <input type="checkbox" data-field="vertical-${i}" ${state.vertical ? 'checked' : ''}> Vertical
+            </label>
+            <input type="number" data-field="vertDist-${i}" placeholder="${state.distance}" step="1"
+              style="width:${s(40)}px;text-align:center;" title="Leave blank to match distance">
+          </div>
+
+          <div style="width:100%;height:1px;background:${p.border};"></div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Fall Reduction</div>
+            <input type="number" data-field="fallRed-${i}" value="${state.fallReduction}" min="0" step="1"
+              style="width:${s(30)}px;text-align:center;" title="Bonus on top of Agility">
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:${s(4)}px;">
+            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+              <input type="checkbox" data-field="noFall-${i}" ${state.noFallDamage ? 'checked' : ''}> No Fall Dmg</label>
+            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+              <input type="checkbox" data-field="noCol-${i}" ${state.noCollisionDamage ? 'checked' : ''}> No Collision</label>
+            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+              <input type="checkbox" data-field="ignoreStab-${i}" ${state.ignoreStability ? 'checked' : ''}> Ignore Stab</label>
+            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+              <input type="checkbox" data-field="fast-${i}" ${state.fastMove ? 'checked' : ''}> Fast Path</label>
+          </div>
+        </div>
+      `;
+    }).join('');
+
     return $(`
       <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;">
 
         <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
-          <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">
-            Modify: ${this._effectName}
-          </div>
+          <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">Modify Forced Movement</div>
           <button data-action="close-window"
             style="width:${s(16)}px;height:${s(16)}px;flex-shrink:0;cursor:pointer;margin-left:auto;
             background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;
@@ -80,9 +182,12 @@ class FmModifyPanel extends Application {
             onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">x</button>
         </div>
 
-        <div style="color:${p.textDim};font-size:${s(9)}px;text-align:center;padding:${s(12)}px 0;">
-          Parameters coming soon.
-        </div>
+        ${effectSections}
+
+        <button data-action="apply-mod"
+          style="width:100%;padding:${s(6)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(10)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
+          <i class="fas fa-check" style="margin-right:${s(4)}px;"></i> Apply
+        </button>
 
       </div>
     `);
@@ -90,13 +195,13 @@ class FmModifyPanel extends Application {
 
   activateListeners(html) {
     super.activateListeners(html);
-    console.log(`DSCT | FmModifyPanel.activateListeners | effectName=${this._effectName}`);
+    console.log(`DSCT | FmModifyPanel.activateListeners | effects=${this._effects.length}`);
 
     const appEl = html[0].closest('.app');
     if (appEl) {
       const saved = window._fmModifyPanelPos;
       appEl.style.left = saved ? `${saved.left}px` : `${Math.round((window.innerWidth  - (appEl.offsetWidth  || s(260))) / 2)}px`;
-      appEl.style.top  = saved ? `${saved.top}px`  : `${Math.round((window.innerHeight - (appEl.offsetHeight || s(200))) / 2)}px`;
+      appEl.style.top  = saved ? `${saved.top}px`  : `${Math.round((window.innerHeight - (appEl.offsetHeight || s(300))) / 2)}px`;
 
       html[0].addEventListener('mousedown', e => {
         if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea')) return;
@@ -116,9 +221,42 @@ class FmModifyPanel extends Application {
     }
 
     html.on('click', '[data-action]', e => {
-      if (e.currentTarget.dataset.action === 'close-window') {
+      const action = e.currentTarget.dataset.action;
+
+      if (action === 'close-window') {
         console.log('DSCT | FmModifyPanel | close-window clicked');
         this.close();
+        return;
+      }
+
+      if (action === 'apply-mod') {
+        const root = html[0];
+        const modState = this._states.map((_, i) => {
+          const tmp = { ...this._states[i] };
+          this._readInputs(root, i, tmp);
+          console.log(`DSCT | FmModifyPanel apply-mod | i=${i} distanceDelta=${tmp.distance} movement=${tmp.movement} vertical=${tmp.vertical}`);
+          return {
+            distanceDelta:   tmp.distance,
+            movement:        tmp.movement,
+            vertical:        tmp.vertical,
+            verticalDistance: tmp.verticalDistance,
+            fallReduction:   tmp.fallReduction,
+            noFallDamage:    tmp.noFallDamage,
+            noCollisionDamage: tmp.noCollisionDamage,
+            ignoreStability: tmp.ignoreStability,
+            fastMove:        tmp.fastMove,
+          };
+        });
+
+        this._modifierStack.push({ modState });
+        console.log(`DSCT | FmModifyPanel apply-mod | stack depth now=${this._modifierStack.length}`);
+        replayModifiers(this._baseStates, this._modifierStack, this._states);
+
+        for (let i = 0; i < this._states.length; i++) {
+          const newLabel = this._makeLabel(this._states[i]);
+          console.log(`DSCT | FmModifyPanel apply-mod | updating btnEl[${i}] label to "${newLabel}"`);
+          this._btnEls[i].innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${newLabel}`;
+        }
       }
     });
   }
@@ -136,45 +274,67 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
   const showEdit = !gmOnly || game.user.isGM;
   console.log(`DSCT | injectForcedButtons | msgId=${msg.id} effects=${data.effects?.length ?? 0} gmOnly=${gmOnly} isGM=${game.user.isGM} showEdit=${showEdit}`);
 
+  // Frozen baseline — never mutated. States starts as a copy and gets updated by replayModifiers.
+  const baseStates = data.effects.map(effect => ({
+    movement:          effect.movement,
+    distance:          effect.distance,
+    vertical:          effect.vertical          ?? false,
+    verticalDistance:  '',
+    ignoreStability:   effect.ignoreStability   ?? false,
+    fallReduction:     0,
+    noFallDamage:      false,
+    noCollisionDamage: false,
+    fastMove:          false,
+  }));
+  const states        = baseStates.map(st => ({ ...st }));
+  const modifierStack = [];
+
+  const makeLabel = (st) => [
+    st.fastMove ? 'Auto'     : '',
+    st.vertical ? 'Vertical' : '',
+    `${st.movement.charAt(0).toUpperCase() + st.movement.slice(1)} ${st.distance}`,
+  ].filter(Boolean).join(' ');
+
   const container = document.createElement('div');
   container.className = 'dsct-forced-buttons';
   container.style.cssText = 'display:contents;';
 
-  for (const effect of data.effects) {
-    const label = [
-      effect.vertical ? 'Vertical' : '',
-      `${effect.movement.charAt(0).toUpperCase() + effect.movement.slice(1)} ${effect.distance}`,
-    ].filter(Boolean).join(' ');
+  const btnEls = [];
+
+  for (let i = 0; i < data.effects.length; i++) {
+    const state = states[i];
 
     const execBtn = document.createElement('button');
     execBtn.type = 'button';
     execBtn.className = 'dsct-fm-exec';
-    execBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${label}`;
+    execBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${makeLabel(state)}`;
     execBtn.style.cssText = showEdit ? 'cursor:pointer;flex:1;' : 'cursor:pointer;';
 
     execBtn.addEventListener('click', async () => {
-      console.log(`DSCT | FM exec clicked | effect=${JSON.stringify(effect)}`);
+      console.log(`DSCT | FM exec clicked | state=${JSON.stringify({ movement: state.movement, distance: state.distance, vertical: state.vertical })}`);
       const api = getModuleApi();
       if (!api) return;
 
       const targets    = [...game.user.targets];
       const controlled = canvas.tokens.controlled;
-      const target     = targets.length === 1 ? targets[0] : null;
       const source     = targets.length === 1 && controlled.length === 1 ? controlled[0] : null;
+      const tgt        = targets.length === 1 ? targets[0] : null;
 
       if (!(game.user.isGM && getSetting('gmBypassesSizeCheck')) && (data.dsid === 'knockback' || data.dsid === 'grab')) {
-        if (source && target && !canForcedMoveTarget(source.actor, target.actor)) {
-          ui.notifications.warn(`${source.name} cannot force-move ${target.name} (size too large for their Might and size).`);
+        if (source && tgt && !canForcedMoveTarget(source.actor, tgt.actor)) {
+          ui.notifications.warn(`${source.name} cannot force-move ${tgt.name} (size too large for their Might and size).`);
           return;
         }
       }
 
-      const type           = effect.movement.charAt(0).toUpperCase() + effect.movement.slice(1);
-      const verticalHeight = effect.vertical ? String(effect.distance) : '';
+      const type           = state.movement.charAt(0).toUpperCase() + state.movement.slice(1);
+      const verticalHeight = state.vertical ? (state.verticalDistance !== '' ? String(state.verticalDistance) : String(state.distance)) : '';
       const kwArray        = normalizeCollection(data.keywords);
       const kw             = kwArray.join(',');
-      await api.forcedMovement([type, String(effect.distance), '0', '0', verticalHeight, '0', 'false', String(effect.ignoreStability), 'false', kw, String(data.range ?? 0)]);
+      await api.forcedMovement([type, String(state.distance), '0', '0', verticalHeight, String(state.fallReduction), String(state.noFallDamage), String(state.ignoreStability), String(state.noCollisionDamage), kw, String(data.range ?? 0), String(state.fastMove)]);
     });
+
+    btnEls.push(execBtn);
 
     if (showEdit) {
       const editBtn = document.createElement('button');
@@ -184,14 +344,13 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
       editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
       editBtn.style.cssText = 'cursor:pointer;flex-shrink:0;';
       editBtn.addEventListener('click', () => {
-        console.log(`DSCT | FM edit clicked | effect=${JSON.stringify(effect)} msgId=${msg.id}`);
+        console.log(`DSCT | FM edit clicked | msgId=${msg.id} stackDepth=${modifierStack.length}`);
         const existing = getWindowById('dsct-fm-modify');
         if (existing) {
           console.log('DSCT | FM edit | closing existing panel before opening new one');
           existing.close();
         }
-        const effectName = effect.name ?? `${effect.movement} ${effect.distance}`;
-        new FmModifyPanel(effectName, msg.id).render(true);
+        new FmModifyPanel(states, baseStates, modifierStack, data.effects, btnEls, makeLabel, msg.id).render(true);
       });
 
       const wrapper = document.createElement('div');
@@ -205,7 +364,7 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
   }
 
   target.appendChild(container);
-  console.log(`DSCT | injectForcedButtons | done, container appended to target`);
+  console.log(`DSCT | injectForcedButtons | done | effects=${data.effects.length} showEdit=${showEdit}`);
 };
 
 const injectGrabButton = (msg, { el }) => {
