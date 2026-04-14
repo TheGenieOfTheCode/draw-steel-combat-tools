@@ -569,14 +569,28 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
     btnEls.push(execBtn);
 
     if (showEdit) {
-      execBtn.style.cssText = 'cursor:pointer;flex:1;border:none;border-radius:0;padding:4px 8px;';
+      execBtn.style.cssText = 'cursor:pointer;flex:1;border:none;border-radius:0;padding:0px 8px;';
+
+      const execShell = document.createElement('div');
+      execShell.style.cssText = 'flex:1;display:flex;border:1px solid rgb(85,85,85);border-right:none;border-radius:4px 0 0 4px;transition:border-color 0.8s;overflow:hidden;';
+      execShell.appendChild(execBtn);
 
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.className = 'dsct-fm-edit';
       editBtn.title = 'Modify Forced Movement';
       editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
-      editBtn.style.cssText = 'cursor:pointer;flex-shrink:0;aspect-ratio:1;border-width:0 0 0 1px;border-style:solid;border-color:var(--dsct-border);border-radius:0;display:flex;align-items:center;justify-content:center;padding:0;';
+      editBtn.style.cssText = 'cursor:pointer;aspect-ratio:1;border:none;border-radius:0;display:flex;align-items:center;justify-content:center;padding:0;';
+
+      const editShell = document.createElement('div');
+      editShell.style.cssText = 'display:flex;border:1px solid rgb(85,85,85);border-radius:0 4px 4px 0;transition:border-color 0.8s;overflow:hidden;';
+      editShell.appendChild(editBtn);
+
+      execBtn.addEventListener('mouseenter', () => { execShell.style.borderColor = 'transparent'; });
+      execBtn.addEventListener('mouseleave', () => { execShell.style.borderColor = 'rgb(85,85,85)'; });
+      editBtn.addEventListener('mouseenter', () => { editShell.style.borderColor = 'transparent'; });
+      editBtn.addEventListener('mouseleave', () => { editShell.style.borderColor = 'rgb(85,85,85)'; });
+
       editBtn.addEventListener('click', () => {
         console.log(`DSCT | FM edit clicked | msgId=${msg.id} stackDepth=${modifierStack.length}`);
         const existing = getWindowById('dsct-fm-modify');
@@ -588,9 +602,9 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
       });
 
       const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'display:flex;overflow:hidden;border-radius:4px;border:1px solid var(--dsct-border);';
-      wrapper.appendChild(execBtn);
-      wrapper.appendChild(editBtn);
+      wrapper.style.cssText = 'display:flex;';
+      wrapper.appendChild(execShell);
+      wrapper.appendChild(editShell);
       container.appendChild(wrapper);
     } else {
       container.appendChild(execBtn);
