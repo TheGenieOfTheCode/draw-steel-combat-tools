@@ -61,6 +61,7 @@ export const injectPanelChrome = (appId) => {
     #${appId} .window-header { display:none !important; }
     #${appId} .window-content { padding:0 !important; background:var(--dsct-bg) !important; overflow-y:auto; border-radius:3px; }
     #${appId} button:hover { filter:brightness(1.15); }
+    #${appId} button:focus { outline:none; }
     #${appId} button:disabled { opacity:0.35; cursor:not-allowed; }
     #${appId} button:disabled:hover { filter:none; }
     #${appId} input[type="number"], #${appId} input[type="text"], #${appId} select, #${appId} textarea { background:var(--dsct-bg-btn); color:var(--dsct-text); border:1px solid var(--dsct-border); border-radius:2px; font-size:11px; padding:2px; }

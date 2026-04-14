@@ -96,6 +96,15 @@ class FmModifyPanel extends Application {
     console.log(`DSCT | FmModifyPanel constructed | effects=${effects.length} msgId=${msgEl?.dataset?.messageId}`);
   }
 
+  async close(options = {}) {
+    if (this._shiftListeners) {
+      document.removeEventListener('keydown', this._shiftListeners.down);
+      document.removeEventListener('keyup',   this._shiftListeners.up);
+      this._shiftListeners = null;
+    }
+    return super.close(options);
+  }
+
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, {
       id: 'dsct-fm-modify', title: 'Modify Forced Movement', template: null,
@@ -294,6 +303,17 @@ class FmModifyPanel extends Application {
     const updateDeleteState = () => { deleteBtn.disabled = presetSel.value === ''; };
     updateDeleteState();
 
+    const saveBtnEl = html[0].querySelector('[data-action="save-preset"]');
+    const updateSaveShift = (held) => {
+      saveBtnEl.style.color = held ? 'var(--dsct-text-active)' : 'var(--dsct-text-dim)';
+      saveBtnEl.title = held ? 'Shift+Click to overwrite existing preset' : 'Save current inputs as a preset';
+    };
+    const onShiftDown = (e) => { if (e.key === 'Shift') updateSaveShift(true);  };
+    const onShiftUp   = (e) => { if (e.key === 'Shift') updateSaveShift(false); };
+    document.addEventListener('keydown', onShiftDown);
+    document.addEventListener('keyup',   onShiftUp);
+    this._shiftListeners = { down: onShiftDown, up: onShiftUp };
+
     presetSel.addEventListener('change', () => {
       updateDeleteState();
       const idx = parseInt(presetSel.value);
@@ -409,6 +429,13 @@ class FmModifyPanel extends Application {
         const noteName = root.querySelector('[data-field="note-name"]')?.value?.trim() ?? '';
         const noteDesc = root.querySelector('[data-field="note-desc"]')?.value?.trim() ?? '';
         const name     = noteName || `Preset ${presets.length + 1}`;
+
+        const existingIdx = presets.findIndex(pr => pr.name === name);
+        if (existingIdx !== -1 && !e.shiftKey) {
+          ui.notifications.warn(`A preset named "${name}" already exists. Shift+click the save button to overwrite it.`);
+          return;
+        }
+
         const modState = this._states.map((_, i) => {
           const get = (f) => root.querySelector(`[data-field="${f}-${i}"]`);
           const vdRaw = get('vertDist')?.value ?? '';
@@ -424,10 +451,20 @@ class FmModifyPanel extends Application {
             fastMove:         get('fast')?.checked              ?? false,
           };
         });
-        presets.push({ name, noteName, noteDesc, modState });
-        savePresets(presets);
-        rebuildDropdown(presets, presets.length - 1);
-        console.log(`DSCT | FM presets | saved "${name}" (total=${presets.length})`);
+
+        if (existingIdx !== -1) {
+          presets[existingIdx] = { name, noteName, noteDesc, modState };
+          savePresets(presets);
+          rebuildDropdown(presets, existingIdx);
+          updateSaveShift(false);
+          console.log(`DSCT | FM presets | overwriting "${name}" at idx=${existingIdx}`);
+        } else {
+          presets.push({ name, noteName, noteDesc, modState });
+          savePresets(presets);
+          rebuildDropdown(presets, presets.length - 1);
+          console.log(`DSCT | FM presets | saved "${name}" (total=${presets.length})`);
+        }
+        e.currentTarget.blur();
       }
 
       if (action === 'delete-preset') {
@@ -440,6 +477,7 @@ class FmModifyPanel extends Application {
         savePresets(presets);
         rebuildDropdown(presets);
         console.log(`DSCT | FM presets | deleted "${name}" (remaining=${presets.length})`);
+        e.currentTarget.blur();
       }
     });
   }
