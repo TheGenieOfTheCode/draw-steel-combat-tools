@@ -193,12 +193,12 @@ class FmModifyPanel extends Application {
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Name</div>
             <input type="text" data-field="note-name" placeholder="Optional"
-              style="width:${s(130)}px;padding:${s(2)}px ${s(4)}px;">
+              style="width:${s(130)}px;padding:${s(2)}px ${s(4)}px;font-size:${s(9)}px;font-family:inherit;box-sizing:border-box;">
           </div>
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;padding-top:${s(3)}px;">Description</div>
             <textarea data-field="note-desc" placeholder="Optional" rows="2"
-              style="width:${s(130)}px;padding:${s(2)}px ${s(4)}px;resize:none;overflow:hidden;min-height:${s(32)}px;box-sizing:border-box;"
+              style="width:${s(130)}px;padding:${s(2)}px ${s(4)}px;font-size:${s(9)}px;font-family:inherit;resize:none;overflow:hidden;min-height:${s(32)}px;box-sizing:border-box;"
               oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
           </div>
         </div>
@@ -474,7 +474,7 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
     execBtn.type = 'button';
     execBtn.className = 'dsct-fm-exec';
     execBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${makeLabel(state)}`;
-    execBtn.style.cssText = showEdit ? 'cursor:pointer;flex:1;' : 'cursor:pointer;';
+    execBtn.style.cssText = 'cursor:pointer;';
 
     execBtn.addEventListener('click', async () => {
       console.log(`DSCT | FM exec clicked | state=${JSON.stringify({ movement: state.movement, distance: state.distance, vertical: state.vertical })}`);
@@ -503,12 +503,14 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
     btnEls.push(execBtn);
 
     if (showEdit) {
+      execBtn.style.cssText = 'cursor:pointer;flex:1;border:none;border-radius:0;padding:4px 8px;';
+
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.className = 'dsct-fm-edit';
       editBtn.title = 'Modify Forced Movement';
       editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
-      editBtn.style.cssText = 'cursor:pointer;flex-shrink:0;';
+      editBtn.style.cssText = 'cursor:pointer;flex-shrink:0;width:26px;border-width:0 0 0 1px;border-style:solid;border-color:var(--dsct-border);border-radius:0;display:flex;align-items:center;justify-content:center;padding:0;';
       editBtn.addEventListener('click', () => {
         console.log(`DSCT | FM edit clicked | msgId=${msg.id} stackDepth=${modifierStack.length}`);
         const existing = getWindowById('dsct-fm-modify');
@@ -520,7 +522,7 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
       });
 
       const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'display:flex;gap:2px;';
+      wrapper.style.cssText = 'display:flex;overflow:hidden;border-radius:4px;border:1px solid var(--dsct-border);';
       wrapper.appendChild(execBtn);
       wrapper.appendChild(editBtn);
       container.appendChild(wrapper);

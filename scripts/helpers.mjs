@@ -61,8 +61,9 @@ export const injectPanelChrome = (appId) => {
     #${appId} .window-header { display:none !important; }
     #${appId} .window-content { padding:0 !important; background:var(--dsct-bg) !important; overflow-y:auto; border-radius:3px; }
     #${appId} button:hover { filter:brightness(1.15); }
-    #${appId} input[type="number"], #${appId} input[type="text"], #${appId} select { background:var(--dsct-bg-btn); color:var(--dsct-text); border:1px solid var(--dsct-border); border-radius:2px; font-size:11px; padding:2px; }
-    #${appId} input:focus, #${appId} select:focus { outline:none; border-color:var(--dsct-accent); }
+    #${appId} input[type="number"], #${appId} input[type="text"], #${appId} select, #${appId} textarea { background:var(--dsct-bg-btn); color:var(--dsct-text); border:1px solid var(--dsct-border); border-radius:2px; font-size:11px; padding:2px; }
+    #${appId} input:focus, #${appId} select:focus, #${appId} textarea:focus { outline:none; border-color:var(--dsct-accent); }
+    #${appId} input::placeholder, #${appId} textarea::placeholder { color:var(--dsct-text-label); }
     #${appId} input[type="checkbox"] { accent-color:var(--dsct-accent); margin:0; }
     #${appId} select:disabled { opacity:0.35; }
   `;
