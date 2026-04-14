@@ -2,13 +2,11 @@ import {
   safeCreateEmbedded, safeDelete, getSetting, getTokenById,
 } from './helpers.mjs';
 
-// -- constants ----------------------------------------------------------------
+// -- constants --
 
 const M = 'draw-steel-combat-tools';
 
 
-// Maps a duration string (turnEnd, save, etc.) to { duration, systemEnd } for ActiveEffect creation.
-// Returns null for unlimited.
 const resolveEffectEnd = (endStr) => {
   if (!endStr || endStr === 'unlimited') return null;
   if (endStr === 'save') return { duration: { expiry: 'save' }, systemEnd: { roll: '1d10 + @combat.save.bonus' } };
@@ -44,16 +42,15 @@ const TAUNTED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, source
 };};
 
 
-// -- helpers ------------------------------------------------------------------
+// -- helpers --
 
-// True if any vision-blocking wall crosses the line between the two tokens.
 export const sightBlockedBetween = (tokA, tokB) => {
   if (!tokA || !tokB) return true;
   const from = { x: tokA.center.x, y: tokA.center.y };
   const to   = { x: tokB.center.x, y: tokB.center.y };
   const cross = (ox, oy, px, py, qx, qy) => (px - ox) * (qy - oy) - (py - oy) * (qx - ox);
   for (const w of canvas.walls.placeables) {
-    if (!w.document.sight) continue; // only vision-blocking walls
+    if (!w.document.sight) continue; 
     const c = w.document.c;
     const d1 = cross(c[0], c[1], c[2], c[3], from.x, from.y);
     const d2 = cross(c[0], c[1], c[2], c[3], to.x,   to.y  );
@@ -65,14 +62,12 @@ export const sightBlockedBetween = (tokA, tokB) => {
   return false;
 };
 
-// Squared center-to-center distance; used to compare directions without sqrt.
 const distSq = (tokA, tokB) => {
   const dx = tokA.center.x - tokB.center.x;
   const dy = tokA.center.y - tokB.center.y;
   return dx * dx + dy * dy;
 };
 
-// -- condition getters --------------------------------------------------------
 
 export const getFrightenedData = (actor) => {
   const effect = actor?.appliedEffects?.find(e => e.getFlag(M, 'frightened'));
@@ -84,12 +79,10 @@ export const getTauntedData = (actor) => {
   return effect?.flags?.[M]?.taunted ?? null;
 };
 
-// -- apply / remove -----------------------------------------------------------
 
 export const applyFrightened = async (targetToken, sourceActor, sourceTokenId, endStr = null) => {
   const actor = targetToken.actor;
   if (!actor) return;
-  // Remove any existing DSCT frightened before applying new one
   const existing = actor.appliedEffects?.find(e => e.getFlag(M, 'frightened'));
   if (existing) await safeDelete(existing);
   await safeCreateEmbedded(actor, 'ActiveEffect', [FRIGHTENED_EFFECT(sourceActor.id, sourceTokenId, sourceActor.name, endStr, sourceActor.uuid)]);
@@ -105,10 +98,8 @@ export const applyTaunted = async (targetToken, sourceActor, sourceTokenId, endS
   if (getSetting('debugMode')) console.log(`DSCT | Taunted | Applied to ${targetToken.name} source=${sourceActor.name} end=${endStr}`);
 };
 
-// -- movement restriction hook ------------------------------------------------
 
 export const registerConditionHooks = () => {
-  // Block frightened tokens from voluntarily moving closer to their fear source
   if (!window._dsctFrightenedHook) {
     window._dsctFrightenedHook = Hooks.on('preUpdateToken', (doc, changes) => {
       if (changes.x === undefined && changes.y === undefined) return;
@@ -120,16 +111,13 @@ export const registerConditionHooks = () => {
       const data = getFrightenedData(token.actor);
       if (!data) return;
 
-      // Forced movement bypasses the frightened restriction. The token is being repositioned, not moving voluntarily toward its fear source.
       if (window._dsctFMBypassFrightened?.has(doc.id)) return;
 
       const sourceTok = getTokenById(data.sourceTokenId);
       if (!sourceTok) return;
 
-      // If sight is blocked, creature doesn't know the location, so allow movement
       if (sightBlockedBetween(token, sourceTok)) return;
 
-      // Calculate whether proposed position is closer to source than current
       const gs = canvas.grid.size;
       const proposed = {
         center: {

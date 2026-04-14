@@ -80,7 +80,6 @@ const chooseTeleportSquare = (sourceToken, maxDist) => new Promise((resolve) => 
          isOnTerrain = true;
      }
 
-     // going down further than maxDist allows means the token arrives in the air and falls
      const drop       = srcElev - targetElev;
      const willFall   = drop > maxDist;
      const arrivalElev = willFall ? srcElev - maxDist : targetElev;
@@ -115,8 +114,6 @@ const chooseTeleportSquare = (sourceToken, maxDist) => new Promise((resolve) => 
   const redraw = (hoverGrid) => {
     graphics.clear();
 
-    // build a de-duplicated set of cells covered by any candidate so overlapping
-    // footprints don't stack transparent rectangles on top of each other
     const rangeCells  = new Map();
     for (const g of candidates) {
       for (let ix = 0; ix < w; ix++) {
@@ -203,7 +200,6 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
    const targetWorld = { ...toWorld(chosenGrid), elevation: destElev };
    const actualDist = gridDist(toGrid(origWorld), chosenGrid);
 
-   // strip conditions before moving so the grab hook doesn't block the position update
    const actor = token.actor;
    const removedGrabs    = [];
    const removedStatuses = [];
@@ -230,10 +226,8 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
        await new Promise(r => setTimeout(r, animDuration));
    }
 
-   // snapshot stamina before the fall so undo can restore HP
    const staminaSnap = (chosenGrid.willFall && actor) ? snapStamina(actor) : null;
 
-   // if the destination is lower than the token can drop in one teleport, they arrive in the air and fall
    const arrivalElev = chosenGrid.willFall ? chosenGrid.arrivalElev : targetWorld.elevation;
    await safeUpdate(token.document, { x: targetWorld.x, y: targetWorld.y, elevation: arrivalElev }, { animate: false, teleport: true });
 
@@ -258,7 +252,6 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
 
    const undoLog = [];
 
-   // fall damage undone first - position restore comes after so the token is still "there"
    if (staminaSnap) {
      undoLog.push({
        op: 'stamina', uuid: actor.uuid,
@@ -274,7 +267,6 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
      options: { animate: false, teleport: true }
    });
 
-   // restore conditions that were stripped - 'grabbed' is skipped because applyGrab re-creates it with the right origin
    const grabbedTokenIds = new Set(removedGrabs.map(g => g.grabbedTokenId));
    for (const status of removedStatuses) {
      if (status === 'grabbed' && grabbedTokenIds.has(token.id)) continue;
@@ -499,9 +491,8 @@ export const toggleTeleportPanel = () => {
 };
 
 
-// -- Burst Teleport ------------------------------------------------------------
+// -- Burst Teleport --
 
-// all grid cells within `radius` squares of a token's footprint (diagonals count as 1). returns Set<"x,y">.
 const burstCells = (tok, radius) => {
   const tg = toGrid(tok.document);
   const w  = tok.document.width  ?? 1;
@@ -513,7 +504,6 @@ const burstCells = (tok, radius) => {
   return cells;
 };
 
-// alive, visible tokens that are at least partially inside the burst area.
 const tokensInBurst = (sourceToken, radius) => {
   const burst = burstCells(sourceToken, radius);
   return canvas.tokens.placeables.filter(t => {
@@ -528,7 +518,6 @@ const tokensInBurst = (sourceToken, radius) => {
   });
 };
 
-/** PIXI picker: click an eligible token to choose who teleports next. */
 const pickBurstToken = (sourceToken, radius, eligible) => {
   const GRID  = getGRID();
   const burst = burstCells(sourceToken, radius);
@@ -566,19 +555,12 @@ const pickBurstToken = (sourceToken, radius, eligible) => {
   });
 };
 
-/**
- * PIXI picker: click a destination within the burst for the moving token.
- * `claimed` is a Set<"x,y"> of cells already placed by this sequence.
- * Escape skips this token (returns null) without ending the sequence.
- */
 const pickBurstDestination = (sourceToken, radius, movingToken, claimed) => {
   const GRID  = getGRID();
   const burst = burstCells(sourceToken, radius);
   const w     = movingToken.document.width  ?? 1;
   const h     = movingToken.document.height ?? 1;
 
-  // Build valid candidates: top-left grid coord where the full footprint fits,
-  // stays inside the burst, isn't claimed, and isn't blocked by another token.
   const candidates = [];
   outer: for (const cell of burst) {
     const [cx, cy] = cell.split(',').map(Number);
@@ -625,16 +607,6 @@ const pickBurstDestination = (sourceToken, radius, movingToken, claimed) => {
   });
 };
 
-/**
- * Teleports each token within a burst one at a time in user-chosen order.
- * Click to select who goes next, click to pick their destination within the burst.
- * Escape during token selection ends the sequence.
- * Escape during destination selection skips that token.
- *
- * @param {object} [opts]
- * @param {string} [opts.sourceId]  Token ID of the caster (burst center). Defaults to controlled token.
- * @param {number} [opts.radius=2]  Burst radius in squares.
- */
 export const runBurstTeleport = async ({ sourceId, radius = 2 } = {}) => {
   const source = (sourceId ? getTokenById(sourceId) : null)
               ?? (canvas.tokens.controlled.length === 1 ? canvas.tokens.controlled[0] : null);
@@ -643,19 +615,19 @@ export const runBurstTeleport = async ({ sourceId, radius = 2 } = {}) => {
   const remaining = tokensInBurst(source, radius);
   if (!remaining.length) { ui.notifications.warn('DSCT | Burst Teleport | No tokens found within the burst area.'); return; }
 
-  const claimed = new Set(); // cells already occupied by tokens placed this sequence
+  const claimed = new Set(); 
 
   while (remaining.length > 0) {
     const moving = remaining.length === 1
       ? remaining[0]
       : await pickBurstToken(source, radius, remaining);
 
-    if (!moving) break; // Escape during token selection; sequence complete
+    if (!moving) break; 
 
     remaining.splice(remaining.indexOf(moving), 1);
 
     const dest = await pickBurstDestination(source, radius, moving, claimed);
-    if (dest === null) continue; // Escape during destination; skip this token
+    if (dest === null) continue; 
 
     for (let ix = 0; ix < (moving.document.width  ?? 1); ix++)
       for (let iy = 0; iy < (moving.document.height ?? 1); iy++)
@@ -736,7 +708,6 @@ export const registerTeleportHooks = () => {
           await safeUpdate(msg, { 'flags.draw-steel-combat-tools.isUndone': true });
           await replayUndo(undoLog);
 
-          // re-apply any grabs that were ended for the teleport
           const grabsToRestore = msg.getFlag('draw-steel-combat-tools', 'grabsToRestore') ?? [];
           for (const { grabberTokenId, grabbedTokenId } of grabsToRestore) {
             const grabberTok = getTokenById(grabberTokenId);

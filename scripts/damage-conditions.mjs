@@ -12,7 +12,6 @@ const DAMAGE_TYPES = [
   'holy', 'corruption', 'psychic', 'poison',
 ];
 
-// Duration options for all conditions
 const DUR_OPTIONS = [
   { value: 'save',        label: 'Save Ends',          abbr: 'Save' },
   { value: 'turnEnd',     label: 'End of Turn',        abbr: 'EoT' },
@@ -25,7 +24,6 @@ const DUR_OPTIONS = [
   { value: 'unlimited',   label: 'Unlimited',          abbr: '' },
 ];
 
-// All conditions available in the panel (one at a time)
 const ALL_CONDITIONS = [
   { id: 'bleeding',   label: 'Bleeding' },
   { id: 'dazed',      label: 'Dazed' },
@@ -45,7 +43,6 @@ const durAbbr = (endStr) => {
   return opt?.abbr ? ` (${opt.abbr})` : '';
 };
 
-// Returns { duration, systemEnd } for effect creation, or null for unlimited.
 const resolveEnd = (endStr) => {
   if (!endStr || endStr === 'unlimited') return null;
   if (endStr === 'save') return { duration: { expiry: 'save' }, systemEnd: { roll: '1d10 + @combat.save.bonus' } };
@@ -132,11 +129,9 @@ const applyMarkedEffect = async (targetToken, sourceActorId, endStr) => {
 const applyNativeCondition = async (actor, condId, endStr) => {
   const end = resolveEnd(endStr);
   if (!end) {
-    // Unlimited: use the system's built-in toggle so it creates the properly configured status effect
     await safeToggleStatusEffect(actor, condId, { active: true, overlay: false });
     return;
   }
-  // Custom duration: create the effect directly, using CONFIG.statusEffects as the template
   const statusCfg = CONFIG.statusEffects?.find(e => e.id === condId);
   await safeCreateEmbedded(actor, 'ActiveEffect', [{
     name:     statusCfg?.name ?? condId,
@@ -161,7 +156,7 @@ export class DamageConditionsPanel extends Application {
     this._damageType     = 'untyped';
     this._ignoreImmunity = false;
     this._damageMode     = 'strike';
-    this._condition      = '';        // condition id or '' for none
+    this._condition      = '';        
     this._conditionEnd   = 'save';
     this._updatePreview();
   }
@@ -354,7 +349,6 @@ export class DamageConditionsPanel extends Application {
       if (execBtn) execBtn.textContent = this._buildButtonText();
     };
 
-    // Damage
     html.on('input',  '#dc-amount',           e => { this._amount        = parseInt(e.target.value) || 0; refreshBtn(); });
     html.on('change', '#dc-type',             e => { this._damageType    = e.target.value;              refreshBtn(); });
     html.on('change', '#dc-ignore-immunity',  e => { this._ignoreImmunity = e.target.checked;           });
@@ -369,7 +363,6 @@ export class DamageConditionsPanel extends Application {
       refreshBtn();
     });
 
-    // Condition
     html.on('change', '#dc-condition', e => {
       this._condition = e.target.value;
       const sel = html.find('#dc-condition-end')[0];

@@ -55,8 +55,7 @@ const ensureGrabHooks = () => {
     window._grabFollowHook = Hooks.on('updateToken', async (doc, changes) => {
       if (!window._activeGrabs?.size) return;
       if (changes.x === undefined && changes.y === undefined) return;
-      if (window._grabFMSuppressed?.has(doc.id)) return; // grabber being force-moved; grabbed creature stays put
-      // Read the movement offset now, before any awaits, because doc.x/y will have already changed by the time Foundry finishes processing the first follow-move.
+      if (window._grabFMSuppressed?.has(doc.id)) return; 
       const deltaX = (changes.x ?? doc.x) - doc.x;
       const deltaY = (changes.y ?? doc.y) - doc.y;
       for (const [gid, grab] of window._activeGrabs.entries()) {
@@ -92,7 +91,6 @@ const removeGrabHooks = () => {
 };
 
 const rehydrateGrabs = () => {
-  // The entire grab state lives in a window global and "evaporates" on reload. This rebuilds it by scanning every token for the 'Grabber' effect and parsing the token IDs baked into the effect origin when the grab started. It works, it's just not pretty.
   window._activeGrabs = new Map();
   if (!canvas?.tokens?.placeables) return;
 
@@ -144,11 +142,9 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
   if (!window._activeGrabs) window._activeGrabs = new Map();
   if (window._activeGrabs.has(grabbedTok.id)) await endGrab(grabbedTok.id, { silent: true });
 
-  // Enforce the grabber's simultaneous grab limit.
   const currentGrabs = [...window._activeGrabs.values()].filter(g => g.grabberTokenId === grabberTok.id);
   if (currentGrabs.length >= maxGrabs) {
     if (maxGrabs === 1) {
-      // Standard rule: silently drop the existing grab and replace it.
       await endGrab(currentGrabs[0].grabbedTokenId, { silent: false, customMsg: `${grabberTok.name} releases ${currentGrabs[0].grabbedName} to grab a new target.` });
     } else {
       ui.notifications.warn(`${grabberTok.name} is already grabbing ${maxGrabs} creature${maxGrabs !== 1 ? 's' : ''} (the maximum for this ability).`);
@@ -354,8 +350,6 @@ export class GrabPanel extends Application {
     const escapeItem = grabbedTok.actor.items.find(i => i.name === 'Escape Grab');
     if (!escapeItem) { ui.notifications.warn(`No "Escape Grab" ability found on ${grab.grabbedName}.`); return; }
 
-    // Size bane (if applicable) is now injected via the power roll delta system in chat-hooks,
-    // so it applies consistently whether escape is triggered from the panel or the actor sheet.
     ds.helpers.macros.rollItemMacro(escapeItem.uuid);
   }
 

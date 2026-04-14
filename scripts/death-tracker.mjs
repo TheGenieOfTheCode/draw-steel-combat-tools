@@ -9,7 +9,8 @@ const getGraveyardPosition = (tokenDoc) => {
   const tw = tokenW * gs;
   const th = tokenH * gs;
 
-  // Two tokens dying in the same tick will race to claim the same graveyard square and stack on top of each other. The reservation set gives each placement a 5 second hold so they land somewhere different.
+  // So 2 tokens dying in the same moment will race to claim the same graveyard square and stack on top of each other. We give each placement a 5 second hold so they land somewhere different.
+
   if (!window._graveyardReservations) window._graveyardReservations = new Set();
 
   const isOccupied = (testX, testY) => {
@@ -57,6 +58,7 @@ const getGraveyardPosition = (tokenDoc) => {
 export function registerDeathTrackerHooks() {
 
   // Apologies to the dev responsible for the built-in minion selection dialog, I made my own version before v14 launched, and I tried making it work nicely with the official implementation, but I just like mine better. Users can still opt out from the settings and by turning off "Override Minion Defeat UI".
+
   Hooks.once('ready', () => {
     if (getSetting('overrideMinionDefeat') && ds?.applications?.apps?.DefeatedMinionSelection) {
       ds.applications.apps.DefeatedMinionSelection.create = async () => null;
@@ -116,7 +118,6 @@ export function registerDeathTrackerHooks() {
     }
 
     if (canvas.tokens.get(token.id)) {
-      // tileSize is half a grid square. With anchorX/Y=0.5, x,y is the center of the tile in V14.
       const tileSize = Math.round(token.document.width * canvas.grid.size / 2);
       const tileX    = token.center.x;
       const tileY    = token.center.y;
@@ -187,7 +188,6 @@ export function registerDeathTrackerHooks() {
 
     try {
       if (newHp <= 0) {
-        // Wipe the squad: mark all surviving minions as defeated.
         for (const minion of minions) {
           if (!minion.actor) continue;
           const alreadyDefeated = minion.actor.statuses?.has(defeatedStatusId);
@@ -225,7 +225,6 @@ export function registerDeathTrackerHooks() {
     }
   });
 
-  // When a skull tile is deleted, cascade-delete any rubble tiles left by a destroyed object token.
   Hooks.on('deleteTile', (tileDoc) => {
     if (!game.users.activeGM?.isSelf) return;
     const deadTokenId = tileDoc.flags?.['draw-steel-combat-tools']?.deadTokenId;
@@ -241,7 +240,6 @@ export function registerDeathTrackerHooks() {
     if (!getSetting('deathTrackerEnabled') || !getSetting('clearSkullsOnCombatEnd') || !game.users.activeGM?.isSelf) return;
 
     const skullIds = game.settings.get('draw-steel-combat-tools', 'deathTrackerSkullIds') ?? [];
-    // Collect token IDs before deletion so we can also purge matching rubble tiles.
     const deadTokenIds = [];
     for (const id of skullIds) {
       const tile = canvas.scene.tiles.get(id);
@@ -255,7 +253,6 @@ export function registerDeathTrackerHooks() {
         await tile.document.delete();
       }
     }
-    // Also remove any orphaned rubble tiles for the same token IDs (the deleteTile hook above normally handles this, but runs per-deletion and may miss stragglers).
     const deadSet = new Set(deadTokenIds);
     const orphanRubble = canvas.scene?.tiles?.contents?.filter(t =>
       deadSet.has(t.flags?.['draw-steel-combat-tools']?.objectTokenId)
@@ -309,7 +306,7 @@ export const runReviveUI = () => {
   if (canvas.interface.grid.highlightLayers[hlName]) canvas.interface.grid.destroyHighlightLayer(hlName);
   canvas.interface.grid.addHighlightLayer(hlName);
 
-  const selected = new Set(); // tile IDs
+  const selected = new Set(); 
 
   const drawHighlights = () => {
     canvas.interface.grid.clearHighlightLayer(hlName);
@@ -350,7 +347,6 @@ export const runReviveUI = () => {
     );
     if (!clicked.length) return;
 
-    // If every skull at this position is already selected, deselect all; otherwise select all.
     const allSelected = clicked.every(s => selected.has(s.id));
     for (const s of clicked) {
       if (allSelected) selected.delete(s.id);
@@ -391,7 +387,6 @@ const executeRevival = async (tokenId, explicitTile = null) => {
   const tile = explicitTile || canvas.tiles.placeables.find(t => t.document.flags?.['draw-steel-combat-tools']?.deadTokenId === tokenId);
 
   if (tile) {
-      // tile.document.x/y are the scene coordinates. With anchorX/Y=0.5, the doc position is the tile center, so subtract half the tile size to get the token's top-left grid snap.
       const tileDocX = tile.document.x;
       const tileDocY = tile.document.y;
       const tileW    = tile.document.width;
@@ -402,7 +397,6 @@ const executeRevival = async (tokenId, explicitTile = null) => {
       await safeTeleport(tokenDoc, snapped.x, snapped.y);
   }
 
-  // Mirror the system's own defeated-toggle pattern: update combatant AND toggle the status effect.
   const combatant = game.combat?.combatants.find(c => c.tokenId === tokenId);
   if (combatant?.defeated) await combatant.update({ defeated: false });
 
@@ -423,6 +417,7 @@ const executeRevival = async (tokenId, explicitTile = null) => {
 
       if (getSetting('clearEffectsOnRevive')) {
           // IDs ending in '0000000000' are core system states from the Draw Steel system. Deleting them breaks the actor in ways that are not immediately obvious and very annoying to debug.
+
           const validEffectIds = actor.effects
               .filter(e => !e.id.endsWith('0000000000'))
               .map(e => e.id);
@@ -499,7 +494,6 @@ export const runPowerWordKillUI = async (options = {}) => {
         selectedTokens.add(id);
       }
     }
-    // If the number of damaged minions equals the number that must die, skip the UI entirely.
     if (lockedTokens.size === maxTargets) {
       window._pwkActive = false;
       for (const id of lockedTokens) {
@@ -599,7 +593,6 @@ export const runPowerWordKillUI = async (options = {}) => {
         return;
       }
 
-      // Apply one at a time; doing them all at once can produce duplicate effects because every call tries to write the same effect ID at the same moment.
       for (const id of selectedTokens) {
         const t = canvas.tokens.get(id);
         if (!t?.actor) continue;

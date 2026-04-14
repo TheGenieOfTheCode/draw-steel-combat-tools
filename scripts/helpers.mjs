@@ -1,6 +1,7 @@
 export const getSetting = (key) => game.settings.get('draw-steel-combat-tools', key);
 
-// -- Panel scaling & theming --------------------------------------------------
+// -- Panel scaling & theming --
+
 
 export const PANEL_SCALE = 1.2;
 export const s = (n) => Math.round(n * PANEL_SCALE);
@@ -51,7 +52,6 @@ export const initPalette = () => {
   for (const [k, v] of Object.entries(pal)) document.documentElement.style.setProperty(k, v);
 };
 
-// This injects per-panel window chrome styles using CSS custom properties. Call once at the top of each panel's _renderInner. Safe to call on every re-render.
 export const injectPanelChrome = (appId) => {
   const styleId = `${appId}-chrome`;
   const el = document.getElementById(styleId)
@@ -72,7 +72,6 @@ export const injectPanelChrome = (appId) => {
   `;
 };
 
-// This is a thin palette shim for panel HTML templates. Returns CSS variable references so inline styles automatically pick up the current theme without per-panel style injection.
 export const palette = () => ({
   bg:          'var(--dsct-bg)',
   bgInner:     'var(--dsct-bg-inner)',
@@ -94,11 +93,12 @@ export const palette = () => ({
   closeFg:     'var(--dsct-close-fg)',
 });
 
-// -- Tag System ---------------------------------------------------------------
+// -- Tag System --
 
 const taggerActive = () => game.modules.get('tagger')?.active;
 
-// Internal flag-based tag system. Used when Tagger is unavailable. Tags are stored as a string array in flags['draw-steel-combat-tools'].tags on each document.
+// Internal flag-based tag system which replaced Tagger since it's unavailable with V14's release.
+
 const M = 'draw-steel-combat-tools';
 const _doc  = (obj) => obj?.document ?? obj;
 const _tags = (obj) => _doc(obj)?.getFlag(M, 'tags') ?? [];
@@ -134,7 +134,8 @@ export const removeTags = async (obj, tags) => {
   await doc.setFlag(M, 'tags', curr.filter(t => !tags.includes(t)));
 };
 
-// -- Grid & Coordinates -------------------------------------------------------
+// -- Grid & Coordinates --
+
 
 export const GRID = () => canvas.grid.size;
 
@@ -144,7 +145,8 @@ export const toCenter = (grid)  => ({ x: grid.x * GRID() + GRID() / 2, y: grid.y
 export const gridEq   = (a, b)  => a.x === b.x && a.y === b.y;
 export const gridDist = (a, b)  => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
-// -- Materials ----------------------------------------------------------------
+// -- Materials --
+
 
 export const MATERIAL_RULES    = () => getSetting('materialRules');
 export const WALL_RESTRICTIONS = () => getSetting('wallRestrictions');
@@ -172,7 +174,6 @@ export const getMaterial = (obj) => {
   return 'wood';
 };
 
-// -- Canvas Queries -----------------------------------------------------------
 
 export const tokenAt = (gx, gy, excludeId) => canvas.tokens.placeables.find(t => {
   if (t.id === excludeId) return false;
@@ -187,6 +188,7 @@ export const tileAt = (gx, gy) => canvas.tiles.placeables.find(t => {
 });
 
 // This was a headache, corner cutting in foundry is determined by weird sub-pixel measurements which are inconsistent so this bypasses that by allowing corner-cutting. See cornerCutsWall in forced-movement-collision.mjs for the workaround that stops it, since Draw Steel rules don't allow corner cutting around walls.
+
 export const segmentsIntersect = (ax, ay, bx, by, cx, cy, dx, dy) => {
   const cross = (ox, oy, px, py, qx, qy) => (px - ox) * (qy - oy) - (py - oy) * (qx - ox);
   const d1 = cross(cx, cy, dx, dy, ax, ay);
@@ -207,7 +209,6 @@ export const wallBetween = (fromGrid, toGrid_) => {
   return null;
 };
 
-// -- Document Helpers ---------------------------------------------------------
 
 export const getSquadGroup = (actor) => {
   const combatant = game.combat?.combatants.find(c => c.actorId === actor.id);
@@ -269,14 +270,14 @@ export const safeTakeDamage = async (actor, amount, options = {}) => {
   return await getSocket().executeAsGM('takeDamage', actor.uuid, amount, options);
 };
 
-// Returns the ds-quick-strike socketlib socket if compat mode is active, otherwise null.
 const getQuickStrikeSocket = () => {
   if (!getSetting('quickStrikeCompat')) return null;
   if (!game.modules.get('ds-quick-strike')?.active) return null;
   return socketlib.registerModule('ds-quick-strike');
 };
 
-// -- Damage & Stamina ---------------------------------------------------------
+// -- Damage & Stamina --
+
 
 export const applyDamage = async (actor, amount, squadGroupOverride = undefined) => {
   const prevValue   = actor.system.stamina.value;
@@ -286,7 +287,6 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined)
   const members = squadGroup ? Array.from(squadGroup.members || []).filter(m => m) : [];
   const squadCombatantIds = members.map(m => m.id);
   const squadTokenIds     = members.map(m => m.tokenId).filter(Boolean);
-  // Track which tokens were damaged in this action batch so the breakpoint UI can pre-lock them.
   if (squadGroup && actor.isToken && actor.token?.id) {
     if (!window._lastSquadDamagedTokenIds) window._lastSquadDamagedTokenIds = new Set();
     window._lastSquadDamagedTokenIds.add(actor.token.id);
@@ -295,7 +295,6 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined)
   }
   const qsSocket = getQuickStrikeSocket();
   if (qsSocket) {
-    // Route through ds-quick-strike so it appears in that module's chat log with source info and undo. We still capture prevValue/prevTemp above so DSCT's own undo (position + status) continues working.
     const tokenId = actor.isToken
       ? actor.token?.id
       : canvas.tokens.placeables.find(t => t.actor?.id === actor.id)?.id;
@@ -337,7 +336,7 @@ export const snapStamina = (actor) => {
   };
 };
 
-// -- Elevation & Flying -------------------------------------------------------
+// -- Elevation & Flying --
 
 export const hasFly = (actor) => {
   const types = actor?.system?.movement?.types;
@@ -346,7 +345,6 @@ export const hasFly = (actor) => {
   return false;
 };
 
-// A prone or restrained flyer can't use flight to cancel a fall. Restrained locks speed to 0 as a status effect, not via movement.speed, so we check the status directly rather than the stat.
 export const canCurrentlyFly = (actor) => {
   if (!hasFly(actor)) return false;
   if (actor?.statuses?.has('prone'))      return false;
@@ -363,11 +361,9 @@ export const applyFall = async (token, targetElev = 0, { silent = true } = {}) =
     const agility = token.actor?.system?.characteristics?.agility?.value ?? 0;
     effectiveFall = Math.max(0, fallDist - agility);
     const cap     = getSetting('fallDamageCap');
-    // Effective fall under 2 squares isn't enough to deal damage
     dmg = effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, cap);
     if (dmg > 0) await applyDamage(token.actor, dmg);
   }
-  // Always land at targetElev - flyers glide down, everyone else falls
   await safeUpdate(token.document, { elevation: targetElev }, { animate: false, teleport: true });
   if (!silent) {
     await ChatMessage.create({ content: buildFallMessage(token.name, fallDist, effectiveFall, dmg) });
@@ -378,7 +374,6 @@ export const applyFall = async (token, targetElev = 0, { silent = true } = {}) =
 const buildFallMessage = (name, fallDist, effectiveFall, dmg) => {
   const distPart = `<strong>${name}</strong> falls <strong>${fallDist}</strong> square${fallDist !== 1 ? 's' : ''}`;
   if (effectiveFall === fallDist) {
-    // Agility didn't reduce anything - skip the redundant "(X effective)" clause
     return dmg > 0
       ? `${distPart}, dealing <strong>${dmg}</strong> fall damage (${effectiveFall * 2} � � effective).`
       : `${distPart} but the fall is too short to deal damage.`;
@@ -401,7 +396,8 @@ export const canForcedMoveTarget = (attackerActor, targetActor) => {
   return attackerRank >= targetRank;
 };
 
-// -- Item Helpers -------------------------------------------------------------
+// -- Item Helpers --
+
 
 export const getItemDsid = (item) => item.system?._dsid ?? item.toObject().system?._dsid ?? null;
 
@@ -417,7 +413,6 @@ export const getItemRange = (item) => {
   return p;
 };
 
-// -- Wall Block Queries -------------------------------------------------------
 
 export const getWallBlockTileAt = (gx, gy) => {
   return canvas.tiles.placeables.find(t => {
@@ -442,28 +437,25 @@ export const getWallBlockTop = (tile) => {
   return walls[0]?.flags?.['wall-height']?.top ?? null;
 };
 
-// -- Token & Window Utilities -------------------------------------------------
+// -- Token & Window Utilities --
+
 
 export const safeTeleport = async (tokenDoc, targetX, targetY) => {
   canvas.tokens.releaseAll();
   await safeUpdate(tokenDoc, { x: targetX, y: targetY }, { animate: false, teleport: true });
 };
 
-// This gets a token placeable by ID. Tries the faster indexed lookup first, falls back to a full search.
 export const getTokenById = (id) =>
   canvas?.tokens?.get(id) ?? canvas?.tokens?.placeables?.find(t => t.id === id) ?? null;
 
-// This finds an open UI window by its id string.
 export const getWindowById = (id) => Object.values(ui.windows).find(w => w.id === id) ?? null;
 
-// This gets the module API. If warn is true (default), shows an error notification when the API is missing.
 export const getModuleApi = (warn = true) => {
   const api = game.modules.get('draw-steel-combat-tools')?.api ?? null;
   if (!api && warn) ui.notifications.error('Draw Steel: Combat Tools not active.');
   return api;
 };
 
-// This normalises a Foundry collection value to a plain Array. Handles Array, Set, collection objects with a .contents array, or plain objects (returns values).
 export const normalizeCollection = (collection) => {
   if (!collection) return [];
   if (Array.isArray(collection)) return collection;
@@ -472,9 +464,9 @@ export const normalizeCollection = (collection) => {
   return Object.values(collection);
 };
 
-// -- Canvas Pick Helper -------------------------------------------------------
+// -- Canvas Pick Helper --
 
-// This is a generic PIXI canvas-click picker. Creates a full-viewport transparent overlay and resolves when the user clicks a valid target, or null on Escape. opts.draw is called on init and every hover change and must fully clear and redraw the graphics. opts.hitTest is called on move and click - return a non-null value for a hit (that value becomes hover and resolves on click). opts.hint is shown as a notification on open.
+
 export const pickCanvasTarget = ({ draw, hitTest, hint }) => new Promise((resolve) => {
   const graphics = new PIXI.Graphics();
   canvas.app.stage.addChild(graphics);
@@ -518,36 +510,14 @@ export const pickCanvasTarget = ({ draw, hitTest, hint }) => new Promise((resolv
   if (hint) ui.notifications.info(hint);
 });
 
-// -- Chat Message Injection ---------------------------------------------------
+// -- Chat Message Injection --
+
 
 const _injectors     = [];
 const _pendingInjects = new Map();
 
-/**
- * Register an injector function to be called on every chat message inject pass.
- *
- * Injectors are called in registration order with (msg, ctx), where ctx contains:
- *   el      - the full message <li> element
- *   header  - .message-header
- *   content - .message-content (may be null)
- *   buttons - .message-part-buttons footer (may be null)
- *   rolls   - .message-part-rolls (may be null)
- *   parts   - NodeList of all [data-message-part] sections
- *
- * Return true from an injector to stop subsequent injectors running (use for
- * full content replacements like the knockback block).
- *
- * @param {Function} fn - (msg, ctx) => void | true
- */
 export const registerInjector = (fn) => _injectors.push(fn);
 
-/**
- * Schedule a debounced injection pass for a message.
- * Multiple rapid calls for the same message (e.g. from flag writes triggering
- * updateChatMessage) collapse into a single pass after chatInjectDelay.
- *
- * @param {ChatMessage} msg
- */
 export const scheduleInject = (msg) => {
   const existing = _pendingInjects.get(msg.id);
   if (existing) clearTimeout(existing);
@@ -575,7 +545,8 @@ export const scheduleInject = (msg) => {
   _pendingInjects.set(msg.id, id);
 };
 
-// -- Power Roll Bane/Edge Helpers ---------------------------------------------
+// -- Power Roll Bane/Edge Helpers --
+
 
 export const tierOf = (total) => total <= 11 ? 1 : total <= 16 ? 2 : 3;
 
@@ -587,14 +558,6 @@ export const formatRollModLabel = (n) => {
   return ` <em>(${Math.abs(n)} Edges)</em>`;
 };
 
-/**
- * Parses the current bane/edge state from a live rendered chat message element.
- * Finds the "Ability Roll" dice section and extracts the base values (stripping any
- * existing �2 modifier so the result represents the clean pre-bane state).
- *
- * @param {HTMLElement} el - A rendered chat message element (from renderChatMessageHTML)
- * @returns {{ originalTotal, originalNet, baseFormula, baseTooltip, isCritical } | null}
- */
 export const parsePowerRollState = (el) => {
   const abilityRoll = [...el.querySelectorAll('.dice-roll')]
     .find(r => r.querySelector('.dice-flavor')?.textContent?.trim() === 'Ability Roll');
@@ -635,17 +598,6 @@ export const parsePowerRollState = (el) => {
   return { originalTotal, originalNet, baseFormula, baseTooltip, isCritical };
 };
 
-/**
- * Applies a bane/edge delta to a rendered chat message element.
- * Uses the original parsed state (from parsePowerRollState) to ensure idempotency.
- * Safe to call on every re-render with the same stored data.
- *
- * @param {HTMLElement} el       - A rendered chat message element
- * @param {object}      baneData - Original roll state from parsePowerRollState
- * @param {number}      delta    - How many banes (+) or edges (-) to add to the original state.
- *                                 e.g. +1 adds one bane, -2 adds double edge.
- *                                 Final net is always capped to �2.
- */
 export const applyRollMod = (el, baneData, delta) => {
   const { originalTotal, originalNet, baseFormula, baseTooltip, isCritical } = baneData;
   const newNet = Math.max(-2, Math.min(2, (originalNet ?? 0) + delta));
@@ -660,7 +612,6 @@ export const applyRollMod = (el, baneData, delta) => {
   const tooltipEl = abilityRoll.querySelector('[data-tooltip-text]');
   if (!totalEl || !formulaEl || !tierEl) return;
 
-  // Strip any existing single-bane/edge modifier to get raw base total
   const baseTotal = originalNet === 1  ? originalTotal + 2
                   : originalNet === -1 ? originalTotal - 2
                   : originalTotal;

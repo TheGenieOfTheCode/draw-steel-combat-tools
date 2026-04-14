@@ -16,9 +16,8 @@ const MODE_COLORS     = { build: 0x44cc44, destroy: 0xcc4444, fix: 0x44aacc, tra
 const getBlockTag   = (obj) => getTags(obj).find(t => t.startsWith('wall-block-'));
 const getBlockWalls = (blockTag) => blockTag ? getByTag(blockTag).filter(o => Array.isArray(o.c)) : [];
 
-// -- Wall Converter Geometry ---------------------------------------------------
+// -- Wall Converter Geometry --
 
-// True if two wall segments share an endpoint or cross each other. Walls that run parallel and only touch at a tip are caught by the endpoint equality check.
 const wallsTouch = (a, b) => {
   const [ax1, ay1, ax2, ay2] = a.c;
   const [bx1, by1, bx2, by2] = b.c;
@@ -26,7 +25,6 @@ const wallsTouch = (a, b) => {
   const sx = bx2 - bx1, sy = by2 - by1;
   const rxs = rx * sy - ry * sx;
   if (Math.abs(rxs) < 1e-10) {
-    // Parallel: only connected if they share an endpoint exactly
     return (ax1 === bx1 && ay1 === by1) || (ax1 === bx2 && ay1 === by2) ||
            (ax2 === bx1 && ay2 === by1) || (ax2 === bx2 && ay2 === by2);
   }
@@ -37,7 +35,6 @@ const wallsTouch = (a, b) => {
   return t >= -EPS && t <= 1 + EPS && u >= -EPS && u <= 1 + EPS;
 };
 
-// Flood-fills outward from all currently selected walls to every wall that touches or crosses them. addToSelection=true merges with the existing selection instead of replacing it.
 export const selectConnectedWalls = (addToSelection = false) => {
   const controlled = canvas.walls.controlled;
   if (!controlled.length) {
@@ -47,7 +44,6 @@ export const selectConnectedWalls = (addToSelection = false) => {
 
   const allWalls = canvas.scene.walls.contents;
 
-  // Build a map of which walls touch which; checks every pair, fine for typical scene sizes
   const adj = new Map();
   for (const w of allWalls) adj.set(w.id, new Set());
   for (let i = 0; i < allWalls.length; i++) {
@@ -59,7 +55,6 @@ export const selectConnectedWalls = (addToSelection = false) => {
     }
   }
 
-  // Walk outward from the selected walls, collecting every connected neighbor
   const visited = new Set(controlled.map(w => w.id));
   const queue   = [...visited];
   while (queue.length) {
@@ -71,7 +66,6 @@ export const selectConnectedWalls = (addToSelection = false) => {
     }
   }
 
-  // Apply selection
   if (!addToSelection) canvas.walls.releaseAll();
   for (const placeable of canvas.walls.placeables) {
     if (visited.has(placeable.id) && !placeable.controlled)
@@ -81,7 +75,6 @@ export const selectConnectedWalls = (addToSelection = false) => {
   ui.notifications.info(`Selected ${visited.size} connected wall${visited.size !== 1 ? 's' : ''}.`);
 };
 
-//Used the Liang-Barsky algorithm to check line clipping
 export const clipSegToBoxT = (x1, y1, x2, y2, bx1, by1, bx2, by2) => {
   let t0 = 0, t1 = 1;
   const dx = x2 - x1, dy = y2 - y1;
@@ -94,7 +87,6 @@ export const clipSegToBoxT = (x1, y1, x2, y2, bx1, by1, bx2, by2) => {
   return t0 <= t1 + 1e-9 ? [t0, t1] : null;
 };
 
-// Collecting all of the squares for wall conversion.
 export const squaresForWall = (x1, y1, x2, y2, GRID) => {
   const result = new Map();
   const len = Math.hypot(x2 - x1, y2 - y1);
@@ -282,42 +274,24 @@ const transmuteBlock = async (tile, newMaterial) => {
   }
 };
 
-// -- Wall Converter ------------------------------------------------------------
+// -- Wall Converter --
 
-/**
- * Convert selected canvas walls into DSCT obstacle tiles (GM only).
- *
- * For each grid square a selected wall covers with = 50% coverage, a tile is
- * created with the chosen material. The wall is tagged with 'wall-converted'
- * and the block IDs of every tile it contributes to, enabling lazy splitting
- * at collision time. Walls with < 50% coverage everywhere have move:0 set
- * (movement-blocking stub) and are optionally linked to an adjacent tile.
- *
- * @param {string}    material     - 'stone' | 'wood' | 'glass' | 'metal' (or custom)
- * @param {number|''} heightBottom - Wall bottom elevation ('' = default)
- * @param {number|''} heightTop    - Wall top elevation ('' = default)
- */
 export const convertWalls = async (material = 'stone', heightBottom = '', heightTop = '', invisible = true, stable = true, retainRestrictions = false) => {
   if (!game.user.isGM) { ui.notifications.warn('Only the GM can convert walls.'); return; }
   const GRID  = getGRID();
-  // Normalise to WallDocuments: controlled gives placeables, but .c and .update() live on the document
   const walls = [...(canvas.walls.controlled ?? [])].map(w => w.document ?? w);
   if (!walls.length) {
     ui.notifications.warn('No walls selected. Switch to the Walls layer, select walls, then click Convert.');
     return;
   }
 
-  // Clear all Tagger tags from every selected wall so re-conversion starts from a clean slate
   for (const wall of walls) {
     const existing = getTags(wall);
     if (existing.length) await removeTags(wall, existing);
   }
 
-  // Map from "gx,gy" key ? { gx, gy, blockId }
   const squareTileMap = new Map();
 
-  // First pass: determine which squares need tiles (coverage = 0.5).
-  // Existing obstacle tiles are reset to the new material/alpha and reused.
   for (const wall of walls) {
     const [x1, y1, x2, y2] = wall.c ?? [];
     const coverage = squaresForWall(x1, y1, x2, y2, GRID);
@@ -329,7 +303,6 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
         const oldTags = getTags(existing);
         const blockId = oldTags.find(t => t.startsWith('wall-block-'));
         if (blockId) {
-          // Reset tile: clear all tags, re-apply with new material
           if (oldTags.length) await removeTags(existing, oldTags);
           await existing.document.update({
             'texture.src': getMaterialIcon(material),
@@ -340,11 +313,10 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
           continue;
         }
       }
-      squareTileMap.set(key, { gx, gy, blockId: null }); // new tile needed
+      squareTileMap.set(key, { gx, gy, blockId: null }); 
     }
   }
 
-  // Create tiles for squares that don't have one yet
   for (const [, entry] of squareTileMap) {
     if (entry.blockId) continue;
     const { gx, gy } = entry;
@@ -370,7 +342,6 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
     entry.blockId = blockId;
   }
 
-  // Second pass: tag walls with block IDs and apply wall-height if set
   let wallsConverted = 0, wallsStubbed = 0;
   const heightUpdate = {};
   if (heightBottom !== '' || heightTop !== '') {
@@ -391,7 +362,6 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
     }
 
     if (blockIds.length > 0) {
-      // Obstacle + breakable + material so forced-movement recognises and can break this wall
       if (retainRestrictions) {
         await wall.setFlag('draw-steel-combat-tools', 'originalRestrictions', { move: wall.move, sight: wall.sight, light: wall.light, sound: wall.sound });
       } else {
@@ -401,8 +371,6 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
       if (Object.keys(heightUpdate).length) await wall.update(heightUpdate);
       wallsConverted++;
     } else {
-      // Stub: no square has >= 50% coverage. Disable movement and link to nearest tile.
-      // Not tagged as obstacle/breakable; move:0 makes it impassable without being a breakable block.
       let adjacentId = null;
       outer: for (const [, { gx, gy }] of coverage) {
         for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
@@ -540,7 +508,6 @@ export class WallBuilderPanel extends Application {
     overlay.hitArea = new PIXI.Rectangle(0, 0, canvas.dimensions.width, canvas.dimensions.height);
     canvas.app.stage.addChild(overlay);
 
-    // Draw dim highlights for every obstacle tile so invisible ones are visible during inspect
     const drawAll = (hoverGpos = null) => {
       graphics.clear();
       for (const t of canvas.tiles.placeables) {
@@ -609,12 +576,12 @@ export class WallBuilderPanel extends Application {
       const onPointerDown = (e) => { if (e.data.button === 2) { cleanup(); resolve(); } };
 
       this._stopInspect = () => { cleanup(); resolve(); };
-      this._refreshPanel(); // flip button to "Stop Inspecting"
+      this._refreshPanel(); 
 
       overlay.on('pointermove', onMove);
       overlay.on('pointerdown', onPointerDown);
       document.addEventListener('keydown', onKeyDown);
-      drawAll(); // show highlights immediately on entry
+      drawAll(); 
       ui.notifications.info('Inspect: hover tiles to see info. Right-click, Escape, or Stop Inspecting to exit.');
     });
   }
@@ -842,7 +809,7 @@ export class WallBuilderPanel extends Application {
   }
 }
 
-// -- Wall Builder Settings -----------------------------------------------------
+// -- Wall Builder Settings --
 
 
 export const MATERIAL_RULE_DEFAULTS = {
@@ -1050,7 +1017,6 @@ export class WallBuilderSettingsMenu extends FormApplication {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Icon filepicker - event delegation covers dynamically added rows too
     html.on('click', '.dsct-icon-pick', function () {
       const idx = $(this).data('idx');
       new FilePicker({
@@ -1063,12 +1029,10 @@ export class WallBuilderSettingsMenu extends FormApplication {
       }).browse();
     });
 
-    // Delete row - DOM only, no re-render
     html.on('click', '.dsct-delete-mat', function () {
       $(this).closest('tr').remove();
     });
 
-    // Add new blank row
     html.find('#dsct-wb-add-mat-btn').on('click', () => {
       const p = palette();
       const maxIdx = Math.max(-1, ...html.find('#dsct-wb-mat-tbody tr').map((_, tr) => {
@@ -1080,7 +1044,6 @@ export class WallBuilderSettingsMenu extends FormApplication {
       html.find('#dsct-wb-mat-tbody').append(newRow);
     });
 
-    // Reset to defaults
     html.find('#dsct-wb-reset-btn').on('click', async () => {
       await game.settings.set(M, 'materialRules',         foundry.utils.deepClone(MATERIAL_RULE_DEFAULTS));
       await game.settings.set(M, 'wallRestrictions',      foundry.utils.deepClone(WALL_RESTRICTION_DEFAULTS));
@@ -1092,7 +1055,6 @@ export class WallBuilderSettingsMenu extends FormApplication {
       this.render(true);
     });
 
-    // Save - reads directly from DOM to avoid FormApplication serialization quirks
     html.find('#dsct-wb-save-btn').on('click', async () => {
       await this._doSave(html);
       this.close();
@@ -1102,7 +1064,6 @@ export class WallBuilderSettingsMenu extends FormApplication {
   async _doSave(html) {
     const intOr = (v, def) => { const n = parseInt(v); return isNaN(n) ? def : n; };
 
-    // Collect all row indices present in the current DOM
     const indices = [];
     html.find('#dsct-wb-mat-tbody tr').each((_, tr) => {
       const inp = $(tr).find('[name^="origname-"]')[0];
@@ -1148,6 +1109,5 @@ export class WallBuilderSettingsMenu extends FormApplication {
     ui.notifications.info('Wall Builder settings saved.');
   }
 
-  // FormApplication requires _updateObject - stub it out since Save is handled manually above.
   async _updateObject() {}
 }
