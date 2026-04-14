@@ -81,11 +81,7 @@ export const selectConnectedWalls = (addToSelection = false) => {
   ui.notifications.info(`Selected ${visited.size} connected wall${visited.size !== 1 ? 's' : ''}.`);
 };
 
-/**
- * Liang-Barsky parametric line/box clip.
- * Returns [t0, t1] (0 = t0 = t1 = 1) for the visible portion of (x1,y1)?(x2,y2)
- * inside the box [bx1,by1]?[bx2,by2], or null if fully outside.
- */
+//Used the Liang-Barsky algorithm to check line clipping
 export const clipSegToBoxT = (x1, y1, x2, y2, bx1, by1, bx2, by2) => {
   let t0 = 0, t1 = 1;
   const dx = x2 - x1, dy = y2 - y1;
@@ -98,12 +94,7 @@ export const clipSegToBoxT = (x1, y1, x2, y2, bx1, by1, bx2, by2) => {
   return t0 <= t1 + 1e-9 ? [t0, t1] : null;
 };
 
-/**
- * Returns a Map keyed by "gx,gy" for every grid square the wall segment
- * (x1,y1)?(x2,y2) passes through, with coverage data:
- *   { gx, gy, t0, t1, coverageRatio }
- * where coverageRatio = (clipped segment length) / GRID.
- */
+// Collecting all of the squares for wall conversion.
 export const squaresForWall = (x1, y1, x2, y2, GRID) => {
   const result = new Map();
   const len = Math.hypot(x2 - x1, y2 - y1);
