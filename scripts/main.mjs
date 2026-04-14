@@ -147,17 +147,13 @@ Hooks.once('ready', async () => {
   const seenVersion    = game.settings.get(M, 'macroPromptSeenVersion') ?? '';
   const autoImport     = game.settings.get(M, 'macroAutoImport') ?? false;
 
-  // If we get 'never': never ask again, import silently only if the user previously said yes.
   if (promptMode === 'never') { if (autoImport) await installMacros({ silent: true }); return; }
 
-  // If we get 'skip-update': between updates, import silently if user previously said yes.
-  // When a new version is detected, fall through to the prompt so the user can re-evaluate.
   if (promptMode === 'skip-update' && seenVersion === currentVersion) {
     if (autoImport) await installMacros({ silent: true });
     return;
   }
 
-  // If we get 'ask', or 'skip-update' on a new version: we show the prompt.
   const content = `
     <p>Would you like to import sample macros for <strong>Draw Steel: Combat Tools</strong>?</p>
     <p>These provide ready-to-use buttons for Forced Movement, Grab, Teleport, and all other module features.</p>
@@ -197,6 +193,7 @@ Hooks.once('ready', async () => {
 });
 
 //Lesson learned in blood, gooogle things for the program you're trying to mod. Wasted many hours trying to brute force sockets into foundry before I realized socketlib exists!
+
 Hooks.once('socketlib.ready', () => {
   const socket = socketlib.registerModule('draw-steel-combat-tools');
   api.socket = socket;

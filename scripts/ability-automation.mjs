@@ -2,7 +2,7 @@ import { registerInjector, getSetting, getModuleApi, getItemDsid, palette, injec
 
 const M = 'draw-steel-combat-tools';
 
-// -- I'm No Threat panel -------------------------------------------------------
+// -- I'm No Threat panel --
 
 const _INT_SCALE = 1.3;
 const _s = (n) => Math.round(n * _INT_SCALE);
@@ -33,7 +33,6 @@ const _INT_EFFECT_PASSIVE = {
 const INT_OOC_FLAG     = 'imNoThreatOOCVictories';
 const INT_DEFAULT_ICON = 'icons/creatures/mammals/humanoid-fox-cat-archer.webp';
 
-// Tracks actors currently being reverted by the panel or settings hook, to prevent the deleteActiveEffect hook from double-deleting effects that are already being cleaned up.
 const revertingActors = new Set();
 
 
@@ -58,9 +57,7 @@ const snapAppearance = (doc) => ({
   'ring.subject.texture': doc.ring?.subject?.texture ?? '',
 });
 
-// Maps actorId -> msgId for actors with a free Mimic pending (from spending Insight on I'm No Threat)
 const freeMimicsByActor  = new Map();
-// Message IDs already processed for free-mimic granting, so re-renders don't re-add
 const grantedMimicMsgs = new Set();
 
 class ImNoThreatPanel extends Application {
@@ -439,24 +436,17 @@ export const openImNoThreatPanel = (actor = null) => {
   else new ImNoThreatPanel(target).render(true);
 };
 
-// -- Mark button helper --------------------------------------------------------
+// -- Mark button helper --
 
-// Build the innerHTML for a mark button.
-// "Apply Mark", "Apply 2 Marks", "Apply 3 Marks (Override)", etc.
 const markButtonHTML = (maxTargets, override) => {
   const noun = maxTargets === 1 ? 'Mark' : `${maxTargets} Marks`;
   return `<i class="fa-solid fa-crosshairs"></i> Apply ${noun}${override ? ' (Override)' : ''}`;
 };
 
-// -- Ability-specific chat-message injectors -----------------------------------
-//
-// Each injector is registered once via registerAbilityInjectors() (called from
-// registerChatHooks) and fires on every renderChatMessageHTML event.
-// Each checks its own setting so it can be toggled independently.
+// -- Ability-specific chat-message injectors --
 
 export const registerAbilityInjectors = () => {
 
-  // Inject an "Apply Judgement" button on Judgement ability messages.
   registerInjector(function injectJudgementButton(msg, { el, buttons, content }) {
     if (!getSetting('judgementAutomation')) return;
     if (msg.getFlag('draw-steel-combat-tools', 'abilityDsid') !== 'judgement') return;
@@ -471,9 +461,6 @@ export const registerAbilityInjectors = () => {
     (buttons ?? content ?? el).appendChild(btn);
   });
 
-  // Inject an "Apply Mark" button on mark death-reminder messages.
-  // Each reminder corresponds to exactly one fallen mark, so maxTargets is always 1.
-  // Once clicked the message is flagged as used and the button is removed.
   registerInjector(function injectMarkReminderButton(msg, { el, buttons, content }) {
     if (!getSetting('markAutomation')) return;
     const reminder = msg.getFlag('draw-steel-combat-tools', 'markReminder');
@@ -506,9 +493,6 @@ export const registerAbilityInjectors = () => {
     (buttons ?? content ?? el).appendChild(btn);
   });
 
-  // Inject an "Apply Mark" button on abilities that apply the Mark condition.
-  // maxTargets controls how many the button allows; override: true means the Mark ability clears
-  // its own previous marks when reused. Anticipation (for "mark") is resolved inside applyMark.
   const MARK_ABILITY_CONFIG = {
     'mark':                   { maxTargets: 1, override: true  },
     'mind-game':              { maxTargets: 1, override: false },
@@ -542,7 +526,6 @@ export const registerAbilityInjectors = () => {
     (buttons ?? content ?? el).appendChild(btn);
   });
 
-  // Inject an "Aid Attack" button on Aid Attack ability messages.
   registerInjector(function injectAidAttackButton(msg, { el, buttons, content }) {
     if (!getSetting('aidAttackAutomation')) return;
     if (msg.getFlag('draw-steel-combat-tools', 'abilityDsid') !== 'aid-attack') return;
@@ -557,7 +540,6 @@ export const registerAbilityInjectors = () => {
     (buttons ?? content ?? el).appendChild(btn);
   });
 
-  // Inject an "I'm No Threat" panel button on I'm No Threat ability messages.
   registerInjector(function injectImNoThreatButton(msg, { el, buttons, content }) {
     if (!getSetting('imNoThreatEnabled')) return;
     if (msg.getFlag('draw-steel-combat-tools', 'abilityDsid') !== 'im-no-threat') return;
@@ -569,7 +551,6 @@ export const registerAbilityInjectors = () => {
     const spendDetected = !!(actorId && msg.flavor?.toLowerCase().startsWith('spent '));
     const mimicUsed     = !!msg.getFlag(M_FLAG, 'intFreeMimicUsed');
 
-    // Auto-grant on first render of a spend message; skip if already consumed or re-render
     if (spendDetected && !mimicUsed && !grantedMimicMsgs.has(msg.id)) {
       freeMimicsByActor.set(actorId, msg.id);
       grantedMimicMsgs.add(msg.id);
@@ -599,7 +580,6 @@ export const registerAbilityInjectors = () => {
     }
   });
 
-  // Inject an "End Illusion" button and "Illusion Broken" notice on INT illusion activation messages.
   registerInjector(function injectIntIllusionButton(msg, { el, content }) {
     if (!msg.getFlag(M, 'intIllusion')) return;
     const ended = !!msg.getFlag(M, 'intIllusionEnded');
@@ -633,7 +613,6 @@ export const registerAbilityInjectors = () => {
     (content ?? el).appendChild(btn);
   });
 
-  // If a player manually deletes an I'm No Threat effect from their sheet, revert their token.
   Hooks.on('deleteActiveEffect', async (effect) => {
     if (effect.getFlag(M, 'effectType') !== 'int') return;
     const actor = effect.parent;
@@ -641,7 +620,6 @@ export const registerAbilityInjectors = () => {
     if (revertingActors.has(actor.id)) return;
     revertingActors.add(actor.id);
     try {
-      // Delete any sibling I'm No Threat effects that are still present
       const remaining = [...actor.effects].filter(e => e.getFlag(M, 'effectType') === 'int');
       for (const e of remaining) await e.delete();
       const tokenDoc = canvas.scene?.tokens.find(t => t.actorId === actor.id);
@@ -653,8 +631,6 @@ export const registerAbilityInjectors = () => {
     }
   });
 
-  // End all active I'm No Threat illusions when the animal settings are saved,
-  // so no disguise persists that uses a removed or changed animal.
   Hooks.on('dsct.intAnimalsUpdated', async () => {
     let ended = 0;
     for (const actor of game.actors) {
@@ -672,7 +648,7 @@ export const registerAbilityInjectors = () => {
 
 };
 
-// -- I'm No Threat Settings ---------------------------------------------------
+// -- I'm No Threat Settings --
 
 
 export const INT_ANIMAL_DEFAULTS = [
@@ -691,18 +667,14 @@ export const getAnimals = () => {
   return (Array.isArray(stored) && stored.length) ? stored : INT_ANIMAL_DEFAULTS;
 };
 
-// -- Emoji picker --------------------------------------------------------------
 
-// Each entry: [emoji, space-separated search terms]
 const INT_EMOJI_LIST = [
-  // Domestic animals
   ['??','dog puppy canine'],          ['??','cat kitten feline'],
   ['??','mouse rodent'],              ['??','hamster rodent'],
   ['??','rabbit bunny hare'],         ['??','rabbit bunny hare'],
   ['??','dog canine'],                ['??','poodle dog'],
   ['??','guide dog service'],         ['??','cat feline'],
   ['????','black cat feline'],
-  // Wild mammals
   ['??','fox'],                       ['??','bear'],
   ['??','panda bear'],                ['??','koala'],
   ['??','tiger'],                     ['??','lion'],
@@ -729,7 +701,6 @@ const INT_EMOJI_LIST = [
   ['??','hedgehog'],                  ['??','tiger big cat'],
   ['??','leopard cheetah panther'],   ['??','zebra'],
   ['??','gorilla primate'],
-  // Birds
   ['??','chicken hen'],               ['??','penguin'],
   ['??','bird'],                      ['??','chick baby bird'],
   ['??','duck waterfowl'],            ['??','eagle raptor'],
@@ -739,13 +710,11 @@ const INT_EMOJI_LIST = [
   ['??','rooster chicken'],           ['??','turkey'],
   ['??','dodo bird'],                 ['??','peacock'],
   ['??','feather bird'],              ['????','raven crow black bird'],
-  // Reptiles & amphibians
   ['??','frog toad amphibian bullfrog'], ['??','turtle tortoise'],
   ['??','snake serpent'],             ['??','lizard reptile chameleon'],
   ['??','dinosaur t-rex'],            ['??','dinosaur sauropod brontosaurus'],
   ['??','crocodile alligator'],       ['??','dragon'],
   ['??','dragon'],
-  // Sea creatures
   ['??','octopus'],                   ['??','squid'],
   ['??','shrimp prawn'],              ['??','lobster'],
   ['??','crab'],                      ['??','blowfish puffer'],
@@ -753,7 +722,6 @@ const INT_EMOJI_LIST = [
   ['??','dolphin'],                   ['??','whale'],
   ['??','whale'],                     ['??','shark'],
   ['??','seal'],
-  // Insects & bugs
   ['??','bee honeybee'],              ['??','worm'],
   ['??','caterpillar bug larva'],     ['??','butterfly'],
   ['??','snail'],                     ['??','ladybug ladybird beetle'],
@@ -761,7 +729,6 @@ const INT_EMOJI_LIST = [
   ['??','cricket grasshopper'],       ['??','scorpion'],
   ['???','spider'],                   ['??','beetle bug'],
   ['??','cockroach bug'],             ['??','microbe germ bacteria virus'],
-  // Nature / plants
   ['??','herb plant leaf'],           ['??','mushroom fungus'],
   ['??','shell spiral'],              ['??','flower hibiscus'],
   ['??','blossom cherry flower'],     ['??','sunflower'],
@@ -769,7 +736,6 @@ const INT_EMOJI_LIST = [
   ['??','tree pine evergreen'],       ['??','tree deciduous'],
   ['??','clover shamrock'],           ['??','coral reef'],
   ['??','sheaf wheat grain'],         ['??','rock stone'],
-  // Fantasy & magic
   ['??','dragon fantasy'],            ['??','unicorn'],
   ['??','ghost spirit'],              ['??','skull death'],
   ['??','skull crossbones poison'],   ['??','masks theater drama'],
@@ -778,11 +744,9 @@ const INT_EMOJI_LIST = [
   ['??','wizard mage sorcerer'],      ['??','elf'],
   ['??','zombie undead'],             ['??','vampire'],
   ['??','mermaid fish human'],        ['??','fairy'],
-  // Combat & adventure
   ['??','sword crossed weapons'],     ['???','dagger knife'],
   ['??','bow arrow archery'],         ['???','shield defense'],
   ['??','boomerang'],                 ['??','trident'],
-  // Elements & celestial
   ['??','fire flame'],                ['??','water drop'],
   ['??','snowflake ice cold'],        ['?','lightning bolt electric'],
   ['??','wave water ocean'],          ['??','moon crescent night'],
@@ -790,7 +754,6 @@ const INT_EMOJI_LIST = [
   ['??','dizzy star'],                ['??','rainbow'],
   ['???','tornado wind'],             ['??','cloud'],
   ['??','new moon dark'],             ['??','sun'],
-  // Misc fun
   ['??','dice random'],               ['??','circus tent'],
   ['??','egg'],                       ['??','nest'],
   ['??','bone'],                      ['??','paw footprint'],
@@ -798,7 +761,6 @@ const INT_EMOJI_LIST = [
   ['??','heart organ'],               ['??','brain mind'],
 ];
 
-// only one picker open at a time; these hold its DOM element and callback
 let _pickerEl   = null;
 let _pickerCb   = null;
 let _outsideOff = null;
@@ -873,12 +835,10 @@ const _openPicker = (triggerEl, onSelect) => {
   const el = _getOrCreatePicker();
   _pickerCb = onSelect;
 
-  // Reset search and populate grid
   const searchEl = el.querySelector('#dsct-int-epicker-search');
   searchEl.value = '';
   _buildGrid('');
 
-  // Position below the trigger, flip up if too close to bottom
   el.style.display = 'block';
   const tr  = triggerEl.getBoundingClientRect();
   const vh  = window.innerHeight;
@@ -889,10 +849,8 @@ const _openPicker = (triggerEl, onSelect) => {
   el.style.top  = `${top}px`;
   el.style.left = `${Math.max(8, left)}px`;
 
-  // Focus search after positioning
   setTimeout(() => searchEl.focus(), 0);
 
-  // Close on outside click
   if (_outsideOff) document.removeEventListener('mousedown', _outsideOff);
   _outsideOff = (e) => {
     if (!el.contains(e.target) && e.target !== triggerEl) _closePicker();
@@ -901,7 +859,7 @@ const _openPicker = (triggerEl, onSelect) => {
 };
 
 
-// -- Settings UI ---------------------------------------------------------------
+// -- Settings UI --
 
 const DEFAULT_ICON = 'icons/creatures/mammals/humanoid-fox-cat-archer.webp';
 const buildRow = (idx, animal, p) => `
@@ -1017,7 +975,6 @@ export class ImNoThreatSettingsMenu extends FormApplication {
   activateListeners(html) {
     super.activateListeners(html);
 
-    // Icon FilePicker
     html.on('click', '.dsct-int-icon-pick', function () {
       const idx = $(this).data('idx');
       new FilePicker({
@@ -1030,7 +987,6 @@ export class ImNoThreatSettingsMenu extends FormApplication {
       }).browse();
     });
 
-    // Emoji picker trigger
     html.on('click', '.dsct-int-emoji-trigger', function () {
       const idx     = $(this).data('idx');
       const trigger = this;
@@ -1040,12 +996,10 @@ export class ImNoThreatSettingsMenu extends FormApplication {
       });
     });
 
-    // Delete row
     html.on('click', '.dsct-int-delete-animal', function () {
       $(this).closest('tr').remove();
     });
 
-    // Add blank row
     html.find('#dsct-int-add-btn').on('click', () => {
       const p = palette();
       const tbody = html.find('#dsct-int-animal-tbody');
@@ -1057,20 +1011,17 @@ export class ImNoThreatSettingsMenu extends FormApplication {
       tbody.append(buildRow(idx, { id: foundry.utils.randomID(), name: '', src: DEFAULT_ICON, emoji: '' }, p));
     });
 
-    // Reset to defaults
     html.find('#dsct-int-reset-btn').on('click', async () => {
       await game.settings.set(M, 'intAnimals', []);
       ui.notifications.info("I'm No Threat animals reset to defaults.");
       this.render(true);
     });
 
-    // Save
     html.find('#dsct-int-save-btn').on('click', async () => {
       await this._doSave(html);
       this.close();
     });
 
-    // Close picker when the settings window closes
     Hooks.once('closeImNoThreatSettingsMenu', () => _closePicker());
   }
 

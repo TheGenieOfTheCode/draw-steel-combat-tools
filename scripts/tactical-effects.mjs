@@ -22,7 +22,6 @@ const removeExistingJudgement = async () => {
   if (existing) await safeDelete(existing);
 };
 
-// Remove all "mark ability" (DSID: mark) marks placed by this user so that reusing Mark overrides any previous marks from that specific ability, without touching marks from other abilities.
 const removeMarkAbilityMarks = async () => {
   const all = game.actors.contents
     .flatMap(a => [...a.effects])
@@ -54,12 +53,10 @@ export const applyJudgement = async () => {
   await ChatMessage.create({ content: `<strong>Judgement:</strong> ${targetToken.name} is judged.` });
 };
 
-// maxTargets sets the per-use target cap (default 1). override clears existing Mark-ability marks first. dsid is stored on the effect flag for later identification. sourceActorId is used to check for the Anticipation feature.
 export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'other', sourceActorId = null } = {}) => {
   const targets = [...game.user.targets];
   if (!targets.length) { ui.notifications.warn('Target one or more creatures to mark.'); return; }
 
-  // The Mark ability (DSID: mark) gains a second mark slot if the actor has the Anticipation feature. Prefer the explicit sourceActorId; fall back to the currently controlled token.
   const resolvedActor = (sourceActorId ? game.actors.get(sourceActorId) : null)
                       ?? canvas.tokens.controlled[0]?.actor;
   const resolvedActorId = resolvedActor?.id ?? null;
@@ -74,7 +71,6 @@ export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'othe
     return;
   }
 
-  // Override: clear all previously placed Mark-ability marks from this user before applying new ones.
   if (override) await removeMarkAbilityMarks();
 
   const isMarkAbility = dsid === 'mark';

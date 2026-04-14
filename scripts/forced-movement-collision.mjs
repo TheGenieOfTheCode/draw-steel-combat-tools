@@ -12,20 +12,17 @@ import {
 } from './helpers.mjs';
 import { clipSegToBoxT, squaresForWall } from './wall-builder.mjs';
 
-// Draw Steel rule: you can't move diagonally through the corner of a wall.
-// a diagonal is blocked if there's an active wall on EITHER orthogonal boundary,
-// not just when both sides are walled (that was the old "double corner" collision logic).
+// This implements the DS rule that you can't move diagonally through the corner of a wall. Forgot this rule existed, oops.
 const cornerCutsWall = (from, to, elev = 0) => {
-  if (from.x === to.x || from.y === to.y) return false; // not diagonal
-  const cA = { x: to.x,   y: from.y }; // horizontal corner cell
-  const cB = { x: from.x, y: to.y   }; // vertical corner cell
+  if (from.x === to.x || from.y === to.y) return false; 
+  const cA = { x: to.x,   y: from.y }; 
+  const cB = { x: from.x, y: to.y   }; 
   const active = (w) => {
     if (!w || hasTags(w, 'broken')) return false;
     const wb = w.flags?.['wall-height']?.bottom ?? 0;
     const wt = w.flags?.['wall-height']?.top    ?? Infinity;
     return !(elev >= wt || elev < wb);
   };
-  // check both ends of each boundary axis - walls on the destination side won't cross the center ray
   const hasVert  = active(wallBetween(from, cA)) || active(wallBetween(to, cA));
   const hasHoriz = active(wallBetween(from, cB)) || active(wallBetween(to, cB));
   return hasVert || hasHoriz;
@@ -42,18 +39,6 @@ const parseType = (raw) => {
 const embeddedUuid = (parent, type, doc) =>
   doc?.uuid ?? `${parent.uuid}.${type}.${doc?._id ?? doc?.id}`;
 
-/**
- * Split a 'wall-converted' wall at grid square (gx, gy).
- *
- * The original wall's coordinates are shrunk to just the portion inside the
- * square. Any portions outside are created as new wall segments tagged with
- * their own block IDs (or set to move:0 if they cover no tile significantly).
- * Undo ops are pushed so this can be reversed as part of forced-movement undo.
- *
- * Returns the wall document (now representing only the inside portion).
- * If the wall doesn't pass through (gx, gy), or is already contained within
- * the square, the original wall is returned unchanged.
- */
 const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
   const GRID = getGRID();
   const [x1, y1, x2, y2] = wallDoc.c;
@@ -63,7 +48,7 @@ const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
 
   const [t0, t1] = clip;
   const EPS = 1e-4;
-  if (t0 <= EPS && t1 >= 1 - EPS) return wallDoc; // whole wall is already in this square
+  if (t0 <= EPS && t1 >= 1 - EPS) return wallDoc; 
 
   const dx  = x2 - x1, dy = y2 - y1;
   const ip0 = { x: Math.round(x1 + dx * t0), y: Math.round(y1 + dy * t0) };
@@ -76,7 +61,6 @@ const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
     flags: foundry.utils.deepClone(wallDoc.flags ?? {}),
   };
 
-  // Determine block ID that belongs to square (gx, gy) via the tile there
   const squareTile = canvas.tiles.placeables.find(t =>
     Math.floor(t.document.x / GRID) === gx &&
     Math.floor(t.document.y / GRID) === gy &&
@@ -86,19 +70,15 @@ const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
     ? allTags.find(tag => tag.startsWith('wall-block-') && hasTags(squareTile, tag))
     : null;
 
-  // Shrink original wall to inside portion; record undo to restore full length
   undoOps.push({ op: 'update', uuid: wallDoc.uuid, data: { c: [x1, y1, x2, y2] } });
   await safeUpdate(wallDoc, { c: [ip0.x, ip0.y, ip1.x, ip1.y] });
 
-  // Remove excess block IDs from inside wall (keep only this square's). GM only;
-  // Tagger doesn't have a non-GM socket path, but block-tag removal failure is benign.
   const blockTagsToRemove = allTags.filter(t => t.startsWith('wall-block-') && t !== squareBlockId);
   if (blockTagsToRemove.length > 0 && game.user.isGM) {
     undoOps.push({ op: 'addTags', uuid: wallDoc.uuid, tags: blockTagsToRemove });
     await removeTags(wallDoc, blockTagsToRemove);
   }
 
-  // Create a new segment for coords (cx1,cy1)?(cx2,cy2) outside this square
   const createOutsideSegment = async (cx1, cy1, cx2, cy2) => {
     const seg    = squaresForWall(cx1, cy1, cx2, cy2, GRID);
     const segIds = [];
@@ -122,7 +102,6 @@ const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
         ...baseData.flags,
         'draw-steel-combat-tools': { tags: taggerTags },
       },
-      // Stubs with no significant coverage can't be moved through
       ...(segIds.length === 0 ? { move: 0 } : {}),
     };
     const created = await safeCreateEmbedded(canvas.scene, 'Wall', [newWallData]);
@@ -438,9 +417,6 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
   return finalElev;
 };
 
-// Applies falling damage for a creature that was force-moved downward into an unbreakable surface.
-// Uses the forced movement distance as the fall distance, with Agility treated as 0, per the rules.
-// Called for the not-blocked vertical-downward case where the creature lands freely on the ground.
 const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landingGrid, undoOps, collisionMsgs, noFallDamage = false) => {
   const GRID   = getGRID();
   const canFly = canCurrentlyFly(targetToken.actor);
@@ -458,7 +434,7 @@ const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landing
 
   const topTile        = tilesBelow[0] ?? null;
   const landingSurface = topTile ? ((getWallBlockTop(topTile) ?? 1) - 1) : 0;
-  const effectiveFall  = forcedDist; // Agility treated as 0
+  const effectiveFall  = forcedDist; 
 
   if (noFallDamage) {
     await safeUpdate(targetToken.document, { elevation: landingSurface });
@@ -516,9 +492,7 @@ const buildUndoLog = (targetToken, startPos, startElevSnap, movedSnap, undoOps) 
   ...undoOps,
 ];
 
-// -- Size 2+ Collision Helpers -------------------------------------------------
 
-/** All grid cells occupied by a token of the given size at top-left (gx, gy). */
 const footprintCells = (gx, gy, size) => {
   const cells = [];
   for (let dy = 0; dy < size; dy++)
@@ -527,16 +501,11 @@ const footprintCells = (gx, gy, size) => {
   return cells;
 };
 
-/** Cells in destCells that are not in srcCells (the cells newly entered on this step). */
 const newlyEnteredCells = (srcCells, destCells) => {
   const srcSet = new Set(srcCells.map(c => `${c.x},${c.y}`));
   return destCells.filter(c => !srcSet.has(`${c.x},${c.y}`));
 };
 
-/**
- * Find all distinct, active, elevation-relevant walls crossed as the token's footprint
- * enters newCells from direction (dx, dy) at stepElev.
- */
 const wallsAtStep = (newCells, dx, dy, stepElev) => {
   const seen   = new Set();
   const result = [];
@@ -552,7 +521,6 @@ const wallsAtStep = (newCells, dx, dy, stepElev) => {
   return result;
 };
 
-// all tokens (excluding excludeId) that occupy at least one cell in the given set.
 const tokensAtCells = (cells, excludeId) => {
   const cellSet = new Set(cells.map(c => `${c.x},${c.y}`));
   const found   = new Map();
@@ -569,7 +537,6 @@ const tokensAtCells = (cells, excludeId) => {
   return [...found.values()];
 };
 
-/** Find all distinct tiles whose top-left corner is at any of the given cells. */
 const tilesAtCells = (cells) => {
   const seen   = new Set();
   const result = [];
@@ -580,13 +547,7 @@ const tilesAtCells = (cells) => {
   return result;
 };
 
-/**
- * Execute the physical breaking of a confirmed-breakable obstacle wall group.
- * Does NOT apply damage or push the "smashes through" message; the caller handles those.
- * Does push intermediate structural messages (mid-height collapse etc.) to collisionMsgs.
- */
 const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs, step = null) => {
-  // If this is a converted long-span wall, split it at the collision square first
   if (step && hasTags(wall, 'wall-converted')) {
     wall = await splitConvertedWall(wall, step.x, step.y, undoOps);
   }
@@ -641,11 +602,6 @@ const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs, step 
   }
 };
 
-/**
- * Place rubble tiles (one per grid square) where a destroyed object token stood.
- * The death tracker handles the skull tile and token hiding independently.
- * Each rubble tile is flagged so the death tracker's deleteTile hook can cascade cleanup.
- */
 const destroyObjectToken = async (objectToken, undoOps) => {
   const GRID   = getGRID();
   const blGrid = toGrid(objectToken.document);
@@ -669,8 +625,6 @@ const destroyObjectToken = async (objectToken, undoOps) => {
     }
   }
 
-  // Undo: restore the token to its pre-death position and make it visible again.
-  // The death tracker will have hidden and teleported it, so we need to reverse that.
   undoOps.push({ op: 'update', uuid: objectToken.document.uuid,
     data: { hidden: false, x: objectToken.document.x, y: objectToken.document.y, elevation: objectToken.document.elevation ?? 0 },
     options: { animate: false, teleport: true } });

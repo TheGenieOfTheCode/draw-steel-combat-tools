@@ -22,7 +22,6 @@ import {
 import { toggleForcedMovementPanel } from './forced-movement-panel.mjs';
 
 const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false) => {
-  // Grabbed creatures can only be force moved by their grabber.
   const grabState = window._activeGrabs?.get(targetToken.id);
   if (grabState) {
     const sourceIsGrabber = sourceToken && sourceToken.id === grabState.grabberTokenId;
@@ -32,7 +31,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     }
   }
 
-  // Restrained creatures cannot be force moved (GM can bypass using the same setting as size check).
   if (targetToken.actor?.statuses?.has('restrained')) {
     if (!(game.user.isGM && getSetting('gmBypassesSizeCheck'))) {
       ui.notifications.warn(`${targetToken.name} is restrained and cannot be force moved.`);
@@ -77,8 +75,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
   const startElev  = targetToken.document.elevation ?? 0;
   const agility    = targetToken.actor?.system?.characteristics?.agility?.value ?? 0;
   const canFly     = canCurrentlyFly(targetToken.actor);
-  // Use the center of the source token's footprint for distance calculations.
-  // For even-sized tokens (size 2, 4) this is the grid intersection between their inner cells; for odd-sized tokens (size 3, 5) it is the center of the middle cell. Fractional values are intentional and work correctly with gridDist (diagonals count as 1, same as DS movement).
   const sourceSize = sourceToken
     ? (sourceToken.actor?.system?.combat?.size?.value ?? sourceToken.document.width ?? 1)
     : 1;
@@ -86,7 +82,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     x: sourceToken.document.x / GRID + sourceSize / 2,
     y: sourceToken.document.y / GRID + sourceSize / 2,
   } : null;
-  // Cells occupied by the source token, used to exclude them from the range highlight.
   const sourceCells = sourceToken
     ? footprintCells(
         Math.round(sourceToken.document.x / GRID),
@@ -119,8 +114,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
   
   const cornerCutMode = getSetting('cornerCutMode');
 
-  // Half-size offset converts a token top-left grid position to its footprint center.
-  // Used in all Push/Pull distance comparisons for center-to-center distances.
   const hs = tokenSize / 2;
   const ctr = (g) => ({ x: g.x + hs, y: g.y + hs });
 
@@ -137,7 +130,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                 const dirX = Math.cos(angle);
                 const dirY = Math.sin(angle);
 
-                // Debug: draw the direction line on the canvas for 2 seconds.
                 if (getSetting('debugMode')) {
                   const dbgGfx = new PIXI.Graphics();
                   canvas.app.stage.addChild(dbgGfx);
@@ -171,16 +163,12 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                       if (type === 'Push' && sourceCellSet.has(`${adj.x},${adj.y}`)) continue;
                       if (cornerCutsWall(currGrid, adj) && cornerCutMode === 'block') continue;
 
-                      // Compare footprint centers (top-left + half-size) to avoid diagonal
-                      // bias when source or target is larger than size 1.
                       let distSource = gridDist(ctr(adj), sourceGrid);
                       let currDistSource = gridDist(ctr(currGrid), sourceGrid);
 
                       if (type === 'Push' && distSource <= currDistSource) continue;
                       if (type === 'Pull' && distSource >= currDistSource && distSource !== 0) continue;
 
-                      // Direction score: use the footprint center of the candidate position,
-                      // not just the center of its top-left cell, so large tokens score correctly.
                       const adjCenterWorld = {
                           x: adj.x * GRID + tokenSize * GRID / 2,
                           y: adj.y * GRID + tokenSize * GRID / 2,
@@ -193,8 +181,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
                       let cross = Math.abs(vx * dirY - vy * dirX);
 
-                      // 0.001 is a tiebreaker. without it, candidates with the same perpendicular
-                      // distance take turns winning and the auto-path zig-zags like it's lost.
                       let score = cross - dot * 0.001;
 
                       if (score < bestScore) {
@@ -233,13 +219,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       const colorInvalid  = 0xcc4444;
       const colorCollision = 0xff7700;
 
-      // Pull and Slide allow moving the target into the source's space.
       const allowSourceCells = (type === 'Pull' || type === 'Slide');
 
-      // Push and Pull must travel in a straight line (unless the houserule setting is on).
-      // Pull: direction locked immediately toward the source (if sourceGrid is known).
-      // Push: direction locks after the first step is placed; resets when path is emptied.
-      // Slide: no direction constraint.
       const straightLineRequired = (type === 'Push' || type === 'Pull') && !getSetting('allowCrookedPushPull');
       let lockedDirX = null;
       let lockedDirY = null;
@@ -251,9 +232,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         if (len > 0) { lockedDirX = dvx / len; lockedDirY = dvy / len; }
       }
 
-      // Returns true if cell g (grid top-left) lies on the locked direction line.
-      // Cells whose center is within 0.71 grid units perpendicularly are included,
-      // which keeps both options available on shallow-angle diagonals.
       const isOnLine = (g) => {
         if (lockedDirX === null) return true;
         const cx = (g.x + hs) - (startGrid.x + hs);
@@ -312,7 +290,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       };
       const { reachable: rangeHighlight, wallReachable } = computeRangeHighlight();
 
-      // For Push/Pull with a locked direction, filter highlights to cells on the line.
       const getLineFiltered = () => {
         if (lockedDirX === null) return { activeRange: rangeHighlight, activeWall: wallReachable };
         const activeRange = new Set([...rangeHighlight].filter(k => { const [x,y] = k.split(',').map(Number); return isOnLine({x,y}); }));
@@ -332,8 +309,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         return true;
       };
 
-      // In collide mode: greedy diagonal-first - shortest possible path, corner cuts allowed (they collide).
-      // In block mode: flood-fills outward to find a path around corners instead of through them.
       const getSuggestedPath = (from, to) => {
         const remaining = reduced - path.length;
         if (cornerCutMode === 'collide') {
@@ -487,7 +462,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const gk   = `${gpos.x},${gpos.y}`;
         const { activeRange, activeWall } = getLineFiltered();
 
-        // Lock Push direction on first step (only when straight lines are required).
         if (straightLineRequired && type === 'Push' && path.length === 0 && lockedDirX === null && !gridEq(gpos, startGrid)) {
           const dvx = (gpos.x + hs) - (startGrid.x + hs);
           const dvy = (gpos.y + hs) - (startGrid.y + hs);
@@ -674,17 +648,11 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     let costConsumed    = 0;
     const movedSnap     = snapStamina(targetToken.actor);
 
-    // Tracks total damage dealt to the moving token across all collision events this move.
     let totalTargetDmg = 0;
     const dmgTarget = async (dmg) => {
       if (!noCollisionDamage && dmg > 0) { await applyDamage(targetToken.actor, dmg); totalTargetDmg += dmg; }
     };
 
-    // Returns true if the mover would die from this collision hit and movement should stop.
-    // For minions, live HP is tracked in squadGroup.system.staminaValue, NOT actor.system.stamina.value,
-    // so we can't rely on post-damage stamina.value to detect death. Instead we compare the hit
-    // directly to actor.system.stamina.max (confirmed as per-minion HP by the death-tracker).
-    // For regular tokens we additionally fall back to stamina.value <= 0 for partially-wounded actors.
     const moverWouldStop = (dmg) => {
       if (noCollisionDamage) return false;
       const indivMax = targetToken.actor.system.stamina.max ?? Infinity;
@@ -692,9 +660,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       return targetToken.actor.system.stamina.value <= 0;
     };
 
-    // Signal to the death-tracker that FM animation is in progress so that any
-    // breakpoint UI triggered by collision damage is deferred until the token
-    // has finished moving and is at its final position.
     window._dsctFMActive = true;
 
     for (let i = 0; i < path.length; i++) {
@@ -731,7 +696,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         }
       }
 
-      // -- Size 2+ full-footprint collision -------------------------------------
       if (isLargeToken) {
         const dx        = step.x - prev.x;
         const dy        = step.y - prev.y;
@@ -739,10 +703,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const stepCells = footprintCells(step.x, step.y, tokenSize);
         const newCells  = newlyEnteredCells(prevCells, stepCells);
 
-        // Wall collision: check every leading edge of the footprint
         const hitWalls = wallsAtStep(newCells, dx, dy, stepElev);
         if (hitWalls.length > 0) {
-          // Any wall without 'obstacle' tag, or non-breakable obstacle, stops movement outright
           const hardWalls = hitWalls.filter(w => !hasTags(w, 'obstacle') || !hasTags(w, 'breakable'));
           if (hardWalls.length > 0) {
             landingIndex = i - 1;
@@ -752,9 +714,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             collisionMsgs.push(`${targetToken.name} hits a wall and takes <strong>${dmg} damage</strong>.`);
             break;
           }
-          // All walls are breakable.
-          // Forced movement is applied to every wall simultaneously; cost = max of all costs,
-          // not the sum (RAW: the momentum check is against each wall independently).
           const softWalls  = hitWalls;
           const maxCost    = softWalls.reduce((m, w) => Math.max(m, MATERIAL_RULES()[getMaterial(w)]?.cost ?? 99), 0);
           const maxWallDmg = softWalls.reduce((m, w) => Math.max(m, MATERIAL_RULES()[getMaterial(w)]?.damage ?? 0), 0);
@@ -764,7 +723,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             return Object.entries(counts).map(([m, n]) => n > 1 ? `${n} ${m} walls` : `a ${m} wall`).join(' and ');
           };
           if (remaining >= maxCost) {
-            // Break ALL walls; one momentum check covers all of them
             for (const wall of softWalls) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs, step);
             const wallDmg = maxWallDmg + bonusObjectDmg;
             collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(softWalls)} (costs ${maxCost}, deals <strong>${wallDmg} damage</strong>).`);
@@ -774,7 +732,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             costConsumed += maxCost - 1;
             continue;
           } else {
-            // Cannot break the hardest wall; break any affordable ones (they're demolished regardless), then stop
             const brokenWalls = softWalls.filter(w => remaining >= (MATERIAL_RULES()[getMaterial(w)]?.cost ?? 99));
             for (const wall of brokenWalls) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs, step);
             if (brokenWalls.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(brokenWalls)}.`);
@@ -787,17 +744,14 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           }
         }
 
-        // Token collision: check the full destination footprint
         const blockers         = tokensAtCells(stepCells, targetToken.id);
         const objectBlockers   = blockers.filter(b => b.actor?.type === 'object');
         const creatureBlockers = blockers.filter(b => b.actor?.type !== 'object');
 
-        // Object token collision: like breakable tiles; cost = max current stamina across all objects
         if (objectBlockers.length > 0) {
           const maxObjCost = objectBlockers.reduce((m, b) => Math.max(m, b.actor?.system?.stamina?.value ?? 0), 0);
           const dealDmg    = remaining + bonusObjectDmg;
           if (dealDmg >= maxObjCost) {
-            // All objects destroyed; movement continues (fall through to creature check)
             for (const obj of objectBlockers) {
               const objPrev = noCollisionDamage ? null : await applyDamage(obj.actor, dealDmg);
               if (objPrev) undoOps.push({ op: 'stamina', uuid: obj.actor.uuid, prevValue: objPrev.prevValue, prevTemp: objPrev.prevTemp, squadGroupUuid: null, prevSquadHP: null, squadCombatantIds: [], squadTokenIds: [] });
@@ -810,9 +764,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             costConsumed += Math.max(0, maxObjCost - 1);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token smashed through ${objectBlockers.length} object(s). maxObjCost=${maxObjCost}`);
             if (moverWouldStop(moverDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact; movement stops.`); landingIndex = i; break; }
-            // Fall through: check creature blockers below
           } else {
-            // Cannot destroy the hardest object; break affordable ones and stop
             const brokenObjects = objectBlockers.filter(o => dealDmg >= (o.actor?.system?.stamina?.value ?? 0));
             const survivingObjects = objectBlockers.filter(o => !brokenObjects.includes(o));
             for (const obj of brokenObjects) {
@@ -837,12 +789,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           landingIndex = i - 1;
           const dmg             = remaining + bonusCreatureDmg;
           const movedSquadGroup = getSquadGroup(targetToken.actor);
-          // Mover takes damage once regardless of how many creatures are hit (RAW)
           await dmgTarget(dmg);
-          // Track squad groups already snapshotted so that only the FIRST blocker in a
-          // shared squad records the pre-damage squad HP. Subsequent blockers in the same
-          // squad must use prevSquadHP=null, otherwise each undo op overwrites the restored
-          // value with a stale intermediate snapshot.
           const squadGroupsSnapshotted = new Set();
           for (const blocker of creatureBlockers) {
             undoOps.push({ op: 'update', uuid: blocker.document.uuid, data: { x: blocker.document.x, y: blocker.document.y, elevation: blocker.document.elevation ?? 0 }, options: { animate: false, teleport: true } });
@@ -855,7 +802,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
               blockerPrev.squadGroup        = sharedGroup;
               blockerPrev.squadCombatantIds = sharedMembers.map(m => m.id);
               blockerPrev.squadTokenIds     = sharedMembers.map(m => m.tokenId).filter(Boolean);
-              // Only the first blocker from this squad gets the HP snapshot; later ones get null.
               if (!squadGroupsSnapshotted.has(sharedGroup.id)) {
                 squadGroupsSnapshotted.add(sharedGroup.id);
                 blockerPrev.prevSquadHP = prevSharedHP;
@@ -863,8 +809,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                 blockerPrev.prevSquadHP = null;
               }
             } else if (blockerPrev && blockerPrev.squadGroup) {
-              // No sharedGroup (blocker's squad doesn't match mover's squad), but blocker
-              // itself may be in a squad. Same dedup applies if two blockers share a squad.
               const sgId = blockerPrev.squadGroup.id;
               if (squadGroupsSnapshotted.has(sgId)) {
                 blockerPrev.prevSquadHP = null;
@@ -880,7 +824,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           break;
         }
 
-        // Tile collision: check all obstacle tiles in the destination footprint
         const hitTiles = tilesAtCells(stepCells).filter(tile => {
           if (!hasTags(tile, 'obstacle') || hasTags(tile, 'broken')) return false;
           if (isVertical) {
@@ -906,7 +849,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             collisionMsgs.push(`${targetToken.name} is stopped by an obstacle and takes <strong>${dmg} damage</strong>.`);
             break;
           }
-          // Same parallel-cost logic as walls: cost = max, not sum
           const softTiles   = hitTiles;
           const maxTileCost = softTiles.reduce((m, t) => Math.max(m, MATERIAL_RULES()[getMaterial(t)]?.cost ?? 99), 0);
           const maxTileDmg  = softTiles.reduce((m, t) => Math.max(m, MATERIAL_RULES()[getMaterial(t)]?.damage ?? 0), 0);
@@ -943,7 +885,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             costConsumed += maxTileCost - 1;
             continue;
           } else {
-            // Break affordable tiles, stop at the hardest
             const brokenTiles = softTiles.filter(t => remaining >= (MATERIAL_RULES()[getMaterial(t)]?.cost ?? 99));
             for (const tile of brokenTiles) await breakTile(tile);
             if (brokenTiles.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(brokenTiles)}.`);
@@ -955,13 +896,10 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           }
         }
 
-        continue; // no collision; skip the single-cell checks below
+        continue; 
       }
 
       let wall = wallBetween(prev, step);
-      // corner-cut blocking - enforced at path-gen time, but re-checked here for externally supplied paths.
-      // when both orthogonal boundaries are walled (double corner) we pick the nastier wall and let the
-      // normal collision handler below deal damage; a single-wall corner just stops movement cleanly.
       if (!wall && prev.x !== step.x && prev.y !== step.y) {
         const cA = { x: step.x, y: prev.y };
         const cB = { x: prev.x, y: step.y };
@@ -974,7 +912,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const wVert  = activeWall(wallBetween(prev, cA)) ?? activeWall(wallBetween(step, cA));
         const wHoriz = activeWall(wallBetween(prev, cB)) ?? activeWall(wallBetween(step, cB));
         if (wVert && wHoriz) {
-          // double corner - pick the most dangerous wall and collide with it regardless of mode
           wall = (hasTags(wVert, 'obstacle') && !hasTags(wVert, 'breakable'))   ? wVert
                : (hasTags(wHoriz, 'obstacle') && !hasTags(wHoriz, 'breakable')) ? wHoriz
                : hasTags(wVert, 'obstacle') ? wVert : wHoriz;
@@ -982,11 +919,9 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         } else if (wVert || wHoriz) {
           const cornerWall = wVert ?? wHoriz;
           if (getSetting('cornerCutMode') === 'collide') {
-            // single corner cut in collide mode - treat it as a collision with that wall
             wall = cornerWall;
             if (getSetting('debugMode')) console.log(`DSCT | FM | Single corner collision at step ${i}: (${prev.x},${prev.y})?(${step.x},${step.y})`);
           } else {
-            // block mode - movement stops cleanly with no damage
             if (getSetting('debugMode')) console.log(`DSCT | FM | Single corner blocked at step ${i}: (${prev.x},${prev.y})?(${step.x},${step.y})`);
             landingIndex = i - 1;
             break;
@@ -1009,8 +944,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           }
 
           if (hasTags(wall, 'obstacle')) {
-            // Split converted long-span walls at this square before any further processing,
-            // so blockTag and allWalls correctly reference only the inside segment.
             if (hasTags(wall, 'wall-converted')) {
               wall = await splitConvertedWall(wall, step.x, step.y, undoOps);
             }
@@ -1098,7 +1031,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
       const blocker = tokenAt(step.x, step.y, targetToken.id);
       if (blocker) {
-        // Object tokens behave like breakable obstacles: cost = current stamina, deal (cost+2) to mover
         if (blocker.actor?.type === 'object') {
           const objectHP  = blocker.actor?.system?.stamina?.value ?? 0;
           const dealDmg   = remaining + bonusObjectDmg;
@@ -1178,8 +1110,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
           if (remaining >= rule.cost) {
             if (blockTag) {
-              // Split any converted multi-span walls at this square before marking broken,
-              // so only the inside segment is destroyed and the outside segments are preserved.
               let walls = getByTag(blockTag).filter(o => Array.isArray(o.c));
               const splitWalls = [];
               for (const w of walls) {
@@ -1232,15 +1162,12 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
     const stepsToAnimate = landingIndex >= 0 ? path.slice(0, landingIndex + 1) : [];
 
-    // If the target is a grabber, suppress grab-follow so the grabbed creature stays in place.
     const grabberGrabs = [...(window._activeGrabs?.entries() ?? [])].filter(([, g]) => g.grabberTokenId === targetToken.id);
     if (grabberGrabs.length > 0) {
       window._grabFMSuppressed ??= new Set();
       window._grabFMSuppressed.add(targetToken.id);
     }
 
-    // Suspend the frightened movement restriction for the duration of the animation;
-    // forced movement is involuntary repositioning, not voluntary approach.
     window._dsctFMBypassFrightened ??= new Set();
     window._dsctFMBypassFrightened.add(targetToken.id);
     try {
@@ -1275,9 +1202,6 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     
     
     {
-      // canvas.scene.tokens doesn't reflect a position update immediately after safeUpdate.
-      // if we write the undo log before the new position is readable we capture the old coords
-      // and the undo button sends the token back to where it already was. very confusing.
       const destX = landingWorld.x;
       const destY = landingWorld.y;
       const deadline = Date.now() + 5000;
@@ -1295,26 +1219,22 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       console.log(`DSCT | FM | Post-poll: live(${live?.x},${live?.y},elev=${live?.elevation}) | landing(${landingWorld.x},${landingWorld.y},elev=${targetElev})`);
     }
 
-    // Token is now at its final position; allow deferred breakpoint UIs to open.
     window._dsctFMActive = false;
 
-    // Resolve grabs where this token is the grabber: end or reposition based on adjacency.
     const grabsEnded = [];
     if (grabberGrabs.length > 0) {
       window._grabFMSuppressed?.delete(targetToken.id);
       const grabberGrid = toGrid(targetToken.document);
       const grabberSize = targetToken.actor?.system?.combat?.size?.value ?? 1;
       for (const [grabbedId, grab] of grabberGrabs) {
-        if (!window._activeGrabs?.has(grabbedId)) continue; // already ended during move
+        if (!window._activeGrabs?.has(grabbedId)) continue; 
         const grabbedTok = getTokenById(grabbedId);
         if (!grabbedTok) { await endGrab(grabbedId, { silent: true }); continue; }
         const grabbedGrid = toGrid(grabbedTok.document);
-        // grid distance (diagonals = 1) from the grabbed token to the nearest cell of the grabber
         const nearX = Math.max(grabberGrid.x, Math.min(grabbedGrid.x, grabberGrid.x + grabberSize - 1));
         const nearY = Math.max(grabberGrid.y, Math.min(grabbedGrid.y, grabberGrid.y + grabberSize - 1));
         const dist  = Math.max(Math.abs(grabbedGrid.x - nearX), Math.abs(grabbedGrid.y - nearY));
         if (dist <= 1) {
-          // Still adjacent - update offset to new relative position.
           const g  = window._activeGrabs.get(grabbedId);
           g.offsetX = grabbedTok.document.x - targetToken.document.x;
           g.offsetY = grabbedTok.document.y - targetToken.document.y;

@@ -290,8 +290,6 @@ game.modules.get('draw-steel-combat-tools').api.imNoThreat(actor);`
   },
 ];
 
-// This maps macro names to the module setting key that gates them.
-// If the setting is false when installMacros runs, the macro is removed (if it exists) and not recreated.
 const MACRO_SETTINGS = {
   'DSCT: Judgement':     'judgementAutomation',
   'DSCT: Mark':          'markAutomation',

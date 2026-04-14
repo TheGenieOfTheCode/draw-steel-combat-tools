@@ -3,7 +3,6 @@ import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerR
 import { registerAbilityInjectors } from './ability-automation.mjs';
 import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetween } from './conditions.mjs';
 
-// DSIDs that allow grabbing more than one creature simultaneously. All other grab abilities default to the standard limit of 1.
 const MULTI_GRAB_LIMITS = {
   'choking-grasp': 2,
   'claw-swing':    2,
@@ -47,8 +46,6 @@ const hasGrabEffect = (item, tier) => {
   return false;
 };
 
-// Resets states to baseStates then replays every modifier in order.
-// Distance is additive across modifiers; everything else is last-write-wins.
 const replayModifiers = (baseStates, stack, states) => {
   for (let i = 0; i < states.length; i++) {
     const base = baseStates[i];
@@ -147,8 +144,6 @@ class FmModifyPanel extends Application {
     });
   }
 
-  // Reads DOM inputs for effect index i into st. Initialise st from current state first
-  // so that missing fields fall back to whatever is already accumulated, not undefined.
   _readInputs(root, i, st) {
     st.movement          = root.querySelector(`[data-field="type-${i}"]`)?.value       ?? st.movement;
     st.distance          = parseInt(root.querySelector(`[data-field="distance-${i}"]`)?.value) || 0;
@@ -374,7 +369,6 @@ class FmModifyPanel extends Application {
         const rawName = root.querySelector('[data-field="note-name"]')?.value?.trim() ?? '';
         const rawDesc = root.querySelector('[data-field="note-desc"]')?.value?.trim() ?? '';
 
-        // Block if a named modifier with this exact name is already applied.
         if (rawName && this._msgEl) {
           const existingNames = [...this._msgEl.querySelectorAll('.dsct-fm-mod-note[data-modifier-name]')]
             .map(n => n.dataset.modifierName);
@@ -414,7 +408,6 @@ class FmModifyPanel extends Application {
           this._btnEls[i].innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${newLabel}`;
         }
 
-        // Build and inject the note into the chat message, then persist.
         if (this._msgEl) {
           const buttonsContainer = this._msgEl.querySelector('.dsct-forced-buttons');
           const noteParent = buttonsContainer?.parentElement ?? this._msgEl;
@@ -499,7 +492,6 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
   const showEdit = !gmOnly || game.user.isGM;
   console.log(`DSCT | injectForcedButtons | msgId=${msg.id} effects=${data.effects?.length ?? 0} gmOnly=${gmOnly} isGM=${game.user.isGM} showEdit=${showEdit}`);
 
-  // Frozen baseline — never mutated. States starts as a copy and gets updated by replayModifiers.
   const baseStates = data.effects.map(effect => ({
     movement:          effect.movement,
     distance:          effect.distance,
@@ -514,7 +506,6 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
   const states        = baseStates.map(st => ({ ...st }));
   const modifierStack = [];
 
-  // Restore any previously applied modifiers from message flags.
   const savedModifiers = msg.getFlag('draw-steel-combat-tools', 'fmModifiers') ?? [];
   for (const saved of savedModifiers) {
     modifierStack.push({ modState: saved.modState, noteName: saved.noteName, noteDesc: saved.noteDesc });
@@ -613,7 +604,6 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
 
   target.appendChild(container);
 
-  // Restore note divs for any persisted modifier entries.
   if (modifierStack.length > 0) {
     const noteParent = container.parentElement ?? target;
     for (const entry of modifierStack) {
@@ -628,7 +618,6 @@ const injectGrabButton = (msg, { el }) => {
   const data = msg.getFlag('draw-steel-combat-tools', 'grab');
   if (!data) return;
 
-  // Honour the "Restrict Manual Grab Buttons to GM" setting
   if (getSetting('restrictGrabButtons') && !game.user.isGM) return;
 
   const nativeBtns = el.querySelectorAll('button[data-action="applyEffect"][data-effect-id="grabbed"]');
@@ -656,7 +645,6 @@ const injectGrabButton = (msg, { el }) => {
       if (!targets.length) { ui.notifications.warn(`Target the creature${maxGrabs > 1 ? 's' : ''} to apply Grabbed to.`); return; }
       if (targets.length > maxGrabs) { ui.notifications.warn(`This ability can only grab up to ${maxGrabs} creature${maxGrabs !== 1 ? 's' : ''} at once. Target fewer tokens.`); return; }
 
-      // Size check (unless GM bypass is on)
       if (!(game.user.isGM && getSetting('gmBypassesSizeCheck'))) {
         for (const t of targets) {
           if (!canForcedMoveTarget(grabber.actor, t.actor)) {
@@ -666,7 +654,6 @@ const injectGrabButton = (msg, { el }) => {
         }
       }
 
-      // Apply grabs sequentially: no power roll, no free strike opportunity
       for (const t of targets) {
         await applyGrab(grabber, t, { maxGrabs });
         ChatMessage.create({ content: `<strong>Grab:</strong> ${grabber.name} grabs ${t.name}!` });
@@ -761,12 +748,6 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
   }
 };
 
-/**
- * Trigger the grabber's Melee Free Strike. Routes to their controlling player if online,
- * falls back to GM. Call this from both the chat button and the grab panel button.
- * @param {Token} grabberTok
- * @param {object} grab  - entry from window._activeGrabs
- */
 export const triggerGrabberFreeStrike = async (grabberTok, grab) => {
   const api = getModuleApi(false);
   const freeStrikeItem = grabberTok?.actor?.items.find(i => i.name.toLowerCase().includes('melee free strike'));
@@ -787,11 +768,6 @@ export const triggerGrabberFreeStrike = async (grabberTok, grab) => {
   }
 };
 
-/**
- * Resolve an escape grab chat message. Sets the escapeResolved flag so the chat UI updates.
- * @param {string} grabbedTokenId
- * @param {'accepted'|'denied'} resolution
- */
 export const resolveEscapeChatMessage = async (grabbedTokenId, resolution) => {
   const msg = game.messages.contents.findLast(m =>
     m.getFlag('draw-steel-combat-tools', 'escapeGrab')?.speakerToken === grabbedTokenId &&
@@ -802,11 +778,6 @@ export const resolveEscapeChatMessage = async (grabbedTokenId, resolution) => {
   }
 };
 
-/**
- * Resolve a tier-2 grab confirm chat message. Updates the content in place.
- * @param {string} msgId
- * @param {'confirmed'|'cancelled'} resolution
- */
 export const resolveGrabConfirmChatMessage = async (msgId, resolution) => {
   if (!msgId) return;
   const msg = game.messages.get(msgId);
@@ -816,30 +787,26 @@ export const resolveGrabConfirmChatMessage = async (msgId, resolution) => {
   await msg.update({ content: newContent });
 };
 
-const _knockbackNotified    = new Set(); // guards against double-notify race
-const _escapeGrabInFlight   = new Set(); // guards against double-trigger escape race
-const _grabFlagInFlight     = new Set(); // guards against double-trigger grab race
-const _bleedingInFlight     = new Set(); // guards against double-trigger bleeding race
-const _recentlyCreated      = new Set(); // messages created this session within the last few seconds
-const _powerRollModInFlight = new Set(); // guards against double-processing power roll mods
+const _knockbackNotified    = new Set(); 
+const _escapeGrabInFlight   = new Set(); 
+const _grabFlagInFlight     = new Set(); 
+const _bleedingInFlight     = new Set(); 
+const _recentlyCreated      = new Set(); 
+const _powerRollModInFlight = new Set(); 
 
-// Returns the action type string from the rendered ability embed ("Main Action", "Triggered Action", etc.)
 const getActionType = (el) => {
   return el.querySelector('document-embed dd.type')?.textContent?.trim() ?? '';
 };
 
-// Returns the characteristics used by the ability roll ("Might", "Agility", etc.). Also checks the test flavor text for standalone Might/Agility tests.
 const getRollCharacteristics = (el) => {
   const rollLine  = el.querySelector('document-embed .powerResult strong')?.textContent ?? '';
   const flavorTxt = el.querySelector('.message-part-flavor')?.textContent?.trim() ?? '';
   return (rollLine + ' ' + flavorTxt).toLowerCase();
 };
 
-// Checks whether a set of targets includes a specific actor/token ID pair
 const targetsInclude = (targets, actorId, tokenId) =>
   targets.some(t => (actorId && t.actor?.id === actorId) || (tokenId && t.id === tokenId));
 
-// Reads the running bane/edge totals from flags and applies them all at once. Each condition writes its own key into 'powerRollDeltas' so they never overwrite each other. Combining them here keeps multiple active conditions from stepping on each other.
 const injectAllRollMods = (msg, { el }) => {
   const base   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
   const deltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas');
@@ -855,7 +822,6 @@ export function registerChatHooks() {
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | enter msg=${msg.id} author=${msg.author?.name} isMe=${msg.author.id === game.user.id}`);
     if (msg.author.id !== game.user.id) return;
 
-    // Bleeding: runs for all message types (including tests); must be before the ability-parts guard
     if (el && getSetting('bleedingEnabled') && _recentlyCreated.has(msg.id) && !msg.getFlag('draw-steel-combat-tools', 'bleedingTriggered') && !_bleedingInFlight.has(msg.id)) {
       const speakerTokenId = msg.speaker?.token;
       const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
@@ -889,7 +855,6 @@ export function registerChatHooks() {
 
     const dsid = getItemDsid(item);
 
-    // Store per-ability flags for any ability message, even those without a tier result. Injectors read these immediately when the message renders.
     if (!msg.getFlag('draw-steel-combat-tools', 'abilityDsid') && dsid) {
       await msg.setFlag('draw-steel-combat-tools', 'abilityDsid', dsid);
     }
@@ -902,14 +867,12 @@ export function registerChatHooks() {
     const tier = abilityResult.tier;
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | dsid=${dsid} tier=${tier} item.system.power.effects count=${normalizeCollection(item.system?.power?.effects).length}`);
 
-    // Power roll mods: requires the live rendered element because dice roll HTML is client-side only. Each condition writes its own key into 'powerRollDeltas'; all are applied together at inject time.
     if (el && !_powerRollModInFlight.has(msg.id)) {
       const existingBase   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
       const existingDeltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas') ?? {};
       const pendingDeltas  = { ...existingDeltas };
       let baseState = existingBase ?? null;
 
-      // Grabbed bane
       if (getSetting('grabbedBaneEnabled') && !('grabbed' in existingDeltas)) {
         const speakerTokenId = msg.speaker?.token;
         const grab = speakerTokenId ? window._activeGrabs?.get(speakerTokenId) : null;
@@ -919,7 +882,6 @@ export function registerChatHooks() {
           if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Grabbed bane check msg=${msg.id} targetingGrabber=${targetingGrabber} targets=${targets.length}`);
           if (!targetingGrabber) pendingDeltas.grabbed = 1;
 
-          // Escape grab size bane: smaller creature escaping a larger grabber takes an extra bane
           if (!('escapeBane' in existingDeltas) && dsid === 'escape-grab') {
             const grabberTok = getTokenById(grab.grabberTokenId);
             if (grabberTok) {
@@ -934,7 +896,6 @@ export function registerChatHooks() {
         }
       }
 
-      // Frightened bane: bane on rolls against the source of fear
       if (getSetting('frightenedEnabled') && !('frightened' in existingDeltas)) {
         const speakerTokenId = msg.speaker?.token;
         const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
@@ -947,7 +908,6 @@ export function registerChatHooks() {
         }
       }
 
-      // Taunted double-bane: on rolls that don't target the taunting creature (if LoE exists)
       if (getSetting('tauntedEnabled') && !('taunted' in existingDeltas)) {
         const speakerTokenId = msg.speaker?.token;
         const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
@@ -956,11 +916,10 @@ export function registerChatHooks() {
           const targets = [...game.user.targets];
           const targetingSource = targetsInclude(targets, td.sourceActorId, td.sourceTokenId);
           if (!targetingSource) {
-            // Only apply if speaker has LoE to the taunt source (sight-unblocked)
             const sourceTok = getTokenById(td.sourceTokenId);
             const hasLoE = sourceTok ? !sightBlockedBetween(speakerTok, sourceTok) : false;
             if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Taunted check msg=${msg.id} targetingSource=${targetingSource} hasLoE=${hasLoE}`);
-            if (hasLoE) pendingDeltas.taunted = 2; // double bane
+            if (hasLoE) pendingDeltas.taunted = 2; 
           }
         }
       }
@@ -1056,7 +1015,6 @@ export function registerChatHooks() {
       }
     }
 
-    // Frightened: speaker is the source of fear, so targets of this ability get an edge injected
     if (el && getSetting('frightenedEnabled') && !('frightenedSource' in (msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas') ?? {})) && !_powerRollModInFlight.has(msg.id)) {
       const speakerTokenId = msg.speaker?.token;
       const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
@@ -1065,7 +1023,6 @@ export function registerChatHooks() {
         for (const t of targets) {
           const fd = getFrightenedData(t.actor);
           if (fd && (fd.sourceActorId === speakerTok.actor?.id || fd.sourceTokenId === speakerTokenId)) {
-            // This target is frightened of the speaker, so speaker gets edge
             const existingDeltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas') ?? {};
             if (!('frightenedSource' in existingDeltas)) {
               const existingBase = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
@@ -1085,7 +1042,6 @@ export function registerChatHooks() {
 
   };
 
-  // Injectors run in order; returning true skips all remaining injectors (used when one completely replaces a message)
   registerInjector(function injectKnockbackBlock(msg, { el }) {
     if (!msg.getFlag('draw-steel-combat-tools', 'knockbackBlocked')) return;
     for (const child of [...el.children]) {
@@ -1095,22 +1051,19 @@ export function registerChatHooks() {
     div.className = 'message-content';
     div.innerHTML = '<p><em>A grabbed creature cannot use the Knockback maneuver.</em></p>';
     el.appendChild(div);
-    return true; // stop further injectors; message content replaced
+    return true; 
   });
   registerInjector(injectAllRollMods);
   registerInjector(injectForcedButtons);
   registerInjector(injectGrabButton);
   registerInjector(injectGrabResolutions);
 
-  // Inject a Teleport button on any ability whose effect text mentions the word "teleport". We can't reliably extract distance from prose (wildly inconsistent phrasing across 100+ abilities), so the button simply opens the Teleport panel and lets the user set the numbers themselves.
   registerInjector(function injectTeleportButton(msg, { el, buttons, content }) {
     if (!getSetting('teleportEnabled')) return;
     if (el.querySelector('.dsct-tp-ability-btn')) return;
 
-    // Only ability messages
     if (!normalizeCollection(msg.system?.parts).some(p => p.type === 'abilityUse')) return;
 
-    // Check the rendered ability text, the one section that contains effect prose
     const abilityHTML = el.querySelector('.message-part-html');
     if (!abilityHTML?.textContent?.toLowerCase().includes('teleport')) return;
 
@@ -1128,7 +1081,6 @@ export function registerChatHooks() {
 
   registerAbilityInjectors();
 
-  // Minions and Area Effects rule: for area abilities, cap damage dealt to each minion at their individual stamina max so the squad pool only loses as much as each minion in the area can take. Non-minion targets receive the full amount. Replaces DS's own apply-damage buttons so the per-target capping happens before damage hits the pool.
   registerInjector(function injectAreaDamageCap(msg, { el }) {
     if (!msg.getFlag('draw-steel-combat-tools', 'areaAbility')) return;
 
@@ -1137,7 +1089,6 @@ export function registerChatHooks() {
 
     for (const origBtn of origButtons) {
       const btn = origBtn.cloneNode(true);
-      // Remove DS's class and data-action so its querySelector and delegation don't re-attach
       btn.classList.remove('apply-damage');
       delete btn.dataset.action;
       btn.classList.add('dsct-area-dmg-btn');
@@ -1155,7 +1106,6 @@ export function registerChatHooks() {
           : msg.rolls?.[idx];
         if (!roll) return;
 
-        // Area heals don't need capping; pass through to DS unchanged
         if (roll.isHeal) {
           await roll.applyDamage(null, { halfDamage: e.shiftKey });
           return;
@@ -1189,7 +1139,6 @@ export function registerChatHooks() {
     }
   });
 
-  // For non-area abilities, replace the apply-damage button so damage routes through our applyDamage function. This ensures squad tracking (for breakpoint auto-assign) and QS integration work the same way they do for area abilities and forced movement damage.
   registerInjector(function injectSingleTargetDamage(msg, { el }) {
     if (msg.getFlag('draw-steel-combat-tools', 'areaAbility')) return;
 
@@ -1242,7 +1191,6 @@ export function registerChatHooks() {
     }
   });
 
-  // Reads the `end` string for a given condition from an ability item's AppliedPowerRollEffects. Returns the raw DS system string ("turn", "encounter", "save") or null if not found.
   const getConditionEndFromAbility = (item, conditionId) => {
     const appliedEffects = item?.system?.power?.effects?.contents?.filter(e => e.type === 'applied') ?? [];
     for (const eff of appliedEffects) {
@@ -1254,7 +1202,6 @@ export function registerChatHooks() {
     return null;
   };
 
-  // Replace native frightened/taunted "Apply Effect" buttons with our versioned ones
   registerInjector(function injectConditionButtons(msg, { el }) {
     if (!getSetting('frightenedEnabled') && !getSetting('tauntedEnabled')) return;
 
@@ -1293,7 +1240,6 @@ export function registerChatHooks() {
     }
   });
 
-  // Bleeding injector: posts damage roll or applies it automatically
   registerInjector(function injectBleedingDamage(msg, { el, buttons, content }) {
     const data = msg.getFlag('draw-steel-combat-tools', 'bleedingTriggered');
     if (!data) return;
@@ -1305,12 +1251,10 @@ export function registerChatHooks() {
     div.style.cssText = 'margin-top:6px;border-top:1px solid var(--color-border-light-primary);padding-top:6px;font-size:13px;';
 
     if (data.mode === 'auto') {
-      // Check if already applied
       const applied = msg.getFlag('draw-steel-combat-tools', 'bleedingApplied');
       if (applied) {
         div.innerHTML = `<em><i class="fa-solid fa-droplet"></i> Bleeding damage applied.</em>`;
       } else {
-        // Auto-apply on first render: post the roll as its own message with the undo button injected there
         (async () => {
           const actor = await fromUuid(data.actorUuid);
           if (!actor) return;
@@ -1333,7 +1277,6 @@ export function registerChatHooks() {
         div.innerHTML = `<em>Bleeding: applying damage�</em>`;
       }
     } else {
-      // Manual mode: post a roll button
       if (el.querySelector('.dsct-bleed-roll-btn')) return;
       div.innerHTML = `<button type="button" class="dsct-bleed-roll-btn" style="cursor:pointer;"><i class="fa-solid fa-droplet"></i> Roll Bleeding Damage (1d6 + level)</button>`;
       div.querySelector('.dsct-bleed-roll-btn')?.addEventListener('click', async () => {
@@ -1346,7 +1289,6 @@ export function registerChatHooks() {
     target.appendChild(div);
   });
 
-  // Undo button lives on the bleeding roll message itself
   registerInjector(function injectBleedingUndo(msg, { el, buttons, content }) {
     const rollData = msg.getFlag('draw-steel-combat-tools', 'bleedingRoll');
     if (!rollData) return;
@@ -1364,13 +1306,11 @@ export function registerChatHooks() {
         await actor.update({ 'system.stamina.temporary': rollData.prevTemp, 'system.stamina.value': rollData.prevValue });
         if (getSetting('debugMode')) console.log(`DSCT | Bleeding | Undid ${rollData.dmg} damage on ${actor.name}`);
       }
-      // Clear the source ability message flags so bleeding can't re-trigger
       const sourceMsg = game.messages.get(rollData.sourceMsgId);
       if (sourceMsg && (sourceMsg.isOwner || game.user.isGM)) {
         await sourceMsg.unsetFlag('draw-steel-combat-tools', 'bleedingTriggered');
         await sourceMsg.unsetFlag('draw-steel-combat-tools', 'bleedingApplied');
       }
-      // Delete this roll message
       if (msg.isOwner || game.user.isGM) await msg.delete();
     });
     target.appendChild(btn);
@@ -1384,17 +1324,14 @@ export function registerChatHooks() {
   };
 
   Hooks.on('createChatMessage', (msg) => {
-    // Mark as freshly created so bleeding can trigger; cleared after 5s to prevent retroactive tagging
     _recentlyCreated.add(msg.id);
     setTimeout(() => _recentlyCreated.delete(msg.id), 5000);
     trySetFlag(msg);
-    // Safety sweep: 2 seconds after any new message, re-inject ALL visible messages, not just the new one, so previously-failed injects get a second chance.
     setTimeout(sweepVisibleMessages, 2000);
   });
   Hooks.on('updateChatMessage',     (msg)     => { trySetFlag(msg); scheduleInject(msg); });
   Hooks.on('renderChatMessageHTML', (msg, el) => trySetFlag(msg, el).then(() => scheduleInject(msg)));
 
-  // Re-inject all currently visible messages when the chat log renders (e.g. user opens the chat tab)
   let _chatLogInjectTimer = null;
   Hooks.on('renderChatLog', () => {
     clearTimeout(_chatLogInjectTimer);
