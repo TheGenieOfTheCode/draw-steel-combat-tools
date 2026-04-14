@@ -1,5 +1,5 @@
 import { applyGrab, buildFreeStrikeButton, sizeRankG } from './grab.mjs';
-import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, getSquadGroup } from './helpers.mjs';
+import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, getSquadGroup, s, palette, injectPanelChrome } from './helpers.mjs';
 import { registerAbilityInjectors } from './ability-automation.mjs';
 import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetween } from './conditions.mjs';
 
@@ -47,6 +47,83 @@ const hasGrabEffect = (item, tier) => {
   return false;
 };
 
+class FmModifyPanel extends Application {
+  constructor(effectName, msgId) {
+    super();
+    this._effectName = effectName;
+    this._msgId      = msgId;
+    console.log(`DSCT | FmModifyPanel constructed | effectName=${effectName} msgId=${msgId}`);
+  }
+
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, {
+      id: 'dsct-fm-modify', title: 'Modify Forced Movement', template: null,
+      width: s(260), height: 'auto', resizable: false, minimizable: false,
+    });
+  }
+
+  async _renderInner(_data) {
+    console.log(`DSCT | FmModifyPanel._renderInner | effectName=${this._effectName}`);
+    injectPanelChrome(this.options.id);
+    const p = palette();
+    return $(`
+      <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;">
+
+        <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
+          <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">
+            Modify: ${this._effectName}
+          </div>
+          <button data-action="close-window"
+            style="width:${s(16)}px;height:${s(16)}px;flex-shrink:0;cursor:pointer;margin-left:auto;
+            background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;
+            display:flex;align-items:center;justify-content:center;font-size:${s(9)}px;padding:0;"
+            onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">x</button>
+        </div>
+
+        <div style="color:${p.textDim};font-size:${s(9)}px;text-align:center;padding:${s(12)}px 0;">
+          Parameters coming soon.
+        </div>
+
+      </div>
+    `);
+  }
+
+  activateListeners(html) {
+    super.activateListeners(html);
+    console.log(`DSCT | FmModifyPanel.activateListeners | effectName=${this._effectName}`);
+
+    const appEl = html[0].closest('.app');
+    if (appEl) {
+      const saved = window._fmModifyPanelPos;
+      appEl.style.left = saved ? `${saved.left}px` : `${Math.round((window.innerWidth  - (appEl.offsetWidth  || s(260))) / 2)}px`;
+      appEl.style.top  = saved ? `${saved.top}px`  : `${Math.round((window.innerHeight - (appEl.offsetHeight || s(200))) / 2)}px`;
+
+      html[0].addEventListener('mousedown', e => {
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea')) return;
+        e.preventDefault();
+        const sx = e.clientX - appEl.offsetLeft, sy = e.clientY - appEl.offsetTop;
+        const onMove = ev => { appEl.style.left = `${ev.clientX - sx}px`; appEl.style.top = `${ev.clientY - sy}px`; };
+        const onUp   = () => {
+          window._fmModifyPanelPos = { left: parseInt(appEl.style.left), top: parseInt(appEl.style.top) };
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup',   onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup',   onUp);
+      });
+    } else {
+      console.warn('DSCT | FmModifyPanel.activateListeners | could not find .app element for dragging');
+    }
+
+    html.on('click', '[data-action]', e => {
+      if (e.currentTarget.dataset.action === 'close-window') {
+        console.log('DSCT | FmModifyPanel | close-window clicked');
+        this.close();
+      }
+    });
+  }
+}
+
 const injectForcedButtons = (msg, { el, buttons, content }) => {
   const data = msg.getFlag('draw-steel-combat-tools', 'forcedMovement');
   if (!data) return;
@@ -54,6 +131,10 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
 
   const target = buttons ?? content ?? el;
   if (!target) return;
+
+  const gmOnly   = getSetting('fmModifyGmOnly');
+  const showEdit = !gmOnly || game.user.isGM;
+  console.log(`DSCT | injectForcedButtons | msgId=${msg.id} effects=${data.effects?.length ?? 0} gmOnly=${gmOnly} isGM=${game.user.isGM} showEdit=${showEdit}`);
 
   const container = document.createElement('div');
   container.className = 'dsct-forced-buttons';
@@ -65,11 +146,14 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
       `${effect.movement.charAt(0).toUpperCase() + effect.movement.slice(1)} ${effect.distance}`,
     ].filter(Boolean).join(' ');
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${label}`;
-    btn.style.cssText = 'cursor:pointer;';
-    btn.addEventListener('click', async () => {
+    const execBtn = document.createElement('button');
+    execBtn.type = 'button';
+    execBtn.className = 'dsct-fm-exec';
+    execBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${label}`;
+    execBtn.style.cssText = showEdit ? 'cursor:pointer;flex:1;' : 'cursor:pointer;';
+
+    execBtn.addEventListener('click', async () => {
+      console.log(`DSCT | FM exec clicked | effect=${JSON.stringify(effect)}`);
       const api = getModuleApi();
       if (!api) return;
 
@@ -91,10 +175,37 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
       const kw             = kwArray.join(',');
       await api.forcedMovement([type, String(effect.distance), '0', '0', verticalHeight, '0', 'false', String(effect.ignoreStability), 'false', kw, String(data.range ?? 0)]);
     });
-    container.appendChild(btn);
+
+    if (showEdit) {
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'dsct-fm-edit';
+      editBtn.title = 'Modify Forced Movement';
+      editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
+      editBtn.style.cssText = 'cursor:pointer;flex-shrink:0;';
+      editBtn.addEventListener('click', () => {
+        console.log(`DSCT | FM edit clicked | effect=${JSON.stringify(effect)} msgId=${msg.id}`);
+        const existing = getWindowById('dsct-fm-modify');
+        if (existing) {
+          console.log('DSCT | FM edit | closing existing panel before opening new one');
+          existing.close();
+        }
+        const effectName = effect.name ?? `${effect.movement} ${effect.distance}`;
+        new FmModifyPanel(effectName, msg.id).render(true);
+      });
+
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'display:flex;gap:2px;';
+      wrapper.appendChild(execBtn);
+      wrapper.appendChild(editBtn);
+      container.appendChild(wrapper);
+    } else {
+      container.appendChild(execBtn);
+    }
   }
 
   target.appendChild(container);
+  console.log(`DSCT | injectForcedButtons | done, container appended to target`);
 };
 
 const injectGrabButton = (msg, { el }) => {

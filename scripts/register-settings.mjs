@@ -52,6 +52,10 @@ export const registerSettings = () => {
     name: L('gmBypassesRangeCheck.name'), hint: L('gmBypassesRangeCheck.hint'),
     scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
+  game.settings.register(M, 'fmModifyGmOnly', {
+    name: L('fmModifyGmOnly.name'), hint: L('fmModifyGmOnly.hint'),
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+  });
 
   game.settings.register(M, 'grabEnabled', {
     name: L('grabEnabled.name'), hint: L('grabEnabled.hint'),

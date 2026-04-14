@@ -39,6 +39,10 @@
         "name": "GM Bypasses Range Check",
         "hint": "When enabled, the GM can execute forced movement from chat buttons regardless of range."
       },
+      "fmModifyGmOnly": {
+        "name": "Restrict Modify Button to GM",
+        "hint": "When enabled, only the GM can see the pencil modify button on forced movement chat messages. Disable to let all players use it."
+      },
       "grabEnabled": {
         "name": "Enable Grab System",
         "hint": "Enables the Grab panel and all grab mechanics."

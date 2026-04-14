@@ -118,7 +118,7 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   addHeader('judgementAutomation', 'Ability Automation');
   addHeader('showForcedMovementButton', 'Module Buttons');
 
-  bindToggle('forcedMovementEnabled', ['animationStepDelay', 'fallDamageCap', 'gmBypassesRangeCheck']);
+  bindToggle('forcedMovementEnabled', ['animationStepDelay', 'fallDamageCap', 'gmBypassesRangeCheck', 'fmModifyGmOnly']);
   bindToggle('grabEnabled', ['gmBypassesSizeCheck', 'restrictGrabButtons', 'grabbedBaneEnabled']);
   bindToggle('deathTrackerEnabled', ['deathAnimationDuration', 'clearSkullsOnCombatEnd', 'clearEffectsOnRevive', 'autoAssignDamagedMinion', 'overrideMinionDefeat']);
   bindToggle('autoTriggeredActionsEnabled', ['autoTriggeredActionsTarget']);
