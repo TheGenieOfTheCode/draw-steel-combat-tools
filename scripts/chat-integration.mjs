@@ -79,6 +79,10 @@ const replayModifiers = (baseStates, stack, states) => {
   console.log(`DSCT | replayModifiers | stack depth=${stack.length} states=${JSON.stringify(states.map(st => ({ movement: st.movement, distance: st.distance })))}`);
 };
 
+const DSCT_FM_PRESET_KEY = 'dsct-fm-presets';
+const loadPresets = () => { try { return JSON.parse(localStorage.getItem(DSCT_FM_PRESET_KEY) ?? '[]'); } catch { return []; } };
+const savePresets = (arr) => localStorage.setItem(DSCT_FM_PRESET_KEY, JSON.stringify(arr));
+
 class FmModifyPanel extends Application {
   constructor(states, baseStates, modifierStack, effects, btnEls, makeLabel, msgEl) {
     super();
@@ -118,6 +122,8 @@ class FmModifyPanel extends Application {
     console.log(`DSCT | FmModifyPanel._renderInner | effects=${this._effects.length} msgId=${this._msgEl?.dataset?.messageId}`);
     injectPanelChrome(this.options.id);
     const p = palette();
+    const presetList    = loadPresets();
+    const presetOptions = presetList.map((pr, i) => `<option value="${i}">${pr.name}</option>`).join('');
 
     const effectSections = this._states.map((state, i) => {
       const effectName = this._effects[i]?.name ?? this._makeLabel(state);
@@ -197,6 +203,24 @@ class FmModifyPanel extends Application {
           </div>
         </div>
 
+        <div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">Presets</div>
+        <div style="display:flex;gap:${s(4)}px;margin-bottom:${s(6)}px;align-items:center;">
+          <select data-field="preset-select" style="flex:1;">
+            <option value="">-- No Preset --</option>
+            ${presetOptions}
+          </select>
+          <button data-action="save-preset" title="Save current inputs as a preset"
+            style="width:${s(24)}px;height:${s(24)}px;flex-shrink:0;cursor:pointer;background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:${s(11)}px;padding:0;"
+            onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">
+            <i class="fas fa-save"></i>
+          </button>
+          <button data-action="delete-preset" title="Delete selected preset"
+            style="width:${s(24)}px;height:${s(24)}px;flex-shrink:0;cursor:pointer;background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:${s(11)}px;padding:0;"
+            onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+
         ${effectSections}
 
         <button data-action="apply-mod"
@@ -234,6 +258,46 @@ class FmModifyPanel extends Application {
     } else {
       console.warn('DSCT | FmModifyPanel.activateListeners | could not find .app element for dragging');
     }
+
+    const presetSel = html[0].querySelector('[data-field="preset-select"]');
+
+    const rebuildDropdown = (presets, selectedIdx = -1) => {
+      presetSel.innerHTML = '<option value="">-- No Preset --</option>'
+        + presets.map((pr, i) => `<option value="${i}"${i === selectedIdx ? ' selected' : ''}>${pr.name}</option>`).join('');
+    };
+
+    const fillFromPreset = (root, preset) => {
+      const nameEl = root.querySelector('[data-field="note-name"]');
+      const descEl = root.querySelector('[data-field="note-desc"]');
+      if (nameEl) nameEl.value = preset.noteName ?? '';
+      if (descEl) { descEl.value = preset.noteDesc ?? ''; descEl.style.height = 'auto'; descEl.style.height = descEl.scrollHeight + 'px'; }
+      for (let i = 0; i < this._states.length; i++) {
+        const m = preset.modState[i];
+        if (!m) continue;
+        const get = (f) => root.querySelector(`[data-field="${f}-${i}"]`);
+        const setVal = (f, v) => { const el = get(f); if (el) el.value = v; };
+        const setChk = (f, v) => { const el = get(f); if (el) el.checked = v; };
+        setVal('type',       m.movement          ?? 'push');
+        setVal('distance',   m.distanceDelta      ?? 0);
+        setChk('vertical',   m.vertical           ?? false);
+        setVal('vertDist',   m.verticalDistance   ?? '');
+        setVal('fallRed',    m.fallReduction      ?? 0);
+        setChk('noFall',     m.noFallDamage       ?? false);
+        setChk('noCol',      m.noCollisionDamage  ?? false);
+        setChk('ignoreStab', m.ignoreStability    ?? false);
+        setChk('fast',       m.fastMove           ?? false);
+      }
+    };
+
+    presetSel.addEventListener('change', () => {
+      const idx = parseInt(presetSel.value);
+      if (isNaN(idx)) return;
+      const presets = loadPresets();
+      const preset  = presets[idx];
+      if (!preset) return;
+      console.log(`DSCT | FM presets | loading "${preset.name}"`);
+      fillFromPreset(html[0], preset);
+    });
 
     html.on('click', '[data-action]', e => {
       const action = e.currentTarget.dataset.action;
@@ -320,6 +384,45 @@ class FmModifyPanel extends Application {
         }
 
         this.close();
+      }
+
+      if (action === 'save-preset') {
+        const root     = html[0];
+        const presets  = loadPresets();
+        const noteName = root.querySelector('[data-field="note-name"]')?.value?.trim() ?? '';
+        const noteDesc = root.querySelector('[data-field="note-desc"]')?.value?.trim() ?? '';
+        const name     = noteName || `Preset ${presets.length + 1}`;
+        const modState = this._states.map((_, i) => {
+          const get = (f) => root.querySelector(`[data-field="${f}-${i}"]`);
+          const vdRaw = get('vertDist')?.value ?? '';
+          return {
+            distanceDelta:    parseInt(get('distance')?.value)  || 0,
+            movement:         get('type')?.value                ?? 'push',
+            vertical:         get('vertical')?.checked          ?? false,
+            verticalDistance: vdRaw !== '' ? (parseInt(vdRaw) || '') : '',
+            fallReduction:    parseInt(get('fallRed')?.value)   || 0,
+            noFallDamage:     get('noFall')?.checked            ?? false,
+            noCollisionDamage: get('noCol')?.checked            ?? false,
+            ignoreStability:  get('ignoreStab')?.checked        ?? false,
+            fastMove:         get('fast')?.checked              ?? false,
+          };
+        });
+        presets.push({ name, noteName, noteDesc, modState });
+        savePresets(presets);
+        rebuildDropdown(presets, presets.length - 1);
+        console.log(`DSCT | FM presets | saved "${name}" (total=${presets.length})`);
+      }
+
+      if (action === 'delete-preset') {
+        const idx = parseInt(presetSel.value);
+        if (isNaN(idx)) return;
+        const presets = loadPresets();
+        if (!presets[idx]) return;
+        const name = presets[idx].name;
+        presets.splice(idx, 1);
+        savePresets(presets);
+        rebuildDropdown(presets);
+        console.log(`DSCT | FM presets | deleted "${name}" (remaining=${presets.length})`);
       }
     });
   }
