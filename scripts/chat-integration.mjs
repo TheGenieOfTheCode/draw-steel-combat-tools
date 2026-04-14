@@ -83,6 +83,41 @@ const DSCT_FM_PRESET_KEY = 'dsct-fm-presets';
 const loadPresets = () => { try { return JSON.parse(localStorage.getItem(DSCT_FM_PRESET_KEY) ?? '[]'); } catch { return []; } };
 const savePresets = (arr) => localStorage.setItem(DSCT_FM_PRESET_KEY, JSON.stringify(arr));
 
+const persistStack = (msgEl, stack) => {
+  const msgId = msgEl?.dataset?.messageId;
+  if (!msgId) return;
+  const msg = game.messages.get(msgId);
+  if (!msg) return;
+  const stackData = stack.map(e => ({ modState: e.modState, noteName: e.noteName, noteDesc: e.noteDesc }));
+  const api = getModuleApi();
+  if (api?.socket) api.socket.executeAsGM('updateDocument', msg.uuid, { 'flags.draw-steel-combat-tools.fmModifiers': stackData });
+  else msg.setFlag('draw-steel-combat-tools', 'fmModifiers', stackData);
+};
+
+const createModifierNoteDiv = (entry, modifierStack, baseStates, states, btnEls, makeLabel, noteParent, msgEl) => {
+  const { noteName, noteDesc } = entry;
+  const noteDiv = document.createElement('div');
+  noteDiv.className = 'dsct-fm-mod-note';
+  noteDiv.dataset.modifierName = noteName;
+  noteDiv.textContent = noteDesc ? `${noteName}: ${noteDesc}` : noteName;
+  noteDiv.title = 'Click to remove this modifier';
+  noteDiv.style.cssText = 'font-size:11px;padding:3px 6px;margin-top:4px;border-radius:3px;cursor:pointer;border:1px dashed rgba(200,80,80,0.4);color:inherit;user-select:none;';
+  noteDiv.addEventListener('mouseenter', () => { noteDiv.style.background = 'rgba(180,40,40,0.2)'; noteDiv.style.textDecoration = 'line-through'; });
+  noteDiv.addEventListener('mouseleave', () => { noteDiv.style.background = ''; noteDiv.style.textDecoration = ''; });
+  noteDiv.addEventListener('click', () => {
+    const idx = modifierStack.indexOf(entry);
+    if (idx !== -1) modifierStack.splice(idx, 1);
+    replayModifiers(baseStates, modifierStack, states);
+    for (let i = 0; i < states.length; i++) {
+      btnEls[i].innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${makeLabel(states[i])}`;
+    }
+    noteDiv.remove();
+    persistStack(msgEl, modifierStack);
+  });
+  noteParent.appendChild(noteDiv);
+  return noteDiv;
+};
+
 class FmModifyPanel extends Application {
   constructor(states, baseStates, modifierStack, effects, btnEls, makeLabel, msgEl) {
     super();
@@ -366,7 +401,9 @@ class FmModifyPanel extends Application {
           };
         });
 
-        const entry = { modState };
+        const existing = this._msgEl?.querySelectorAll('.dsct-fm-mod-note').length ?? 0;
+        const noteName = rawName || `Forced Movement Modifier ${existing + 1}`;
+        const entry    = { modState, noteName, noteDesc: rawDesc };
         this._modifierStack.push(entry);
         console.log(`DSCT | FmModifyPanel apply-mod | stack depth now=${this._modifierStack.length}`);
         replayModifiers(this._baseStates, this._modifierStack, this._states);
@@ -377,45 +414,12 @@ class FmModifyPanel extends Application {
           this._btnEls[i].innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${newLabel}`;
         }
 
-        // Build and inject the note into the chat message.
+        // Build and inject the note into the chat message, then persist.
         if (this._msgEl) {
-          const existing = this._msgEl.querySelectorAll('.dsct-fm-mod-note').length;
-          const noteName = rawName || `Forced Movement Modifier ${existing + 1}`;
-          const noteText = rawDesc ? `${noteName}: ${rawDesc}` : noteName;
-          console.log(`DSCT | FmModifyPanel apply-mod | injecting note "${noteText}"`);
-
-          const noteDiv = document.createElement('div');
-          noteDiv.className = 'dsct-fm-mod-note';
-          noteDiv.dataset.modifierName = noteName;
-          noteDiv.textContent = noteText;
-          noteDiv.title = 'Click to remove this modifier';
-          noteDiv.style.cssText = 'font-size:11px;padding:3px 6px;margin-top:4px;border-radius:3px;cursor:pointer;border:1px dashed rgba(200,80,80,0.4);color:inherit;user-select:none;';
-
-          noteDiv.addEventListener('mouseenter', () => {
-            noteDiv.style.background     = 'rgba(180,40,40,0.2)';
-            noteDiv.style.textDecoration = 'line-through';
-          });
-          noteDiv.addEventListener('mouseleave', () => {
-            noteDiv.style.background     = '';
-            noteDiv.style.textDecoration = '';
-          });
-          noteDiv.addEventListener('click', () => {
-            const idx = this._modifierStack.indexOf(entry);
-            console.log(`DSCT | FM note clicked | removing entry at idx=${idx} stackDepth=${this._modifierStack.length}`);
-            if (idx !== -1) this._modifierStack.splice(idx, 1);
-            replayModifiers(this._baseStates, this._modifierStack, this._states);
-            for (let i = 0; i < this._states.length; i++) {
-              const newLabel = this._makeLabel(this._states[i]);
-              console.log(`DSCT | FM note remove | updating btnEl[${i}] to "${newLabel}"`);
-              this._btnEls[i].innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${newLabel}`;
-            }
-            noteDiv.remove();
-          });
-
           const buttonsContainer = this._msgEl.querySelector('.dsct-forced-buttons');
           const noteParent = buttonsContainer?.parentElement ?? this._msgEl;
-          noteParent.appendChild(noteDiv);
-          console.log(`DSCT | FmModifyPanel apply-mod | note appended to ${noteParent.className || noteParent.tagName}`);
+          createModifierNoteDiv(entry, this._modifierStack, this._baseStates, this._states, this._btnEls, this._makeLabel, noteParent, this._msgEl);
+          persistStack(this._msgEl, this._modifierStack);
         } else {
           console.warn('DSCT | FmModifyPanel apply-mod | no msgEl, cannot inject note');
         }
@@ -510,6 +514,13 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
   const states        = baseStates.map(st => ({ ...st }));
   const modifierStack = [];
 
+  // Restore any previously applied modifiers from message flags.
+  const savedModifiers = msg.getFlag('draw-steel-combat-tools', 'fmModifiers') ?? [];
+  for (const saved of savedModifiers) {
+    modifierStack.push({ modState: saved.modState, noteName: saved.noteName, noteDesc: saved.noteDesc });
+  }
+  if (modifierStack.length > 0) replayModifiers(baseStates, modifierStack, states);
+
   const makeLabel = (st) => [
     st.fastMove ? 'Auto'     : '',
     st.vertical ? 'Vertical' : '',
@@ -565,7 +576,7 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
       editBtn.className = 'dsct-fm-edit';
       editBtn.title = 'Modify Forced Movement';
       editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
-      editBtn.style.cssText = 'cursor:pointer;flex-shrink:0;width:26px;border-width:0 0 0 1px;border-style:solid;border-color:var(--dsct-border);border-radius:0;display:flex;align-items:center;justify-content:center;padding:0;';
+      editBtn.style.cssText = 'cursor:pointer;flex-shrink:0;aspect-ratio:1;border-width:0 0 0 1px;border-style:solid;border-color:var(--dsct-border);border-radius:0;display:flex;align-items:center;justify-content:center;padding:0;';
       editBtn.addEventListener('click', () => {
         console.log(`DSCT | FM edit clicked | msgId=${msg.id} stackDepth=${modifierStack.length}`);
         const existing = getWindowById('dsct-fm-modify');
@@ -587,6 +598,15 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
   }
 
   target.appendChild(container);
+
+  // Restore note divs for any persisted modifier entries.
+  if (modifierStack.length > 0) {
+    const noteParent = container.parentElement ?? target;
+    for (const entry of modifierStack) {
+      createModifierNoteDiv(entry, modifierStack, baseStates, states, btnEls, makeLabel, noteParent, el);
+    }
+  }
+
   console.log(`DSCT | injectForcedButtons | done | effects=${data.effects.length} showEdit=${showEdit}`);
 };
 
@@ -606,7 +626,7 @@ const injectGrabButton = (msg, { el }) => {
     const newBtn = document.createElement('button');
     newBtn.type = 'button';
     newBtn.className = btn.className ? `${btn.className} dsct-grab-btn` : 'dsct-grab-btn';
-    newBtn.innerHTML = '<i class="fa-solid fa-hand-rock"></i> Apply Grabbed';
+    newBtn.innerHTML = '<i class="fa-solid fa-hand-rock"></i> Grabbed';
     newBtn.style.cssText = 'cursor:pointer;';
 
     newBtn.addEventListener('click', async (e) => {
