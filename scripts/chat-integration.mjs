@@ -80,7 +80,7 @@ const replayModifiers = (baseStates, stack, states) => {
 };
 
 class FmModifyPanel extends Application {
-  constructor(states, baseStates, modifierStack, effects, btnEls, makeLabel, msgId) {
+  constructor(states, baseStates, modifierStack, effects, btnEls, makeLabel, msgEl) {
     super();
     this._states         = states;
     this._baseStates     = baseStates;
@@ -88,8 +88,8 @@ class FmModifyPanel extends Application {
     this._effects        = effects;
     this._btnEls         = btnEls;
     this._makeLabel      = makeLabel;
-    this._msgId          = msgId;
-    console.log(`DSCT | FmModifyPanel constructed | effects=${effects.length} msgId=${msgId}`);
+    this._msgEl          = msgEl;
+    console.log(`DSCT | FmModifyPanel constructed | effects=${effects.length} msgId=${msgEl?.dataset?.messageId}`);
   }
 
   static get defaultOptions() {
@@ -115,7 +115,7 @@ class FmModifyPanel extends Application {
   }
 
   async _renderInner(_data) {
-    console.log(`DSCT | FmModifyPanel._renderInner | effects=${this._effects.length}`);
+    console.log(`DSCT | FmModifyPanel._renderInner | effects=${this._effects.length} msgId=${this._msgEl?.dataset?.messageId}`);
     injectPanelChrome(this.options.id);
     const p = palette();
 
@@ -182,6 +182,21 @@ class FmModifyPanel extends Application {
             onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">x</button>
         </div>
 
+        <div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">Log Entry</div>
+        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;gap:${s(4)}px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Name</div>
+            <input type="text" data-field="note-name" placeholder="Optional"
+              style="width:${s(130)}px;padding:${s(2)}px ${s(4)}px;">
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;padding-top:${s(3)}px;">Description</div>
+            <textarea data-field="note-desc" placeholder="Optional" rows="2"
+              style="width:${s(130)}px;padding:${s(2)}px ${s(4)}px;resize:none;overflow:hidden;min-height:${s(32)}px;box-sizing:border-box;"
+              oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+          </div>
+        </div>
+
         ${effectSections}
 
         <button data-action="apply-mod"
@@ -231,32 +246,80 @@ class FmModifyPanel extends Application {
 
       if (action === 'apply-mod') {
         const root = html[0];
+
         const modState = this._states.map((_, i) => {
           const tmp = { ...this._states[i] };
           this._readInputs(root, i, tmp);
           console.log(`DSCT | FmModifyPanel apply-mod | i=${i} distanceDelta=${tmp.distance} movement=${tmp.movement} vertical=${tmp.vertical}`);
           return {
-            distanceDelta:   tmp.distance,
-            movement:        tmp.movement,
-            vertical:        tmp.vertical,
+            distanceDelta:    tmp.distance,
+            movement:         tmp.movement,
+            vertical:         tmp.vertical,
             verticalDistance: tmp.verticalDistance,
-            fallReduction:   tmp.fallReduction,
-            noFallDamage:    tmp.noFallDamage,
+            fallReduction:    tmp.fallReduction,
+            noFallDamage:     tmp.noFallDamage,
             noCollisionDamage: tmp.noCollisionDamage,
-            ignoreStability: tmp.ignoreStability,
-            fastMove:        tmp.fastMove,
+            ignoreStability:  tmp.ignoreStability,
+            fastMove:         tmp.fastMove,
           };
         });
 
-        this._modifierStack.push({ modState });
+        const entry = { modState };
+        this._modifierStack.push(entry);
         console.log(`DSCT | FmModifyPanel apply-mod | stack depth now=${this._modifierStack.length}`);
         replayModifiers(this._baseStates, this._modifierStack, this._states);
 
         for (let i = 0; i < this._states.length; i++) {
           const newLabel = this._makeLabel(this._states[i]);
-          console.log(`DSCT | FmModifyPanel apply-mod | updating btnEl[${i}] label to "${newLabel}"`);
+          console.log(`DSCT | FmModifyPanel apply-mod | updating btnEl[${i}] to "${newLabel}"`);
           this._btnEls[i].innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${newLabel}`;
         }
+
+        // Build and inject the note into the chat message.
+        if (this._msgEl) {
+          const rawName  = root.querySelector('[data-field="note-name"]')?.value?.trim() ?? '';
+          const rawDesc  = root.querySelector('[data-field="note-desc"]')?.value?.trim() ?? '';
+          const existing = this._msgEl.querySelectorAll('.dsct-fm-mod-note').length;
+          const noteName = rawName || `Forced Movement Modifier ${existing + 1}`;
+          const noteText = rawDesc ? `${noteName}: ${rawDesc}` : noteName;
+          console.log(`DSCT | FmModifyPanel apply-mod | injecting note "${noteText}"`);
+
+          const noteDiv = document.createElement('div');
+          noteDiv.className = 'dsct-fm-mod-note';
+          noteDiv.textContent = noteText;
+          noteDiv.title = 'Click to remove this modifier';
+          noteDiv.style.cssText = 'font-size:11px;padding:3px 6px;margin-top:4px;border-radius:3px;cursor:pointer;border:1px dashed rgba(200,80,80,0.4);color:inherit;user-select:none;';
+
+          noteDiv.addEventListener('mouseenter', () => {
+            noteDiv.style.background     = 'rgba(180,40,40,0.2)';
+            noteDiv.style.textDecoration = 'line-through';
+          });
+          noteDiv.addEventListener('mouseleave', () => {
+            noteDiv.style.background     = '';
+            noteDiv.style.textDecoration = '';
+          });
+          noteDiv.addEventListener('click', () => {
+            const idx = this._modifierStack.indexOf(entry);
+            console.log(`DSCT | FM note clicked | removing entry at idx=${idx} stackDepth=${this._modifierStack.length}`);
+            if (idx !== -1) this._modifierStack.splice(idx, 1);
+            replayModifiers(this._baseStates, this._modifierStack, this._states);
+            for (let i = 0; i < this._states.length; i++) {
+              const newLabel = this._makeLabel(this._states[i]);
+              console.log(`DSCT | FM note remove | updating btnEl[${i}] to "${newLabel}"`);
+              this._btnEls[i].innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${newLabel}`;
+            }
+            noteDiv.remove();
+          });
+
+          const buttonsContainer = this._msgEl.querySelector('.dsct-forced-buttons');
+          const noteParent = buttonsContainer?.parentElement ?? this._msgEl;
+          noteParent.appendChild(noteDiv);
+          console.log(`DSCT | FmModifyPanel apply-mod | note appended to ${noteParent.className || noteParent.tagName}`);
+        } else {
+          console.warn('DSCT | FmModifyPanel apply-mod | no msgEl, cannot inject note');
+        }
+
+        this.close();
       }
     });
   }
@@ -350,7 +413,7 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
           console.log('DSCT | FM edit | closing existing panel before opening new one');
           existing.close();
         }
-        new FmModifyPanel(states, baseStates, modifierStack, data.effects, btnEls, makeLabel, msg.id).render(true);
+        new FmModifyPanel(states, baseStates, modifierStack, data.effects, btnEls, makeLabel, el).render(true);
       });
 
       const wrapper = document.createElement('div');
