@@ -210,14 +210,14 @@ class FmModifyPanel extends Application {
             ${presetOptions}
           </select>
           <button data-action="save-preset" title="Save current inputs as a preset"
-            style="width:${s(24)}px;height:${s(24)}px;flex-shrink:0;cursor:pointer;background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:${s(11)}px;padding:0;"
+            style="width:${s(24)}px;height:${s(24)}px;flex-shrink:0;cursor:pointer;background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:${s(11)}px;padding:0;"
             onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">
-            <i class="fas fa-save"></i>
+            <i class="fas fa-save" style="margin:0;"></i>
           </button>
           <button data-action="delete-preset" title="Delete selected preset"
-            style="width:${s(24)}px;height:${s(24)}px;flex-shrink:0;cursor:pointer;background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:${s(11)}px;padding:0;"
+            style="width:${s(24)}px;height:${s(24)}px;flex-shrink:0;cursor:pointer;background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:${s(11)}px;padding:0;"
             onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">
-            <i class="fas fa-trash"></i>
+            <i class="fas fa-trash" style="margin:0;"></i>
           </button>
         </div>
 
@@ -264,6 +264,7 @@ class FmModifyPanel extends Application {
     const rebuildDropdown = (presets, selectedIdx = -1) => {
       presetSel.innerHTML = '<option value="">-- No Preset --</option>'
         + presets.map((pr, i) => `<option value="${i}"${i === selectedIdx ? ' selected' : ''}>${pr.name}</option>`).join('');
+      updateDeleteState();
     };
 
     const fillFromPreset = (root, preset) => {
@@ -289,7 +290,12 @@ class FmModifyPanel extends Application {
       }
     };
 
+    const deleteBtn = html[0].querySelector('[data-action="delete-preset"]');
+    const updateDeleteState = () => { deleteBtn.disabled = presetSel.value === ''; };
+    updateDeleteState();
+
     presetSel.addEventListener('change', () => {
+      updateDeleteState();
       const idx = parseInt(presetSel.value);
       if (isNaN(idx)) return;
       const presets = loadPresets();
@@ -309,7 +315,19 @@ class FmModifyPanel extends Application {
       }
 
       if (action === 'apply-mod') {
-        const root = html[0];
+        const root    = html[0];
+        const rawName = root.querySelector('[data-field="note-name"]')?.value?.trim() ?? '';
+        const rawDesc = root.querySelector('[data-field="note-desc"]')?.value?.trim() ?? '';
+
+        // Block if a named modifier with this exact name is already applied.
+        if (rawName && this._msgEl) {
+          const existingNames = [...this._msgEl.querySelectorAll('.dsct-fm-mod-note[data-modifier-name]')]
+            .map(n => n.dataset.modifierName);
+          if (existingNames.includes(rawName)) {
+            ui.notifications.error(`A modifier named "${rawName}" is already applied. Remove the existing one first or use a different name.`);
+            return;
+          }
+        }
 
         const modState = this._states.map((_, i) => {
           const tmp = { ...this._states[i] };
@@ -341,8 +359,6 @@ class FmModifyPanel extends Application {
 
         // Build and inject the note into the chat message.
         if (this._msgEl) {
-          const rawName  = root.querySelector('[data-field="note-name"]')?.value?.trim() ?? '';
-          const rawDesc  = root.querySelector('[data-field="note-desc"]')?.value?.trim() ?? '';
           const existing = this._msgEl.querySelectorAll('.dsct-fm-mod-note').length;
           const noteName = rawName || `Forced Movement Modifier ${existing + 1}`;
           const noteText = rawDesc ? `${noteName}: ${rawDesc}` : noteName;
@@ -350,6 +366,7 @@ class FmModifyPanel extends Application {
 
           const noteDiv = document.createElement('div');
           noteDiv.className = 'dsct-fm-mod-note';
+          noteDiv.dataset.modifierName = noteName;
           noteDiv.textContent = noteText;
           noteDiv.title = 'Click to remove this modifier';
           noteDiv.style.cssText = 'font-size:11px;padding:3px 6px;margin-top:4px;border-radius:3px;cursor:pointer;border:1px dashed rgba(200,80,80,0.4);color:inherit;user-select:none;';
