@@ -19,13 +19,24 @@ const getForcedEffects = (item, tier) => {
     if (effect.type !== 'forced') continue;
     const tierData = effect.forced?.[`tier${tier}`];
     if (!tierData) continue;
-    const distance = parseInt(tierData.distance);
-    if (isNaN(distance) || distance <= 0) continue;
+    const formula   = String(tierData.distance ?? '0');
+    const rollData  = effect.item?.getRollData?.() ?? item.getRollData?.() ?? {};
+    let baseDistance;
+    try {
+      baseDistance = typeof ds?.utils?.evaluateFormula === 'function'
+        ? ds.utils.evaluateFormula(formula, rollData)
+        : Roll.safeEval(Roll.replaceFormulaData(formula, rollData));
+    } catch {
+      baseDistance = parseInt(formula) || 0;
+    }
     const propertiesRaw = tierData.properties;
     const properties = normalizeCollection(propertiesRaw);
     const vertical        = properties.includes('vertical');
     const ignoreStability = properties.includes('ignoresImmunity');
     for (const movement of (tierData.movement ?? [])) {
+      const bonus    = effect.forced?.bonuses?.[movement] ?? 0;
+      const distance = Math.round(baseDistance + bonus);
+      if (isNaN(distance) || distance <= 0) continue;
       results.push({ movement, distance, vertical, ignoreStability, name: effect.name ?? movement });
     }
   }
@@ -490,7 +501,6 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
 
   const gmOnly   = getSetting('fmModifyGmOnly');
   const showEdit = !gmOnly || game.user.isGM;
-  console.log(`DSCT | injectForcedButtons | msgId=${msg.id} effects=${data.effects?.length ?? 0} gmOnly=${gmOnly} isGM=${game.user.isGM} showEdit=${showEdit}`);
 
   const baseStates = data.effects.map(effect => ({
     movement:          effect.movement,
@@ -583,12 +593,8 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
       editBtn.addEventListener('mouseleave', () => { editShell.style.borderColor = 'rgb(85,85,85)'; });
 
       editBtn.addEventListener('click', () => {
-        console.log(`DSCT | FM edit clicked | msgId=${msg.id} stackDepth=${modifierStack.length}`);
         const existing = getWindowById('dsct-fm-modify');
-        if (existing) {
-          console.log('DSCT | FM edit | closing existing panel before opening new one');
-          existing.close();
-        }
+        if (existing) existing.close();
         new FmModifyPanel(states, baseStates, modifierStack, data.effects, btnEls, makeLabel, el).render(true);
       });
 
@@ -611,7 +617,6 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
     }
   }
 
-  console.log(`DSCT | injectForcedButtons | done | effects=${data.effects.length} showEdit=${showEdit}`);
 };
 
 const injectGrabButton = (msg, { el }) => {

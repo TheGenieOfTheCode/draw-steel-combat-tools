@@ -118,7 +118,7 @@ export const registerSettings = () => {
   game.settings.register(M, 'autoAssignDamagedMinion', {
     name: L('autoAssignDamagedMinion.name'),
     hint: L('autoAssignDamagedMinion.hint'),
-    scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
   game.settings.register(M, 'overrideMinionDefeat', {
     name: L('overrideMinionDefeat.name'),

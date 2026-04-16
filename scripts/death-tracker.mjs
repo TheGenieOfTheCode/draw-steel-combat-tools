@@ -484,6 +484,9 @@ export const runPowerWordKillUI = async (options = {}) => {
   if (canvas.interface.grid.highlightLayers[hlName]) canvas.interface.grid.destroyHighlightLayer(hlName);
   canvas.interface.grid.addHighlightLayer(hlName);
 
+  const xContainer = new PIXI.Container();
+  canvas.controls.addChild(xContainer);
+
   const lockedTokens = new Set();
   const selectedTokens = new Set();
 
@@ -496,6 +499,9 @@ export const runPowerWordKillUI = async (options = {}) => {
     }
     if (lockedTokens.size === maxTargets) {
       window._pwkActive = false;
+      xContainer.parent?.removeChild(xContainer);
+      xContainer.destroy({ children: true });
+      canvas.interface.grid.destroyHighlightLayer(hlName);
       for (const id of lockedTokens) {
         const t = canvas.tokens.get(id);
         if (t?.actor && !t.actor.statuses?.has('dead')) {
@@ -507,25 +513,46 @@ export const runPowerWordKillUI = async (options = {}) => {
     }
   }
 
+  const drawXMarks = () => {
+    for (const child of xContainer.removeChildren()) child.destroy({ texture: true, baseTexture: true });
+    for (const npc of npcs) {
+      if (!selectedTokens.has(npc.id)) continue;
+      const tw  = Math.ceil(npc.document.width  * canvas.grid.size);
+      const th  = Math.ceil(npc.document.height * canvas.grid.size);
+      const pad = Math.max(6, tw * 0.08);
+      const lw  = Math.max(16, tw * 0.22);
+      const gfx = new PIXI.Graphics();
+      gfx.lineStyle(lw, 0xFF0000, 1);
+      gfx.moveTo(pad,      pad);
+      gfx.lineTo(tw - pad, th - pad);
+      gfx.moveTo(tw - pad, pad);
+      gfx.lineTo(pad,      th - pad);
+      const rt = PIXI.RenderTexture.create({ width: tw, height: th });
+      canvas.app.renderer.render(gfx, { renderTexture: rt, clear: true });
+      gfx.destroy();
+      const sprite = new PIXI.Sprite(rt);
+      sprite.x = npc.x;
+      sprite.y = npc.y;
+      sprite.alpha = 0.5;
+      xContainer.addChild(sprite);
+    }
+  };
+
   const drawHighlights = () => {
     canvas.interface.grid.clearHighlightLayer(hlName);
     for (const npc of npcs) {
-      const isSelected = selectedTokens.has(npc.id);
-      const isLocked   = lockedTokens.has(npc.id);
-      const color = isSelected ? 0xFF0000 : 0xFF8800;
-      const border = isSelected ? 0xAA0000 : 0xAA4400;
-
+      if (selectedTokens.has(npc.id)) continue;
       const w = Math.max(1, Math.round(npc.document.width));
       const h = Math.max(1, Math.round(npc.document.height));
-
       for (let dx = 0; dx < w; dx++) {
         for (let dy = 0; dy < h; dy++) {
           const gx = Math.floor(npc.x / canvas.grid.size) * canvas.grid.size + (dx * canvas.grid.size);
           const gy = Math.floor(npc.y / canvas.grid.size) * canvas.grid.size + (dy * canvas.grid.size);
-          canvas.interface.grid.highlightPosition(hlName, { x: gx, y: gy, color, border });
+          canvas.interface.grid.highlightPosition(hlName, { x: gx, y: gy, color: 0xFF8800, border: 0xAA4400 });
         }
       }
     }
+    drawXMarks();
   };
 
   drawHighlights();
@@ -534,6 +561,8 @@ export const runPowerWordKillUI = async (options = {}) => {
   const finish = () => {
     window._pwkActive = false;
     canvas.interface.grid.destroyHighlightLayer(hlName);
+    xContainer.parent?.removeChild(xContainer);
+    xContainer.destroy({ children: true });
     canvas.stage.off('mousedown', onClick);
     document.removeEventListener('keydown', onKey);
   };
