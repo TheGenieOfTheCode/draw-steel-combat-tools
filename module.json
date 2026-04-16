@@ -8,7 +8,7 @@
   "authors": [{ "name": "Ady", "discord": "AdyGenie" }],
   "url": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools",
   "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.0.0/module.json",
-  "download": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.0.0/draw-steel-combat-tools.rar",
+  "download": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.0.0/draw-steel-combat-tools.zip",
   "relationships": {
     "systems": [{ "id": "draw-steel", "type": "system", "compatibility": {} }],
     "requires": [
