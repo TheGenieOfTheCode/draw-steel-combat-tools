@@ -7,7 +7,7 @@
   "compatibility": { "minimum": "13", "verified": "14" },
   "authors": [{ "name": "Ady", "discord": "AdyGenie" }],
   "url": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools",
-  "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.0.1/module.json",
+  "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest/download/module.json",
   "download": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.0.1/draw-steel-combat-tools.zip",
   "relationships": {
     "systems": [{ "id": "draw-steel", "type": "system", "compatibility": {} }],
