@@ -95,8 +95,10 @@ const handleStaminaRevival = async (undoLog) => {
           op.squadGroupUuid && op.prevSquadHP !== null &&
           Array.isArray(op.squadTokenIds) && op.squadTokenIds.includes(tokenDoc.id)
         );
+        if (getSetting('debugMode')) console.log(`DSCT | FM UNDO | handleStaminaRevival squadHP check: tokenId=${tokenDoc.id} savedGroupId=${savedGroupId} squadOp found=${!!squadOp}`, squadOp ? { squadGroupUuid: squadOp.squadGroupUuid, prevSquadHP: squadOp.prevSquadHP, squadTokenIds: squadOp.squadTokenIds } : null);
         if (squadOp) {
           const sg = await fromUuid(squadOp.squadGroupUuid);
+          if (getSetting('debugMode')) console.log(`DSCT | FM UNDO | handleStaminaRevival sg found=${!!sg} currentStaminaValue=${sg?.system?.staminaValue} prevSquadHP=${squadOp.prevSquadHP}`);
           if (sg && sg.system.staminaValue < squadOp.prevSquadHP) {
             await safeUpdate(sg, { 'system.staminaValue': squadOp.prevSquadHP });
           }

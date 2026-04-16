@@ -79,13 +79,29 @@ const ensureGrabHooks = () => {
       }
     });
   }
+
+  if (!window._grabEffectDeleteHook) {
+    window._grabEffectDeleteHook = Hooks.on('deleteActiveEffect', async (effect) => {
+      if (!window._activeGrabs?.size) return;
+      for (const [gid, grab] of [...window._activeGrabs.entries()]) {
+        if (effect.id !== grab.grabbedEffectId && effect.id !== grab.grabberEffectId) continue;
+        const isGrabber = effect.id === grab.grabberEffectId;
+        const msg = isGrabber
+          ? `${grab.grabberName}'s Grabber effect was removed, ending the grab on ${grab.grabbedName}.`
+          : `${grab.grabbedName}'s Grabbed effect was removed, ending the grab.`;
+        await endGrab(gid, { silent: false, customMsg: msg });
+        break;
+      }
+    });
+  }
 };
 
 const removeGrabHooks = () => {
-  if (window._grabPreHook)        { Hooks.off('preUpdateToken',     window._grabPreHook);        window._grabPreHook        = null; }
-  if (window._grabFollowHook)     { Hooks.off('updateToken',        window._grabFollowHook);     window._grabFollowHook     = null; }
-  if (window._grabberGrabbedHook) { Hooks.off('createActiveEffect', window._grabberGrabbedHook); window._grabberGrabbedHook = null; }
-  if (window._grabRepositionHook) { Hooks.off('updateToken',        window._grabRepositionHook); window._grabRepositionHook = null; }
+  if (window._grabPreHook)           { Hooks.off('preUpdateToken',     window._grabPreHook);           window._grabPreHook           = null; }
+  if (window._grabFollowHook)        { Hooks.off('updateToken',        window._grabFollowHook);        window._grabFollowHook        = null; }
+  if (window._grabberGrabbedHook)    { Hooks.off('createActiveEffect', window._grabberGrabbedHook);    window._grabberGrabbedHook    = null; }
+  if (window._grabEffectDeleteHook)  { Hooks.off('deleteActiveEffect', window._grabEffectDeleteHook);  window._grabEffectDeleteHook  = null; }
+  if (window._grabRepositionHook)    { Hooks.off('updateToken',        window._grabRepositionHook);    window._grabRepositionHook    = null; }
   window._grabFollowActive  = new Set();
   window._grabRepositioning = new Set();
 };
@@ -202,11 +218,12 @@ export const endGrab = async (grabbedTokenId, { silent = false, customMsg = null
   const grab = window._activeGrabs?.get(grabbedTokenId);
   if (!grab) return;
 
+  window._activeGrabs.delete(grabbedTokenId);
+
   const grabberTok = getTokenById(grab.grabberTokenId);
   const grabbedTok = getTokenById(grab.grabbedTokenId);
   if (grab.grabberEffectId) { const e = grabberTok?.actor.effects.get(grab.grabberEffectId); if (e) await safeDelete(e); }
   if (grab.grabbedEffectId) { const e = grabbedTok?.actor.effects.get(grab.grabbedEffectId); if (e) await safeDelete(e); }
-  window._activeGrabs.delete(grabbedTokenId);
 
   if (!window._activeGrabs.size) {
     removeGrabHooks();

@@ -124,6 +124,10 @@
           "NPCS": "NPCs Only"
         }
       },
+      "triggeredActionsRequireAbility": {
+        "name": "Only Track Combatants With Triggered Abilities",
+        "hint": "When enabled, the Triggered Action tracker is only applied to combatants that have at least one triggered ability on their sheet. Useful for keeping the tracker off minions and other enemies that cannot take triggered actions."
+      },
       "teleportEnabled": {
         "name": "Enable Teleport Tool",
         "hint": "Adds a teleport button to the token controls for phasing tokens across the map."

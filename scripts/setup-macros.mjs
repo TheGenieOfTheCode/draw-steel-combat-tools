@@ -196,11 +196,13 @@ await game.modules.get('draw-steel-combat-tools').api.fall(token, 0, { silent: f
 `// Teleports every token within a burst area to a new position inside that same area.
 // Control the caster token (burst center), then run.
 //
-// radius   - burst size in squares (e.g. 2 = Burst 2, a 5×5 area around the caster)
-// sourceId - (optional) explicit token ID for the caster; omit to use the controlled token
+// radius        - burst size in squares (e.g. 2 = Burst 2, a 5×5 area around the caster)
+// filter        - which tokens to include: 'all' (default), 'hero' (heroes only), 'npc' (NPCs only)
+// excludeSource - if true, the caster token is excluded from the teleport queue (default false)
+// sourceId      - (optional) explicit token ID for the caster; omit to use the controlled token
 //
 // How it works:
-//   1. All non-dead tokens within the burst are added to the queue.
+//   1. All matching non-dead tokens within the burst are added to the queue.
 //   2. Click a highlighted token to choose who teleports next.
 //   3. Click a valid (purple) square in the burst to place them there.
 //   4. Repeat until done, or press Escape to finish early.
@@ -208,6 +210,8 @@ await game.modules.get('draw-steel-combat-tools').api.fall(token, 0, { silent: f
 //      Escape during destination selection skips that token.
 await game.modules.get('draw-steel-combat-tools').api.burstTeleport({
   radius: 2,
+  filter: 'all',
+  excludeSource: false,
   // sourceId: 'paste-token-id-here',
 });`
   },
