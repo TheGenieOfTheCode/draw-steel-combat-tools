@@ -121,7 +121,7 @@ Hooks.on('renderSettingsConfig', (_app, html) => {
   bindToggle('forcedMovementEnabled', ['animationStepDelay', 'fallDamageCap', 'gmBypassesRangeCheck', 'fmModifyGmOnly']);
   bindToggle('grabEnabled', ['gmBypassesSizeCheck', 'restrictGrabButtons', 'grabbedBaneEnabled']);
   bindToggle('deathTrackerEnabled', ['deathAnimationDuration', 'clearSkullsOnCombatEnd', 'clearEffectsOnRevive', 'autoAssignDamagedMinion', 'overrideMinionDefeat']);
-  bindToggle('autoTriggeredActionsEnabled', ['autoTriggeredActionsTarget']);
+  bindToggle('autoTriggeredActionsEnabled', ['autoTriggeredActionsTarget', 'triggeredActionsRequireAbility']);
   bindToggle('bleedingEnabled', ['bleedingMode']);
   bindToggle('debugMode', ['cornerCutMode', 'legacySingleCellCollisions', 'allowCrookedPushPull']);
 

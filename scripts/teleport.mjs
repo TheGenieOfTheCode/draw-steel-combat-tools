@@ -504,10 +504,13 @@ const burstCells = (tok, radius) => {
   return cells;
 };
 
-const tokensInBurst = (sourceToken, radius) => {
+const tokensInBurst = (sourceToken, radius, filter = 'all', excludeSource = false) => {
   const burst = burstCells(sourceToken, radius);
   return canvas.tokens.placeables.filter(t => {
     if (t.actor?.statuses?.has('dead') || t.hidden) return false;
+    if (excludeSource && t.id === sourceToken.id) return false;
+    if (filter === 'hero' && t.actor?.type !== 'hero') return false;
+    if (filter === 'npc'  && t.actor?.type !== 'npc')  return false;
     const tg = toGrid(t.document);
     const w  = t.document.width  ?? 1;
     const h  = t.document.height ?? 1;
@@ -607,12 +610,12 @@ const pickBurstDestination = (sourceToken, radius, movingToken, claimed) => {
   });
 };
 
-export const runBurstTeleport = async ({ sourceId, radius = 2 } = {}) => {
+export const runBurstTeleport = async ({ sourceId, radius = 2, filter = 'all', excludeSource = false } = {}) => {
   const source = (sourceId ? getTokenById(sourceId) : null)
               ?? (canvas.tokens.controlled.length === 1 ? canvas.tokens.controlled[0] : null);
   if (!source) { ui.notifications.warn('DSCT | Burst Teleport | Select or specify a source token (the caster).'); return; }
 
-  const remaining = tokensInBurst(source, radius);
+  const remaining = tokensInBurst(source, radius, filter, excludeSource);
   if (!remaining.length) { ui.notifications.warn('DSCT | Burst Teleport | No tokens found within the burst area.'); return; }
 
   const claimed = new Set(); 

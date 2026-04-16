@@ -146,6 +146,10 @@ export const registerSettings = () => {
     },
     default: 'ALL', ...reloadOnChange
   });
+  game.settings.register(M, 'triggeredActionsRequireAbility', {
+    name: L('triggeredActionsRequireAbility.name'), hint: L('triggeredActionsRequireAbility.hint'),
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+  });
 
   game.settings.register(M, 'teleportEnabled', {
     name: L('teleportEnabled.name'), hint: L('teleportEnabled.hint'),

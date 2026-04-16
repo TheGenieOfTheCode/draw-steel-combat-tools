@@ -696,6 +696,83 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         }
       }
 
+      const tileDesc = (tiles) => {
+        const counts = {};
+        for (const t of tiles) { const m = getMaterial(t); counts[m] = (counts[m] ?? 0) + 1; }
+        return Object.entries(counts).map(([m, n]) => n > 1 ? `${n} ${m} objects` : `a ${m} object`).join(' and ');
+      };
+
+      const breakTile = async (tile) => {
+        const origMat   = getMaterial(tile);
+        const prevAlpha = tile.document.alpha ?? getMaterialAlpha(origMat);
+        const blockTag  = getTags(tile).find(t => t.startsWith('wall-block-'));
+        if (blockTag) {
+          const walls        = getByTag(blockTag).filter(o => Array.isArray(o.c));
+          const prevWallData = walls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
+          for (const wall of walls) {
+            await safeUpdate(wall, { move: 0, sight: 0, light: 0, sound: 0 });
+            if (game.user.isGM) await addTags(wall, ['broken']);
+          }
+          const ltBrokenAlpha = (hasTags(tile, 'invisible') && getSetting('keepInvisibleWhenBroken')) ? 0 : 0.8;
+          await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: ltBrokenAlpha });
+          if (game.user.isGM) await addTags(tile, ['broken']);
+          undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
+          undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
+          for (const { wall, restrict } of prevWallData) {
+            undoOps.push({ op: 'update',     uuid: wall.uuid, data: restrict });
+            undoOps.push({ op: 'removeTags', uuid: wall.uuid, tags: ['broken'] });
+          }
+        } else {
+          await safeDelete(tile.document);
+        }
+      };
+
+      const checkTileCollision = async (cells) => {
+        const hitTiles = tilesAtCells(cells).filter(tile => {
+          if (!hasTags(tile, 'obstacle') || hasTags(tile, 'broken')) return false;
+          if (isVertical) {
+            const bt     = getTags(tile).find(t => t.startsWith('wall-block-'));
+            const tws    = bt ? getByTag(bt).filter(o => Array.isArray(o.c)) : [];
+            const tBottom = tws[0]?.flags?.['wall-height']?.bottom ?? 0;
+            const tTop    = tws[0]?.flags?.['wall-height']?.top    ?? Infinity;
+            if (stepElev >= tTop || stepElev < tBottom) return false;
+          }
+          return true;
+        });
+        if (!hitTiles.length) return null;
+
+        const hardTiles = hitTiles.filter(t => !hasTags(t, 'breakable'));
+        if (hardTiles.length > 0) {
+          landingIndex = i - 1;
+          const dmg = 2 + remaining + bonusObjectDmg;
+          await dmgTarget(dmg);
+          collisionMsgs.push(`${targetToken.name} is stopped by an obstacle and takes <strong>${dmg} damage</strong>.`);
+          return 'break';
+        }
+
+        const softTiles   = hitTiles;
+        const maxTileCost = softTiles.reduce((m, t) => Math.max(m, MATERIAL_RULES()[getMaterial(t)]?.cost ?? 99), 0);
+        const maxTileDmg  = softTiles.reduce((m, t) => Math.max(m, MATERIAL_RULES()[getMaterial(t)]?.damage ?? 0), 0);
+        if (remaining >= maxTileCost) {
+          for (const tile of softTiles) await breakTile(tile);
+          const tileDmg = maxTileDmg + bonusObjectDmg;
+          collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(softTiles)} (costs ${maxTileCost}, deals <strong>${tileDmg} damage</strong>).`);
+          await dmgTarget(tileDmg);
+          if (moverWouldStop(tileDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact; movement stops.`); landingIndex = i; return 'break'; }
+          costConsumed += maxTileCost - 1;
+          return 'continue';
+        } else {
+          const brokenTiles = softTiles.filter(t => remaining >= (MATERIAL_RULES()[getMaterial(t)]?.cost ?? 99));
+          for (const tile of brokenTiles) await breakTile(tile);
+          if (brokenTiles.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(brokenTiles)}.`);
+          landingIndex = i - 1;
+          const dmg = 2 + remaining + bonusObjectDmg;
+          await dmgTarget(dmg);
+          collisionMsgs.push(`${targetToken.name} is stopped by an obstacle (needs ${maxTileCost}, has ${remaining}). Takes <strong>${dmg} damage</strong>.`);
+          return 'break';
+        }
+      };
+
       if (isLargeToken) {
         const dx        = step.x - prev.x;
         const dy        = step.y - prev.y;
@@ -824,80 +901,16 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           break;
         }
 
-        const hitTiles = tilesAtCells(stepCells).filter(tile => {
-          if (!hasTags(tile, 'obstacle') || hasTags(tile, 'broken')) return false;
-          if (isVertical) {
-            const bt  = getTags(tile).find(t => t.startsWith('wall-block-'));
-            const tws = bt ? getByTag(bt).filter(o => Array.isArray(o.c)) : [];
-            const tBottom = tws[0]?.flags?.['wall-height']?.bottom ?? 0;
-            const tTop    = tws[0]?.flags?.['wall-height']?.top    ?? Infinity;
-            if (stepElev >= tTop || stepElev < tBottom) return false;
-          }
-          return true;
-        });
-        if (hitTiles.length > 0) {
-          const tileDesc = (tiles) => {
-            const counts = {};
-            for (const t of tiles) { const m = getMaterial(t); counts[m] = (counts[m] ?? 0) + 1; }
-            return Object.entries(counts).map(([m, n]) => n > 1 ? `${n} ${m} objects` : `a ${m} object`).join(' and ');
-          };
-          const hardTiles = hitTiles.filter(t => !hasTags(t, 'breakable'));
-          if (hardTiles.length > 0) {
-            landingIndex = i - 1;
-            const dmg = 2 + remaining + bonusObjectDmg;
-            await dmgTarget(dmg);
-            collisionMsgs.push(`${targetToken.name} is stopped by an obstacle and takes <strong>${dmg} damage</strong>.`);
-            break;
-          }
-          const softTiles   = hitTiles;
-          const maxTileCost = softTiles.reduce((m, t) => Math.max(m, MATERIAL_RULES()[getMaterial(t)]?.cost ?? 99), 0);
-          const maxTileDmg  = softTiles.reduce((m, t) => Math.max(m, MATERIAL_RULES()[getMaterial(t)]?.damage ?? 0), 0);
-          const breakTile = async (tile) => {
-            const origMat  = getMaterial(tile);
-            const prevAlpha = tile.document.alpha ?? getMaterialAlpha(origMat);
-            const blockTag = getTags(tile).find(t => t.startsWith('wall-block-'));
-            if (blockTag) {
-              const walls        = getByTag(blockTag).filter(o => Array.isArray(o.c));
-              const prevWallData = walls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
-              for (const wall of walls) {
-                await safeUpdate(wall, { move: 0, sight: 0, light: 0, sound: 0 });
-                if (game.user.isGM) await addTags(wall, ['broken']);
-              }
-              const ltBrokenAlpha = (hasTags(tile, 'invisible') && getSetting('keepInvisibleWhenBroken')) ? 0 : 0.8;
-              await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: ltBrokenAlpha });
-              if (game.user.isGM) await addTags(tile, ['broken']);
-              undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
-              undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
-              for (const { wall, restrict } of prevWallData) {
-                undoOps.push({ op: 'update',     uuid: wall.uuid, data: restrict });
-                undoOps.push({ op: 'removeTags', uuid: wall.uuid, tags: ['broken'] });
-              }
-            } else {
-              await safeDelete(tile.document);
-            }
-          };
-          if (remaining >= maxTileCost) {
-            for (const tile of softTiles) await breakTile(tile);
-            const tileDmg = maxTileDmg + bonusObjectDmg;
-            collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(softTiles)} (costs ${maxTileCost}, deals <strong>${tileDmg} damage</strong>).`);
-            await dmgTarget(tileDmg);
-            if (moverWouldStop(tileDmg)) { collisionMsgs.push(`${targetToken.name} is killed by the impact; movement stops.`); landingIndex = i; break; }
-            costConsumed += maxTileCost - 1;
-            continue;
-          } else {
-            const brokenTiles = softTiles.filter(t => remaining >= (MATERIAL_RULES()[getMaterial(t)]?.cost ?? 99));
-            for (const tile of brokenTiles) await breakTile(tile);
-            if (brokenTiles.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(brokenTiles)}.`);
-            landingIndex = i - 1;
-            const dmg = 2 + remaining + bonusObjectDmg;
-            await dmgTarget(dmg);
-            collisionMsgs.push(`${targetToken.name} is stopped by an obstacle (needs ${maxTileCost}, has ${remaining}). Takes <strong>${dmg} damage</strong>.`);
-            break;
-          }
-        }
+        const tileResult = await checkTileCollision(stepCells);
+        if (tileResult === 'break') break;
+        if (tileResult === 'continue') continue;
 
-        continue; 
+        continue;
       }
+
+      const singleTileResult = await checkTileCollision([step]);
+      if (singleTileResult === 'break') break;
+      if (singleTileResult === 'continue') continue;
 
       let wall = wallBetween(prev, step);
       if (!wall && prev.x !== step.x && prev.y !== step.y) {
@@ -1192,7 +1205,9 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       : startElev;
     
     
-    const targetElev = await applyFallDamage(targetToken, finalElev, landingGrid, agility, canFly, undoOps, collisionMsgs, fallReduction, noFallDamage);
+    const targetElev = (reducedVert < 0 && finalElev <= 0)
+      ? await applyForcedFallDamage(targetToken, startElev, finalElev, landingGrid, undoOps, collisionMsgs, noFallDamage)
+      : await applyFallDamage(targetToken, finalElev, landingGrid, agility, canFly, undoOps, collisionMsgs, fallReduction, noFallDamage);
     if (getSetting('debugMode')) console.log(`DSCT | FM | finalElev=${finalElev}, targetElev=${targetElev} (after fall)`);
 
     
@@ -1373,8 +1388,9 @@ export async function runForcedMovement(macroArgs = []) {
 
     let verticalHeight = 0;
     if (verticalRaw !== undefined && verticalRaw !== '') {
-      const sign = type === 'Pull' ? -1 : 1;
-      verticalHeight = Math.abs(parseInt(verticalRaw) || 0) * sign;
+      const parsed = parseInt(verticalRaw) || 0;
+      const sign   = type === 'Pull' ? -1 : 1;
+      verticalHeight = parsed < 0 ? parsed : parsed * sign;
     }
     if (!type)           { ui.notifications.warn('Invalid type. Use Push, Pull, or Slide.'); return; }
     if (isNaN(distance)) { ui.notifications.warn('Invalid distance.'); return; }

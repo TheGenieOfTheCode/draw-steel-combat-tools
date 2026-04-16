@@ -193,7 +193,8 @@ export class ForcedMovementPanel extends Application {
       const dist = html.find('#fm-dist').val() ?? '0';
       const isVert = html.find('#fm-vert-check').is(':checked');
       const vertDist = html.find('#fm-vert-dist').val();
-      const label = (dist === '0' && isVert) ? `Execute Vertical ${type} ${vertDist || dist}` : `Execute ${isVert ? 'Vertical ' : ''}${type} ${dist}`;
+      const vertPart = isVert ? (vertDist ? `Vertical ${vertDist} ` : 'Vertical ') : '';
+      const label = `Execute ${vertPart}${type} ${dist}`;
       html.find('#fm-exec-text').text(label);
     };
     html.find('input, select').on('change input', updateExecButton);
@@ -217,9 +218,10 @@ export class ForcedMovementPanel extends Application {
 
         let verticalHeight = 0;
         if (isVertical) {
-          const sign = type === 'Pull' ? -1 : 1;
+          const sign       = type === 'Pull' ? -1 : 1;
           const parsedVert = rawVert === '' ? distance : parseInt(rawVert);
-          verticalHeight = (isNaN(parsedVert) ? distance : parsedVert) * sign;
+          const vert       = isNaN(parsedVert) ? distance : parsedVert;
+          verticalHeight   = vert < 0 ? vert : vert * sign;
         }
 
         const fallReduction = parseInt(html.find('#fm-fall-red').val()) || 0;

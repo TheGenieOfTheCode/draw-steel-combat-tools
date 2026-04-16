@@ -513,8 +513,8 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
   if (modifierStack.length > 0) replayModifiers(baseStates, modifierStack, states);
 
   const makeLabel = (st) => [
-    st.fastMove ? 'Auto'     : '',
-    st.vertical ? 'Vertical' : '',
+    st.fastMove ? 'Auto' : '',
+    st.vertical ? (st.verticalDistance !== '' ? `Vertical ${st.verticalDistance}` : 'Vertical') : '',
     `${st.movement.charAt(0).toUpperCase() + st.movement.slice(1)} ${st.distance}`,
   ].filter(Boolean).join(' ');
 

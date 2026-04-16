@@ -18,12 +18,15 @@ const getActorFromCombatant = (combatant) => {
   return token.document.actorLink ? game.actors.get(combatant.actorId) : token.actor;
 };
 
+const hasTriggeredAbility = (actor) => actor.items.some(i => i.system?.type === 'triggered');
+
 const shouldApply = (actor, mode, targetedIds = new Set()) => {
   if (!actor) return false;
+  if (getSetting('triggeredActionsRequireAbility') && !hasTriggeredAbility(actor)) return false;
   if (mode === 'HEROES')   return actor.type === 'hero';
   if (mode === 'NPCS')     return actor.type !== 'hero';
   if (mode === 'TARGETED') return targetedIds.has(actor.id);
-  return true; 
+  return true;
 };
 
 const enableEffect = async (actor) => {

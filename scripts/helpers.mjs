@@ -202,11 +202,14 @@ export const segmentsIntersect = (ax, ay, bx, by, cx, cy, dx, dy) => {
 export const wallBetween = (fromGrid, toGrid_) => {
   const from = toCenter(fromGrid);
   const to   = toCenter(toGrid_);
+  let fallback = null;
   for (const w of canvas.walls.placeables) {
     const c = w.document.c;
-    if (segmentsIntersect(from.x, from.y, to.x, to.y, c[0], c[1], c[2], c[3])) return w.document;
+    if (!segmentsIntersect(from.x, from.y, to.x, to.y, c[0], c[1], c[2], c[3])) continue;
+    if (hasTags(w.document, 'obstacle')) return w.document;
+    if (!fallback) fallback = w.document;
   }
-  return null;
+  return fallback;
 };
 
 
@@ -232,9 +235,11 @@ export const replayUndo = async (ops) => {
         case 'removeTags': await removeTags(obj, entry.tags); break;
         case 'status':     await safeToggleStatusEffect(doc, entry.effectId, { active: entry.active }); break;
         case 'stamina':
+          if (getSetting('debugMode')) console.log(`DSCT | HLP | replayUndo stamina: actorUuid=${entry.uuid} prevValue=${entry.prevValue} squadGroupUuid=${entry.squadGroupUuid} prevSquadHP=${entry.prevSquadHP} squadTokenIds=${JSON.stringify(entry.squadTokenIds)}`);
           await safeUpdate(doc, { 'system.stamina.temporary': entry.prevTemp, 'system.stamina.value': entry.prevValue });
           if (entry.squadGroupUuid && entry.prevSquadHP !== null) {
             const sg = await fromUuid(entry.squadGroupUuid);
+            if (getSetting('debugMode')) console.log(`DSCT | HLP | replayUndo stamina squad: sg found=${!!sg} currentStaminaValue=${sg?.system?.staminaValue} prevSquadHP=${entry.prevSquadHP}`);
             if (sg) await safeUpdate(sg, { 'system.staminaValue': entry.prevSquadHP });
           }
           break;
