@@ -6,4 +6,4 @@ A Foundry VTT module for the Draw Steel system that provides a suite of tools to
 
 ![TeleportDemo](https://i.ibb.co/qL17pXB5/Adobe-Express-Teleport.gif)
 
-![GrabDemo](https://i.ibb.co/qL17pXB5/Adobe-Express-Teleport.gif)
+![GrabDemo](https://i.ibb.co/d0tdFWtG/Grab.gif)
