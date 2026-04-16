@@ -1,0 +1,78 @@
+name: Release Module
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+env:
+  MODULE_ID: draw-steel-combat-tools
+  FVTT_MINIMUM: "13"
+  FVTT_VERIFIED: "14"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Update module.json with release info
+        run: |
+          jq \
+            --arg version "${{ steps.version.outputs.version }}" \
+            --arg download "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ env.MODULE_ID }}.zip" \
+            '.version = $version | .download = $download' \
+            module.json > module.json.tmp && mv module.json.tmp module.json
+
+      - name: Create module zip
+        run: |
+          zip -r ${{ env.MODULE_ID }}.zip \
+            module.json \
+            LICENSE \
+            README.md \
+            src/ \
+            styles/ \
+            templates/ \
+            lang/
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "${{ env.MODULE_ID }}.zip,module.json"
+          generateReleaseNotes: true
+          allowUpdates: true
+
+      - name: Notify Foundry Package Release API
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://foundryvtt.com/_api/packages/release_version/" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: ${{ secrets.FOUNDRY_DRAW_STEEL_COMBAT_TOOLS_RELEASE_TOKEN }}" \
+            -d '{
+              "id": "${{ env.MODULE_ID }}",
+              "release": {
+                "version": "${{ steps.version.outputs.version }}",
+                "manifest": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/module.json",
+                "notes": "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}",
+                "compatibility": {
+                  "minimum": "${{ env.FVTT_MINIMUM }}",
+                  "verified": "${{ env.FVTT_VERIFIED }}"
+                }
+              }
+            }')
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Response ($HTTP_CODE): $BODY"
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::error::Foundry API returned $HTTP_CODE"
+            exit 1
+          fi
