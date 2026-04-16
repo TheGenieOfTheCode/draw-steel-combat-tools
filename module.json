@@ -7,6 +7,8 @@
   "compatibility": { "minimum": "13", "verified": "14" },
   "authors": [{ "name": "Ady", "discord": "AdyGenie" }],
   "url": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools",
+  "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.0.0/module.json",
+  "download": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.0.0/draw-steel-combat-tools.rar",
   "relationships": {
     "systems": [{ "id": "draw-steel", "type": "system", "compatibility": {} }],
     "requires": [
