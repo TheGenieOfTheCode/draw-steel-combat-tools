@@ -1,4 +1,4 @@
-import { registerInjector, getSetting, getModuleApi, getItemDsid, palette, injectPanelChrome } from './helpers.mjs';
+import { registerInjector, getSetting, getModuleApi, getItemDsid, injectPanelChrome } from './helpers.mjs';
 
 const { ApplicationV2 } = foundry.applications.api;
 
@@ -6,8 +6,6 @@ const M = 'draw-steel-combat-tools';
 
 // -- I'm No Threat panel --
 
-const _INT_SCALE = 1.3;
-const _s = (n) => Math.round(n * _INT_SCALE);
 
 const _INT_EFFECT_ABILITY = {
   name: "I'm No Threat",
@@ -77,7 +75,7 @@ class ImNoThreatPanel extends ApplicationV2 {
     id: 'im-no-threat-panel',
     classes: ['draw-steel'],
     window: { title: "I'm No Threat", minimizable: false, resizable: false },
-    position: { width: _s(228), height: 'auto' },
+    position: { width: 296, height: 'auto' },
   };
 
   _getToken() { return canvas.tokens.placeables.find(t => t.document.actorId === this._actor.id || t.actor?.id === this._actor.id); }
@@ -104,24 +102,22 @@ class ImNoThreatPanel extends ApplicationV2 {
     const isHero   = this._actor.type === 'hero';
     const insight  = isHero ? (this._actor.system.hero.primary.value ?? 0) : (game.actors.malice?.value ?? 0);
     const el       = (id) => this.element.querySelector(id);
-    const p        = palette();
 
     const statusEl = el('#int-status-label');
-    if (statusEl) { statusEl.textContent = illusion ? (this._disguiseName ?? '') : 'No illusion active'; statusEl.style.color = illusion ? p.textActive : p.textDim; }
+    if (statusEl) { statusEl.textContent = illusion ? (this._disguiseName ?? '') : 'No illusion active'; statusEl.classList.toggle('active', illusion); }
 
     const hintEl = el('#int-revert-hint');
-    if (hintEl) hintEl.style.display = illusion ? 'block' : 'none';
+    if (hintEl) hintEl.classList.toggle('dsct-hidden', !illusion);
 
     const previewImg = el('#int-preview-img');
     if (previewImg) {
-      previewImg.src               = token?.document.texture.src ?? this._actor.prototypeToken.texture.src;
-      previewImg.style.borderColor = illusion ? p.accent : p.border;
-      previewImg.style.cursor      = illusion ? 'pointer' : 'default';
-      previewImg.dataset.action    = illusion ? 'revert' : '';
+      previewImg.src            = this._previewSrc ?? this._actor.prototypeToken.texture.src;
+      previewImg.dataset.action = illusion ? 'revert' : '';
+      previewImg.classList.toggle('active', illusion);
     }
 
     const mimicNameEl = el('#int-mimic-name');
-    if (mimicNameEl) { mimicNameEl.textContent = this._mimicName ?? 'No Target'; mimicNameEl.style.color = this._mimicName ? p.textMimic : p.textMimicDim; }
+    if (mimicNameEl) { mimicNameEl.textContent = this._mimicName ?? 'No Target'; mimicNameEl.classList.toggle('active', !!this._mimicName); }
 
     const mimicImgEl = el('#int-mimic-img');
     if (mimicImgEl) mimicImgEl.src = this._mimicSrc ?? INT_DEFAULT_ICON;
@@ -129,17 +125,11 @@ class ImNoThreatPanel extends ApplicationV2 {
     const insightEl = el('#int-insight-count');
     if (insightEl) insightEl.textContent = `(${insight})`;
 
-    const isFree   = freeMimicsByActor.has(this._actor.id);
-    const costEl   = el('#int-mimic-cost');
-    const freeEl   = el('#int-mimic-free');
-    if (costEl) costEl.style.display = isFree ? 'none' : '';
-    if (freeEl) freeEl.style.display = isFree ? '' : 'none';
-
-    const wrap = el('#int-drag-handle');
-    if (wrap) wrap.style.background = p.bg;
-
-    const preview = el('#int-preview-wrap');
-    if (preview) { preview.style.background = p.bgInner; preview.style.borderColor = p.borderPanel; }
+    const isFree = freeMimicsByActor.has(this._actor.id);
+    const costEl = el('#int-mimic-cost');
+    const freeEl = el('#int-mimic-free');
+    if (costEl) costEl.classList.toggle('dsct-hidden', isFree);
+    if (freeEl) freeEl.classList.toggle('dsct-hidden', !isFree);
   }
 
   _initVictoryHook() {
@@ -157,7 +147,6 @@ class ImNoThreatPanel extends ApplicationV2 {
 
   async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
-    const p = palette();
 
     const token      = this._getToken();
     const currentSrc = token?.document.texture.src ?? this._actor.prototypeToken.texture.src;
@@ -166,74 +155,55 @@ class ImNoThreatPanel extends ApplicationV2 {
     const insight    = isHero ? (this._actor.system.hero.primary.value ?? 0) : (game.actors.malice?.value ?? 0);
     const priLabel   = isHero ? (this._actor.system.hero.primary.label ?? 'Insight') : 'Malice';
     const mimicSrc   = this._mimicSrc ?? INT_DEFAULT_ICON;
+    const isFree     = freeMimicsByActor.has(this._actor.id);
 
     const animalBtns = getAnimals().map(a => `
-      <div data-action="apply-animal" data-animal-id="${a.id}"
-        style="display:flex;flex-direction:column;align-items:center;gap:${_s(2)}px;cursor:pointer;
-        padding:${_s(3)}px;border-radius:${_s(3)}px;border:1px solid ${p.border};background:transparent;">
-        <img src="${a.src}" style="width:${_s(40)}px;height:${_s(40)}px;border-radius:${_s(2)}px;pointer-events:none;object-fit:contain;">
-        <div style="font-size:${_s(7)}px;color:${p.animalLabel};pointer-events:none;text-align:center;">${a.name}</div>
+      <div data-action="apply-animal" data-animal-id="${a.id}" class="dsct-int-animal-btn">
+        <img src="${a.src}" class="dsct-int-animal-icon">
+        <div class="dsct-int-animal-name">${a.name}</div>
       </div>`).join('');
 
     return `
-      <div style="padding:${_s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${_s(3)}px;cursor:move;" id="int-drag-handle">
+      <div class="dsct-panel" id="int-drag-handle">
 
-        <div style="display:flex;align-items:center;gap:${_s(6)}px;margin-bottom:${_s(6)}px;">
-          <button data-action="close-window"
-            style="width:${_s(16)}px;height:${_s(16)}px;flex-shrink:0;cursor:pointer;
-            background:${p.bgBtn};border:1px solid ${p.border};color:${p.closeFg};border-radius:2px;
-            display:flex;align-items:center;justify-content:center;font-size:${_s(9)}px;padding:0;"
-            onmouseover="this.style.color='${p.textActive}'" onmouseout="this.style.color='${p.closeFg}'">x</button>
-          <div style="font-size:${_s(8)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">I'm No Threat</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <button data-action="close-window" class="dsct-close-btn" style="margin-left:0;width:21px;height:21px;font-size:12px;">x</button>
+          <div class="dsct-panel-title">I'm No Threat</div>
         </div>
 
-        <div id="int-preview-wrap" style="display:flex;align-items:center;gap:${_s(8)}px;padding:${_s(6)}px;margin-bottom:${_s(6)}px;
-          border:1px solid ${p.borderPanel};border-radius:${_s(3)}px;background:${p.bgInner};">
+        <div id="int-preview-wrap" class="dsct-int-preview-wrap">
           <img id="int-preview-img" src="${currentSrc}" data-action="${illusion ? 'revert' : ''}"
-            style="width:${_s(52)}px;height:${_s(52)}px;border-radius:${_s(3)}px;object-fit:contain;flex-shrink:0;
-            border:2px solid ${illusion ? p.accent : p.border};
-            cursor:${illusion ? 'pointer' : 'default'};background:${p.bgBtn};">
+            class="dsct-int-preview-img${illusion ? ' active' : ''}">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:${_s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textDim};">Appearance</div>
-            <div id="int-status-label"
-              style="font-size:${_s(10)}px;color:${illusion ? p.textActive : p.textDim};margin-top:${_s(2)}px;word-break:break-word;">
+            <div class="dsct-int-appearance-label">Appearance</div>
+            <div id="int-status-label" class="dsct-int-status-label${illusion ? ' active' : ''}">
               ${illusion ? (this._disguiseName ?? '') : 'No illusion active'}
             </div>
-            <div id="int-revert-hint"
-              style="font-size:${_s(8)}px;color:${p.textDim};margin-top:${_s(2)}px;display:${illusion ? 'block' : 'none'};">
+            <div id="int-revert-hint" class="dsct-int-revert-hint${illusion ? '' : ' dsct-hidden'}">
               Click image to revert
             </div>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:${_s(3)}px;margin-bottom:${_s(6)}px;">
-          ${animalBtns}
-        </div>
+        <div class="dsct-int-animal-grid">${animalBtns}</div>
 
-        <div style="display:flex;gap:${_s(3)}px;">
-          <div data-action="apply-random"
-            style="flex:none;width:calc((100% - ${3 * _s(3)}px) / 4);display:flex;flex-direction:column;align-items:center;gap:${_s(2)}px;
-            padding:${_s(3)}px;border-radius:${_s(3)}px;cursor:pointer;
-            background:${p.bgBtn};border:1px solid ${p.border};">
-            <img src="icons/magic/symbols/question-stone-yellow.webp" style="width:${_s(40)}px;height:${_s(40)}px;border-radius:${_s(2)}px;object-fit:contain;pointer-events:none;">
-            <div style="font-size:${_s(7)}px;color:${p.text};pointer-events:none;text-align:center;">Random</div>
+        <div class="dsct-int-bottom-row">
+          <div data-action="apply-random" class="dsct-int-animal-btn dsct-int-random-btn" style="width:calc((100% - 12px) / 4);flex:none;">
+            <img src="icons/magic/symbols/question-stone-yellow.webp" class="dsct-int-animal-icon">
+            <div class="dsct-int-animal-name">Random</div>
           </div>
 
-          <div data-action="apply-mimic"
-            style="flex:1;display:flex;align-items:center;gap:${_s(5)}px;cursor:pointer;
-            padding:${_s(4)}px ${_s(6)}px;border-radius:${_s(3)}px;border:1px solid ${p.border};background:${p.bgBtn};">
-            <img id="int-mimic-img" src="${mimicSrc}"
-              style="width:${_s(32)}px;height:${_s(32)}px;border-radius:${_s(2)}px;flex-shrink:0;object-fit:contain;pointer-events:none;">
+          <div data-action="apply-mimic" class="dsct-int-mimic-btn">
+            <img id="int-mimic-img" src="${mimicSrc}" class="dsct-int-mimic-icon">
             <div style="pointer-events:none;min-width:0;">
-              <div style="font-size:${_s(8)}px;color:${p.mimicLabel};">Mimic</div>
-              <div id="int-mimic-name"
-                style="font-size:${_s(8)}px;color:${this._mimicName ? p.textMimic : p.textMimicDim};word-break:break-word;">
+              <div class="dsct-int-mimic-label">Mimic</div>
+              <div id="int-mimic-name" class="dsct-int-mimic-name${this._mimicName ? ' active' : ''}">
                 ${this._mimicName ?? 'No Target'}
               </div>
-              <div id="int-mimic-cost" style="font-size:${_s(7)}px;color:${p.textDim};display:${freeMimicsByActor.has(this._actor.id) ? 'none' : ''};">
+              <div id="int-mimic-cost" class="dsct-int-mimic-cost${isFree ? ' dsct-hidden' : ''}">
                 1 ${priLabel} <span id="int-insight-count">(${insight})</span>
               </div>
-              <div id="int-mimic-free" style="font-size:${_s(7)}px;color:${p.accent};display:${freeMimicsByActor.has(this._actor.id) ? '' : 'none'};">
+              <div id="int-mimic-free" class="dsct-int-mimic-free${isFree ? '' : ' dsct-hidden'}">
                 Free (spent Insight)
               </div>
             </div>
@@ -316,6 +286,7 @@ class ImNoThreatPanel extends ApplicationV2 {
     if (this._illusionActive) await this._endIllusion(false);
     await token.document.update({ ...snapAppearance(this._actor.prototypeToken), 'texture.src': animal.src, 'texture.scaleX': 1, 'texture.scaleY': 1 });
     const name = `${animal.emoji} ${animal.name}`;
+    this._previewSrc = animal.src;
     await this._activateIllusion(name, animal.id);
     const animalMsg = await ChatMessage.create({ content: `<strong>I'm No Threat</strong> <em>${this._actor.name} takes on the appearance of a <strong>${name}</strong>.</em><br><br>Strikes gain an edge, and Disengage gains +1 distance.`, flags: { [M]: { intIllusion: { actorId: this._actor.id } } } });
     this._illusionMsgId = animalMsg?.id ?? null;
@@ -368,7 +339,8 @@ class ImNoThreatPanel extends ApplicationV2 {
     }
 
     if (this._illusionActive) await this._endIllusion(false);
-    await token.document.update({ ...snapAppearance(targetToken.document), 'texture.scaleX': 1, 'texture.scaleY': 1 });
+    await token.document.update(snapAppearance(targetToken.document));
+    this._previewSrc = targetToken.document.texture.src;
     await this._activateIllusion(targetToken.name, 'mimic');
 
     const mimicMsg = await ChatMessage.create({ content: `<strong>I'm No Threat</strong> <em>${this._actor.name} appears as <strong>${targetToken.name}</strong>, their allies may mistake ${this._actor.name} for the real thing.</em><br><br>This illusion covers your entire body, including clothing and armor, and alters your voice to sound like that of the creature. You gain an edge on tests made to convince the creature's allies that you are the creature.<br><br>Strikes gain an edge, and Disengage gains +1 distance.`, flags: { [M]: { intIllusion: { actorId: this._actor.id } } } });
@@ -399,7 +371,7 @@ class ImNoThreatPanel extends ApplicationV2 {
     });
   }
 
-  _clearIllusionState() { this._illusionActive = false; this._disguiseName = null; this._activeId = null; this._illusionMsgId = null; }
+  _clearIllusionState() { this._illusionActive = false; this._disguiseName = null; this._activeId = null; this._illusionMsgId = null; this._previewSrc = null; }
 
   async _endIllusion(withSurge = false) {
     revertingActors.add(this._actor.id);
@@ -660,14 +632,14 @@ export const registerAbilityInjectors = () => {
 
 
 export const INT_ANIMAL_DEFAULTS = [
-  { id: 'bullfrog',  name: 'Bullfrog',  src: 'icons/creatures/amphibians/bullfrog-glowing-green.webp',         emoji: '??' },
-  { id: 'chicken',   name: 'Chicken',   src: 'icons/creatures/birds/chicken-hen-white.webp',                   emoji: '??' },
-  { id: 'crab',      name: 'Crab',      src: 'icons/creatures/fish/crab-blue-purple.webp',                     emoji: '??' },
-  { id: 'cat',       name: 'Cat',       src: 'icons/creatures/mammals/cat-hunched-glowing-red.webp',           emoji: '??' },
-  { id: 'dog',       name: 'Dog',       src: 'icons/creatures/mammals/dog-husky-white-blue.webp',              emoji: '??' },
-  { id: 'rat',       name: 'Rat',       src: 'icons/creatures/mammals/rodent-rat-diseaed-gray.webp',           emoji: '??' },
-  { id: 'rabbit',    name: 'Rabbit',    src: 'icons/creatures/mammals/rabbit-movement-glowing-green.webp',     emoji: '??' },
-  { id: 'chameleon', name: 'Chameleon', src: 'icons/creatures/reptiles/chameleon-camouflage-green-brown.webp', emoji: '??' },
+  { id: 'bullfrog',  name: 'Bullfrog',  src: 'icons/creatures/amphibians/bullfrog-glowing-green.webp',         emoji: '🐸' },
+  { id: 'chicken',   name: 'Chicken',   src: 'icons/creatures/birds/chicken-hen-white.webp',                   emoji: '🐔' },
+  { id: 'crab',      name: 'Crab',      src: 'icons/creatures/fish/crab-blue-purple.webp',                     emoji: '🦀' },
+  { id: 'cat',       name: 'Cat',       src: 'icons/creatures/mammals/cat-hunched-glowing-red.webp',           emoji: '🐱' },
+  { id: 'dog',       name: 'Dog',       src: 'icons/creatures/mammals/dog-husky-white-blue.webp',              emoji: '🐕' },
+  { id: 'rat',       name: 'Rat',       src: 'icons/creatures/mammals/rodent-rat-diseaed-gray.webp',           emoji: '🐀' },
+  { id: 'rabbit',    name: 'Rabbit',    src: 'icons/creatures/mammals/rabbit-movement-glowing-green.webp',     emoji: '🐇' },
+  { id: 'chameleon', name: 'Chameleon', src: 'icons/creatures/reptiles/chameleon-camouflage-green-brown.webp', emoji: '🦎' },
 ];
 
 export const getAnimals = () => {
@@ -677,96 +649,96 @@ export const getAnimals = () => {
 
 
 const INT_EMOJI_LIST = [
-  ['??','dog puppy canine'],          ['??','cat kitten feline'],
-  ['??','mouse rodent'],              ['??','hamster rodent'],
-  ['??','rabbit bunny hare'],         ['??','rabbit bunny hare'],
-  ['??','dog canine'],                ['??','poodle dog'],
-  ['??','guide dog service'],         ['??','cat feline'],
-  ['????','black cat feline'],
-  ['??','fox'],                       ['??','bear'],
-  ['??','panda bear'],                ['??','koala'],
-  ['??','tiger'],                     ['??','lion'],
-  ['??','cow bull bovine'],           ['??','pig hog pork'],
-  ['??','horse'],                     ['??','unicorn horse'],
-  ['??','wolf'],                      ['??','boar pig wild'],
-  ['??','monkey'],                    ['??','monkey see no evil'],
-  ['??','monkey hear no evil'],       ['??','monkey speak no evil'],
-  ['??','gorilla ape'],               ['??','orangutan ape'],
-  ['??','mammoth elephant'],          ['??','elephant'],
-  ['??','rhinoceros rhino'],          ['??','rhinoceros rhino'],
-  ['??','camel dromedary'],           ['??','camel bactrian hump'],
-  ['??','giraffe'],                   ['??','kangaroo'],
-  ['??','bison buffalo'],             ['??','water buffalo bovine'],
-  ['??','bull ox bovine'],            ['??','cow bovine'],
-  ['??','horse equine'],              ['??','pig hog'],
-  ['??','ram sheep'],                 ['??','sheep ewe lamb'],
-  ['??','llama'],                     ['??','goat'],
-  ['??','deer stag reindeer'],        ['??','raccoon'],
-  ['??','skunk'],                     ['??','badger'],
-  ['??','beaver'],                    ['??','otter'],
-  ['??','sloth'],                     ['??','mouse rodent'],
-  ['??','rat rodent'],                ['???','chipmunk squirrel'],
-  ['??','hedgehog'],                  ['??','tiger big cat'],
-  ['??','leopard cheetah panther'],   ['??','zebra'],
-  ['??','gorilla primate'],
-  ['??','chicken hen'],               ['??','penguin'],
-  ['??','bird'],                      ['??','chick baby bird'],
-  ['??','duck waterfowl'],            ['??','eagle raptor'],
-  ['??','owl'],                       ['??','bat'],
-  ['??','parrot'],                    ['??','swan'],
-  ['??','flamingo'],                  ['???','dove pigeon peace'],
-  ['??','rooster chicken'],           ['??','turkey'],
-  ['??','dodo bird'],                 ['??','peacock'],
-  ['??','feather bird'],              ['????','raven crow black bird'],
-  ['??','frog toad amphibian bullfrog'], ['??','turtle tortoise'],
-  ['??','snake serpent'],             ['??','lizard reptile chameleon'],
-  ['??','dinosaur t-rex'],            ['??','dinosaur sauropod brontosaurus'],
-  ['??','crocodile alligator'],       ['??','dragon'],
-  ['??','dragon'],
-  ['??','octopus'],                   ['??','squid'],
-  ['??','shrimp prawn'],              ['??','lobster'],
-  ['??','crab'],                      ['??','blowfish puffer'],
-  ['??','tropical fish'],             ['??','fish'],
-  ['??','dolphin'],                   ['??','whale'],
-  ['??','whale'],                     ['??','shark'],
-  ['??','seal'],
-  ['??','bee honeybee'],              ['??','worm'],
-  ['??','caterpillar bug larva'],     ['??','butterfly'],
-  ['??','snail'],                     ['??','ladybug ladybird beetle'],
-  ['??','ant'],                       ['??','mosquito'],
-  ['??','cricket grasshopper'],       ['??','scorpion'],
-  ['???','spider'],                   ['??','beetle bug'],
-  ['??','cockroach bug'],             ['??','microbe germ bacteria virus'],
-  ['??','herb plant leaf'],           ['??','mushroom fungus'],
-  ['??','shell spiral'],              ['??','flower hibiscus'],
-  ['??','blossom cherry flower'],     ['??','sunflower'],
-  ['??','rose flower'],               ['??','cactus'],
-  ['??','tree pine evergreen'],       ['??','tree deciduous'],
-  ['??','clover shamrock'],           ['??','coral reef'],
-  ['??','sheaf wheat grain'],         ['??','rock stone'],
-  ['??','dragon fantasy'],            ['??','unicorn'],
-  ['??','ghost spirit'],              ['??','skull death'],
-  ['??','skull crossbones poison'],   ['??','masks theater drama'],
-  ['??','joker card wild'],           ['??','top hat magic'],
-  ['??','magic wand'],               ['??','crystal ball magic'],
-  ['??','wizard mage sorcerer'],      ['??','elf'],
-  ['??','zombie undead'],             ['??','vampire'],
-  ['??','mermaid fish human'],        ['??','fairy'],
-  ['??','sword crossed weapons'],     ['???','dagger knife'],
-  ['??','bow arrow archery'],         ['???','shield defense'],
-  ['??','boomerang'],                 ['??','trident'],
-  ['??','fire flame'],                ['??','water drop'],
-  ['??','snowflake ice cold'],        ['?','lightning bolt electric'],
-  ['??','wave water ocean'],          ['??','moon crescent night'],
-  ['?','star'],                      ['??','glowing star'],
-  ['??','dizzy star'],                ['??','rainbow'],
-  ['???','tornado wind'],             ['??','cloud'],
-  ['??','new moon dark'],             ['??','sun'],
-  ['??','dice random'],               ['??','circus tent'],
-  ['??','egg'],                       ['??','nest'],
-  ['??','bone'],                      ['??','paw footprint'],
-  ['??','cyclone spiral'],            ['???','eye watching'],
-  ['??','heart organ'],               ['??','brain mind'],
+  ['🐕','dog puppy canine'],          ['🐈','cat kitten feline'],
+  ['🐭','mouse rodent'],              ['🐹','hamster rodent'],
+  ['🐰','rabbit bunny hare'],         ['🐇','rabbit bunny hare'],
+  ['🐶','dog canine'],                ['🐩','poodle dog'],
+  ['🦮','guide dog service'],         ['🐱','cat feline'],
+  ['🐈‍⬛','black cat feline'],
+  ['🦊','fox'],                       ['🐻','bear'],
+  ['🐼','panda bear'],                ['🐨','koala'],
+  ['🐯','tiger'],                     ['🦁','lion'],
+  ['🐮','cow bull bovine'],           ['🐷','pig hog pork'],
+  ['🐴','horse'],                     ['🦄','unicorn horse'],
+  ['🐺','wolf'],                      ['🐗','boar pig wild'],
+  ['🐵','monkey'],                    ['🙈','monkey see no evil'],
+  ['🙉','monkey hear no evil'],       ['🙊','monkey speak no evil'],
+  ['🦍','gorilla ape'],               ['🦧','orangutan ape'],
+  ['🦣','mammoth elephant'],          ['🐘','elephant'],
+  ['🦏','rhinoceros rhino'],          ['🦛','hippo rhinoceros'],
+  ['🐪','camel dromedary'],           ['🐫','camel bactrian hump'],
+  ['🦒','giraffe'],                   ['🦘','kangaroo'],
+  ['🦬','bison buffalo'],             ['🐃','water buffalo bovine'],
+  ['🐂','bull ox bovine'],            ['🐄','cow bovine'],
+  ['🐎','horse equine'],              ['🐖','pig hog'],
+  ['🐏','ram sheep'],                 ['🐑','sheep ewe lamb'],
+  ['🦙','llama'],                     ['🐐','goat'],
+  ['🦌','deer stag reindeer'],        ['🦝','raccoon'],
+  ['🦨','skunk'],                     ['🦡','badger'],
+  ['🦫','beaver'],                    ['🦦','otter'],
+  ['🦥','sloth'],                     ['🐁','mouse rodent'],
+  ['🐀','rat rodent'],                ['🐿️','chipmunk squirrel'],
+  ['🦔','hedgehog'],                  ['🐅','tiger big cat'],
+  ['🐆','leopard cheetah panther'],   ['🦓','zebra'],
+  ['🦍','gorilla primate'],
+  ['🐔','chicken hen'],               ['🐧','penguin'],
+  ['🐦','bird'],                      ['🐤','chick baby bird'],
+  ['🦆','duck waterfowl'],            ['🦅','eagle raptor'],
+  ['🦉','owl'],                       ['🦇','bat'],
+  ['🦜','parrot'],                    ['🦢','swan'],
+  ['🦩','flamingo'],                  ['🕊️','dove pigeon peace'],
+  ['🐓','rooster chicken'],           ['🦃','turkey'],
+  ['🦤','dodo bird'],                 ['🦚','peacock'],
+  ['🪶','feather bird'],              ['🐦‍⬛','raven crow black bird'],
+  ['🐸','frog toad amphibian bullfrog'], ['🐢','turtle tortoise'],
+  ['🐍','snake serpent'],             ['🦎','lizard reptile chameleon'],
+  ['🦖','dinosaur t-rex'],            ['🦕','dinosaur sauropod brontosaurus'],
+  ['🐊','crocodile alligator'],       ['🐲','dragon'],
+  ['🐉','dragon'],
+  ['🐙','octopus'],                   ['🦑','squid'],
+  ['🦐','shrimp prawn'],              ['🦞','lobster'],
+  ['🦀','crab'],                      ['🐡','blowfish puffer'],
+  ['🐠','tropical fish'],             ['🐟','fish'],
+  ['🐬','dolphin'],                   ['🐋','whale'],
+  ['🐳','whale'],                     ['🦈','shark'],
+  ['🦭','seal'],
+  ['🐝','bee honeybee'],              ['🪱','worm'],
+  ['🐛','caterpillar bug larva'],     ['🦋','butterfly'],
+  ['🐌','snail'],                     ['🐞','ladybug ladybird beetle'],
+  ['🐜','ant'],                       ['🦟','mosquito'],
+  ['🦗','cricket grasshopper'],       ['🦂','scorpion'],
+  ['🕷️','spider'],              ['🪲','beetle bug'],
+  ['🪳','cockroach bug'],             ['🦠','microbe germ bacteria virus'],
+  ['🌿','herb plant leaf'],           ['🍄','mushroom fungus'],
+  ['🐚','shell spiral'],              ['🌺','flower hibiscus'],
+  ['🌸','blossom cherry flower'],     ['🌻','sunflower'],
+  ['🌹','rose flower'],               ['🌵','cactus'],
+  ['🌲','tree pine evergreen'],       ['🌳','tree deciduous'],
+  ['🍀','clover shamrock'],           ['🪸','coral reef'],
+  ['🌾','sheaf wheat grain'],         ['🪨','rock stone'],
+  ['🐲','dragon fantasy'],            ['🦄','unicorn'],
+  ['👻','ghost spirit'],              ['💀','skull death'],
+  ['☠️','skull crossbones poison'], ['🎭','masks theater drama'],
+  ['🃏','joker card wild'],           ['🎩','top hat magic'],
+  ['🪄','magic wand'],               ['🔮','crystal ball magic'],
+  ['🧙','wizard mage sorcerer'],      ['🧝','elf'],
+  ['🧟','zombie undead'],             ['🧛','vampire'],
+  ['🧜','mermaid fish human'],        ['🧚','fairy'],
+  ['⚔️','sword crossed weapons'],   ['🗡️','dagger knife'],
+  ['🏹','bow arrow archery'],         ['🛡️','shield defense'],
+  ['🪃','boomerang'],                 ['🔱','trident'],
+  ['🔥','fire flame'],                ['💧','water drop'],
+  ['❄️','snowflake ice cold'],      ['⚡','lightning bolt electric'],
+  ['🌊','wave water ocean'],          ['🌙','moon crescent night'],
+  ['⭐','star'],                         ['🌟','glowing star'],
+  ['💫','dizzy star'],                ['🌈','rainbow'],
+  ['🌪️','tornado wind'],        ['☁️','cloud'],
+  ['🌑','new moon dark'],             ['☀️','sun'],
+  ['🎲','dice random'],               ['🎪','circus tent'],
+  ['🥚','egg'],                       ['🪹','nest'],
+  ['🦴','bone'],                      ['🐾','paw footprint'],
+  ['🌀','cyclone spiral'],            ['👁️','eye watching'],
+  ['🫀','heart organ'],               ['🧠','brain mind'],
 ];
 
 let _pickerEl   = null;
@@ -779,42 +751,20 @@ const _buildGrid = (filter) => {
   const grid = document.getElementById('dsct-int-epicker-grid');
   if (!grid) return;
   grid.innerHTML = list.map(([e]) =>
-    `<button type="button" class="dsct-int-ep-btn" title="${e}"
-      style="font-size:20px;line-height:1;padding:4px;border:1px solid transparent;border-radius:4px;
-             background:none;cursor:pointer;width:34px;height:34px;"
-      onmouseover="this.style.borderColor='var(--dsct-ep-accent,#7a50c0)'"
-      onmouseout="this.style.borderColor='transparent'"
-      data-emoji="${e}">${e}</button>`
+    `<button type="button" class="dsct-emoji-btn" title="${e}" data-emoji="${e}">${e}</button>`
   ).join('');
 };
 
 const _getOrCreatePicker = () => {
   if (_pickerEl) return _pickerEl;
-  const p   = document.body.classList.contains('theme-dark');
-  const bg  = p ? '#0e0c14' : '#f0eef8';
-  const bdr = p ? '#2a2040' : '#b0a8cc';
-  const bo  = p ? '#4a3870' : '#7060a8';
-  const txt = p ? '#8a88a0' : '#3a3060';
-  const btn = p ? '#1a1628' : '#dbd8ec';
 
   const el  = document.createElement('div');
   el.id     = 'dsct-int-emoji-picker';
-  el.style.cssText = [
-    `position:fixed;z-index:10000;display:none`,
-    `background:${bg};border:1px solid ${bo};border-radius:6px`,
-    `box-shadow:0 4px 18px rgba(0,0,0,0.5);padding:8px`,
-    `width:280px;font-family:Georgia,serif`,
-  ].join(';');
-  el.style.setProperty('--dsct-ep-accent', '#7a50c0');
+  el.className = 'dsct-emoji-picker';
 
   el.innerHTML = `
-    <input id="dsct-int-epicker-search" type="text" placeholder="Search emojis�"
-      style="width:100%;box-sizing:border-box;padding:5px 8px;margin-bottom:6px;
-             background:${btn};border:1px solid ${bdr};border-radius:4px;
-             color:${txt};font-family:Georgia,serif;font-size:0.9em;outline:none;">
-    <div id="dsct-int-epicker-grid"
-      style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;
-             max-height:220px;overflow-y:auto;"></div>`;
+    <input id="dsct-int-epicker-search" type="text" placeholder="Search emojis" class="dsct-emoji-picker-search">
+    <div id="dsct-int-epicker-grid" class="dsct-emoji-grid"></div>`;
 
   document.body.appendChild(el);
 
@@ -870,36 +820,26 @@ const _openPicker = (triggerEl, onSelect) => {
 // -- Settings UI --
 
 const DEFAULT_ICON = 'icons/creatures/mammals/humanoid-fox-cat-archer.webp';
-const buildRow = (idx, animal, p) => `
+const buildRow = (idx, animal) => `
   <tr>
     <td style="text-align:center;padding:4px 6px;">
-      <button type="button" class="dsct-int-icon-pick" data-idx="${idx}" title="Click to change icon"
-        style="width:34px;height:34px;padding:2px;border-radius:3px;cursor:pointer;
-               background:${p.bgBtn};border:1px solid ${p.border};
-               display:inline-flex;align-items:center;justify-content:center;">
+      <button type="button" class="dsct-int-icon-pick" data-idx="${idx}" title="Click to change icon">
         <img src="${animal.src || DEFAULT_ICON}" style="width:28px;height:28px;object-fit:contain;pointer-events:none;border-radius:2px;">
       </button>
       <input type="hidden" name="src-${idx}"  value="${animal.src || DEFAULT_ICON}">
       <input type="hidden" name="anid-${idx}" value="${animal.id}">
     </td>
     <td style="padding:4px 6px;">
-      <input type="text" name="name-${idx}" value="${animal.name}" placeholder="Name�"
-        style="width:100%;box-sizing:border-box;text-align:center;background:${p.bgBtn};border:1px solid ${p.border};
-               color:${p.accent};font-weight:bold;border-radius:3px;padding:4px 6px;">
+      <input type="text" name="name-${idx}" value="${animal.name}" placeholder="Name" class="dsct-name-input">
     </td>
     <td style="text-align:center;padding:4px 6px;">
-      <button type="button" class="dsct-int-emoji-trigger" data-idx="${idx}" title="Pick emoji"
-        style="width:52px;height:34px;font-size:20px;cursor:pointer;border-radius:3px;
-               background:${p.bgBtn};border:1px solid ${p.border};
-               display:inline-flex;align-items:center;justify-content:center;">
+      <button type="button" class="dsct-int-emoji-trigger" data-idx="${idx}" title="Pick emoji">
         ${animal.emoji || '+'}
       </button>
       <input type="hidden" name="emoji-${idx}" value="${animal.emoji ?? ''}">
     </td>
     <td style="text-align:center;padding:4px 6px;">
-      <button type="button" class="dsct-int-delete-animal" title="Remove animal"
-        style="padding:3px 8px;border-radius:3px;cursor:pointer;background:${p.bgBtn};
-               border:1px solid ${p.border};color:${p.textDim};">
+      <button type="button" class="dsct-int-delete-animal dsct-delete-btn" title="Remove animal">
         <i class="fa-solid fa-trash-can"></i>
       </button>
     </td>
@@ -922,40 +862,41 @@ export class ImNoThreatSettingsMenu extends FormApplication {
 
   async _renderInner(data) {
     const { animals } = data;
-    const p = palette();
 
     const styleId = 'dsct-int-settings-style';
     const styleEl = document.getElementById(styleId)
       ?? document.head.appendChild(Object.assign(document.createElement('style'), { id: styleId }));
     styleEl.textContent = `
-      #dsct-int-settings .window-content { background:${p.bg}; color:${p.text}; font-family:Georgia,serif; }
-      #dsct-int-settings { border:1px solid ${p.borderOuter}; box-shadow:0 0 14px rgba(0,0,0,0.45); }
-      #dsct-int-settings .window-header { background:${p.bg}; border-bottom:1px solid ${p.border}; color:${p.accent}; }
-      #dsct-int-settings .window-header a { color:${p.textDim}; }
-      #dsct-int-settings .window-header a:hover { color:${p.text}; }
+      #dsct-int-settings .window-content { background:var(--dsct-bg); color:var(--dsct-text); font-family:Georgia,serif; }
+      #dsct-int-settings { border:1px solid var(--dsct-borderOuter); box-shadow:0 0 14px rgba(0,0,0,0.45); }
+      #dsct-int-settings .window-header { background:var(--dsct-bg); border-bottom:1px solid var(--dsct-border); color:var(--dsct-accent); }
+      #dsct-int-settings .window-header a { color:var(--dsct-textDim); }
+      #dsct-int-settings .window-header a:hover { color:var(--dsct-text); }
       #dsct-int-settings input[type="text"] {
-        background:${p.bgBtn}; border:1px solid ${p.border}; color:${p.text};
+        background:var(--dsct-bgBtn); border:1px solid var(--dsct-border); color:var(--dsct-text);
         border-radius:3px; padding:4px 6px; font-family:Georgia,serif;
       }
-      #dsct-int-settings input:focus { border-color:${p.accent}; outline:none; }
+      #dsct-int-settings input:focus { border-color:var(--dsct-accent); outline:none; }
       #dsct-int-settings th {
-        color:${p.textLabel}; text-transform:uppercase; font-size:0.75em; letter-spacing:0.6px;
-        border-bottom:1px solid ${p.border}; padding:6px 8px; text-align:center; font-weight:bold;
+        color:var(--dsct-textLabel); text-transform:uppercase; font-size:0.75em; letter-spacing:0.6px;
+        border-bottom:1px solid var(--dsct-border); padding:6px 8px; text-align:center; font-weight:bold;
       }
-      #dsct-int-settings td { border-bottom:1px solid ${p.border}22; }
+      #dsct-int-settings td { border-bottom:1px solid var(--dsct-border-alpha22, color-mix(in srgb, var(--dsct-border) 13%, transparent)); }
       #dsct-int-settings button {
-        background:${p.bgBtn}; border:1px solid ${p.border}; color:${p.text};
+        background:var(--dsct-bgBtn); border:1px solid var(--dsct-border); color:var(--dsct-text);
         border-radius:3px; cursor:pointer; padding:5px 14px; font-family:Georgia,serif;
       }
-      #dsct-int-settings button:hover { border-color:${p.accent}; color:${p.accent}; }
+      #dsct-int-settings button:hover { border-color:var(--dsct-accent); color:var(--dsct-accent); }
       #dsct-int-settings .dsct-int-delete-animal:hover { border-color:#cc4444 !important; color:#cc4444 !important; }
-      #dsct-int-settings .dsct-int-icon-pick:hover  { border-color:${p.accent} !important; }
-      #dsct-int-settings .dsct-int-emoji-trigger:hover { border-color:${p.accent} !important; }
-      #dsct-int-settings #dsct-int-save-btn { border-color:${p.accent}; color:${p.accent}; }
+      #dsct-int-settings button.dsct-int-icon-pick { width:34px; height:34px; padding:2px; }
+      #dsct-int-settings button.dsct-int-emoji-trigger { width:52px; height:34px; padding:0; }
+      #dsct-int-settings .dsct-int-icon-pick:hover  { border-color:var(--dsct-accent) !important; }
+      #dsct-int-settings .dsct-int-emoji-trigger:hover { border-color:var(--dsct-accent) !important; }
+      #dsct-int-settings #dsct-int-save-btn { border-color:var(--dsct-accent); color:var(--dsct-accent); }
       #dsct-int-settings .dsct-int-table-scroll { max-height:360px; overflow-y:auto; }
     `;
 
-    const rows = animals.map((a, idx) => buildRow(idx, a, p)).join('');
+    const rows = animals.map((a, idx) => buildRow(idx, a)).join('');
 
     return $(`<div style="padding:14px;">
       <div class="dsct-int-table-scroll">
@@ -1009,14 +950,13 @@ export class ImNoThreatSettingsMenu extends FormApplication {
     });
 
     html.find('#dsct-int-add-btn').on('click', () => {
-      const p = palette();
       const tbody = html.find('#dsct-int-animal-tbody');
       const maxIdx = Math.max(-1, ...tbody.find('tr').map((_, tr) => {
         const inp = $(tr).find('[name^="anid-"]')[0];
         return inp ? (parseInt(inp.name.replace('anid-', '')) || 0) : -1;
       }).get());
       const idx = maxIdx + 1;
-      tbody.append(buildRow(idx, { id: foundry.utils.randomID(), name: '', src: DEFAULT_ICON, emoji: '' }, p));
+      tbody.append(buildRow(idx, { id: foundry.utils.randomID(), name: '', src: DEFAULT_ICON, emoji: '' }));
     });
 
     html.find('#dsct-int-reset-btn').on('click', async () => {

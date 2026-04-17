@@ -1,5 +1,5 @@
 import { applyGrab, buildFreeStrikeButton, sizeRankG } from './grab.mjs';
-import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, getSquadGroup, s, palette, injectPanelChrome } from './helpers.mjs';
+import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, getSquadGroup, injectPanelChrome } from './helpers.mjs';
 
 const { ApplicationV2 } = foundry.applications.api;
 import { registerAbilityInjectors } from './ability-automation.mjs';
@@ -143,7 +143,7 @@ class FmModifyPanel extends ApplicationV2 {
     id: 'dsct-fm-modify',
     classes: ['draw-steel'],
     window: { title: 'Modify Forced Movement', minimizable: false, resizable: false },
-    position: { width: s(260), height: 'auto' },
+    position: { width: 312, height: 'auto' },
   };
 
   async close(options = {}) {
@@ -171,55 +171,54 @@ class FmModifyPanel extends ApplicationV2 {
   async _renderHTML(_context, _options) {
     console.log(`DSCT | FmModifyPanel._renderHTML | effects=${this._effects.length} msgId=${this._msgEl?.dataset?.messageId}`);
     injectPanelChrome(this.options.id);
-    const p = palette();
     const presetList    = loadPresets();
     const presetOptions = presetList.map((pr, i) => `<option value="${i}">${pr.name}</option>`).join('');
 
     const effectSections = this._states.map((state, i) => {
       const effectName = this._effects[i]?.name ?? this._makeLabel(state);
       return `
-        ${this._states.length > 1 ? `<div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">${effectName}</div>` : ''}
-        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;gap:${s(4)}px;">
+        ${this._states.length > 1 ? `<div class="dsct-section-label" style="margin-bottom:5px;">${effectName}</div>` : ''}
+        <div class="dsct-fm-effect-section">
 
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Distance</div>
-            <div style="display:flex;gap:${s(3)}px;align-items:center;">
-              <select data-field="type-${i}" style="width:${s(60)}px;">
+            <div class="dsct-section-label">Distance</div>
+            <div style="display:flex;gap:4px;align-items:center;">
+              <select data-field="type-${i}" style="width:72px;">
                 <option value="push"  ${state.movement === 'push'  ? 'selected' : ''}>Push</option>
                 <option value="pull"  ${state.movement === 'pull'  ? 'selected' : ''}>Pull</option>
                 <option value="slide" ${state.movement === 'slide' ? 'selected' : ''}>Slide</option>
               </select>
-              <span style="font-size:${s(12)}px;color:${p.text};" title="Current effective distance">${state.distance}</span>
-              <span style="font-size:${s(9)}px;color:${p.textDim};">&#177;</span>
+              <span class="dsct-fm-distance-display" title="Current effective distance">${state.distance}</span>
+              <span style="font-size:11px;color:var(--dsct-textDim);">&#177;</span>
               <input type="number" data-field="distance-${i}" value="0" step="1"
-                style="width:${s(26)}px;text-align:center;" title="Distance delta - adds to current effective distance">
+                style="width:31px;text-align:center;" title="Distance delta - adds to current effective distance">
             </div>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <label style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+            <label style="color:var(--dsct-accent);font-size:11px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="vertical-${i}" ${state.vertical ? 'checked' : ''}> Vertical
             </label>
             <input type="number" data-field="vertDist-${i}" placeholder="${state.distance}" step="1"
-              style="width:${s(40)}px;text-align:center;" title="Leave blank to match distance">
+              style="width:48px;text-align:center;" title="Leave blank to match distance">
           </div>
 
-          <div style="width:100%;height:1px;background:${p.border};"></div>
+          <div class="dsct-divider"></div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Fall Reduction</div>
+            <div class="dsct-section-label">Fall Reduction</div>
             <input type="number" data-field="fallRed-${i}" value="${state.fallReduction}" min="0" step="1"
-              style="width:${s(30)}px;text-align:center;" title="Bonus on top of Agility">
+              style="width:36px;text-align:center;" title="Bonus on top of Agility">
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:${s(4)}px;">
-            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+            <label style="color:var(--dsct-accent);font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="noFall-${i}" ${state.noFallDamage ? 'checked' : ''}> No Fall Dmg</label>
-            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+            <label style="color:var(--dsct-accent);font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="noCol-${i}" ${state.noCollisionDamage ? 'checked' : ''}> No Collision</label>
-            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+            <label style="color:var(--dsct-accent);font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="ignoreStab-${i}" ${state.ignoreStability ? 'checked' : ''}> Ignore Stab</label>
-            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+            <label style="color:var(--dsct-accent);font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="fast-${i}" ${state.fastMove ? 'checked' : ''}> Fast Path</label>
           </div>
         </div>
@@ -227,55 +226,44 @@ class FmModifyPanel extends ApplicationV2 {
     }).join('');
 
     return `
-      <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;" id="fm-modify-drag-handle">
+      <div class="dsct-panel" id="fm-modify-drag-handle">
 
-        <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
-          <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">Modify Forced Movement</div>
-          <button data-action="close-window"
-            style="width:${s(16)}px;height:${s(16)}px;flex-shrink:0;cursor:pointer;margin-left:auto;
-            background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;
-            display:flex;align-items:center;justify-content:center;font-size:${s(9)}px;padding:0;"
-            onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">x</button>
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;">
+          <div class="dsct-panel-title">Modify Forced Movement</div>
+          <button data-action="close-window" class="dsct-close-btn" style="margin-left:auto;">x</button>
         </div>
 
-        <div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">Log Entry</div>
-        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;gap:${s(4)}px;">
+        <div class="dsct-section-label" style="margin-bottom:5px;">Log Entry</div>
+        <div class="dsct-fm-effect-section" style="margin-bottom:7px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Name</div>
-            <input type="text" data-field="note-name" placeholder="Optional"
-              style="width:${s(130)}px;padding:${s(2)}px ${s(4)}px;font-size:${s(9)}px;font-family:inherit;box-sizing:border-box;">
+            <div class="dsct-section-label">Name</div>
+            <input type="text" data-field="note-name" placeholder="Optional" class="dsct-fm-name-input">
           </div>
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;padding-top:${s(3)}px;">Description</div>
-            <textarea data-field="note-desc" placeholder="Optional" rows="2"
-              style="width:${s(130)}px;padding:${s(2)}px ${s(4)}px;font-size:${s(9)}px;font-family:inherit;resize:none;overflow:hidden;min-height:${s(32)}px;box-sizing:border-box;"
+            <div class="dsct-section-label" style="padding-top:4px;">Description</div>
+            <textarea data-field="note-desc" placeholder="Optional" rows="2" class="dsct-fm-desc-textarea"
               oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
           </div>
         </div>
 
-        <div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">Presets</div>
-        <div style="display:flex;gap:${s(4)}px;margin-bottom:${s(6)}px;align-items:center;">
+        <div class="dsct-section-label" style="margin-bottom:5px;">Presets</div>
+        <div style="display:flex;gap:5px;margin-bottom:7px;align-items:center;">
           <select data-field="preset-select" style="flex:1;">
             <option value="">-- No Preset --</option>
             ${presetOptions}
           </select>
-          <button data-action="save-preset" title="Save current inputs as a preset"
-            style="width:${s(24)}px;height:${s(24)}px;flex-shrink:0;cursor:pointer;background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:${s(11)}px;padding:0;"
-            onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">
+          <button data-action="save-preset" title="Save current inputs as a preset" class="dsct-fm-icon-btn">
             <i class="fas fa-save" style="margin:0;"></i>
           </button>
-          <button data-action="delete-preset" title="Delete selected preset"
-            style="width:${s(24)}px;height:${s(24)}px;flex-shrink:0;cursor:pointer;background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:${s(11)}px;padding:0;"
-            onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">
+          <button data-action="delete-preset" title="Delete selected preset" class="dsct-fm-icon-btn">
             <i class="fas fa-trash" style="margin:0;"></i>
           </button>
         </div>
 
         ${effectSections}
 
-        <button data-action="apply-mod"
-          style="width:100%;padding:${s(10)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(12)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
-          <i class="fas fa-check" style="margin-right:${s(4)}px;"></i> Apply
+        <button data-action="apply-mod" class="dsct-execute-btn">
+          <i class="fas fa-check"></i> Apply
         </button>
 
       </div>
@@ -540,7 +528,6 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
     execBtn.type = 'button';
     execBtn.className = 'dsct-fm-exec';
     execBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${makeLabel(state)}`;
-    execBtn.style.cssText = 'cursor:pointer;';
 
     execBtn.addEventListener('click', async () => {
       console.log(`DSCT | FM exec clicked | state=${JSON.stringify({ movement: state.movement, distance: state.distance, vertical: state.vertical })}`);
@@ -569,10 +556,8 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
     btnEls.push(execBtn);
 
     if (showEdit) {
-      execBtn.style.cssText = 'cursor:pointer;flex:1;border:none;border-radius:0;padding:0px 8px;';
-
       const execShell = document.createElement('div');
-      execShell.style.cssText = 'flex:1;display:flex;border:1px solid rgb(85,85,85);border-right:none;border-radius:4px 0 0 4px;transition:border-color 0.8s;overflow:hidden;';
+      execShell.className = 'dsct-fm-exec-shell';
       execShell.appendChild(execBtn);
 
       const editBtn = document.createElement('button');
@@ -580,10 +565,9 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
       editBtn.className = 'dsct-fm-edit';
       editBtn.title = 'Modify Forced Movement';
       editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
-      editBtn.style.cssText = 'cursor:pointer;aspect-ratio:1;border:none;border-radius:0;display:flex;align-items:center;justify-content:center;padding:0;';
 
       const editShell = document.createElement('div');
-      editShell.style.cssText = 'display:flex;border:1px solid rgb(85,85,85);border-radius:0 4px 4px 0;transition:border-color 0.8s;overflow:hidden;';
+      editShell.className = 'dsct-fm-edit-shell';
       editShell.appendChild(editBtn);
 
       execBtn.addEventListener('mouseenter', () => { execShell.style.borderColor = 'transparent'; });
@@ -720,13 +704,11 @@ const injectGrabResolutions = (msg, { el, buttons, content }) => {
     const fsHtml = grabberTok ? buildFreeStrikeButton(grabberTok.actor) : '';
     
     container.innerHTML = `
-      <div style="margin-top:8px; font-size: 13px; border-top: 1px solid var(--color-border-light-primary); padding-top: 8px;">
-          <strong>${grab.grabberName}</strong> may make a free strike:<br>
-          <div style="margin: 4px 0;">${fsHtml}</div>
-          <div style="display:flex;gap:4px;margin-top:4px;">
-            <button type="button" class="apply-effect dsct-accept-escape" style="cursor:pointer;flex:1;"><i class="fa-solid fa-check"></i> Accept Escape</button>
-            <button type="button" class="apply-effect dsct-deny-escape" style="cursor:pointer;flex:1;border-color:var(--color-text-error);color:var(--color-text-error);"><i class="fa-solid fa-times"></i> Stay Grabbed</button>
-          </div>
+      <strong>${grab.grabberName}</strong> may make a free strike:<br>
+      <div style="margin: 4px 0;">${fsHtml}</div>
+      <div style="display:flex;gap:4px;margin-top:4px;">
+        <button type="button" class="apply-effect dsct-accept-escape"><i class="fa-solid fa-check"></i> Accept Escape</button>
+        <button type="button" class="apply-effect dsct-deny-escape"><i class="fa-solid fa-times"></i> Stay Grabbed</button>
       </div>
     `;
     
@@ -959,7 +941,7 @@ export function registerChatHooks() {
 
     if (!msg.getFlag('draw-steel-combat-tools', 'forcedMovement')) {
       const forced = getForcedEffects(item, tier);
-      if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | forcedEffects=${forced.length} for dsid=${dsid} tier=${tier} effectiveTier=${effectiveTier}`);
+      if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | forcedEffects=${forced.length} for dsid=${dsid} tier=${tier}`);
       if (forced.length) {
         const range = getItemRange(item);
         await msg.setFlag('draw-steel-combat-tools', 'forcedMovement', {

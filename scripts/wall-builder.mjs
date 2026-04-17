@@ -5,7 +5,7 @@ import {
   tileAt,
   hasTags, getTags, getByTag, addTags, removeTags,
   toGrid, toWorld, GRID as getGRID, getSetting,
-  s, palette, injectPanelChrome,
+  s, injectPanelChrome,
 } from './helpers.mjs';
 
 const { ApplicationV2 } = foundry.applications.api;
@@ -408,7 +408,7 @@ export class WallBuilderPanel extends ApplicationV2 {
     id: 'wall-builder-panel',
     classes: ['draw-steel'],
     window: { title: 'Wall Builder', minimizable: false, resizable: false },
-    position: { width: s(240), height: 'auto' },
+    position: { width: 288, height: 'auto' },
   };
 
   async _selectSquares(highlightExisting = false) {
@@ -496,12 +496,11 @@ export class WallBuilderPanel extends ApplicationV2 {
 
   async _inspect() {
     const GRID = getGRID();
-    const p    = palette();
     const graphics = new PIXI.Graphics();
     canvas.app.stage.addChild(graphics);
 
     const tooltip = document.createElement('div');
-    tooltip.style.cssText = `position:fixed;pointer-events:none;z-index:9999;background:${p.bg};border:1px solid ${p.border};color:${p.text};font-family:Georgia,serif;font-size:${s(9)}px;padding:${s(6)}px ${s(8)}px;border-radius:${s(3)}px;white-space:pre;display:none;line-height:1.6;`;
+    tooltip.className = 'dsct-inspect-tooltip';
     document.body.appendChild(tooltip);
 
     const overlay = new PIXI.Container();
@@ -676,18 +675,15 @@ export class WallBuilderPanel extends ApplicationV2 {
 
   _refreshPanel() {
     if (!this.rendered) return;
-    const p = palette();
     const modes = ['build', 'destroy', 'fix', 'transmute', 'break', 'inspect', 'convert'];
     for (const mode of modes) {
       const btn = this.element.querySelector(`#wb-mode-${mode}`);
-      if (btn) { btn.style.borderColor = this._mode === mode ? p.accent : p.border; btn.style.color = this._mode === mode ? p.accent : p.text; }
+      if (btn) btn.classList.toggle('active', this._mode === mode);
     }
     const showMat    = this._mode === 'build' || this._mode === 'transmute' || this._mode === 'convert';
     const showHeight = this._mode === 'build' && game.modules.get('wall-height')?.active;
-    const matRow = this.element.querySelector('#wb-material-row');
-    if (matRow) matRow.style.display = showMat ? 'flex' : 'none';
-    const heightRow = this.element.querySelector('#wb-height-row');
-    if (heightRow) heightRow.style.display = showHeight ? 'flex' : 'none';
+    this.element.querySelector('#wb-material-row')?.classList.toggle('dsct-hidden', !showMat);
+    this.element.querySelector('#wb-height-row')?.classList.toggle('dsct-hidden', !showHeight);
     const execBtn = this.element.querySelector('[data-action="execute"]');
     if (execBtn) {
       execBtn.textContent = this._mode === 'inspect' && this._stopInspect ? 'Stop Inspecting'
@@ -695,71 +691,74 @@ export class WallBuilderPanel extends ApplicationV2 {
         : this._mode === 'convert' ? 'Convert Selected Walls'
         : 'Select Squares';
     }
-    const convertRow = this.element.querySelector('#wb-convert-row');
-    if (convertRow) convertRow.style.display = this._mode === 'convert' ? 'flex' : 'none';
+    this.element.querySelector('#wb-convert-row')?.classList.toggle('dsct-hidden', this._mode !== 'convert');
     const matSel = this.element.querySelector('#wb-material-select');
     if (matSel) matSel.value = this._material;
   }
 
   async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
-    const p = palette();
+
+    const showMat    = this._mode === 'build' || this._mode === 'transmute' || this._mode === 'convert';
+    const showHeight = this._mode === 'build' && game.modules.get('wall-height')?.active;
+    const modeBtn = (id, label) =>
+      `<button id="wb-mode-${id}" data-mode="${id}" class="dsct-wb-mode-btn${this._mode===id?' active':''}">${label}</button>`;
 
     return `
-      <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;" id="wb-drag-handle">
-        <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
-          <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">Wall Builder</div>
-          <button data-action="close-window" style="width:${s(16)}px;height:${s(16)}px;flex-shrink:0;cursor:pointer;margin-left:auto;background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:${s(9)}px;padding:0;" onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">x</button>
+      <div class="dsct-panel" id="wb-drag-handle">
+        <div class="dsct-panel-header">
+          <div class="dsct-panel-title">Wall Builder</div>
+          <button class="dsct-close-btn" data-action="close-window">x</button>
         </div>
 
-        <div style="font-size:${s(8)}px;text-transform:uppercase;color:${p.textDim};margin-bottom:${s(4)}px;">Mode</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:${s(3)}px;margin-bottom:${s(8)}px;">
-          <button id="wb-mode-build"     data-mode="build"     style="padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='build'?p.accent:p.border};color:${this._mode==='build'?p.accent:p.text};">Build</button>
-          <button id="wb-mode-destroy"   data-mode="destroy"   style="padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='destroy'?p.accent:p.border};color:${this._mode==='destroy'?p.accent:p.text};">Destroy</button>
-          <button id="wb-mode-fix"       data-mode="fix"       style="padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='fix'?p.accent:p.border};color:${this._mode==='fix'?p.accent:p.text};">Fix</button>
-          <button id="wb-mode-transmute" data-mode="transmute" style="padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='transmute'?p.accent:p.border};color:${this._mode==='transmute'?p.accent:p.text};">Transmute</button>
-          <button id="wb-mode-break"     data-mode="break"     style="padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='break'?p.accent:p.border};color:${this._mode==='break'?p.accent:p.text};">Break</button>
-          <button id="wb-mode-inspect"   data-mode="inspect"   style="padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='inspect'?p.accent:p.border};color:${this._mode==='inspect'?p.accent:p.text};">Inspect</button>
-          <button id="wb-mode-convert"   data-mode="convert"   style="grid-column:span 2;padding:${s(5)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._mode==='convert'?p.accent:p.border};color:${this._mode==='convert'?p.accent:p.text};">Convert Walls</button>
+        <div class="dsct-section-label dsct-text-dim">Mode</div>
+        <div class="dsct-wb-mode-grid">
+          ${modeBtn('build',     'Build')}
+          ${modeBtn('destroy',   'Destroy')}
+          ${modeBtn('fix',       'Fix')}
+          ${modeBtn('transmute', 'Transmute')}
+          ${modeBtn('break',     'Break')}
+          ${modeBtn('inspect',   'Inspect')}
+          <button id="wb-mode-convert" data-mode="convert" class="dsct-wb-mode-btn${this._mode==='convert'?' active':''}" style="grid-column:span 2;">Convert Walls</button>
         </div>
 
-        <div id="wb-convert-row" style="display:${this._mode==='convert'?'flex':'none'};flex-direction:column;gap:${s(5)}px;margin-bottom:${s(8)}px;">
-          <div style="display:flex;align-items:center;gap:${s(6)}px;">
-            <input id="wb-invisible" type="checkbox" ${this._invisible ? 'checked' : ''} style="width:${s(12)}px;height:${s(12)}px;accent-color:${p.accent};cursor:pointer;">
-            <label for="wb-invisible" style="font-size:${s(9)}px;color:${p.text};cursor:pointer;">Invisible tiles (alpha 0)</label>
+        <div id="wb-convert-row" class="dsct-wb-convert-options${this._mode==='convert' ? '' : ' dsct-hidden'}">
+          <div class="dsct-row-start">
+            <input id="wb-invisible" type="checkbox" ${this._invisible ? 'checked' : ''}>
+            <label for="wb-invisible" class="dsct-wb-height-label" style="font-size:11px;color:var(--dsct-text);">Invisible tiles (alpha 0)</label>
           </div>
-          <div style="display:flex;align-items:center;gap:${s(6)}px;">
-            <input id="wb-retain-restrictions" type="checkbox" ${this._retainRestrictions ? 'checked' : ''} style="width:${s(12)}px;height:${s(12)}px;accent-color:${p.accent};cursor:pointer;">
-            <label for="wb-retain-restrictions" style="font-size:${s(9)}px;color:${p.text};cursor:pointer;">Retain wall restrictions on fix</label>
+          <div class="dsct-row-start">
+            <input id="wb-retain-restrictions" type="checkbox" ${this._retainRestrictions ? 'checked' : ''}>
+            <label for="wb-retain-restrictions" class="dsct-wb-height-label" style="font-size:11px;color:var(--dsct-text);">Retain wall restrictions on fix</label>
           </div>
         </div>
 
-        <div id="wb-material-row" style="display:${(this._mode==='build'||this._mode==='transmute')?'flex':'none'};flex-direction:column;gap:${s(4)}px;margin-bottom:${s(8)}px;">
-          <div style="font-size:${s(8)}px;text-transform:uppercase;color:${p.textDim};">Material</div>
-          <select id="wb-material-select" style="width:100%;padding:${s(4)}px;border-radius:${s(3)}px;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${p.border};color:${p.text};cursor:pointer;text-transform:capitalize;">
-            ${getAllMaterials().map(mat => `<option value="${mat}" ${this._material===mat?'selected':''} style="text-transform:capitalize;">${mat.charAt(0).toUpperCase()+mat.slice(1)}</option>`).join('')}
+        <div id="wb-material-row" class="dsct-col-gap${showMat ? '' : ' dsct-hidden'}" style="margin-bottom:10px;">
+          <div class="dsct-section-label dsct-text-dim" style="margin-bottom:0;">Material</div>
+          <select id="wb-material-select" class="dsct-wb-material-select">
+            ${getAllMaterials().map(mat => `<option value="${mat}" ${this._material===mat?'selected':''}>${mat.charAt(0).toUpperCase()+mat.slice(1)}</option>`).join('')}
           </select>
         </div>
 
-        <div id="wb-height-row" style="display:${this._mode==='build' && game.modules.get('wall-height')?.active ?'flex':'none'};flex-direction:column;gap:${s(4)}px;margin-bottom:${s(8)}px;">
-          <div style="font-size:${s(8)}px;text-transform:uppercase;color:${p.textDim};">Wall Height</div>
-          <div style="display:flex;gap:${s(6)}px;align-items:center;">
+        <div id="wb-height-row" class="dsct-col-gap${showHeight ? '' : ' dsct-hidden'}" style="margin-bottom:10px;">
+          <div class="dsct-section-label dsct-text-dim" style="margin-bottom:0;">Wall Height</div>
+          <div class="dsct-wb-height-row">
             <div style="flex:1;">
-              <div style="font-size:${s(7)}px;color:${p.textDim};margin-bottom:${s(2)}px;">Bottom</div>
-              <input id="wb-height-bottom" type="number" value="${this._heightBottom}" style="width:100%;padding:${s(3)}px;border-radius:${s(2)}px;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${p.border};color:${p.text};box-sizing:border-box;" placeholder="default">
+              <div class="dsct-wb-height-label">Bottom</div>
+              <input id="wb-height-bottom" type="number" value="${this._heightBottom}" class="dsct-wb-height-input" placeholder="default">
             </div>
             <div style="flex:1;">
-              <div style="font-size:${s(7)}px;color:${p.textDim};margin-bottom:${s(2)}px;">Top</div>
-              <input id="wb-height-top" type="number" value="${this._heightTop}" style="width:100%;padding:${s(3)}px;border-radius:${s(2)}px;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${p.border};color:${p.text};box-sizing:border-box;" placeholder="default">
+              <div class="dsct-wb-height-label">Top</div>
+              <input id="wb-height-top" type="number" value="${this._heightTop}" class="dsct-wb-height-input" placeholder="default">
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:${s(6)}px;">
-            <input id="wb-stable" type="checkbox" ${this._stable ? 'checked' : ''} style="width:${s(12)}px;height:${s(12)}px;accent-color:${p.accent};cursor:pointer;">
-            <label for="wb-stable" style="font-size:${s(9)}px;color:${p.text};cursor:pointer;">Stable (splits on mid-height collision)</label>
+          <div class="dsct-row-start">
+            <input id="wb-stable" type="checkbox" ${this._stable ? 'checked' : ''}>
+            <label for="wb-stable" class="dsct-wb-height-label" style="font-size:11px;color:var(--dsct-text);">Stable (splits on mid-height collision)</label>
           </div>
         </div>
 
-        <button data-action="execute" style="width:100%;padding:${s(6)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(10)}px;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">Select Squares</button>
+        <button class="dsct-execute-btn sm" data-action="execute">Select Squares</button>
       </div>`;
   }
 
@@ -770,7 +769,7 @@ export class WallBuilderPanel extends ApplicationV2 {
   _onRender(_context, _options) {
     const saved = window._wallBuilderPanelPos;
     if (saved) this.setPosition({ left: saved.left, top: saved.top });
-    else this.setPosition({ left: Math.round((window.innerWidth - s(240)) / 2), top: Math.round((window.innerHeight - s(400)) / 2) });
+    else this.setPosition({ left: Math.round((window.innerWidth - 288) / 2), top: Math.round((window.innerHeight - 480) / 2) });
 
     const dragHandle = this.element.querySelector('#wb-drag-handle');
     if (dragHandle) {
@@ -848,16 +847,13 @@ const restrictSelect = (fieldName, currentVal, values = [0, 10, 20]) =>
     values.map(v => `<option value="${v}" ${currentVal === v ? 'selected' : ''}>${RESTRICT_LABELS[v]}</option>`).join('')
   }</select>`;
 
-const buildRow = (idx, origName, isBase, iconSrc, r, rs, p) => {
+const buildRow = (idx, origName, isBase, iconSrc, r, rs) => {
   const icon  = iconSrc || DEFAULT_ICON;
   const alpha = r.alpha ?? CUSTOM_MATERIAL_DEFAULTS.alpha;
   return `
     <tr>
       <td style="text-align:center;padding:4px 6px;">
-        <button type="button" class="dsct-icon-pick" data-idx="${idx}" title="Click to change icon"
-          style="width:34px;height:34px;padding:2px;border-radius:3px;cursor:pointer;
-                 background:${p.bgBtn};border:1px solid ${p.border};
-                 display:inline-flex;align-items:center;justify-content:center;">
+        <button type="button" class="dsct-int-icon-pick" data-idx="${idx}" title="Click to change icon">
           <img src="${icon}" style="width:28px;height:28px;object-fit:contain;pointer-events:none;border-radius:2px;">
         </button>
         <input type="hidden" name="icon-${idx}"     value="${icon}">
@@ -869,9 +865,7 @@ const buildRow = (idx, origName, isBase, iconSrc, r, rs, p) => {
           style="width:52px;text-align:center;">
       </td>
       <td style="text-align:center;padding:4px 6px;">
-        <input type="text" name="matname-${idx}" value="${origName}" placeholder="name�"
-          style="width:100%;box-sizing:border-box;text-align:center;background:${p.bgBtn};border:1px solid ${p.border};
-                 color:${p.accent};font-weight:bold;border-radius:3px;padding:4px 6px;">
+        <input type="text" name="matname-${idx}" value="${origName}" placeholder="name" class="dsct-name-input">
       </td>
       <td style="text-align:center;padding:4px 6px;">
         <input type="number" name="cost-${idx}"   value="${r.cost}"   min="1" max="20" style="width:52px;text-align:center;">
@@ -885,9 +879,7 @@ const buildRow = (idx, origName, isBase, iconSrc, r, rs, p) => {
       <td style="text-align:center;padding:4px 6px;">${restrictSelect(`sound-${idx}`, rs.sound)}</td>
       <td style="text-align:center;padding:4px 6px;">
         ${!isBase
-          ? `<button type="button" class="dsct-delete-mat" title="Remove material"
-               style="padding:3px 8px;border-radius:3px;cursor:pointer;background:${p.bgBtn};
-                      border:1px solid ${p.border};color:${p.textDim};">
+          ? `<button type="button" class="dsct-delete-mat dsct-delete-btn" title="Remove material">
                <i class="fa-solid fa-trash-can"></i>
              </button>`
           : ''}
@@ -921,46 +913,45 @@ export class WallBuilderSettingsMenu extends FormApplication {
 
   async _renderInner(data) {
     const { allMaterials, customs, rules, restrictions, defaultMaterial, defaultHeightBot, defaultHeightTop } = data;
-    const p = palette();
 
     const styleId = 'dsct-wbs-style';
     const styleEl = document.getElementById(styleId)
       ?? document.head.appendChild(Object.assign(document.createElement('style'), { id: styleId }));
     styleEl.textContent = `
-      #dsct-wall-builder-settings .window-content { background:${p.bg}; color:${p.text}; font-family:Georgia,serif; }
-      #dsct-wall-builder-settings { border:1px solid ${p.borderOuter}; box-shadow:0 0 14px rgba(0,0,0,0.45); }
-      #dsct-wall-builder-settings .window-header { background:${p.bg}; border-bottom:1px solid ${p.border}; color:${p.accent}; }
-      #dsct-wall-builder-settings .window-header a { color:${p.textDim}; }
-      #dsct-wall-builder-settings .window-header a:hover { color:${p.text}; }
+      #dsct-wall-builder-settings .window-content { background:var(--dsct-bg); color:var(--dsct-text); font-family:Georgia,serif; }
+      #dsct-wall-builder-settings { border:1px solid var(--dsct-borderOuter); box-shadow:0 0 14px rgba(0,0,0,0.45); }
+      #dsct-wall-builder-settings .window-header { background:var(--dsct-bg); border-bottom:1px solid var(--dsct-border); color:var(--dsct-accent); }
+      #dsct-wall-builder-settings .window-header a { color:var(--dsct-textDim); }
+      #dsct-wall-builder-settings .window-header a:hover { color:var(--dsct-text); }
       #dsct-wall-builder-settings input[type="number"],
       #dsct-wall-builder-settings input[type="text"],
       #dsct-wall-builder-settings select {
-        background:${p.bgBtn}; border:1px solid ${p.border}; color:${p.text}; border-radius:3px; padding:4px 6px;
+        background:var(--dsct-bgBtn); border:1px solid var(--dsct-border); color:var(--dsct-text); border-radius:3px; padding:4px 6px;
         font-family:Georgia,serif;
       }
       #dsct-wall-builder-settings input:focus,
-      #dsct-wall-builder-settings select:focus { border-color:${p.accent}; outline:none; }
+      #dsct-wall-builder-settings select:focus { border-color:var(--dsct-accent); outline:none; }
       #dsct-wall-builder-settings th {
-        color:${p.textLabel}; text-transform:uppercase; font-size:0.75em; letter-spacing:0.6px;
-        border-bottom:1px solid ${p.border}; padding:6px 8px; text-align:center; font-weight:bold;
-        position:sticky; top:0; z-index:1; background:${p.bg};
+        color:var(--dsct-textLabel); text-transform:uppercase; font-size:0.75em; letter-spacing:0.6px;
+        border-bottom:1px solid var(--dsct-border); padding:6px 8px; text-align:center; font-weight:bold;
+        position:sticky; top:0; z-index:1; background:var(--dsct-bg);
       }
-      #dsct-wall-builder-settings td { border-bottom:1px solid ${p.border}22; }
+      #dsct-wall-builder-settings td { border-bottom:1px solid var(--dsct-border-alpha22, color-mix(in srgb, var(--dsct-border) 13%, transparent)); }
       #dsct-wall-builder-settings h3 {
-        color:${p.accent}; border-bottom:1px solid ${p.border}; padding-bottom:5px;
+        color:var(--dsct-accent); border-bottom:1px solid var(--dsct-border); padding-bottom:5px;
         font-size:0.8em; text-transform:uppercase; letter-spacing:0.7px; margin-bottom:10px;
       }
       #dsct-wall-builder-settings .dsct-field-label {
-        display:block; margin-bottom:4px; font-size:0.75em; text-transform:uppercase; letter-spacing:0.5px; color:${p.textLabel};
+        display:block; margin-bottom:4px; font-size:0.75em; text-transform:uppercase; letter-spacing:0.5px; color:var(--dsct-textLabel);
       }
       #dsct-wall-builder-settings button {
-        background:${p.bgBtn}; border:1px solid ${p.border}; color:${p.text};
+        background:var(--dsct-bgBtn); border:1px solid var(--dsct-border); color:var(--dsct-text);
         border-radius:3px; cursor:pointer; padding:5px 14px; font-family:Georgia,serif;
       }
-      #dsct-wall-builder-settings button:hover { border-color:${p.accent}; color:${p.accent}; }
+      #dsct-wall-builder-settings button:hover { border-color:var(--dsct-accent); color:var(--dsct-accent); }
       #dsct-wall-builder-settings .dsct-delete-mat:hover { border-color:#cc4444 !important; color:#cc4444 !important; }
-      #dsct-wall-builder-settings .dsct-icon-pick:hover { border-color:${p.accent} !important; }
-      #dsct-wall-builder-settings #dsct-wb-save-btn { border-color:${p.accent}; color:${p.accent}; }
+      #dsct-wall-builder-settings .dsct-icon-pick:hover { border-color:var(--dsct-accent) !important; }
+      #dsct-wall-builder-settings #dsct-wb-save-btn { border-color:var(--dsct-accent); color:var(--dsct-accent); }
       #dsct-wall-builder-settings .dsct-table-scroll {
         ${allMaterials.length >= 6 ? 'max-height:270px; overflow-y:auto;' : ''}
       }
@@ -973,7 +964,7 @@ export class WallBuilderSettingsMenu extends FormApplication {
       const rBase   = rules[mat]        ?? MATERIAL_RULE_DEFAULTS.stone;
       const r       = { ...rBase, alpha: rBase.alpha ?? getMaterialAlpha(mat) };
       const rs      = restrictions[mat] ?? WALL_RESTRICTION_DEFAULTS.stone;
-      return buildRow(idx, mat, isBase, iconSrc, r, rs, p);
+      return buildRow(idx, mat, isBase, iconSrc, r, rs);
     }).join('');
 
     const matOptions = allMaterials.map(m =>
@@ -1045,13 +1036,12 @@ export class WallBuilderSettingsMenu extends FormApplication {
     });
 
     html.find('#dsct-wb-add-mat-btn').on('click', () => {
-      const p = palette();
       const maxIdx = Math.max(-1, ...html.find('#dsct-wb-mat-tbody tr').map((_, tr) => {
         const inp = $(tr).find('[name^="origname-"]')[0];
         return inp ? (parseInt(inp.name.replace('origname-', '')) || 0) : -1;
       }).get());
       const idx = maxIdx + 1;
-      const newRow = buildRow(idx, '', false, DEFAULT_ICON, MATERIAL_RULE_DEFAULTS.stone, WALL_RESTRICTION_DEFAULTS.stone, p);
+      const newRow = buildRow(idx, '', false, DEFAULT_ICON, MATERIAL_RULE_DEFAULTS.stone, WALL_RESTRICTION_DEFAULTS.stone);
       html.find('#dsct-wb-mat-tbody').append(newRow);
     });
 

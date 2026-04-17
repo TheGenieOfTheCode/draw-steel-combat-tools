@@ -1,4 +1,4 @@
-import { getSetting, safeCreateEmbedded, safeDelete, canForcedMoveTarget, getTokenById, getWindowById, s, palette, injectPanelChrome } from './helpers.mjs';
+import { getSetting, safeCreateEmbedded, safeDelete, canForcedMoveTarget, getTokenById, getWindowById, s, injectPanelChrome } from './helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from './chat-integration.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -342,7 +342,7 @@ export class GrabPanel extends ApplicationV2 {
     id: 'grab-panel',
     classes: ['draw-steel'],
     window: { title: 'Grab', minimizable: false, resizable: false },
-    position: { width: s(280), height: 'auto' },
+    position: { width: 336, height: 'auto' },
   };
 
   _updatePreview() {
@@ -424,10 +424,10 @@ export class GrabPanel extends ApplicationV2 {
     });
   }
 
-  _buildGrabListHTML(p) {
+  _buildGrabListHTML() {
     const grabs = window._activeGrabs?.size ? [...window._activeGrabs.values()] : [];
     if (!grabs.length && !this._pendingConfirm) {
-      return `<div style="font-size:${s(10)}px;color:${p.textDim};text-align:center;padding:${s(10)}px 0;">No active grabs</div>`;
+      return `<div class="dsct-grab-empty">No active grabs</div>`;
     }
 
     const allowManual = !getSetting('restrictGrabButtons') || game.user.isGM;
@@ -435,17 +435,12 @@ export class GrabPanel extends ApplicationV2 {
 
     if (this._pendingConfirm) {
       const { grabberToken, targetToken } = this._pendingConfirm;
-      html += `<div style="padding:${s(5)}px;border-radius:${s(3)}px;border:1px solid ${p.accent};
-        background:${p.bgInner};margin-bottom:${s(4)}px;">
-        <div style="font-size:${s(9)}px;color:${p.accent};margin-bottom:${s(4)}px;">Pending: ${grabberToken.name} grabs ${targetToken.name}</div>
-        <div style="font-size:${s(8)}px;color:${p.text};margin-bottom:${s(4)}px;">${buildFreeStrikeButton(targetToken.actor)}</div>
-        <div style="display:flex;gap:${s(3)}px;">
-          <button data-confirm-grab="1"
-            style="flex:1;font-size:${s(10)}px;padding:${s(7)}px;border-radius:${s(2)}px;cursor:pointer;
-            background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">Confirm</button>
-          <button data-cancel-grab="1"
-            style="flex:1;font-size:${s(10)}px;padding:${s(7)}px;border-radius:${s(2)}px;cursor:pointer;
-            background:${p.bgBtn};border:1px solid ${p.accentRed};color:${p.accentRed};">Cancel</button>
+      html += `<div class="dsct-grab-pending">
+        <div class="dsct-grab-pending-label">Pending: ${grabberToken.name} grabs ${targetToken.name}</div>
+        <div class="dsct-grab-free-strike">${buildFreeStrikeButton(targetToken.actor)}</div>
+        <div class="dsct-flex-row">
+          <button data-confirm-grab="1" class="dsct-grab-action-btn accent">Confirm</button>
+          <button data-cancel-grab="1"  class="dsct-grab-action-btn danger">Cancel</button>
         </div>
       </div>`;
     }
@@ -458,45 +453,29 @@ export class GrabPanel extends ApplicationV2 {
       const isPending     = this._pendingEscape?.grabbedTokenId === grab.grabbedTokenId;
       const repositioning = window._grabRepositioning?.has(grab.grabbedTokenId);
 
-      return `<div style="padding:${s(5)}px;border-radius:${s(3)}px;border:1px solid ${repositioning ? '#806020' : p.border};
-        background:${p.bgInner};margin-bottom:${s(4)}px;">
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:auto auto;gap:${s(2)}px ${s(12)}px;justify-items:center;margin-bottom:${s(5)}px;">
+      return `<div class="dsct-grab-item${repositioning ? ' repositioning' : ''}">
+        <div class="dsct-grab-grid">
           <img data-ping="${grab.grabberTokenId}" src="${grabberSrc}"
-            style="grid-column:1;grid-row:1;width:${s(66)}px;height:${s(66)}px;border-radius:${s(2)}px;object-fit:contain;
-            cursor:pointer;border:1px solid ${p.border};background:${p.bg};">
-          <div style="grid-column:2;grid-row:1/3;align-self:center;font-size:${s(12)}px;color:${p.textDim};">grabs</div>
+            class="dsct-grab-token-img" style="grid-column:1;grid-row:1;">
+          <div class="dsct-fm-moves-label" style="grid-column:2;grid-row:1/3;align-self:center;">grabs</div>
           <img data-ping="${grab.grabbedTokenId}" src="${grabbedSrc}"
-            style="grid-column:3;grid-row:1;width:${s(66)}px;height:${s(66)}px;border-radius:${s(2)}px;object-fit:contain;
-            cursor:pointer;border:1px solid ${repositioning ? '#806020' : p.border};background:${p.bg};">
-          <div style="grid-column:1;grid-row:2;font-size:${s(11)}px;color:${p.textDim};max-width:${s(68)}px;
-            text-align:center;overflow-wrap:break-word;word-break:break-word;">${grab.grabberName}</div>
-          <div style="grid-column:3;grid-row:2;font-size:${s(11)}px;color:${p.textDim};max-width:${s(68)}px;
-            text-align:center;overflow-wrap:break-word;word-break:break-word;">${grab.grabbedName}</div>
+            class="dsct-grab-token-img${repositioning ? ' repositioning' : ''}" style="grid-column:3;grid-row:1;">
+          <div class="dsct-grab-name" style="grid-column:1;grid-row:2;">${grab.grabberName}</div>
+          <div class="dsct-grab-name" style="grid-column:3;grid-row:2;">${grab.grabbedName}</div>
         </div>
-        ${repositioning ? `<div style="font-size:${s(8)}px;color:#c09030;text-align:center;margin-bottom:${s(4)}px;">
-          Move ${grab.grabbedName} to an adjacent position</div>` : ''}
-        <div style="display:flex;gap:${s(3)}px;">
-          <button data-escape="${grab.grabbedTokenId}"
-            style="flex:1;font-size:${s(10)}px;padding:${s(7)}px ${s(4)}px;border-radius:${s(2)}px;cursor:pointer;
-            background:${p.bgBtn};border:1px solid ${p.border};color:${p.text};">Escape</button>
-          <button data-reposition="${grab.grabbedTokenId}"
-            style="flex:1;font-size:${s(10)}px;padding:${s(7)}px ${s(4)}px;border-radius:${s(2)}px;cursor:pointer;
-            background:${p.bgBtn};border:1px solid ${repositioning ? '#806020' : p.border};
-            color:${repositioning ? '#c09030' : p.text};">${repositioning ? 'Moving...' : 'Reposition'}</button>
-          ${allowManual ? `<button data-endgrab="${grab.grabbedTokenId}"
-            style="flex:1;font-size:${s(10)}px;padding:${s(7)}px ${s(4)}px;border-radius:${s(2)}px;cursor:pointer;
-            background:${p.bgBtn};border:1px solid ${p.accentRed};color:${p.accentRed};">End Grab</button>` : ''}
+        ${repositioning ? `<div class="dsct-reposition-status">Move ${grab.grabbedName} to an adjacent position</div>` : ''}
+        <div class="dsct-flex-row">
+          <button data-escape="${grab.grabbedTokenId}" class="dsct-grab-action-btn">Escape</button>
+          <button data-reposition="${grab.grabbedTokenId}" class="dsct-grab-action-btn${repositioning ? ' repositioning' : ''}">
+            ${repositioning ? 'Moving...' : 'Reposition'}</button>
+          ${allowManual ? `<button data-endgrab="${grab.grabbedTokenId}" class="dsct-grab-action-btn danger">End Grab</button>` : ''}
         </div>
-        ${isPending ? `<div style="border-top:1px solid ${p.border};padding-top:${s(4)}px;margin-top:${s(5)}px;font-size:${s(8)}px;color:${p.text};">
+        ${isPending ? `<div class="dsct-escape-tier2">
           Tier 2: ${grab.grabbedName} can escape, but ${grab.grabberName} gets a free strike first.<br>
           ${buildFreeStrikeButton(grabberTok?.actor)}
-          <div style="display:flex;gap:${s(3)}px;margin-top:${s(3)}px;">
-            <button data-escapetier2accept="${grab.grabbedTokenId}"
-              style="flex:1;font-size:${s(10)}px;padding:${s(6)}px;border-radius:${s(2)}px;cursor:pointer;
-              background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">Accept escape</button>
-            <button data-escapetier2deny="${grab.grabbedTokenId}"
-              style="flex:1;font-size:${s(10)}px;padding:${s(6)}px;border-radius:${s(2)}px;cursor:pointer;
-              background:${p.bgBtn};border:1px solid ${p.accentRed};color:${p.accentRed};">Stay grabbed</button>
+          <div class="dsct-flex-row" style="margin-top:4px;">
+            <button data-escapetier2accept="${grab.grabbedTokenId}" class="dsct-grab-action-btn accent">Accept escape</button>
+            <button data-escapetier2deny="${grab.grabbedTokenId}"   class="dsct-grab-action-btn danger">Stay grabbed</button>
           </div>
         </div>` : ''}
       </div>`;
@@ -508,25 +487,23 @@ export class GrabPanel extends ApplicationV2 {
   _refreshPanel() {
     if (!this.rendered) return;
     this._updatePreview();
-    const p = palette();
 
     const grabberImg    = this.element.querySelector('#grab-grabber-img');
     const grabberNameEl = this.element.querySelector('#grab-grabber-name');
     if (grabberImg)    grabberImg.src = this._grabberToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
-    if (grabberNameEl) { grabberNameEl.textContent = this._grabberToken?.name ?? 'No token selected'; grabberNameEl.style.color = this._grabberToken ? p.text : p.textDim; }
+    if (grabberNameEl) { grabberNameEl.textContent = this._grabberToken?.name ?? 'No token selected'; grabberNameEl.classList.toggle('dim', !this._grabberToken); }
 
     const targetImg    = this.element.querySelector('#grab-target-img');
     const targetNameEl = this.element.querySelector('#grab-target-name');
     if (targetImg)    targetImg.src = this._targetToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
-    if (targetNameEl) { targetNameEl.textContent = this._targetToken?.name ?? 'No target'; targetNameEl.style.color = this._targetToken ? p.text : p.textDim; }
+    if (targetNameEl) { targetNameEl.textContent = this._targetToken?.name ?? 'No target'; targetNameEl.classList.toggle('dim', !this._targetToken); }
 
     const grabList = this.element.querySelector('#grab-list');
-    if (grabList) grabList.innerHTML = this._buildGrabListHTML(p);
+    if (grabList) grabList.innerHTML = this._buildGrabListHTML();
   }
 
   async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
-    const p = palette();
 
     const grabberSrc   = this._grabberToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
     const grabberLabel = this._grabberToken?.name ?? 'No token selected';
@@ -535,41 +512,31 @@ export class GrabPanel extends ApplicationV2 {
     const allowManual  = !getSetting('restrictGrabButtons') || game.user.isGM;
 
     return `
-      <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;min-height:${s(420)}px;" id="grab-drag-handle">
+      <div class="dsct-panel dsct-grab-panel-body" id="grab-drag-handle">
 
-        <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
-          <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">Grab</div>
-          <button data-action="close-window"
-            style="width:${s(16)}px;height:${s(16)}px;flex-shrink:0;cursor:pointer;margin-left:auto;
-            background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;
-            display:flex;align-items:center;justify-content:center;font-size:${s(9)}px;padding:0;"
-            onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">x</button>
+        <div class="dsct-panel-header">
+          <div class="dsct-panel-title">Grab</div>
+          <button class="dsct-close-btn" data-action="close-window">x</button>
         </div>
 
-        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(8)}px;">
-          <div style="display:grid;grid-template-columns:1fr auto 1fr;grid-template-rows:auto auto;gap:${s(3)}px ${s(6)}px;margin-bottom:${s(6)}px;">
+        <div class="dsct-section" style="margin-bottom:10px;">
+          <div class="dsct-grab-selector-grid">
             <img id="grab-grabber-img" src="${grabberSrc}"
-              style="grid-column:1;grid-row:1;justify-self:center;width:${s(66)}px;height:${s(66)}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-            <div style="grid-column:2;grid-row:1/3;align-self:center;font-size:${s(14)}px;color:${p.textDim};">to</div>
+              class="dsct-token-img dsct-token-img-lg" style="grid-column:1;grid-row:1;justify-self:center;">
+            <div class="dsct-arrow" style="grid-column:2;grid-row:1/3;align-self:center;">to</div>
             <img id="grab-target-img" src="${targetSrc}"
-              style="grid-column:3;grid-row:1;justify-self:center;width:${s(66)}px;height:${s(66)}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-            <div id="grab-grabber-name" style="grid-column:1;grid-row:2;font-size:${s(11)}px;color:${this._grabberToken ? p.text : p.textDim};
-              text-align:center;overflow-wrap:break-word;word-break:break-word;">${grabberLabel}</div>
-            <div id="grab-target-name" style="grid-column:3;grid-row:2;font-size:${s(11)}px;color:${this._targetToken ? p.text : p.textDim};
-              text-align:center;overflow-wrap:break-word;word-break:break-word;">${targetLabel}</div>
+              class="dsct-token-img dsct-token-img-lg" style="grid-column:3;grid-row:1;justify-self:center;">
+            <div id="grab-grabber-name" class="dsct-token-name${this._grabberToken ? '' : ' dim'}" style="grid-column:1;grid-row:2;">${grabberLabel}</div>
+            <div id="grab-target-name"  class="dsct-token-name${this._targetToken  ? '' : ' dim'}" style="grid-column:3;grid-row:2;">${targetLabel}</div>
           </div>
-          <div style="display:flex;gap:${s(4)}px;">
-            <button data-action="attempt-grab"
-              style="flex:1;padding:${s(10)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(12)}px;
-              background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">Attempt Grab</button>
-            ${allowManual ? `<button data-action="apply-grab"
-              style="flex:1;padding:${s(10)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(12)}px;
-              background:${p.bgBtn};border:1px solid ${p.accentGreen};color:${p.accentGreen};">Apply Grab</button>` : ''}
+          <div class="dsct-flex-row">
+            <button data-action="attempt-grab" class="dsct-grab-action-btn accent">Attempt Grab</button>
+            ${allowManual ? `<button data-action="apply-grab" class="dsct-grab-action-btn success">Apply Grab</button>` : ''}
           </div>
         </div>
 
-        <div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">Active Grabs</div>
-        <div id="grab-list">${this._buildGrabListHTML(p)}</div>
+        <div class="dsct-section-label">Active Grabs</div>
+        <div id="grab-list">${this._buildGrabListHTML()}</div>
 
       </div>`;
   }

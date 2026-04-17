@@ -3,7 +3,7 @@ import {
   tokenAt, tileAt, safeUpdate, replayUndo, getWallBlockTop,
   applyDamage, safeToggleStatusEffect, getSetting, canCurrentlyFly, applyFall, snapStamina,
   getTokenById, getWindowById, pickCanvasTarget,
-  s, palette, injectPanelChrome,
+  s, injectPanelChrome,
 } from './helpers.mjs';
 import { endGrab, applyGrab } from './grab.mjs';
 
@@ -319,7 +319,7 @@ export class TeleportPanel extends ApplicationV2 {
     id: 'dsct-tp-panel',
     classes: ['draw-steel'],
     window: { title: 'Teleport', minimizable: false, resizable: false },
-    position: { width: s(220), height: 'auto' },
+    position: { width: 264, height: 'auto' },
   };
 
   _updatePreview() {
@@ -330,68 +330,62 @@ export class TeleportPanel extends ApplicationV2 {
   _refreshPanel() {
     if (!this.rendered) return;
     this._updatePreview();
-    const p = palette();
 
     const sourceImg  = this.element.querySelector('#tp-source-img');
     const sourceName = this.element.querySelector('#tp-source-name');
     if (sourceImg)  sourceImg.src = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
-    if (sourceName) { sourceName.textContent = this._sourceToken?.name ?? 'Select exactly 1 token'; sourceName.style.color = this._sourceToken ? p.text : p.textDim; }
+    if (sourceName) { sourceName.textContent = this._sourceToken?.name ?? 'Select exactly 1 token'; sourceName.classList.toggle('dim', !this._sourceToken); }
   }
 
   async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
-    const p = palette();
 
     const sourceSrc   = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
     const sourceLabel = this._sourceToken?.name ?? 'Select exactly 1 token';
     const saved = game.user.getFlag('draw-steel-combat-tools', 'tpSettings') || { dist: 5, anim: true, color: '#a030ff', duration: 600 };
 
     return `
-      <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;" id="tp-drag-handle">
-        <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
-          <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">Teleport</div>
-          <button data-action="close-window"
-            style="width:${s(16)}px;height:${s(16)}px;flex-shrink:0;cursor:pointer;margin-left:auto;
-            background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;
-            display:flex;align-items:center;justify-content:center;font-size:${s(9)}px;padding:0;"
-            onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">x</button>
+      <div class="dsct-panel" id="tp-drag-handle">
+        <div class="dsct-panel-header">
+          <div class="dsct-panel-title">Teleport</div>
+          <button class="dsct-close-btn" data-action="close-window">x</button>
         </div>
 
-        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;align-items:center;">
-          <img id="tp-source-img" src="${sourceSrc}" style="width:${s(66)}px;height:${s(66)}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-          <div id="tp-source-name" style="font-size:${s(11)}px;color:${this._sourceToken ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${sourceLabel}</div>
+        <div class="dsct-section dsct-col-gap dsct-center-items">
+          <img id="tp-source-img" src="${sourceSrc}" class="dsct-token-img dsct-token-img-lg">
+          <div id="tp-source-name" class="dsct-token-name${this._sourceToken ? '' : ' dim'}">${sourceLabel}</div>
         </div>
 
-        <div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">Parameters</div>
-        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;gap:${s(4)}px;">
+        <div class="dsct-section-label">Parameters</div>
+        <div class="dsct-section dsct-col-gap">
 
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Distance</div>
-            <input type="number" id="tp-dist" value="${saved.dist}" min="1" step="1" style="width:${s(30)}px;text-align:center;" title="Squares">
+          <div class="dsct-row">
+            <div class="dsct-param-label">Distance</div>
+            <input type="number" id="tp-dist" value="${saved.dist}" min="1" step="1" class="dsct-input-sm" title="Squares">
           </div>
 
-          <div style="width:100%;height:1px;background:${p.border};margin:${s(2)}px 0;"></div>
+          <div class="dsct-divider"></div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <label style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+          <div class="dsct-row">
+            <label class="dsct-checkbox-label">
               <input type="checkbox" id="tp-anim" ${saved.anim ? 'checked' : ''}> Animate Phase
             </label>
           </div>
 
-          <div id="tp-anim-options" style="display:flex;flex-direction:column;gap:${s(4)}px;transition:opacity 0.2s ease;opacity:${saved.anim ? '1' : '0.4'};">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Phase Color</div>
-              <input type="text" id="tp-color" data-color-picker='{"format":"hex","alphaChannel":false}' value="${saved.color}" style="width:${s(80)}px;text-align:center;" ${saved.anim ? '' : 'disabled'}>
+          <div id="tp-anim-options" class="dsct-tp-anim-options${saved.anim ? '' : ' disabled'}">
+            <div class="dsct-row">
+              <div class="dsct-param-label">Phase Color</div>
+              <input type="text" id="tp-color" data-color-picker='{"format":"hex","alphaChannel":false}' value="${saved.color}" class="dsct-input-xl" ${saved.anim ? '' : 'disabled'}>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Duration (ms)</div>
-              <input type="number" id="tp-duration" value="${saved.duration}" min="100" step="100" style="width:${s(40)}px;text-align:center;" ${saved.anim ? '' : 'disabled'}>
+            <div class="dsct-row">
+              <div class="dsct-param-label">Duration (ms)</div>
+              <input type="number" id="tp-duration" value="${saved.duration}" min="100" step="100" class="dsct-input-md" ${saved.anim ? '' : 'disabled'}>
             </div>
           </div>
         </div>
 
-        <button data-action="execute-tp" style="width:100%;padding:${s(10)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(12)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
-          <i class="fas fa-magic" style="margin-right:${s(4)}px;"></i> Execute Teleport
+        <button class="dsct-execute-btn sm" data-action="execute-tp">
+          <i class="fas fa-magic"></i> Execute Teleport
         </button>
 
       </div>`;
@@ -438,7 +432,7 @@ export class TeleportPanel extends ApplicationV2 {
     };
 
     animCheck?.addEventListener('change', () => {
-      animOpts.style.opacity = animCheck.checked ? '1' : '0.4';
+      animOpts.classList.toggle('disabled', !animCheck.checked);
       animOpts.querySelectorAll('input').forEach(el => el.disabled = !animCheck.checked);
       saveSettings();
     });

@@ -707,7 +707,17 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const prevAlpha = tile.document.alpha ?? getMaterialAlpha(origMat);
         const blockTag  = getTags(tile).find(t => t.startsWith('wall-block-'));
         if (blockTag) {
-          const walls        = getByTag(blockTag).filter(o => Array.isArray(o.c));
+          const tg = toGrid(tile.document);
+          let walls = getByTag(blockTag).filter(o => Array.isArray(o.c));
+          const splitWalls = [];
+          for (const w of walls) {
+            if (hasTags(w, 'wall-converted')) {
+              splitWalls.push(await splitConvertedWall(w, tg.x, tg.y, undoOps));
+            } else {
+              splitWalls.push(w);
+            }
+          }
+          walls = splitWalls;
           const prevWallData = walls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
           for (const wall of walls) {
             await safeUpdate(wall, { move: 0, sight: 0, light: 0, sound: 0 });

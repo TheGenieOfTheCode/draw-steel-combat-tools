@@ -1,5 +1,5 @@
 import {
-  s, palette, injectPanelChrome,
+  s, injectPanelChrome,
   getWindowById, getModuleApi,
 } from './helpers.mjs';
 
@@ -18,7 +18,7 @@ export class ForcedMovementPanel extends ApplicationV2 {
     id: 'dsct-fm-panel',
     classes: ['draw-steel'],
     window: { title: 'Forced Movement', minimizable: false, resizable: false },
-    position: { width: s(260), height: 'auto' },
+    position: { width: 312, height: 'auto' },
   };
 
   _updatePreview() {
@@ -29,127 +29,120 @@ export class ForcedMovementPanel extends ApplicationV2 {
     this._targetToken = targets.length > 0 ? targets[0] : null;
   }
 
-  _buildTargetHTML(p) {
+  _buildTargetHTML() {
     const targets = this._targetTokens;
     const count   = targets.length;
     const cols    = count <= 1 ? 1 : count <= 4 ? 2 : count <= 9 ? 3 : count <= 16 ? 4 : 5;
-    const total   = s(66);
-    const gap     = s(2);
+    const total   = 79;
+    const gap     = 2;
     const cell    = Math.floor((total - gap * (cols - 1)) / cols);
 
     if (cols === 1) {
       const src   = targets[0]?.document.texture.src ?? 'icons/svg/mystery-man.svg';
       const label = targets[0]?.name ?? 'No Target';
-      const color = targets[0] ? p.text : p.textDim;
       return `
-        <img src="${src}" style="width:${total}px;height:${total}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-        <div style="font-size:${s(11)}px;color:${color};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${label}</div>
+        <img src="${src}" class="dsct-token-img dsct-token-img-lg">
+        <div class="dsct-token-name${targets[0] ? '' : ' dim'}">${label}</div>
       `;
     }
 
     const slots  = cols * cols;
     const filled = targets.slice(0, slots).map(t =>
-      `<img src="${t.document.texture.src}" style="width:${cell}px;height:${cell}px;border-radius:2px;object-fit:cover;border:1px solid ${p.border};background:${p.bg};" title="${t.name}">`
+      `<img src="${t.document.texture.src}" class="dsct-token-img" style="width:${cell}px;height:${cell}px;" title="${t.name}">`
     ).join('');
     const empty  = Array(Math.max(0, slots - Math.min(count, slots))).fill(
-      `<div style="width:${cell}px;height:${cell}px;border-radius:2px;border:1px dashed ${p.borderOuter};"></div>`
+      `<div class="dsct-token-placeholder" style="width:${cell}px;height:${cell}px;"></div>`
     ).join('');
     const label  = count ? `${count} Target${count !== 1 ? 's' : ''}` : 'No Target';
     return `
       <div style="display:grid;grid-template-columns:repeat(${cols},${cell}px);gap:${gap}px;width:${total}px;height:${total}px;align-items:center;justify-items:center;">
         ${filled}${empty}
       </div>
-      <div style="font-size:${s(11)}px;color:${count ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${label}</div>
+      <div class="dsct-token-name${count ? '' : ' dim'}">${label}</div>
     `;
   }
 
   _refreshPanel() {
     if (!this.rendered) return;
     this._updatePreview();
-    const p = palette();
 
     const sourceImg  = this.element.querySelector('#fm-source-img');
     const sourceName = this.element.querySelector('#fm-source-name');
-    if (sourceImg)  { sourceImg.src = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg'; sourceImg.style.width = `${s(66)}px`; sourceImg.style.height = `${s(66)}px`; }
-    if (sourceName) { sourceName.textContent = this._sourceToken?.name ?? 'No Source'; sourceName.style.color = this._sourceToken ? p.text : p.textDim; }
+    if (sourceImg)  { sourceImg.src = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg'; }
+    if (sourceName) { sourceName.textContent = this._sourceToken?.name ?? 'No Source'; sourceName.classList.toggle('dim', !this._sourceToken); }
 
     const targetContainer = this.element.querySelector('#fm-target-container');
-    if (targetContainer) targetContainer.innerHTML = this._buildTargetHTML(p);
+    if (targetContainer) targetContainer.innerHTML = this._buildTargetHTML();
   }
 
   async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
-    const p = palette();
 
     const sourceSrc   = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
     const sourceLabel = this._sourceToken?.name ?? 'No Source';
 
     return `
-      <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;" id="fm-drag-handle">
+      <div class="dsct-panel" id="fm-drag-handle">
 
-        <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
-          <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">Forced Movement</div>
-          <button data-action="close-window"
-            style="width:${s(16)}px;height:${s(16)}px;flex-shrink:0;cursor:pointer;margin-left:auto;
-            background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;
-            display:flex;align-items:center;justify-content:center;font-size:${s(9)}px;padding:0;"
-            onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">x</button>
+        <div class="dsct-panel-header">
+          <div class="dsct-panel-title">Forced Movement</div>
+          <button class="dsct-close-btn" data-action="close-window">x</button>
         </div>
 
-        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;">
-          <div style="display:flex;align-items:center;gap:${s(6)}px;">
-            <div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;">
-              <img id="fm-source-img" src="${sourceSrc}" style="width:${s(66)}px;height:${s(66)}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-              <div id="fm-source-name" style="font-size:${s(11)}px;color:${this._sourceToken ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${sourceLabel}</div>
+        <div class="dsct-section">
+          <div class="dsct-fm-actors">
+            <div class="dsct-token-col">
+              <img id="fm-source-img" src="${sourceSrc}" class="dsct-token-img dsct-token-img-lg">
+              <div id="fm-source-name" class="dsct-token-name${this._sourceToken ? '' : ' dim'}">${sourceLabel}</div>
             </div>
 
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
-              <div style="font-size:${s(12)}px;color:${p.textDim};">moves</div>
+            <div class="dsct-center-col">
+              <div class="dsct-fm-moves-label">moves</div>
             </div>
 
-            <div id="fm-target-container" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;height:${s(80)}px;">
-              ${this._buildTargetHTML(p)}
+            <div id="fm-target-container" class="dsct-target-col">
+              ${this._buildTargetHTML()}
             </div>
           </div>
         </div>
 
-        <div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">Parameters</div>
-        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;gap:${s(4)}px;">
+        <div class="dsct-section-label">Parameters</div>
+        <div class="dsct-section dsct-col-gap">
 
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Distance</div>
-            <div style="display:flex;gap:${s(3)}px;">
-              <select id="fm-type" style="width:${s(60)}px;">
+          <div class="dsct-row">
+            <div class="dsct-param-label">Distance</div>
+            <div class="dsct-btn-group">
+              <select id="fm-type" class="dsct-input-lg">
                 <option value="Push">Push</option><option value="Pull">Pull</option><option value="Slide">Slide</option>
               </select>
-              <input type="number" id="fm-dist" value="1" min="0" step="1" style="width:${s(30)}px;text-align:center;" title="Squares">
+              <input type="number" id="fm-dist" value="1" min="0" step="1" class="dsct-input-sm" title="Squares">
             </div>
           </div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <label style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+          <div class="dsct-row">
+            <label class="dsct-checkbox-label">
               <input type="checkbox" id="fm-vert-check"> Vertical
             </label>
-            <input type="number" id="fm-vert-dist" placeholder="Dist" step="1" style="width:${s(40)}px;text-align:center;" title="Leave blank to match horizontal distance">
+            <input type="number" id="fm-vert-dist" placeholder="Dist" step="1" class="dsct-input-md" title="Leave blank to match horizontal distance">
           </div>
 
-          <div style="width:100%;height:1px;background:${p.border};margin:${s(2)}px 0;"></div>
+          <div class="dsct-divider"></div>
 
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Fall Reduction</div>
-            <input type="number" id="fm-fall-red" value="0" min="0" step="1" style="width:${s(30)}px;text-align:center;" title="Bonus (Stacks with Agility)">
+          <div class="dsct-row">
+            <div class="dsct-param-label">Fall Reduction</div>
+            <input type="number" id="fm-fall-red" value="0" min="0" step="1" class="dsct-input-sm" title="Bonus (Stacks with Agility)">
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:${s(4)}px;margin-top:${s(2)}px;">
-            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;"><input type="checkbox" id="fm-no-fall"> No Fall Damage</label>
-            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;"><input type="checkbox" id="fm-no-col"> No Collision Damage</label>
-            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;"><input type="checkbox" id="fm-ign-stab"> Ignore Stability</label>
-            <label style="color:${p.accent};font-size:${s(8)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;"><input type="checkbox" id="fm-fast-move"> Fast Auto-Path</label>
+          <div class="dsct-checkbox-grid">
+            <label class="dsct-checkbox-label"><input type="checkbox" id="fm-no-fall"> No Fall Damage</label>
+            <label class="dsct-checkbox-label"><input type="checkbox" id="fm-no-col"> No Collision Damage</label>
+            <label class="dsct-checkbox-label"><input type="checkbox" id="fm-ign-stab"> Ignore Stability</label>
+            <label class="dsct-checkbox-label"><input type="checkbox" id="fm-fast-move"> Fast Auto-Path</label>
           </div>
         </div>
 
-        <button data-action="execute-fm" style="width:100%;padding:${s(15)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(12)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
-          <i class="fas fa-arrows-alt" style="margin-right:${s(4)}px;"></i> <span id="fm-exec-text">Execute Move</span>
+        <button class="dsct-execute-btn" data-action="execute-fm">
+          <i class="fas fa-arrows-alt"></i> <span id="fm-exec-text">Execute Move</span>
         </button>
 
       </div>`;

@@ -1,7 +1,7 @@
 import {
   getSetting, getWindowById, getSquadGroup, safeTakeDamage,
   safeToggleStatusEffect, safeCreateEmbedded, safeDelete,
-  s, palette, injectPanelChrome,
+  s, injectPanelChrome,
 } from './helpers.mjs';
 import { applyFrightened, applyTaunted } from './conditions.mjs';
 
@@ -166,7 +166,7 @@ export class DamageConditionsPanel extends ApplicationV2 {
     id: 'dsct-dc-panel',
     classes: ['draw-steel'],
     window: { title: 'Damage & Conditions', minimizable: false, resizable: false },
-    position: { width: s(290), height: 'auto' },
+    position: { width: 348, height: 'auto' },
   };
 
   _updatePreview() {
@@ -176,36 +176,36 @@ export class DamageConditionsPanel extends ApplicationV2 {
     this._targetTokens  = targets;
   }
 
-  _buildTargetHTML(p) {
+  _buildTargetHTML() {
     const targets = this._targetTokens;
     const count   = targets.length;
     const cols    = count <= 1 ? 1 : count <= 4 ? 2 : count <= 9 ? 3 : count <= 16 ? 4 : 5;
-    const total   = s(66);
-    const gap     = s(2);
+    const total   = 79;
+    const gap     = 2;
     const cell    = Math.floor((total - gap * (cols - 1)) / cols);
 
     if (cols === 1) {
       const src   = targets[0]?.document.texture.src ?? 'icons/svg/mystery-man.svg';
       const label = targets[0]?.name ?? 'No Target';
       return `
-        <img src="${src}" style="width:${total}px;height:${total}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-        <div style="font-size:${s(11)}px;color:${count ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${label}</div>
+        <img src="${src}" class="dsct-token-img dsct-token-img-lg">
+        <div class="dsct-token-name${count ? '' : ' dim'}">${label}</div>
       `;
     }
 
     const slots  = cols * cols;
     const filled = targets.slice(0, slots).map(t =>
-      `<img src="${t.document.texture.src}" style="width:${cell}px;height:${cell}px;border-radius:2px;object-fit:cover;border:1px solid ${p.border};background:${p.bg};" title="${t.name}">`
+      `<img src="${t.document.texture.src}" class="dsct-token-img" style="width:${cell}px;height:${cell}px;" title="${t.name}">`
     ).join('');
     const empty  = Array(Math.max(0, slots - Math.min(count, slots))).fill(
-      `<div style="width:${cell}px;height:${cell}px;border-radius:2px;border:1px dashed ${p.borderOuter};"></div>`
+      `<div class="dsct-token-placeholder" style="width:${cell}px;height:${cell}px;"></div>`
     ).join('');
     const label  = count ? `${count} Target${count !== 1 ? 's' : ''}` : 'No Target';
     return `
       <div style="display:grid;grid-template-columns:repeat(${cols},${cell}px);gap:${gap}px;width:${total}px;height:${total}px;align-items:center;justify-items:center;">
         ${filled}${empty}
       </div>
-      <div style="font-size:${s(11)}px;color:${count ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${label}</div>
+      <div class="dsct-token-name${count ? '' : ' dim'}">${label}</div>
     `;
   }
 
@@ -228,19 +228,18 @@ export class DamageConditionsPanel extends ApplicationV2 {
   _refreshPanel() {
     if (!this.rendered) return;
     this._updatePreview();
-    const p = palette();
 
     const sourceImg  = this.element.querySelector('#dc-source-img');
     const sourceName = this.element.querySelector('#dc-source-name');
-    if (sourceImg)  { sourceImg.src = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg'; sourceImg.style.width = `${s(66)}px`; sourceImg.style.height = `${s(66)}px`; }
-    if (sourceName) { sourceName.textContent = this._sourceToken?.name ?? 'No Source'; sourceName.style.color = this._sourceToken ? p.text : p.textDim; }
+    if (sourceImg)  sourceImg.src = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
+    if (sourceName) { sourceName.textContent = this._sourceToken?.name ?? 'No Source'; sourceName.classList.toggle('dim', !this._sourceToken); }
 
     const targetContainer = this.element.querySelector('#dc-target-container');
-    if (targetContainer) targetContainer.innerHTML = this._buildTargetHTML(p);
+    if (targetContainer) targetContainer.innerHTML = this._buildTargetHTML();
 
     const condDef = ALL_CONDITIONS.find(c => c.id === this._condition);
     const srcNote = this.element.querySelector('#dc-source-note');
-    if (srcNote) srcNote.style.display = condDef?.requiresSource ? 'block' : 'none';
+    if (srcNote) srcNote.classList.toggle('dsct-hidden', !condDef?.requiresSource);
 
     const execBtn = this.element.querySelector('[data-action="execute-dc"]');
     if (execBtn) execBtn.textContent = this._buildButtonText();
@@ -248,7 +247,6 @@ export class DamageConditionsPanel extends ApplicationV2 {
 
   async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
-    const p = palette();
 
     const sourceSrc   = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
     const sourceLabel = this._sourceToken?.name ?? 'No Source';
@@ -256,58 +254,58 @@ export class DamageConditionsPanel extends ApplicationV2 {
 
     const condOptHTML = `<option value="">-- None --</option>`
       + ALL_CONDITIONS.map(c => `<option value="${c.id}" ${c.id === this._condition ? 'selected' : ''}>${c.label}</option>`).join('');
-    const condDef = ALL_CONDITIONS.find(c => c.id === this._condition);
-    const showSrcNote = condDef?.requiresSource ?? false;
+    const condDef   = ALL_CONDITIONS.find(c => c.id === this._condition);
+    const hideSrcNote = !(condDef?.requiresSource ?? false);
 
     return `
-      <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;" id="dc-drag-handle">
+      <div class="dsct-panel" id="dc-drag-handle">
 
-        <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
-          <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">Damage &amp; Conditions</div>
-          <button data-action="close-window" style="width:${s(16)}px;height:${s(16)}px;flex-shrink:0;cursor:pointer;margin-left:auto;background:${p.bgBtn};border:1px solid ${p.border};color:${p.textDim};border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:${s(9)}px;padding:0;" onmouseover="this.style.color='${p.text}'" onmouseout="this.style.color='${p.textDim}'">x</button>
+        <div class="dsct-panel-header">
+          <div class="dsct-panel-title">Damage &amp; Conditions</div>
+          <button class="dsct-close-btn" data-action="close-window">x</button>
         </div>
 
-        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;">
-          <div style="display:flex;align-items:center;gap:${s(6)}px;">
-            <div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;">
-              <img id="dc-source-img" src="${sourceSrc}" style="width:${s(66)}px;height:${s(66)}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-              <div id="dc-source-name" style="font-size:${s(11)}px;color:${this._sourceToken ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${sourceLabel}</div>
+        <div class="dsct-section">
+          <div class="dsct-fm-actors">
+            <div class="dsct-token-col">
+              <img id="dc-source-img" src="${sourceSrc}" class="dsct-token-img dsct-token-img-lg">
+              <div id="dc-source-name" class="dsct-token-name${this._sourceToken ? '' : ' dim'}">${sourceLabel}</div>
             </div>
-            <div style="font-size:${s(16)}px;color:${p.textDim};flex-shrink:0;">&#8594;</div>
-            <div id="dc-target-container" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;height:${s(80)}px;">
-              ${this._buildTargetHTML(p)}
+            <div class="dsct-arrow">&#8594;</div>
+            <div id="dc-target-container" class="dsct-target-col">
+              ${this._buildTargetHTML()}
             </div>
           </div>
         </div>
 
-        <div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">Damage</div>
-        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;gap:${s(5)}px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:${s(4)}px;">
-            <span style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Amount</span>
-            <div style="display:flex;gap:${s(3)}px;align-items:center;">
-              <input type="number" id="dc-amount" value="0" min="0" step="1" style="width:${s(40)}px;text-align:center;">
-              <select id="dc-type" style="width:${s(82)}px;">${dmgTypeHTML}</select>
+        <div class="dsct-section-label">Damage</div>
+        <div class="dsct-section dsct-col-gap">
+          <div class="dsct-row">
+            <span class="dsct-param-label">Amount</span>
+            <div class="dsct-btn-group">
+              <input type="number" id="dc-amount" value="0" min="0" step="1" class="dsct-input-md">
+              <select id="dc-type" style="width:98px;">${dmgTypeHTML}</select>
             </div>
           </div>
-          <label style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;display:flex;align-items:center;gap:${s(3)}px;cursor:pointer;">
+          <label class="dsct-checkbox-label">
             <input type="checkbox" id="dc-ignore-immunity"> Ignore Immunity
           </label>
-          <div style="display:flex;gap:${s(4)}px;">
-            <button id="dc-mode-strike" data-mode="strike" style="flex:1;padding:${s(4)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._damageMode==='strike'?p.accent:p.border};color:${this._damageMode==='strike'?p.accent:p.text};">Strike</button>
-            <button id="dc-mode-area"   data-mode="area"   style="flex:1;padding:${s(4)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;background:${p.bgBtn};border:1px solid ${this._damageMode==='area'?p.accent:p.border};color:${this._damageMode==='area'?p.accent:p.text};">Area</button>
+          <div class="dsct-flex-row">
+            <button id="dc-mode-strike" data-mode="strike" class="dsct-mode-btn${this._damageMode==='strike' ? ' active' : ''}">Strike</button>
+            <button id="dc-mode-area"   data-mode="area"   class="dsct-mode-btn${this._damageMode==='area'   ? ' active' : ''}">Area</button>
           </div>
         </div>
 
-        <div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">Condition</div>
-        <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;gap:${s(5)}px;">
-          <div style="display:flex;align-items:center;gap:${s(4)}px;">
+        <div class="dsct-section-label">Condition</div>
+        <div class="dsct-section dsct-col-gap">
+          <div class="dsct-row-start">
             <select id="dc-condition" style="flex:1;">${condOptHTML}</select>
-            <select id="dc-condition-end" style="width:${s(86)}px;" ${!this._condition ? 'disabled' : ''}>${durOptsHTML(this._conditionEnd)}</select>
+            <select id="dc-condition-end" style="width:103px;" ${!this._condition ? 'disabled' : ''}>${durOptsHTML(this._conditionEnd)}</select>
           </div>
-          <div id="dc-source-note" style="display:${showSrcNote ? 'block' : 'none'};font-size:${s(8)}px;color:${p.textDim};">Requires a controlled source token.</div>
+          <div id="dc-source-note" class="dsct-source-note${hideSrcNote ? ' dsct-hidden' : ''}">Requires a controlled source token.</div>
         </div>
 
-        <button data-action="execute-dc" style="width:100%;padding:${s(10)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(12)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
+        <button class="dsct-execute-btn sm" data-action="execute-dc">
           ${this._buildButtonText()}
         </button>
 
@@ -358,11 +356,8 @@ export class DamageConditionsPanel extends ApplicationV2 {
 
       if (btn.dataset.mode) {
         this._damageMode = btn.dataset.mode;
-        const p = palette();
         this.element.querySelectorAll('[data-mode]').forEach(b => {
-          const m = b.dataset.mode;
-          b.style.borderColor = m === this._damageMode ? p.accent : p.border;
-          b.style.color       = m === this._damageMode ? p.accent : p.text;
+          b.classList.toggle('active', b.dataset.mode === this._damageMode);
         });
         refreshBtn();
         return;
