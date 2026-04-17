@@ -361,9 +361,10 @@ export const distributeAbilities = async () => {
   const toAdd = index.filter(i => i.folder === knockback.folder && !EXCLUDE_IDS.has(i.system?._dsid));
 
   if (toAdd.length > MAX_SAFE) {
-    const proceed = await Dialog.confirm({
-      title: 'Unusual Item Count',
+    const proceed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: 'Unusual Item Count' },
       content: `<p>This operation is about to add <strong>${toAdd.length} items</strong> to every actor sheet, which is more than expected (max ${MAX_SAFE}). Something may have gone wrong.</p><p>Proceed anyway?</p>`,
+      rejectClose: false,
     });
     if (!proceed) { ui.notifications.info('Cancelled.'); return; }
   }

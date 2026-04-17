@@ -12,11 +12,9 @@ const MULTI_GRAB_LIMITS = {
 };
 
 const getForcedEffects = (item, tier) => {
-  const effectsCollection = item.system?.power?.effects;
-  const effects = normalizeCollection(effectsCollection);
+  const effects = item.system?.power?.effects?.documentsByType?.forced ?? [];
   const results = [];
   for (const effect of effects) {
-    if (effect.type !== 'forced') continue;
     const tierData = effect.forced?.[`tier${tier}`];
     if (!tierData) continue;
     const formula   = String(tierData.distance ?? '0');
@@ -98,7 +96,7 @@ const persistStack = (msgEl, stack) => {
   if (!msg) return;
   const stackData = stack.map(e => ({ modState: e.modState, noteName: e.noteName, noteDesc: e.noteDesc }));
   const api = getModuleApi();
-  if (api?.socket) api.socket.executeAsGM('updateDocument', msg.uuid, { 'flags.draw-steel-combat-tools.fmModifiers': stackData });
+  if (api?.socket) api.socket.executeAsGM('dsct.updateDocument', msg.uuid, { 'flags.draw-steel-combat-tools.fmModifiers': stackData });
   else msg.setFlag('draw-steel-combat-tools', 'fmModifiers', stackData);
 };
 
@@ -764,7 +762,7 @@ export const triggerGrabberFreeStrike = async (grabberTok, grab) => {
        (grabberTok.actor.ownership[u.id] ?? 0) >= CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)
     );
     if (controllingUser && controllingUser.id !== game.user.id && socket) {
-      await socket.executeAsUser('rollFreeStrike', controllingUser.id, freeStrikeItem.uuid);
+      await socket.executeAsUser('dsct.rollFreeStrike', controllingUser.id, freeStrikeItem.uuid);
     } else {
       await ds.helpers.macros.rollItemMacro(freeStrikeItem.uuid);
     }

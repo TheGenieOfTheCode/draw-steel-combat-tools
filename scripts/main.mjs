@@ -172,15 +172,14 @@ Hooks.once('ready', async () => {
     return root?.querySelector('#dsct-macro-prompt-pref')?.value ?? 'ask';
   };
 
-  const result = await Dialog.wait({
-    title: 'Draw Steel: Combat Tools - Sample Macros',
+  const result = await foundry.applications.api.DialogV2.wait({
+    window: { title: 'Draw Steel: Combat Tools - Sample Macros' },
     content,
-    buttons: {
-      yes: { label: 'Yes, Import',  callback: (html) => ({ doImport: true,  choice: getChoice(html) }) },
-      no:  { label: 'No Thanks',   callback: (html) => ({ doImport: false, choice: getChoice(html) }) },
-    },
-    close: () => null,
-    default: 'yes',
+    buttons: [
+      { action: "yes", label: 'Yes, Import', default: true, callback: (_e, _btn, dialog) => ({ doImport: true,  choice: getChoice(dialog.element) }) },
+      { action: "no",  label: 'No Thanks',                  callback: (_e, _btn, dialog) => ({ doImport: false, choice: getChoice(dialog.element) }) },
+    ],
+    rejectClose: false,
   });
 
   if (!result) return;
@@ -198,20 +197,16 @@ Hooks.once('socketlib.ready', () => {
   const socket = socketlib.registerModule('draw-steel-combat-tools');
   api.socket = socket;
 
-  socket.register('updateDocument',    async (uuid, data, options = {}) => { const doc = await fromUuid(uuid); if (doc) return await doc.update(data, options); });
-  socket.register('deleteDocument',    async (uuid) => { const doc = await fromUuid(uuid); if (doc) return await doc.delete(); });
-  socket.register('createEmbedded',    async (parentUuid, type, data) => { const parent = await fromUuid(parentUuid); if (parent) return await parent.createEmbeddedDocuments(type, data); });
-  socket.register('toggleStatusEffect',async (uuid, effectId, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.toggleStatusEffect(effectId, options); });
-  socket.register('takeDamage',        async (uuid, amount, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.system.takeDamage(amount, options); });
-  socket.register('rollFreeStrike',     async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });
-  socket.register('openSquadBreakpoint', async (groupId, numToKill, damagedTokenIds = []) => {
+  socket.register('dsct.updateDocument',    async (uuid, data, options = {}) => { const doc = await fromUuid(uuid); if (doc) return await doc.update(data, options); });
+  socket.register('dsct.deleteDocument',    async (uuid) => { const doc = await fromUuid(uuid); if (doc) return await doc.delete(); });
+  socket.register('dsct.createEmbedded',    async (parentUuid, type, data) => { const parent = await fromUuid(parentUuid); if (parent) return await parent.createEmbeddedDocuments(type, data); });
+  socket.register('dsct.toggleStatusEffect',async (uuid, effectId, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.toggleStatusEffect(effectId, options); });
+  socket.register('dsct.takeDamage',        async (uuid, amount, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.system.takeDamage(amount, options); });
+  socket.register('dsct.rollFreeStrike',    async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });
+  socket.register('dsct.openSquadBreakpoint', async (groupId, numToKill, damagedTokenIds = []) => {
     const group = game.combat?.groups?.get(groupId);
     if (!group) return;
-    const minions = Array.from(group.members || []).filter(m => {
-      if (!m?.actor) return false;
-      const sys = m.actor.system;
-      return String(sys?.monster?.organization || sys?.role?.value || sys?.role || m.actor.type).toLowerCase().trim() === 'minion';
-    });
+    const minions = Array.from(group.minions ?? []);
     api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions, damagedTokenIds });
   });
 

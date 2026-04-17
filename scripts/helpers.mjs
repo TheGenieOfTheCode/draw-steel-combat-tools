@@ -252,27 +252,27 @@ export const replayUndo = async (ops) => {
 
 export const safeUpdate = async (document, data, options = {}) => {
   if (document.isOwner) return await document.update(data, options);
-  return await getSocket().executeAsGM('updateDocument', document.uuid, data, options);
+  return await getSocket().executeAsGM('dsct.updateDocument', document.uuid, data, options);
 };
 
 export const safeDelete = async (document) => {
   if (document.isOwner) return await document.delete();
-  return await getSocket().executeAsGM('deleteDocument', document.uuid);
+  return await getSocket().executeAsGM('dsct.deleteDocument', document.uuid);
 };
 
 export const safeCreateEmbedded = async (parent, type, data) => {
   if (parent.isOwner) return await parent.createEmbeddedDocuments(type, data);
-  return await getSocket().executeAsGM('createEmbedded', parent.uuid, type, data);
+  return await getSocket().executeAsGM('dsct.createEmbedded', parent.uuid, type, data);
 };
 
 export const safeToggleStatusEffect = async (actor, effectId, options = {}) => {
   if (actor.isOwner) return await actor.toggleStatusEffect(effectId, options);
-  return await getSocket().executeAsGM('toggleStatusEffect', actor.uuid, effectId, options);
+  return await getSocket().executeAsGM('dsct.toggleStatusEffect', actor.uuid, effectId, options);
 };
 
 export const safeTakeDamage = async (actor, amount, options = {}) => {
   if (actor.isOwner) return await actor.system.takeDamage(amount, options);
-  return await getSocket().executeAsGM('takeDamage', actor.uuid, amount, options);
+  return await getSocket().executeAsGM('dsct.takeDamage', actor.uuid, amount, options);
 };
 
 const getQuickStrikeSocket = () => {

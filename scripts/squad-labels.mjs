@@ -73,7 +73,7 @@ export const applySquadLabels = async () => {
       if (!actor) continue;
 
       const isCaptain = combatant.id === captainId;
-      const isMinion  = actor.system.monster?.organization === 'minion';
+      const isMinion  = actor.system.isMinion;
       const prefix    = isCaptain ? 'Captain' : isMinion ? 'Minion' : 'Group';
       
       const img       = `${ICON_PATH}/${prefix}${num}${suffix}.png`;
@@ -107,29 +107,17 @@ export const registerSquadLabelHooks = () => {
     
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    new Dialog({
-      title: "Auto-Rename Squads?",
+    foundry.applications.api.DialogV2.wait({
+      window: { title: "Auto-Rename Squads?" },
       content: "<p>Do you want to rename all NPC combat groups to <strong>Group 1</strong>, <strong>Group 2</strong>, etc. before applying the labels?</p>",
-      buttons: {
-        yes: {
-          icon: '<i class="fas fa-check"></i>',
-          label: "Rename & Apply",
-          callback: async () => {
-            await autoRenameGroups();
-            await applySquadLabels();
-            ui.notifications.info("Combat squads renamed and labels applied.");
-          }
-        },
-        no: {
-          icon: '<i class="fas fa-paint-brush"></i>',
-          label: "Just Apply Labels",
-          callback: async () => {
-            await applySquadLabels();
-            ui.notifications.info("Squad labels applied to existing groups.");
-          }
-        }
-      },
-      default: "yes"
-    }).render(true);
+      buttons: [
+        { action: "rename", label: "Rename & Apply", icon: "fas fa-check", default: true },
+        { action: "apply",  label: "Just Apply Labels", icon: "fas fa-paint-brush" },
+      ],
+      rejectClose: false,
+    }).then(async result => {
+      if (result === "rename") { await autoRenameGroups(); await applySquadLabels(); ui.notifications.info("Combat squads renamed and labels applied."); }
+      else if (result === "apply") { await applySquadLabels(); ui.notifications.info("Squad labels applied to existing groups."); }
+    });
   });
 };

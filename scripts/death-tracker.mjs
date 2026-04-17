@@ -177,12 +177,7 @@ export function registerDeathTrackerHooks() {
     window._squadDeathLocks.add(group.id);
 
     const defeatedStatusId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
-    const minions = Array.from(group.members || []).filter(m => {
-      if (!m || !m.actor) return false;
-      const sys = m.actor.system;
-      const roleStr = String(sys?.monster?.organization || sys?.role?.value || sys?.role || m.actor.type).toLowerCase().trim();
-      return roleStr === 'minion';
-    });
+    const minions = Array.from(group.minions ?? []);
 
     if (minions.length === 0) { window._squadDeathLocks.delete(group.id); return; }
 
@@ -211,7 +206,7 @@ export function registerDeathTrackerHooks() {
           if (chosenUserId === game.user.id || !socket) {
             if (api?.powerWordKill) api.powerWordKill({ maxTargets: numToKill, squadGroup: group, minions, damagedTokenIds });
           } else {
-            socket.executeAsUser('openSquadBreakpoint', chosenUserId, group.id, numToKill, damagedTokenIds);
+            socket.executeAsUser('dsct.openSquadBreakpoint', chosenUserId, group.id, numToKill, damagedTokenIds);
           }
         };
         if (window._dsctFMActive) {
@@ -401,7 +396,7 @@ const executeRevival = async (tokenId, explicitTile = null) => {
   if (combatant?.defeated) await combatant.update({ defeated: false });
 
   const actor = tokenDoc.actor;
-  const isMinion = actor ? String(actor.system?.monster?.organization || '').toLowerCase().trim() === 'minion' : false;
+  const isMinion = actor?.system?.isMinion ?? false;
   if (actor) {
       const defeatedStatusId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
       if (actor.statuses?.has(defeatedStatusId)) {
