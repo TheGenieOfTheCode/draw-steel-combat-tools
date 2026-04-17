@@ -1,5 +1,7 @@
 import { applyGrab, buildFreeStrikeButton, sizeRankG } from './grab.mjs';
-import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, parsePowerRollState, applyRollMod, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, getSquadGroup, s, palette, injectPanelChrome } from './helpers.mjs';
+import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, getSquadGroup, s, palette, injectPanelChrome } from './helpers.mjs';
+
+const { Application: ApplicationV2 } = foundry.applications.api;
 import { registerAbilityInjectors } from './ability-automation.mjs';
 import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetween } from './conditions.mjs';
 
@@ -124,7 +126,7 @@ const createModifierNoteDiv = (entry, modifierStack, baseStates, states, btnEls,
   return noteDiv;
 };
 
-class FmModifyPanel extends Application {
+class FmModifyPanel extends ApplicationV2 {
   constructor(states, baseStates, modifierStack, effects, btnEls, makeLabel, msgEl) {
     super();
     this._states         = states;
@@ -137,6 +139,13 @@ class FmModifyPanel extends Application {
     console.log(`DSCT | FmModifyPanel constructed | effects=${effects.length} msgId=${msgEl?.dataset?.messageId}`);
   }
 
+  static DEFAULT_OPTIONS = {
+    id: 'dsct-fm-modify',
+    classes: ['draw-steel'],
+    window: { title: 'Modify Forced Movement', minimizable: false, resizable: false },
+    position: { width: s(260), height: 'auto' },
+  };
+
   async close(options = {}) {
     if (this._shiftListeners) {
       document.removeEventListener('keydown', this._shiftListeners.down);
@@ -144,13 +153,6 @@ class FmModifyPanel extends Application {
       this._shiftListeners = null;
     }
     return super.close(options);
-  }
-
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'dsct-fm-modify', title: 'Modify Forced Movement', template: null,
-      width: s(260), height: 'auto', resizable: false, minimizable: false,
-    });
   }
 
   _readInputs(root, i, st) {
@@ -166,8 +168,8 @@ class FmModifyPanel extends Application {
     st.fastMove          = root.querySelector(`[data-field="fast-${i}"]`)?.checked     ?? st.fastMove;
   }
 
-  async _renderInner(_data) {
-    console.log(`DSCT | FmModifyPanel._renderInner | effects=${this._effects.length} msgId=${this._msgEl?.dataset?.messageId}`);
+  async _renderHTML(_context, _options) {
+    console.log(`DSCT | FmModifyPanel._renderHTML | effects=${this._effects.length} msgId=${this._msgEl?.dataset?.messageId}`);
     injectPanelChrome(this.options.id);
     const p = palette();
     const presetList    = loadPresets();
@@ -187,10 +189,10 @@ class FmModifyPanel extends Application {
                 <option value="pull"  ${state.movement === 'pull'  ? 'selected' : ''}>Pull</option>
                 <option value="slide" ${state.movement === 'slide' ? 'selected' : ''}>Slide</option>
               </select>
-              <span style="font-size:${s(8)}px;color:${p.textDim};" title="Current effective distance">${state.distance}</span>
-              <span style="font-size:${s(9)}px;color:${p.textDim};">±</span>
+              <span style="font-size:${s(12)}px;color:${p.text};" title="Current effective distance">${state.distance}</span>
+              <span style="font-size:${s(9)}px;color:${p.textDim};">&#177;</span>
               <input type="number" data-field="distance-${i}" value="0" step="1"
-                style="width:${s(26)}px;text-align:center;" title="Distance delta — adds to current effective distance">
+                style="width:${s(26)}px;text-align:center;" title="Distance delta - adds to current effective distance">
             </div>
           </div>
 
@@ -224,8 +226,8 @@ class FmModifyPanel extends Application {
       `;
     }).join('');
 
-    return $(`
-      <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;">
+    return `
+      <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;" id="fm-modify-drag-handle">
 
         <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
           <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">Modify Forced Movement</div>
@@ -272,42 +274,39 @@ class FmModifyPanel extends Application {
         ${effectSections}
 
         <button data-action="apply-mod"
-          style="width:100%;padding:${s(6)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(10)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
+          style="width:100%;padding:${s(10)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(12)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
           <i class="fas fa-check" style="margin-right:${s(4)}px;"></i> Apply
         </button>
 
       </div>
-    `);
+    `;
   }
 
-  activateListeners(html) {
-    super.activateListeners(html);
-    console.log(`DSCT | FmModifyPanel.activateListeners | effects=${this._effects.length}`);
+  _replaceHTML(result, content, _options) {
+    content.innerHTML = result;
+  }
 
-    const appEl = html[0].closest('.app');
-    if (appEl) {
-      const saved = window._fmModifyPanelPos;
-      appEl.style.left = saved ? `${saved.left}px` : `${Math.round((window.innerWidth  - (appEl.offsetWidth  || s(260))) / 2)}px`;
-      appEl.style.top  = saved ? `${saved.top}px`  : `${Math.round((window.innerHeight - (appEl.offsetHeight || s(300))) / 2)}px`;
+  _onRender(_context, _options) {
+    console.log(`DSCT | FmModifyPanel._onRender | effects=${this._effects.length}`);
 
-      html[0].addEventListener('mousedown', e => {
-        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea')) return;
-        e.preventDefault();
-        const sx = e.clientX - appEl.offsetLeft, sy = e.clientY - appEl.offsetTop;
-        const onMove = ev => { appEl.style.left = `${ev.clientX - sx}px`; appEl.style.top = `${ev.clientY - sy}px`; };
-        const onUp   = () => {
-          window._fmModifyPanelPos = { left: parseInt(appEl.style.left), top: parseInt(appEl.style.top) };
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup',   onUp);
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup',   onUp);
-      });
-    } else {
-      console.warn('DSCT | FmModifyPanel.activateListeners | could not find .app element for dragging');
-    }
+    const saved = window._fmModifyPanelPos;
+    if (saved) this.setPosition({ left: saved.left, top: saved.top });
 
-    const presetSel = html[0].querySelector('[data-field="preset-select"]');
+    this.element.querySelector('#fm-modify-drag-handle')?.addEventListener('mousedown', e => {
+      if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('textarea')) return;
+      e.preventDefault();
+      const sx = e.clientX - this.position.left, sy = e.clientY - this.position.top;
+      const onMove = ev => { this.setPosition({ left: ev.clientX - sx, top: ev.clientY - sy }); };
+      const onUp   = () => {
+        window._fmModifyPanelPos = { left: this.position.left, top: this.position.top };
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup',   onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup',   onUp);
+    });
+
+    const presetSel = this.element.querySelector('[data-field="preset-select"]');
 
     const rebuildDropdown = (presets, selectedIdx = -1) => {
       presetSel.innerHTML = '<option value="">-- No Preset --</option>'
@@ -338,11 +337,11 @@ class FmModifyPanel extends Application {
       }
     };
 
-    const deleteBtn = html[0].querySelector('[data-action="delete-preset"]');
+    const deleteBtn = this.element.querySelector('[data-action="delete-preset"]');
     const updateDeleteState = () => { deleteBtn.disabled = presetSel.value === ''; };
     updateDeleteState();
 
-    const saveBtnEl = html[0].querySelector('[data-action="save-preset"]');
+    const saveBtnEl = this.element.querySelector('[data-action="save-preset"]');
     const updateSaveShift = (held) => {
       saveBtnEl.style.color = held ? 'var(--dsct-text-active)' : 'var(--dsct-text-dim)';
       saveBtnEl.title = held ? 'Shift+Click to overwrite existing preset' : 'Save current inputs as a preset';
@@ -361,11 +360,13 @@ class FmModifyPanel extends Application {
       const preset  = presets[idx];
       if (!preset) return;
       console.log(`DSCT | FM presets | loading "${preset.name}"`);
-      fillFromPreset(html[0], preset);
+      fillFromPreset(this.element, preset);
     });
 
-    html.on('click', '[data-action]', e => {
-      const action = e.currentTarget.dataset.action;
+    this.element.addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
 
       if (action === 'close-window') {
         console.log('DSCT | FmModifyPanel | close-window clicked');
@@ -374,7 +375,7 @@ class FmModifyPanel extends Application {
       }
 
       if (action === 'apply-mod') {
-        const root    = html[0];
+        const root    = this.element;
         const rawName = root.querySelector('[data-field="note-name"]')?.value?.trim() ?? '';
         const rawDesc = root.querySelector('[data-field="note-desc"]')?.value?.trim() ?? '';
 
@@ -430,7 +431,7 @@ class FmModifyPanel extends Application {
       }
 
       if (action === 'save-preset') {
-        const root     = html[0];
+        const root     = this.element;
         const presets  = loadPresets();
         const noteName = root.querySelector('[data-field="note-name"]')?.value?.trim() ?? '';
         const noteDesc = root.querySelector('[data-field="note-desc"]')?.value?.trim() ?? '';
@@ -470,7 +471,7 @@ class FmModifyPanel extends Application {
           rebuildDropdown(presets, presets.length - 1);
           console.log(`DSCT | FM presets | saved "${name}" (total=${presets.length})`);
         }
-        e.currentTarget.blur();
+        btn.blur();
       }
 
       if (action === 'delete-preset') {
@@ -483,7 +484,7 @@ class FmModifyPanel extends Application {
         savePresets(presets);
         rebuildDropdown(presets);
         console.log(`DSCT | FM presets | deleted "${name}" (remaining=${presets.length})`);
-        e.currentTarget.blur();
+        btn.blur();
       }
     });
   }
@@ -593,7 +594,7 @@ const injectForcedButtons = (msg, { el, buttons, content }) => {
       editBtn.addEventListener('click', () => {
         const existing = getWindowById('dsct-fm-modify');
         if (existing) existing.close();
-        new FmModifyPanel(states, baseStates, modifierStack, data.effects, btnEls, makeLabel, el).render(true);
+        new FmModifyPanel(states, baseStates, modifierStack, data.effects, btnEls, makeLabel, el).render({ force: true });
       });
 
       const wrapper = document.createElement('div');
@@ -790,12 +791,11 @@ export const resolveGrabConfirmChatMessage = async (msgId, resolution) => {
   await msg.update({ content: newContent });
 };
 
-const _knockbackNotified    = new Set(); 
-const _escapeGrabInFlight   = new Set(); 
-const _grabFlagInFlight     = new Set(); 
-const _bleedingInFlight     = new Set(); 
-const _recentlyCreated      = new Set(); 
-const _powerRollModInFlight = new Set(); 
+const _knockbackNotified  = new Set();
+const _escapeGrabInFlight = new Set();
+const _grabFlagInFlight   = new Set();
+const _bleedingInFlight   = new Set();
+const _recentlyCreated    = new Set();
 
 const getActionType = (el) => {
   return el.querySelector('document-embed dd.type')?.textContent?.trim() ?? '';
@@ -807,20 +807,93 @@ const getRollCharacteristics = (el) => {
   return (rollLine + ' ' + flavorTxt).toLowerCase();
 };
 
-const targetsInclude = (targets, actorId, tokenId) =>
-  targets.some(t => (actorId && t.actor?.id === actorId) || (tokenId && t.id === tokenId));
 
-const injectAllRollMods = (msg, { el }) => {
-  const base   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
-  const deltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas');
-  if (!base?.originalTotal || !deltas) return;
 
-  const totalDelta = Object.values(deltas).reduce((sum, d) => sum + d, 0);
-  if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | msg=${msg.id} deltas=${JSON.stringify(deltas)} totalDelta=${totalDelta} originalNet=${base.originalNet} ? finalNet=${Math.max(-2, Math.min(2, base.originalNet + totalDelta))} isCritical=${base.isCritical}`);
-  applyRollMod(el, base, totalDelta);
-};
+function registerRollDialogHooks() {
+  Hooks.on('renderAbilityConfigurationDialog', (app) => {
+    if (app._dsctModifiersApplied) return;
+
+    const ability = app.options.ability;
+    if (!ability) return;
+
+    const actor = ability.actor ?? ability.parent;
+    if (!actor) return;
+
+    const casterToken = canvas.tokens.controlled.find(t => t.actor?.id === actor.id)
+                     ?? canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
+
+    const targetEntries = Object.entries(app.options.context?.targets ?? {});
+    const dsid = getItemDsid(ability);
+
+    let banes = 0;
+    let edges = 0;
+
+    // Grabbed bane: caster is grabbed and not targeting their grabber
+    if (getSetting('grabbedBaneEnabled') && casterToken) {
+      const grab = window._activeGrabs?.get(casterToken.id);
+      if (grab) {
+        const targetingGrabber = targetEntries.some(([id]) => id === grab.grabberTokenId);
+        if (!targetingGrabber) banes += 1;
+
+        // Escape-grab size bane: grabbed creature is smaller than grabber
+        if (dsid === 'escape-grab') {
+          const grabberTok = getTokenById(grab.grabberTokenId);
+          if (grabberTok) {
+            const grabbedSize = casterToken.actor?.system?.combat?.size ?? { value: 1, letter: 'M' };
+            const grabberSize = grabberTok.actor?.system?.combat?.size  ?? { value: 1, letter: 'M' };
+            if (sizeRankG(grabbedSize) < sizeRankG(grabberSize)) banes += 1;
+          }
+        }
+      }
+    }
+
+    // Frightened bane: caster is frightened and IS targeting the source of their fear
+    if (getSetting('frightenedEnabled') && casterToken) {
+      const fd = getFrightenedData(actor);
+      if (fd) {
+        const targetingSource = targetEntries.some(([id]) => id === fd.sourceTokenId);
+        if (targetingSource) banes += 1;
+      }
+    }
+
+    // Taunted bane (x2): caster is taunted, NOT targeting the taunter, and taunter has LoE
+    if (getSetting('tauntedEnabled') && casterToken) {
+      const td = getTauntedData(actor);
+      if (td) {
+        const targetingSource = targetEntries.some(([id]) => id === td.sourceTokenId);
+        if (!targetingSource) {
+          const sourceTok = getTokenById(td.sourceTokenId);
+          const hasLoE = sourceTok ? !sightBlockedBetween(casterToken, sourceTok) : false;
+          if (hasLoE) banes += 2;
+        }
+      }
+    }
+
+    // Frightened source edge: a target is frightened by the caster, so caster gets an edge
+    if (getSetting('frightenedEnabled') && casterToken) {
+      for (const [tokenId] of targetEntries) {
+        const targetTok = getTokenById(tokenId);
+        if (!targetTok?.actor) continue;
+        const fd = getFrightenedData(targetTok.actor);
+        if (fd && (fd.sourceActorId === actor.id || fd.sourceTokenId === casterToken.id)) {
+          edges += 1;
+          break;
+        }
+      }
+    }
+
+    if (banes === 0 && edges === 0) return;
+
+    app._dsctModifiersApplied = true;
+    app.options.context.modifiers.banes = (app.options.context.modifiers.banes ?? 0) + banes;
+    app.options.context.modifiers.edges = (app.options.context.modifiers.edges ?? 0) + edges;
+    if (getSetting('debugMode')) console.log(`DSCT | Roll Dialog | injecting banes=${banes} edges=${edges} for ${actor.name}`);
+    app.render();
+  });
+}
 
 export function registerChatHooks() {
+  registerRollDialogHooks();
   const trySetFlag = async (msg, el = null) => {
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | enter msg=${msg.id} author=${msg.author?.name} isMe=${msg.author.id === game.user.id}`);
     if (msg.author.id !== game.user.id) return;
@@ -870,77 +943,6 @@ export function registerChatHooks() {
     const tier = abilityResult.tier;
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | dsid=${dsid} tier=${tier} item.system.power.effects count=${normalizeCollection(item.system?.power?.effects).length}`);
 
-    if (el && !_powerRollModInFlight.has(msg.id)) {
-      const existingBase   = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
-      const existingDeltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas') ?? {};
-      const pendingDeltas  = { ...existingDeltas };
-      let baseState = existingBase ?? null;
-
-      if (getSetting('grabbedBaneEnabled') && !('grabbed' in existingDeltas)) {
-        const speakerTokenId = msg.speaker?.token;
-        const grab = speakerTokenId ? window._activeGrabs?.get(speakerTokenId) : null;
-        if (grab) {
-          const targets = [...game.user.targets];
-          const targetingGrabber = targetsInclude(targets, grab.grabberActorId, grab.grabberTokenId);
-          if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Grabbed bane check msg=${msg.id} targetingGrabber=${targetingGrabber} targets=${targets.length}`);
-          if (!targetingGrabber) pendingDeltas.grabbed = 1;
-
-          if (!('escapeBane' in existingDeltas) && dsid === 'escape-grab') {
-            const grabberTok = getTokenById(grab.grabberTokenId);
-            if (grabberTok) {
-              const grabbedSize  = speakerTok?.actor?.system?.combat?.size ?? { value: 1, letter: 'M' };
-              const grabberSize  = grabberTok.actor?.system?.combat?.size  ?? { value: 1, letter: 'M' };
-              if (sizeRankG(grabbedSize) < sizeRankG(grabberSize)) {
-                pendingDeltas.escapeBane = 1;
-                if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Escape size bane applied msg=${msg.id}`);
-              }
-            }
-          }
-        }
-      }
-
-      if (getSetting('frightenedEnabled') && !('frightened' in existingDeltas)) {
-        const speakerTokenId = msg.speaker?.token;
-        const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
-        const fd = speakerTok ? getFrightenedData(speakerTok.actor) : null;
-        if (fd) {
-          const targets = [...game.user.targets];
-          const targetingSource = targetsInclude(targets, fd.sourceActorId, fd.sourceTokenId);
-          if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Frightened bane check msg=${msg.id} targetingSource=${targetingSource}`);
-          if (targetingSource) pendingDeltas.frightened = 1;
-        }
-      }
-
-      if (getSetting('tauntedEnabled') && !('taunted' in existingDeltas)) {
-        const speakerTokenId = msg.speaker?.token;
-        const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
-        const td = speakerTok ? getTauntedData(speakerTok.actor) : null;
-        if (td) {
-          const targets = [...game.user.targets];
-          const targetingSource = targetsInclude(targets, td.sourceActorId, td.sourceTokenId);
-          if (!targetingSource) {
-            const sourceTok = getTokenById(td.sourceTokenId);
-            const hasLoE = sourceTok ? !sightBlockedBetween(speakerTok, sourceTok) : false;
-            if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Taunted check msg=${msg.id} targetingSource=${targetingSource} hasLoE=${hasLoE}`);
-            if (hasLoE) pendingDeltas.taunted = 2; 
-          }
-        }
-      }
-
-      const hasNewDeltas = Object.keys(pendingDeltas).some(k => !(k in existingDeltas));
-      if (hasNewDeltas) {
-        if (!baseState) {
-          baseState = parsePowerRollState(el);
-          if (getSetting('debugMode')) console.log(`DSCT | Power Roll Mods | Captured base state for msg=${msg.id}:`, baseState);
-        }
-        if (baseState) {
-          _powerRollModInFlight.add(msg.id);
-          if (!existingBase) await msg.setFlag('draw-steel-combat-tools', 'powerRollBase', baseState);
-          await msg.setFlag('draw-steel-combat-tools', 'powerRollDeltas', pendingDeltas);
-          _powerRollModInFlight.delete(msg.id);
-        }
-      }
-    }
 
     if (!msg.getFlag('draw-steel-combat-tools', 'knockbackBlocked') && !_knockbackNotified.has(msg.id) && dsid === 'knockback') {
       const speakerTokenId = msg.speaker?.token;
@@ -957,7 +959,7 @@ export function registerChatHooks() {
 
     if (!msg.getFlag('draw-steel-combat-tools', 'forcedMovement')) {
       const forced = getForcedEffects(item, tier);
-      if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | forcedEffects=${forced.length} for dsid=${dsid} tier=${tier}`);
+      if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | forcedEffects=${forced.length} for dsid=${dsid} tier=${tier} effectiveTier=${effectiveTier}`);
       if (forced.length) {
         const range = getItemRange(item);
         await msg.setFlag('draw-steel-combat-tools', 'forcedMovement', {
@@ -1018,30 +1020,6 @@ export function registerChatHooks() {
       }
     }
 
-    if (el && getSetting('frightenedEnabled') && !('frightenedSource' in (msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas') ?? {})) && !_powerRollModInFlight.has(msg.id)) {
-      const speakerTokenId = msg.speaker?.token;
-      const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
-      if (speakerTok) {
-        const targets = [...game.user.targets];
-        for (const t of targets) {
-          const fd = getFrightenedData(t.actor);
-          if (fd && (fd.sourceActorId === speakerTok.actor?.id || fd.sourceTokenId === speakerTokenId)) {
-            const existingDeltas = msg.getFlag('draw-steel-combat-tools', 'powerRollDeltas') ?? {};
-            if (!('frightenedSource' in existingDeltas)) {
-              const existingBase = msg.getFlag('draw-steel-combat-tools', 'powerRollBase');
-              const baseState = existingBase ?? parsePowerRollState(el);
-              if (baseState) {
-                _powerRollModInFlight.add(msg.id);
-                if (!existingBase) await msg.setFlag('draw-steel-combat-tools', 'powerRollBase', baseState);
-                await msg.setFlag('draw-steel-combat-tools', 'powerRollDeltas', { ...existingDeltas, frightenedSource: -1 });
-                _powerRollModInFlight.delete(msg.id);
-              }
-            }
-            break;
-          }
-        }
-      }
-    }
 
   };
 
@@ -1056,7 +1034,7 @@ export function registerChatHooks() {
     el.appendChild(div);
     return true; 
   });
-  registerInjector(injectAllRollMods);
+
   registerInjector(injectForcedButtons);
   registerInjector(injectGrabButton);
   registerInjector(injectGrabResolutions);

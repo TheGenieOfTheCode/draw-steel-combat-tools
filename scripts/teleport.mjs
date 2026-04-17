@@ -306,20 +306,21 @@ export async function runTeleport(macroArgs = []) {
 }
 
 
-export class TeleportPanel extends Application {
+const { Application: ApplicationV2 } = foundry.applications.api;
+
+export class TeleportPanel extends ApplicationV2 {
   constructor() {
     super();
-    this._html = null;
     this._sourceToken = null;
     this._updatePreview();
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'dsct-tp-panel', title: 'Teleport', template: null,
-      width: s(220), height: 'auto', resizable: false, minimizable: false,
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'dsct-tp-panel',
+    classes: ['draw-steel'],
+    window: { title: 'Teleport', minimizable: false, resizable: false },
+    position: { width: s(220), height: 'auto' },
+  };
 
   _updatePreview() {
     const controlled  = canvas.tokens.controlled;
@@ -327,27 +328,25 @@ export class TeleportPanel extends Application {
   }
 
   _refreshPanel() {
-    if (!this._html) return;
+    if (!this.rendered) return;
     this._updatePreview();
     const p = palette();
 
-    const sourceImg  = this._html.find('#tp-source-img')[0];
-    const sourceName = this._html.find('#tp-source-name')[0];
+    const sourceImg  = this.element.querySelector('#tp-source-img');
+    const sourceName = this.element.querySelector('#tp-source-name');
     if (sourceImg)  sourceImg.src = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
     if (sourceName) { sourceName.textContent = this._sourceToken?.name ?? 'Select exactly 1 token'; sourceName.style.color = this._sourceToken ? p.text : p.textDim; }
   }
 
-  async _renderInner(data) {
+  async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
     const p = palette();
 
     const sourceSrc   = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
     const sourceLabel = this._sourceToken?.name ?? 'Select exactly 1 token';
-    
-    
     const saved = game.user.getFlag('draw-steel-combat-tools', 'tpSettings') || { dist: 5, anim: true, color: '#a030ff', duration: 600 };
 
-    return $(`
+    return `
       <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;" id="tp-drag-handle">
         <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
           <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">Teleport</div>
@@ -359,13 +358,13 @@ export class TeleportPanel extends Application {
         </div>
 
         <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;align-items:center;">
-          <img id="tp-source-img" src="${sourceSrc}" style="width:${s(44)}px;height:${s(44)}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-          <div id="tp-source-name" style="font-size:${s(8)}px;color:${this._sourceToken ? p.text : p.textDim};text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:${s(2)}px;">${sourceLabel}</div>
+          <img id="tp-source-img" src="${sourceSrc}" style="width:${s(66)}px;height:${s(66)}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
+          <div id="tp-source-name" style="font-size:${s(11)}px;color:${this._sourceToken ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${sourceLabel}</div>
         </div>
 
         <div style="font-size:${s(8)}px;text-transform:uppercase;letter-spacing:0.5px;color:${p.textLabel};margin-bottom:${s(4)}px;">Parameters</div>
         <div style="padding:${s(6)}px;border:1px solid ${p.border};border-radius:${s(3)}px;background:${p.bgInner};margin-bottom:${s(6)}px;display:flex;flex-direction:column;gap:${s(4)}px;">
-          
+
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Distance</div>
             <input type="number" id="tp-dist" value="${saved.dist}" min="1" step="1" style="width:${s(30)}px;text-align:center;" title="Squares">
@@ -379,102 +378,89 @@ export class TeleportPanel extends Application {
             </label>
           </div>
 
-          <div id="tp-anim-options" style="display:flex;flex-direction:column;gap:${s(4)}px;transition:opacity 0.2s ease; opacity: ${saved.anim ? '1' : '0.4'};">
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Phase Color</div>
-                <input type="text" id="tp-color" data-color-picker="format: 'hex'; alphaChannel: false;" value="${saved.color}" style="width:${s(80)}px;text-align:center;" ${saved.anim ? '' : 'disabled'}>
-              </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Duration (ms)</div>
-                <input type="number" id="tp-duration" value="${saved.duration}" min="100" step="100" style="width:${s(40)}px;text-align:center;" ${saved.anim ? '' : 'disabled'}>
-              </div>
+          <div id="tp-anim-options" style="display:flex;flex-direction:column;gap:${s(4)}px;transition:opacity 0.2s ease;opacity:${saved.anim ? '1' : '0.4'};">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Phase Color</div>
+              <input type="text" id="tp-color" data-color-picker='{"format":"hex","alphaChannel":false}' value="${saved.color}" style="width:${s(80)}px;text-align:center;" ${saved.anim ? '' : 'disabled'}>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="color:${p.accent};font-size:${s(9)}px;font-weight:bold;">Duration (ms)</div>
+              <input type="number" id="tp-duration" value="${saved.duration}" min="100" step="100" style="width:${s(40)}px;text-align:center;" ${saved.anim ? '' : 'disabled'}>
+            </div>
           </div>
         </div>
 
-        <button data-action="execute-tp" style="width:100%;padding:${s(6)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(10)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
+        <button data-action="execute-tp" style="width:100%;padding:${s(10)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(12)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
           <i class="fas fa-magic" style="margin-right:${s(4)}px;"></i> Execute Teleport
         </button>
 
-      </div>`);
+      </div>`;
   }
 
-  activateListeners(html) {
-    super.activateListeners(html);
-    this._html = html;
+  _replaceHTML(result, content, _options) {
+    content.innerHTML = result;
+  }
 
-    if (typeof ColorPicker !== 'undefined') {
-        ColorPicker.install();
-    }
+  _onRender(_context, _options) {
+    if (typeof ColorPicker !== 'undefined') ColorPicker.install();
 
-    const appEl = html[0].closest('.app');
-    if (appEl) {
-      const saved = window._tpPanelPos;
-      appEl.style.left = saved ? `${saved.left}px` : `${Math.round((window.innerWidth - (appEl.offsetWidth || s(220))) / 2)}px`;
-      appEl.style.top  = saved ? `${saved.top}px`  : `${Math.round((window.innerHeight - (appEl.offsetHeight || s(300))) / 2)}px`;
-      html[0].addEventListener('mousedown', e => {
-        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
-        e.preventDefault();
-        const sx = e.clientX - appEl.offsetLeft, sy = e.clientY - appEl.offsetTop;
-        const onMove = ev => { appEl.style.left = `${ev.clientX - sx}px`; appEl.style.top = `${ev.clientY - sy}px`; };
-        const onUp   = () => {
-          window._tpPanelPos = { left: parseInt(appEl.style.left), top: parseInt(appEl.style.top) };
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-    }
+    const saved = window._tpPanelPos;
+    if (saved) this.setPosition({ left: saved.left, top: saved.top });
+
+    this.element.querySelector('#tp-drag-handle')?.addEventListener('mousedown', e => {
+      if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
+      e.preventDefault();
+      const sx = e.clientX - this.position.left, sy = e.clientY - this.position.top;
+      const onMove = ev => { this.setPosition({ left: ev.clientX - sx, top: ev.clientY - sy }); };
+      const onUp   = () => {
+        window._tpPanelPos = { left: this.position.left, top: this.position.top };
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
 
     if (this._hookControl) Hooks.off('controlToken', this._hookControl);
     this._hookControl = Hooks.on('controlToken', () => this._refreshPanel());
     this._themeObserver = new MutationObserver(() => this._refreshPanel());
     this._themeObserver.observe(document.body, { attributeFilter: ['class'] });
 
-    const animCheck = html.find('#tp-anim');
-    const animOpts = html.find('#tp-anim-options');
-    
+    const animCheck = this.element.querySelector('#tp-anim');
+    const animOpts  = this.element.querySelector('#tp-anim-options');
+
     const saveSettings = async () => {
-        const dist = parseInt(html.find('#tp-dist').val()) || 5;
-        const anim = html.find('#tp-anim').is(':checked');
-        const color = html.find('#tp-color').val() || "#a030ff";
-        const duration = parseInt(html.find('#tp-duration').val()) || 600;
-        await game.user.setFlag('draw-steel-combat-tools', 'tpSettings', { dist, anim, color, duration });
+      const dist     = parseInt(this.element.querySelector('#tp-dist')?.value) || 5;
+      const anim     = this.element.querySelector('#tp-anim')?.checked;
+      const color    = this.element.querySelector('#tp-color')?.value || '#a030ff';
+      const duration = parseInt(this.element.querySelector('#tp-duration')?.value) || 600;
+      await game.user.setFlag('draw-steel-combat-tools', 'tpSettings', { dist, anim, color, duration });
     };
 
-    
-    animCheck.on('change', () => {
-        const isChecked = animCheck.is(':checked');
-        animOpts.css('opacity', isChecked ? '1' : '0.4');
-        animOpts.find('input').prop('disabled', !isChecked);
-        saveSettings();
+    animCheck?.addEventListener('change', () => {
+      animOpts.style.opacity = animCheck.checked ? '1' : '0.4';
+      animOpts.querySelectorAll('input').forEach(el => el.disabled = !animCheck.checked);
+      saveSettings();
     });
 
-    html.find('input').on('change', saveSettings);
+    this.element.querySelectorAll('input').forEach(el => el.addEventListener('change', saveSettings));
 
-    html.on('click', '[data-action]', async e => {
-      const action = e.currentTarget.dataset.action;
-      
-      if (action === 'close-window') { 
-        this.close(); 
-        return; 
-      }
-      
+    this.element.addEventListener('click', async e => {
+      const action = e.target.closest('[data-action]')?.dataset.action;
+      if (action === 'close-window') { this.close(); return; }
       if (action === 'execute-tp') {
         if (!this._sourceToken) { ui.notifications.warn("DSCT | You must select exactly 1 token to teleport."); return; }
-        
-        const dist     = parseInt(html.find('#tp-dist').val()) || 5;
-        const animate  = html.find('#tp-anim').is(':checked');
-        const color    = html.find('#tp-color').val() || "#a030ff";
-        const duration = parseInt(html.find('#tp-duration').val()) || 600;
-
-        await saveSettings(); 
+        const dist     = parseInt(this.element.querySelector('#tp-dist')?.value) || 5;
+        const animate  = this.element.querySelector('#tp-anim')?.checked;
+        const color    = this.element.querySelector('#tp-color')?.value || '#a030ff';
+        const duration = parseInt(this.element.querySelector('#tp-duration')?.value) || 600;
+        await saveSettings();
         await executeTeleport(this._sourceToken, dist, animate, color, duration);
       }
     });
   }
 
-  async close(options) {
+  async close(options = {}) {
     if (this._hookControl)   Hooks.off('controlToken', this._hookControl);
     if (this._themeObserver) this._themeObserver.disconnect();
     return super.close(options);
@@ -486,7 +472,7 @@ export const toggleTeleportPanel = () => {
   if (existing) {
     existing.close();
   } else {
-    new TeleportPanel().render(true);
+    new TeleportPanel().render({ force: true });
   }
 };
 

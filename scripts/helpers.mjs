@@ -251,6 +251,12 @@ export const replayUndo = async (ops) => {
 };
 
 export const safeUpdate = async (document, data, options = {}) => {
+  if (options.teleport) {
+    const { teleport, ...rest } = options;
+    const x = data.x ?? document._source?.x ?? document.x;
+    const y = data.y ?? document._source?.y ?? document.y;
+    options = { ...rest, movement: { [document.id]: { waypoints: [{ x, y, action: 'displace' }] } } };
+  }
   if (document.isOwner) return await document.update(data, options);
   return await getSocket().executeAsGM('dsct.updateDocument', document.uuid, data, options);
 };
@@ -453,7 +459,10 @@ export const safeTeleport = async (tokenDoc, targetX, targetY) => {
 export const getTokenById = (id) =>
   canvas?.tokens?.get(id) ?? canvas?.tokens?.placeables?.find(t => t.id === id) ?? null;
 
-export const getWindowById = (id) => Object.values(ui.windows).find(w => w.id === id) ?? null;
+export const getWindowById = (id) =>
+  foundry.applications.instances?.get(id)
+  ?? Object.values(ui.windows).find(w => w.id === id)
+  ?? null;
 
 export const getModuleApi = (warn = true) => {
   const api = game.modules.get('draw-steel-combat-tools')?.api ?? null;
@@ -666,3 +675,4 @@ export const applyRollMod = (el, baneData, delta) => {
 
   abilityRoll.dataset.dsctBaneApplied = 'true';
 };
+

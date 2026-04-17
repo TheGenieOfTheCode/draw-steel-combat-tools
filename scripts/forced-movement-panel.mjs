@@ -3,23 +3,23 @@ import {
   getWindowById, getModuleApi,
 } from './helpers.mjs';
 
+const { Application: ApplicationV2 } = foundry.applications.api;
 
-export class ForcedMovementPanel extends Application {
+export class ForcedMovementPanel extends ApplicationV2 {
   constructor() {
     super();
-    this._html = null;
     this._sourceToken = null;
     this._targetToken = null;
     this._targetTokens = [];
     this._updatePreview();
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'dsct-fm-panel', title: 'Forced Movement', template: null,
-      width: s(260), height: 'auto', resizable: false, minimizable: false,
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'dsct-fm-panel',
+    classes: ['draw-steel'],
+    window: { title: 'Forced Movement', minimizable: false, resizable: false },
+    position: { width: s(260), height: 'auto' },
+  };
 
   _updatePreview() {
     const controlled  = canvas.tokens.controlled;
@@ -43,7 +43,7 @@ export class ForcedMovementPanel extends Application {
       const color = targets[0] ? p.text : p.textDim;
       return `
         <img src="${src}" style="width:${total}px;height:${total}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-        <div style="font-size:${s(8)}px;color:${color};text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:${s(2)}px;">${label}</div>
+        <div style="font-size:${s(11)}px;color:${color};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${label}</div>
       `;
     }
 
@@ -59,33 +59,32 @@ export class ForcedMovementPanel extends Application {
       <div style="display:grid;grid-template-columns:repeat(${cols},${cell}px);gap:${gap}px;width:${total}px;height:${total}px;align-items:center;justify-items:center;">
         ${filled}${empty}
       </div>
-      <div style="font-size:${s(8)}px;color:${count ? p.text : p.textDim};text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:${s(2)}px;">${label}</div>
+      <div style="font-size:${s(11)}px;color:${count ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${label}</div>
     `;
   }
 
   _refreshPanel() {
-    if (!this._html) return;
+    if (!this.rendered) return;
     this._updatePreview();
     const p = palette();
 
-    const sourceImg  = this._html.find('#fm-source-img')[0];
-    const sourceName = this._html.find('#fm-source-name')[0];
+    const sourceImg  = this.element.querySelector('#fm-source-img');
+    const sourceName = this.element.querySelector('#fm-source-name');
     if (sourceImg)  { sourceImg.src = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg'; sourceImg.style.width = `${s(66)}px`; sourceImg.style.height = `${s(66)}px`; }
     if (sourceName) { sourceName.textContent = this._sourceToken?.name ?? 'No Source'; sourceName.style.color = this._sourceToken ? p.text : p.textDim; }
 
-    const targetContainer = this._html.find('#fm-target-container')[0];
+    const targetContainer = this.element.querySelector('#fm-target-container');
     if (targetContainer) targetContainer.innerHTML = this._buildTargetHTML(p);
   }
 
-  async _renderInner(_data) {
+  async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
     const p = palette();
 
     const sourceSrc   = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
     const sourceLabel = this._sourceToken?.name ?? 'No Source';
-    
-    
-    return $(`
+
+    return `
       <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;" id="fm-drag-handle">
 
         <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
@@ -101,7 +100,7 @@ export class ForcedMovementPanel extends Application {
           <div style="display:flex;align-items:center;gap:${s(6)}px;">
             <div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;">
               <img id="fm-source-img" src="${sourceSrc}" style="width:${s(66)}px;height:${s(66)}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-              <div id="fm-source-name" style="font-size:${s(8)}px;color:${this._sourceToken ? p.text : p.textDim};text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:${s(2)}px;">${sourceLabel}</div>
+              <div id="fm-source-name" style="font-size:${s(11)}px;color:${this._sourceToken ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${sourceLabel}</div>
             </div>
 
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
@@ -149,36 +148,34 @@ export class ForcedMovementPanel extends Application {
           </div>
         </div>
 
-        <button data-action="execute-fm" style="width:100%;padding:${s(6)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(10)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
+        <button data-action="execute-fm" style="width:100%;padding:${s(15)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(12)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
           <i class="fas fa-arrows-alt" style="margin-right:${s(4)}px;"></i> <span id="fm-exec-text">Execute Move</span>
         </button>
 
-      </div>`);
+      </div>`;
   }
 
-  activateListeners(html) {
-    super.activateListeners(html);
-    this._html = html;
+  _replaceHTML(result, content, _options) {
+    content.innerHTML = result;
+  }
 
-    const appEl = html[0].closest('.app');
-    if (appEl) {
-      const saved = window._fmPanelPos;
-      appEl.style.left = saved ? `${saved.left}px` : `${Math.round((window.innerWidth - (appEl.offsetWidth || s(260))) / 2)}px`;
-      appEl.style.top  = saved ? `${saved.top}px`  : `${Math.round((window.innerHeight - (appEl.offsetHeight || s(300))) / 2)}px`;
-      html[0].addEventListener('mousedown', e => {
-        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
-        e.preventDefault();
-        const sx = e.clientX - appEl.offsetLeft, sy = e.clientY - appEl.offsetTop;
-        const onMove = ev => { appEl.style.left = `${ev.clientX - sx}px`; appEl.style.top = `${ev.clientY - sy}px`; };
-        const onUp   = () => {
-          window._fmPanelPos = { left: parseInt(appEl.style.left), top: parseInt(appEl.style.top) };
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-    }
+  _onRender(_context, _options) {
+    const saved = window._fmPanelPos;
+    if (saved) this.setPosition({ left: saved.left, top: saved.top });
+
+    this.element.querySelector('#fm-drag-handle')?.addEventListener('mousedown', e => {
+      if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
+      e.preventDefault();
+      const sx = e.clientX - this.position.left, sy = e.clientY - this.position.top;
+      const onMove = ev => { this.setPosition({ left: ev.clientX - sx, top: ev.clientY - sy }); };
+      const onUp   = () => {
+        window._fmPanelPos = { left: this.position.left, top: this.position.top };
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
 
     if (this._hookControl) Hooks.off('controlToken', this._hookControl);
     if (this._hookTarget)  Hooks.off('targetToken',  this._hookTarget);
@@ -187,34 +184,35 @@ export class ForcedMovementPanel extends Application {
     this._themeObserver = new MutationObserver(() => this._refreshPanel());
     this._themeObserver.observe(document.body, { attributeFilter: ['class'] });
 
-    
     const updateExecButton = () => {
-      const type = html.find('#fm-type').val() || 'Move';
-      const dist = html.find('#fm-dist').val() ?? '0';
-      const isVert = html.find('#fm-vert-check').is(':checked');
-      const vertDist = html.find('#fm-vert-dist').val();
+      const type    = this.element.querySelector('#fm-type')?.value || 'Move';
+      const dist    = this.element.querySelector('#fm-dist')?.value ?? '0';
+      const isVert  = this.element.querySelector('#fm-vert-check')?.checked;
+      const vertDist = this.element.querySelector('#fm-vert-dist')?.value;
       const vertPart = isVert ? (vertDist ? `Vertical ${vertDist} ` : 'Vertical ') : '';
-      const label = `Execute ${vertPart}${type} ${dist}`;
-      html.find('#fm-exec-text').text(label);
+      this.element.querySelector('#fm-exec-text').textContent = `Execute ${vertPart}${type} ${dist}`;
     };
-    html.find('input, select').on('change input', updateExecButton);
-    updateExecButton(); 
+    this.element.querySelectorAll('input, select').forEach(el => el.addEventListener('change', updateExecButton));
+    this.element.querySelectorAll('input, select').forEach(el => el.addEventListener('input', updateExecButton));
+    updateExecButton();
 
-    html.on('click', '[data-action]', async e => {
-      const action = e.currentTarget.dataset.action;
-      
-      if (action === 'close-window') { 
-        this.close(); 
-        return; 
+    this.element.addEventListener('click', async e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+
+      if (action === 'close-window') {
+        this.close();
+        return;
       }
-      
+
       if (action === 'execute-fm') {
         if (this._targetTokens.length === 0) { ui.notifications.warn("DSCT | You must target at least one token."); return; }
 
-        const type = html.find('#fm-type').val();
-        const distance = parseInt(html.find('#fm-dist').val() ?? '0');
-        const isVertical = html.find('#fm-vert-check').is(':checked');
-        const rawVert = html.find('#fm-vert-dist').val();
+        const type     = this.element.querySelector('#fm-type')?.value;
+        const distance = parseInt(this.element.querySelector('#fm-dist')?.value ?? '0');
+        const isVertical  = this.element.querySelector('#fm-vert-check')?.checked;
+        const rawVert  = this.element.querySelector('#fm-vert-dist')?.value;
 
         let verticalHeight = 0;
         if (isVertical) {
@@ -224,11 +222,11 @@ export class ForcedMovementPanel extends Application {
           verticalHeight   = vert < 0 ? vert : vert * sign;
         }
 
-        const fallReduction = parseInt(html.find('#fm-fall-red').val()) || 0;
-        const noFallDamage = html.find('#fm-no-fall').is(':checked');
-        const noCollisionDamage = html.find('#fm-no-col').is(':checked');
-        const ignoreStability = html.find('#fm-ign-stab').is(':checked');
-        const fastMove = html.find('#fm-fast-move').is(':checked');
+        const fallReduction     = parseInt(this.element.querySelector('#fm-fall-red')?.value) || 0;
+        const noFallDamage      = this.element.querySelector('#fm-no-fall')?.checked;
+        const noCollisionDamage = this.element.querySelector('#fm-no-col')?.checked;
+        const ignoreStability   = this.element.querySelector('#fm-ign-stab')?.checked;
+        const fastMove          = this.element.querySelector('#fm-fast-move')?.checked;
 
         const api = getModuleApi(false);
         if (api && api.forcedMovement) {
@@ -236,14 +234,12 @@ export class ForcedMovementPanel extends Application {
           const payload = { type, distance, sourceId: this._sourceToken?.id, verticalHeight, fallReduction, noFallDamage, noCollisionDamage, ignoreStability, fastMove };
 
           if (targetsToProcess.length === 1) {
-            
             await api.forcedMovement({ ...payload, targetId: targetsToProcess[0].id });
           } else {
-            
             const results = [];
             for (const t of targetsToProcess) {
               const result = await api.forcedMovement({ ...payload, targetId: t.id, suppressMessage: true });
-              if (result) results.push(result); 
+              if (result) results.push(result);
             }
             if (results.length === 0) return;
             await ChatMessage.create({
@@ -265,7 +261,7 @@ export class ForcedMovementPanel extends Application {
     });
   }
 
-  async close(options) {
+  async close(options = {}) {
     if (this._hookControl)   Hooks.off('controlToken', this._hookControl);
     if (this._hookTarget)    Hooks.off('targetToken',  this._hookTarget);
     if (this._themeObserver) this._themeObserver.disconnect();
@@ -278,6 +274,6 @@ export const toggleForcedMovementPanel = () => {
   if (existing) {
     existing.close();
   } else {
-    new ForcedMovementPanel().render(true);
+    new ForcedMovementPanel().render({ force: true });
   }
 };

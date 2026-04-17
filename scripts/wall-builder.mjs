@@ -8,6 +8,8 @@ import {
   s, palette, injectPanelChrome,
 } from './helpers.mjs';
 
+const { Application: ApplicationV2 } = foundry.applications.api;
+
 const BASE_MAT_COLORS = { glass: 0x88ddff, wood: 0xaa6622, stone: 0x888888, metal: 0x4488aa };
 const MATERIAL_COLORS = BASE_MAT_COLORS;
 const MODE_COLORS     = { build: 0x44cc44, destroy: 0xcc4444, fix: 0x44aacc, transmute: 0xcc8800, break: 0xff6600, inspect: 0xaaaaff };
@@ -389,26 +391,25 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
   );
 };
 
-export class WallBuilderPanel extends Application {
+export class WallBuilderPanel extends ApplicationV2 {
   constructor() {
     super();
-    this._html         = null;
     this._mode         = 'build';
     this._material     = getSetting('wbDefaultMaterial') || 'stone';
     this._heightBottom = getSetting('wbDefaultHeightBottom') ?? '';
     this._heightTop    = getSetting('wbDefaultHeightTop')    ?? '';
     this._stable              = true;
     this._invisible           = true;
-    this._retainRestrictions  = false;
+    this._retainRestrictions  = true;
     this._stopInspect         = null;
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'wall-builder-panel', title: 'Wall Builder', template: null,
-      width: s(240), height: 'auto', resizable: false, minimizable: false,
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'wall-builder-panel',
+    classes: ['draw-steel'],
+    window: { title: 'Wall Builder', minimizable: false, resizable: false },
+    position: { width: s(240), height: 'auto' },
+  };
 
   async _selectSquares(highlightExisting = false) {
     return new Promise((resolve) => {
@@ -674,37 +675,37 @@ export class WallBuilderPanel extends Application {
   }
 
   _refreshPanel() {
-    if (!this._html) return;
+    if (!this.rendered) return;
     const p = palette();
     const modes = ['build', 'destroy', 'fix', 'transmute', 'break', 'inspect', 'convert'];
     for (const mode of modes) {
-      const btn = this._html.find(`#wb-mode-${mode}`)[0];
+      const btn = this.element.querySelector(`#wb-mode-${mode}`);
       if (btn) { btn.style.borderColor = this._mode === mode ? p.accent : p.border; btn.style.color = this._mode === mode ? p.accent : p.text; }
     }
     const showMat    = this._mode === 'build' || this._mode === 'transmute' || this._mode === 'convert';
     const showHeight = this._mode === 'build' && game.modules.get('wall-height')?.active;
-    const matRow = this._html.find('#wb-material-row')[0];
+    const matRow = this.element.querySelector('#wb-material-row');
     if (matRow) matRow.style.display = showMat ? 'flex' : 'none';
-    const heightRow = this._html.find('#wb-height-row')[0];
+    const heightRow = this.element.querySelector('#wb-height-row');
     if (heightRow) heightRow.style.display = showHeight ? 'flex' : 'none';
-    const execBtn = this._html.find('[data-action="execute"]')[0];
+    const execBtn = this.element.querySelector('[data-action="execute"]');
     if (execBtn) {
       execBtn.textContent = this._mode === 'inspect' && this._stopInspect ? 'Stop Inspecting'
         : this._mode === 'inspect' ? 'Start Inspect'
         : this._mode === 'convert' ? 'Convert Selected Walls'
         : 'Select Squares';
     }
-    const convertRow = this._html.find('#wb-convert-row')[0];
+    const convertRow = this.element.querySelector('#wb-convert-row');
     if (convertRow) convertRow.style.display = this._mode === 'convert' ? 'flex' : 'none';
-    const matSel = this._html.find('#wb-material-select')[0];
+    const matSel = this.element.querySelector('#wb-material-select');
     if (matSel) matSel.value = this._material;
   }
 
-  async _renderInner(data) {
+  async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
     const p = palette();
 
-    return $(`
+    return `
       <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;" id="wb-drag-handle">
         <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
           <div style="font-size:${s(9)}px;text-transform:uppercase;letter-spacing:0.8px;color:${p.textLabel};">Wall Builder</div>
@@ -759,25 +760,28 @@ export class WallBuilderPanel extends Application {
         </div>
 
         <button data-action="execute" style="width:100%;padding:${s(6)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(10)}px;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">Select Squares</button>
-      </div>`);
+      </div>`;
   }
 
-  activateListeners(html) {
-    super.activateListeners(html);
-    this._html = html;
+  _replaceHTML(result, content, _options) {
+    content.innerHTML = result;
+  }
 
-    const appEl = html[0].closest('.app');
-    if (appEl) {
-      const saved = window._wallBuilderPanelPos;
-      appEl.style.left = saved ? `${saved.left}px` : `${Math.round((window.innerWidth - (appEl.offsetWidth || s(240))) / 2)}px`;
-      appEl.style.top  = saved ? `${saved.top}px`  : `${Math.round((window.innerHeight - (appEl.offsetHeight || s(400))) / 2)}px`;
-      html[0].addEventListener('mousedown', e => {
+  _onRender(_context, _options) {
+    const saved = window._wallBuilderPanelPos;
+    if (saved) this.setPosition({ left: saved.left, top: saved.top });
+    else this.setPosition({ left: Math.round((window.innerWidth - s(240)) / 2), top: Math.round((window.innerHeight - s(400)) / 2) });
+
+    const dragHandle = this.element.querySelector('#wb-drag-handle');
+    if (dragHandle) {
+      dragHandle.addEventListener('mousedown', e => {
         if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
         e.preventDefault();
-        const sx = e.clientX - appEl.offsetLeft, sy = e.clientY - appEl.offsetTop;
-        const onMove = ev => { appEl.style.left = `${ev.clientX - sx}px`; appEl.style.top = `${ev.clientY - sy}px`; };
+        const startX = e.clientX - this.position.left;
+        const startY = e.clientY - this.position.top;
+        const onMove = ev => this.setPosition({ left: ev.clientX - startX, top: ev.clientY - startY });
         const onUp   = () => {
-          window._wallBuilderPanelPos = { left: parseInt(appEl.style.left), top: parseInt(appEl.style.top) };
+          window._wallBuilderPanelPos = { left: this.position.left, top: this.position.top };
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
         };
@@ -789,21 +793,28 @@ export class WallBuilderPanel extends Application {
     this._themeObserver = new MutationObserver(() => this._refreshPanel());
     this._themeObserver.observe(document.body, { attributeFilter: ['class'] });
 
-    html.on('input',  '#wb-height-bottom', e => { this._heightBottom = e.target.value === '' ? '' : parseFloat(e.target.value); });
-    html.on('input',  '#wb-height-top',    e => { this._heightTop    = e.target.value === '' ? '' : parseFloat(e.target.value); });
-    html.on('change', '#wb-stable',               e => { this._stable             = e.target.checked; });
-    html.on('change', '#wb-invisible',            e => { this._invisible          = e.target.checked; });
-    html.on('change', '#wb-retain-restrictions',  e => { this._retainRestrictions = e.target.checked; });
-    html.on('click',  '[data-mode]',             e => { this._mode = e.currentTarget.dataset.mode; this._refreshPanel(); });
-    html.on('change', '#wb-material-select',     e => { this._material = e.target.value; });
-    html.on('click',  '[data-action]', async e => {
-      const action = e.currentTarget.dataset.action;
+    this.element.addEventListener('input', e => {
+      if (e.target.matches('#wb-height-bottom')) { this._heightBottom = e.target.value === '' ? '' : parseFloat(e.target.value); }
+      if (e.target.matches('#wb-height-top'))    { this._heightTop    = e.target.value === '' ? '' : parseFloat(e.target.value); }
+    });
+    this.element.addEventListener('change', e => {
+      if (e.target.matches('#wb-stable'))              { this._stable             = e.target.checked; }
+      if (e.target.matches('#wb-invisible'))           { this._invisible          = e.target.checked; }
+      if (e.target.matches('#wb-retain-restrictions')) { this._retainRestrictions = e.target.checked; }
+      if (e.target.matches('#wb-material-select'))     { this._material           = e.target.value; }
+    });
+    this.element.addEventListener('click', async e => {
+      const modeBtn = e.target.closest('[data-mode]');
+      if (modeBtn) { this._mode = modeBtn.dataset.mode; this._refreshPanel(); return; }
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
       if (action === 'close-window') { this.close(); return; }
       if (action === 'execute')      { await this._execute(); return; }
     });
   }
 
-  async close(options) {
+  async close(options = {}) {
     if (this._themeObserver) this._themeObserver.disconnect();
     return super.close(options);
   }

@@ -256,20 +256,24 @@ export function registerDeathTrackerHooks() {
     await game.settings.set('draw-steel-combat-tools', 'deathTrackerSkullIds', []);
   });
 
-  Hooks.on('renderChatMessage', (msg, html) => {
+  Hooks.on('renderChatMessageHTML', (msg, el) => {
     if (!game.user.isGM) return;
     const isDeath = msg.getFlag('draw-steel-combat-tools', 'isDeathMessage');
     if (isDeath) {
       const tokenId = msg.getFlag('draw-steel-combat-tools', 'deadTokenId');
       if (!tokenId) return;
-      
-      const btn = $(`<button type="button" class="dsct-undo-death" style="margin-top:4px;cursor:pointer;"><i class="fa-solid fa-rotate-left"></i> Undo</button>`);
-      btn.on('click', async (e) => {
-         e.preventDefault();
-         await executeRevival(tokenId);
-         if (msg.isOwner || game.user.isGM) await msg.delete();
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dsct-undo-death';
+      btn.style.cssText = 'margin-top:4px;cursor:pointer;';
+      btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Undo';
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await executeRevival(tokenId);
+        if (msg.isOwner || game.user.isGM) await msg.delete();
       });
-      html.find('.message-content').append(btn);
+      el.querySelector('.message-content')?.append(btn);
     }
   });
 }

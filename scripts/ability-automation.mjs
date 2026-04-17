@@ -1,5 +1,7 @@
 import { registerInjector, getSetting, getModuleApi, getItemDsid, palette, injectPanelChrome } from './helpers.mjs';
 
+const { Application: ApplicationV2 } = foundry.applications.api;
+
 const M = 'draw-steel-combat-tools';
 
 // -- I'm No Threat panel --
@@ -60,24 +62,23 @@ const snapAppearance = (doc) => ({
 const freeMimicsByActor  = new Map();
 const grantedMimicMsgs = new Set();
 
-class ImNoThreatPanel extends Application {
+class ImNoThreatPanel extends ApplicationV2 {
   constructor(actor) {
     super();
     this._actor          = actor;
     this._illusionActive = !!actor.effects.find(e => e.getFlag(M, 'effectType') === 'int');
     this._disguiseName   = null;
     this._activeId       = null;
-    this._html           = null;
     this._updateMimicPreview();
     this._initVictoryHook();
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'im-no-threat-panel', title: "I'm No Threat", template: null,
-      width: _s(228), height: 'auto', resizable: false, minimizable: false,
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'im-no-threat-panel',
+    classes: ['draw-steel'],
+    window: { title: "I'm No Threat", minimizable: false, resizable: false },
+    position: { width: _s(228), height: 'auto' },
+  };
 
   _getToken() { return canvas.tokens.placeables.find(t => t.document.actorId === this._actor.id || t.actor?.id === this._actor.id); }
 
@@ -97,12 +98,12 @@ class ImNoThreatPanel extends Application {
   }
 
   _refreshText() {
-    if (!this._html) return;
+    if (!this.rendered) return;
     const illusion = this._illusionActive;
     const token    = this._getToken();
     const isHero   = this._actor.type === 'hero';
     const insight  = isHero ? (this._actor.system.hero.primary.value ?? 0) : (game.actors.malice?.value ?? 0);
-    const el       = (id) => this._html.find(id)[0];
+    const el       = (id) => this.element.querySelector(id);
     const p        = palette();
 
     const statusEl = el('#int-status-label');
@@ -154,7 +155,7 @@ class ImNoThreatPanel extends Application {
     }
   }
 
-  async _renderInner() {
+  async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
     const p = palette();
 
@@ -174,7 +175,7 @@ class ImNoThreatPanel extends Application {
         <div style="font-size:${_s(7)}px;color:${p.animalLabel};pointer-events:none;text-align:center;">${a.name}</div>
       </div>`).join('');
 
-    return $(`
+    return `
       <div style="padding:${_s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${_s(3)}px;cursor:move;" id="int-drag-handle">
 
         <div style="display:flex;align-items:center;gap:${_s(6)}px;margin-bottom:${_s(6)}px;">
@@ -210,17 +211,21 @@ class ImNoThreatPanel extends Application {
         </div>
 
         <div style="display:flex;gap:${_s(3)}px;">
-          <button data-action="apply-random"
-            style="flex:1;padding:${_s(5)}px ${_s(3)}px;border-radius:${_s(3)}px;cursor:pointer;font-size:${_s(9)}px;
-            background:${p.bgBtn};border:1px solid ${p.border};color:${p.text};">?? Random</button>
+          <div data-action="apply-random"
+            style="flex:none;width:calc((100% - ${3 * _s(3)}px) / 4);display:flex;flex-direction:column;align-items:center;gap:${_s(2)}px;
+            padding:${_s(3)}px;border-radius:${_s(3)}px;cursor:pointer;
+            background:${p.bgBtn};border:1px solid ${p.border};">
+            <img src="icons/magic/symbols/question-stone-yellow.webp" style="width:${_s(40)}px;height:${_s(40)}px;border-radius:${_s(2)}px;object-fit:contain;pointer-events:none;">
+            <div style="font-size:${_s(7)}px;color:${p.text};pointer-events:none;text-align:center;">Random</div>
+          </div>
 
           <div data-action="apply-mimic"
-            style="flex:1.4;display:flex;align-items:center;gap:${_s(5)}px;cursor:pointer;
+            style="flex:1;display:flex;align-items:center;gap:${_s(5)}px;cursor:pointer;
             padding:${_s(4)}px ${_s(6)}px;border-radius:${_s(3)}px;border:1px solid ${p.border};background:${p.bgBtn};">
             <img id="int-mimic-img" src="${mimicSrc}"
               style="width:${_s(32)}px;height:${_s(32)}px;border-radius:${_s(2)}px;flex-shrink:0;object-fit:contain;pointer-events:none;">
             <div style="pointer-events:none;min-width:0;">
-              <div style="font-size:${_s(8)}px;color:${p.mimicLabel};">?? Mimic</div>
+              <div style="font-size:${_s(8)}px;color:${p.mimicLabel};">Mimic</div>
               <div id="int-mimic-name"
                 style="font-size:${_s(8)}px;color:${this._mimicName ? p.textMimic : p.textMimicDim};word-break:break-word;">
                 ${this._mimicName ?? 'No Target'}
@@ -229,33 +234,34 @@ class ImNoThreatPanel extends Application {
                 1 ${priLabel} <span id="int-insight-count">(${insight})</span>
               </div>
               <div id="int-mimic-free" style="font-size:${_s(7)}px;color:${p.accent};display:${freeMimicsByActor.has(this._actor.id) ? '' : 'none'};">
-                ? Free (spent Insight)
+                Free (spent Insight)
               </div>
             </div>
           </div>
         </div>
 
-      </div>`);
+      </div>`;
   }
 
-  activateListeners(html) {
-    super.activateListeners(html);
-    this._html = html;
+  _replaceHTML(result, content, _options) {
+    content.innerHTML = result;
+  }
 
-    const appEl = html[0].closest('.app');
-    if (appEl) {
-      const saved = window._imNoThreatPanelPos;
-      appEl.style.left = saved ? `${saved.left}px` : '10px';
-      appEl.style.top  = saved ? `${saved.top}px`  : `${Math.round(window.innerHeight / 2 - 150)}px`;
+  _onRender(_context, _options) {
+    const saved = window._imNoThreatPanelPos;
+    if (saved) this.setPosition({ left: saved.left, top: saved.top });
+    else this.setPosition({ left: 10, top: Math.round(window.innerHeight / 2 - 150) });
 
-      html[0].addEventListener('mousedown', (e) => {
+    const dragHandle = this.element.querySelector('#int-drag-handle');
+    if (dragHandle) {
+      dragHandle.addEventListener('mousedown', (e) => {
         if (e.target.closest('button') || e.target.closest('[data-action]')) return;
         e.preventDefault();
-        const startX = e.clientX - appEl.offsetLeft;
-        const startY = e.clientY - appEl.offsetTop;
-        const onMove = (ev) => { appEl.style.left = `${ev.clientX - startX}px`; appEl.style.top = `${ev.clientY - startY}px`; };
+        const startX = e.clientX - this.position.left;
+        const startY = e.clientY - this.position.top;
+        const onMove = (ev) => this.setPosition({ left: ev.clientX - startX, top: ev.clientY - startY });
         const onUp   = () => {
-          window._imNoThreatPanelPos = { left: parseInt(appEl.style.left), top: parseInt(appEl.style.top) };
+          window._imNoThreatPanelPos = { left: this.position.left, top: this.position.top };
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup', onUp);
         };
@@ -279,14 +285,16 @@ class ImNoThreatPanel extends Application {
     this._themeObserver = new MutationObserver(() => this._refreshText());
     this._themeObserver.observe(document.body, { attributeFilter: ['class'] });
 
-    html.on('click', '[data-action]', async (e) => {
-      const action = e.currentTarget.dataset.action;
+    this.element.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
       if (!action) return;
       if (action === 'close-window') { this.close(); return; }
       if (action === 'revert')       { await this._endIllusion(false); return; }
       if (action === 'apply-random') { const animals = getAnimals(); await this._applyAnimalDisguise(animals[Math.floor(Math.random() * animals.length)]); return; }
       if (action === 'apply-animal') {
-        const animal = getAnimals().find(a => a.id === e.currentTarget.dataset.animalId);
+        const animal = getAnimals().find(a => a.id === btn.dataset.animalId);
         if (!animal) return;
         if (this._illusionActive && this._activeId === animal.id) { await this._endIllusion(false); return; }
         await this._applyAnimalDisguise(animal);
@@ -306,7 +314,7 @@ class ImNoThreatPanel extends Application {
     const token = this._guardSingleToken();
     if (!token) return;
     if (this._illusionActive) await this._endIllusion(false);
-    await token.document.update({ ...snapAppearance(this._actor.prototypeToken), 'texture.src': animal.src, 'texture.scaleX': 1, 'texture.scaleY': 1 }, { animate: false });
+    await token.document.update({ ...snapAppearance(this._actor.prototypeToken), 'texture.src': animal.src, 'texture.scaleX': 1, 'texture.scaleY': 1 });
     const name = `${animal.emoji} ${animal.name}`;
     await this._activateIllusion(name, animal.id);
     const animalMsg = await ChatMessage.create({ content: `<strong>I'm No Threat</strong> <em>${this._actor.name} takes on the appearance of a <strong>${name}</strong>.</em><br><br>Strikes gain an edge, and Disengage gains +1 distance.`, flags: { [M]: { intIllusion: { actorId: this._actor.id } } } });
@@ -360,7 +368,7 @@ class ImNoThreatPanel extends Application {
     }
 
     if (this._illusionActive) await this._endIllusion(false);
-    await token.document.update({ ...snapAppearance(targetToken.document), 'texture.scaleX': 1, 'texture.scaleY': 1 }, { animate: false });
+    await token.document.update({ ...snapAppearance(targetToken.document), 'texture.scaleX': 1, 'texture.scaleY': 1 });
     await this._activateIllusion(targetToken.name, 'mimic');
 
     const mimicMsg = await ChatMessage.create({ content: `<strong>I'm No Threat</strong> <em>${this._actor.name} appears as <strong>${targetToken.name}</strong>, their allies may mistake ${this._actor.name} for the real thing.</em><br><br>This illusion covers your entire body, including clothing and armor, and alters your voice to sound like that of the creature. You gain an edge on tests made to convince the creature's allies that you are the creature.<br><br>Strikes gain an edge, and Disengage gains +1 distance.`, flags: { [M]: { intIllusion: { actorId: this._actor.id } } } });
@@ -396,7 +404,7 @@ class ImNoThreatPanel extends Application {
   async _endIllusion(withSurge = false) {
     revertingActors.add(this._actor.id);
     const token = this._getToken();
-    if (token) await token.document.update(snapAppearance(this._actor.prototypeToken), { animate: false });
+    if (token) await token.document.update(snapAppearance(this._actor.prototypeToken));
     for (const e of this._actor.effects.filter(e => e.getFlag(M, 'effectType') === 'int')) await e.delete();
     revertingActors.delete(this._actor.id);
 
@@ -416,7 +424,7 @@ class ImNoThreatPanel extends Application {
     this._refreshText();
   }
 
-  async close(options) {
+  async close(options = {}) {
     if (this._hookActor)     Hooks.off('updateActor',        this._hookActor);
     if (this._hookTarget)    Hooks.off('targetToken',        this._hookTarget);
     if (this._hookEffect)    Hooks.off('deleteActiveEffect', this._hookEffect);
@@ -431,9 +439,9 @@ export const openImNoThreatPanel = (actor = null) => {
     ?? canvas.tokens.controlled[0]?.actor
     ?? [...game.user.targets][0]?.actor;
   if (!target) { ui.notifications.error("Select or target a token to open I'm No Threat."); return; }
-  const existing = Object.values(ui.windows).find(w => w.id === 'im-no-threat-panel');
+  const existing = foundry.applications.instances.get('im-no-threat-panel');
   if (existing) existing.close();
-  else new ImNoThreatPanel(target).render(true);
+  else new ImNoThreatPanel(target).render({ force: true });
 };
 
 // -- Mark button helper --
@@ -606,8 +614,8 @@ export const registerAbilityInjectors = () => {
       e.preventDefault();
       const actor = game.actors.get(actorId);
       if (!actor) return;
-      const panel = Object.values(ui.windows).find(w => w.id === 'im-no-threat-panel' && w._actor?.id === actorId);
-      if (panel) await panel._endIllusion(false);
+      const panel = foundry.applications.instances.get('im-no-threat-panel');
+      if (panel?._actor?.id === actorId) await panel._endIllusion(false);
       else if (window._endHarlequinIllusion) await window._endHarlequinIllusion(false);
     });
     (content ?? el).appendChild(btn);
@@ -623,9 +631,9 @@ export const registerAbilityInjectors = () => {
       const remaining = [...actor.effects].filter(e => e.getFlag(M, 'effectType') === 'int');
       for (const e of remaining) await e.delete();
       const tokenDoc = canvas.scene?.tokens.find(t => t.actorId === actor.id);
-      if (tokenDoc) await tokenDoc.update(snapAppearance(actor.prototypeToken), { animate: false });
-      const panel = Object.values(ui.windows).find(w => w.id === 'im-no-threat-panel' && w._actor?.id === actor.id);
-      if (panel) { panel._clearIllusionState(); panel._refreshText(); }
+      if (tokenDoc) await tokenDoc.update(snapAppearance(actor.prototypeToken));
+      const panel = foundry.applications.instances.get('im-no-threat-panel');
+      if (panel?._actor?.id === actor.id) { panel._clearIllusionState(); panel._refreshText(); }
     } finally {
       revertingActors.delete(actor.id);
     }
@@ -637,10 +645,10 @@ export const registerAbilityInjectors = () => {
       const illusionEffects = [...actor.effects].filter(e => e.getFlag(M, 'effectType') === 'int');
       if (!illusionEffects.length) continue;
       const tokenDoc = canvas.scene?.tokens.find(t => t.actorId === actor.id);
-      if (tokenDoc) await tokenDoc.update(snapAppearance(actor.prototypeToken), { animate: false });
+      if (tokenDoc) await tokenDoc.update(snapAppearance(actor.prototypeToken));
       for (const e of illusionEffects) await e.delete();
-      const panel = Object.values(ui.windows).find(w => w.id === 'im-no-threat-panel' && w._actor?.id === actor.id);
-      if (panel) panel.close();
+      const panel = foundry.applications.instances.get('im-no-threat-panel');
+      if (panel?._actor?.id === actor.id) panel.close();
       ended++;
     }
     if (ended) ui.notifications.info(`I'm No Threat: ended ${ended} active illusion${ended > 1 ? 's' : ''} due to settings change.`);

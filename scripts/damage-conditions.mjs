@@ -5,6 +5,8 @@ import {
 } from './helpers.mjs';
 import { applyFrightened, applyTaunted } from './conditions.mjs';
 
+const { Application: ApplicationV2 } = foundry.applications.api;
+
 const M = 'draw-steel-combat-tools';
 
 const DAMAGE_TYPES = [
@@ -146,27 +148,26 @@ const applyNativeCondition = async (actor, condId, endStr) => {
   }]);
 };
 
-export class DamageConditionsPanel extends Application {
+export class DamageConditionsPanel extends ApplicationV2 {
   constructor() {
     super();
-    this._html           = null;
     this._sourceToken    = null;
     this._targetTokens   = [];
     this._amount         = 0;
     this._damageType     = 'untyped';
     this._ignoreImmunity = false;
     this._damageMode     = 'strike';
-    this._condition      = '';        
+    this._condition      = '';
     this._conditionEnd   = 'save';
     this._updatePreview();
   }
 
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'dsct-dc-panel', title: 'Damage & Conditions', template: null,
-      width: s(290), height: 'auto', resizable: false, minimizable: false,
-    });
-  }
+  static DEFAULT_OPTIONS = {
+    id: 'dsct-dc-panel',
+    classes: ['draw-steel'],
+    window: { title: 'Damage & Conditions', minimizable: false, resizable: false },
+    position: { width: s(290), height: 'auto' },
+  };
 
   _updatePreview() {
     const controlled    = canvas.tokens.controlled;
@@ -188,7 +189,7 @@ export class DamageConditionsPanel extends Application {
       const label = targets[0]?.name ?? 'No Target';
       return `
         <img src="${src}" style="width:${total}px;height:${total}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-        <div style="font-size:${s(8)}px;color:${count ? p.text : p.textDim};text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:${s(2)}px;">${label}</div>
+        <div style="font-size:${s(11)}px;color:${count ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${label}</div>
       `;
     }
 
@@ -204,7 +205,7 @@ export class DamageConditionsPanel extends Application {
       <div style="display:grid;grid-template-columns:repeat(${cols},${cell}px);gap:${gap}px;width:${total}px;height:${total}px;align-items:center;justify-items:center;">
         ${filled}${empty}
       </div>
-      <div style="font-size:${s(8)}px;color:${count ? p.text : p.textDim};text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:${s(2)}px;">${label}</div>
+      <div style="font-size:${s(11)}px;color:${count ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${label}</div>
     `;
   }
 
@@ -225,27 +226,27 @@ export class DamageConditionsPanel extends Application {
   }
 
   _refreshPanel() {
-    if (!this._html) return;
+    if (!this.rendered) return;
     this._updatePreview();
     const p = palette();
 
-    const sourceImg  = this._html.find('#dc-source-img')[0];
-    const sourceName = this._html.find('#dc-source-name')[0];
+    const sourceImg  = this.element.querySelector('#dc-source-img');
+    const sourceName = this.element.querySelector('#dc-source-name');
     if (sourceImg)  { sourceImg.src = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg'; sourceImg.style.width = `${s(66)}px`; sourceImg.style.height = `${s(66)}px`; }
     if (sourceName) { sourceName.textContent = this._sourceToken?.name ?? 'No Source'; sourceName.style.color = this._sourceToken ? p.text : p.textDim; }
 
-    const targetContainer = this._html.find('#dc-target-container')[0];
+    const targetContainer = this.element.querySelector('#dc-target-container');
     if (targetContainer) targetContainer.innerHTML = this._buildTargetHTML(p);
 
     const condDef = ALL_CONDITIONS.find(c => c.id === this._condition);
-    const srcNote = this._html.find('#dc-source-note')[0];
+    const srcNote = this.element.querySelector('#dc-source-note');
     if (srcNote) srcNote.style.display = condDef?.requiresSource ? 'block' : 'none';
 
-    const execBtn = this._html.find('[data-action="execute-dc"]')[0];
+    const execBtn = this.element.querySelector('[data-action="execute-dc"]');
     if (execBtn) execBtn.textContent = this._buildButtonText();
   }
 
-  async _renderInner(_data) {
+  async _renderHTML(_context, _options) {
     injectPanelChrome(this.options.id);
     const p = palette();
 
@@ -258,7 +259,7 @@ export class DamageConditionsPanel extends Application {
     const condDef = ALL_CONDITIONS.find(c => c.id === this._condition);
     const showSrcNote = condDef?.requiresSource ?? false;
 
-    return $(`
+    return `
       <div style="padding:${s(8)}px;background:${p.bg};font-family:Georgia,serif;border-radius:${s(3)}px;cursor:move;" id="dc-drag-handle">
 
         <div style="display:flex;align-items:center;gap:${s(6)}px;margin-bottom:${s(8)}px;">
@@ -270,7 +271,7 @@ export class DamageConditionsPanel extends Application {
           <div style="display:flex;align-items:center;gap:${s(6)}px;">
             <div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;">
               <img id="dc-source-img" src="${sourceSrc}" style="width:${s(66)}px;height:${s(66)}px;border-radius:${s(3)}px;object-fit:contain;border:1px solid ${p.border};background:${p.bg};">
-              <div id="dc-source-name" style="font-size:${s(8)}px;color:${this._sourceToken ? p.text : p.textDim};text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:${s(2)}px;">${sourceLabel}</div>
+              <div id="dc-source-name" style="font-size:${s(11)}px;color:${this._sourceToken ? p.text : p.textDim};text-align:center;width:100%;overflow-wrap:break-word;word-break:break-word;margin-top:${s(2)}px;">${sourceLabel}</div>
             </div>
             <div style="font-size:${s(16)}px;color:${p.textDim};flex-shrink:0;">&#8594;</div>
             <div id="dc-target-container" style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;height:${s(80)}px;">
@@ -306,36 +307,34 @@ export class DamageConditionsPanel extends Application {
           <div id="dc-source-note" style="display:${showSrcNote ? 'block' : 'none'};font-size:${s(8)}px;color:${p.textDim};">Requires a controlled source token.</div>
         </div>
 
-        <button data-action="execute-dc" style="width:100%;padding:${s(6)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(9)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
+        <button data-action="execute-dc" style="width:100%;padding:${s(10)}px;border-radius:${s(3)}px;cursor:pointer;font-size:${s(12)}px;font-weight:bold;background:${p.bgBtn};border:1px solid ${p.accent};color:${p.accent};">
           ${this._buildButtonText()}
         </button>
 
-      </div>`);
+      </div>`;
   }
 
-  activateListeners(html) {
-    super.activateListeners(html);
-    this._html = html;
+  _replaceHTML(result, content, _options) {
+    content.innerHTML = result;
+  }
 
-    const appEl = html[0].closest('.app');
-    if (appEl) {
-      const saved = window._dcPanelPos;
-      appEl.style.left = saved ? `${saved.left}px` : `${Math.round((window.innerWidth  - (appEl.offsetWidth  || s(290))) / 2)}px`;
-      appEl.style.top  = saved ? `${saved.top}px`  : `${Math.round((window.innerHeight - (appEl.offsetHeight || s(500))) / 2)}px`;
-      html[0].addEventListener('mousedown', e => {
-        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
-        e.preventDefault();
-        const sx = e.clientX - appEl.offsetLeft, sy = e.clientY - appEl.offsetTop;
-        const onMove = ev => { appEl.style.left = `${ev.clientX - sx}px`; appEl.style.top = `${ev.clientY - sy}px`; };
-        const onUp   = () => {
-          window._dcPanelPos = { left: parseInt(appEl.style.left), top: parseInt(appEl.style.top) };
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-    }
+  _onRender(_context, _options) {
+    const saved = window._dcPanelPos;
+    if (saved) this.setPosition({ left: saved.left, top: saved.top });
+
+    this.element.querySelector('#dc-drag-handle')?.addEventListener('mousedown', e => {
+      if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
+      e.preventDefault();
+      const sx = e.clientX - this.position.left, sy = e.clientY - this.position.top;
+      const onMove = ev => { this.setPosition({ left: ev.clientX - sx, top: ev.clientY - sy }); };
+      const onUp   = () => {
+        window._dcPanelPos = { left: this.position.left, top: this.position.top };
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
 
     if (this._hookControl) Hooks.off('controlToken', this._hookControl);
     if (this._hookTarget)  Hooks.off('targetToken',  this._hookTarget);
@@ -345,38 +344,43 @@ export class DamageConditionsPanel extends Application {
     this._themeObserver.observe(document.body, { attributeFilter: ['class'] });
 
     const refreshBtn = () => {
-      const execBtn = html.find('[data-action="execute-dc"]')[0];
+      const execBtn = this.element.querySelector('[data-action="execute-dc"]');
       if (execBtn) execBtn.textContent = this._buildButtonText();
     };
 
-    html.on('input',  '#dc-amount',           e => { this._amount        = parseInt(e.target.value) || 0; refreshBtn(); });
-    html.on('change', '#dc-type',             e => { this._damageType    = e.target.value;              refreshBtn(); });
-    html.on('change', '#dc-ignore-immunity',  e => { this._ignoreImmunity = e.target.checked;           });
-    html.on('click',  '[data-mode]',          e => {
-      this._damageMode = e.currentTarget.dataset.mode;
-      const p = palette();
-      html.find('[data-mode]').each((_, btn) => {
-        const m = btn.dataset.mode;
-        btn.style.borderColor = m === this._damageMode ? p.accent : p.border;
-        btn.style.color       = m === this._damageMode ? p.accent : p.text;
-      });
-      refreshBtn();
+    this.element.querySelector('#dc-amount')?.addEventListener('input',  e => { this._amount        = parseInt(e.target.value) || 0; refreshBtn(); });
+    this.element.querySelector('#dc-type')?.addEventListener('change',   e => { this._damageType    = e.target.value;              refreshBtn(); });
+    this.element.querySelector('#dc-ignore-immunity')?.addEventListener('change', e => { this._ignoreImmunity = e.target.checked; });
+
+    this.element.addEventListener('click', async e => {
+      const btn = e.target.closest('[data-action],[data-mode]');
+      if (!btn) return;
+
+      if (btn.dataset.mode) {
+        this._damageMode = btn.dataset.mode;
+        const p = palette();
+        this.element.querySelectorAll('[data-mode]').forEach(b => {
+          const m = b.dataset.mode;
+          b.style.borderColor = m === this._damageMode ? p.accent : p.border;
+          b.style.color       = m === this._damageMode ? p.accent : p.text;
+        });
+        refreshBtn();
+        return;
+      }
+
+      const action = btn.dataset.action;
+      if (action === 'close-window') { this.close(); return; }
+      if (action === 'execute-dc')   { await this._execute(); }
     });
 
-    html.on('change', '#dc-condition', e => {
+    this.element.querySelector('#dc-condition')?.addEventListener('change', e => {
       this._condition = e.target.value;
-      const sel = html.find('#dc-condition-end')[0];
+      const sel = this.element.querySelector('#dc-condition-end');
       if (sel) sel.disabled = !this._condition;
       this._refreshPanel();
       refreshBtn();
     });
-    html.on('change', '#dc-condition-end', e => { this._conditionEnd = e.target.value; refreshBtn(); });
-
-    html.on('click', '[data-action]', async e => {
-      const action = e.currentTarget.dataset.action;
-      if (action === 'close-window') { this.close(); return; }
-      if (action === 'execute-dc')   { await this._execute(); }
-    });
+    this.element.querySelector('#dc-condition-end')?.addEventListener('change', e => { this._conditionEnd = e.target.value; refreshBtn(); });
   }
 
   async _execute() {
@@ -418,7 +422,7 @@ export class DamageConditionsPanel extends Application {
     ui.notifications.info(`Applied to ${count} target${count !== 1 ? 's' : ''}.`);
   }
 
-  async close(options) {
+  async close(options = {}) {
     if (this._hookControl)   Hooks.off('controlToken', this._hookControl);
     if (this._hookTarget)    Hooks.off('targetToken',  this._hookTarget);
     if (this._themeObserver) this._themeObserver.disconnect();
@@ -429,5 +433,5 @@ export class DamageConditionsPanel extends Application {
 export const toggleDamageConditionsPanel = () => {
   const existing = getWindowById('dsct-dc-panel');
   if (existing) { existing.close(); return; }
-  new DamageConditionsPanel().render(true);
+  new DamageConditionsPanel().render({ force: true });
 };

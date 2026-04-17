@@ -26,7 +26,7 @@ export const registerModuleButtons = () => {
         icon: 'fas fa-hand-rock',
         button: true,
         visible: S('grabEnabled') && S('showGrabButton'),
-        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.grabPanel()
+        onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.grabPanel()
       },
       'dsct-forced-movement': {
         name: 'dsct-forced-movement',
@@ -34,7 +34,7 @@ export const registerModuleButtons = () => {
         icon: 'fas fa-arrows-alt',
         button: true,
         visible: S('forcedMovementEnabled') && S('showForcedMovementButton'),
-        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.forcedMovementUI()
+        onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.forcedMovementUI()
       },
       'dsct-teleport': {
         name: 'dsct-teleport',
@@ -42,7 +42,7 @@ export const registerModuleButtons = () => {
         icon: 'fa-solid fa-person-through-window',
         button: true,
         visible: S('teleportEnabled') && S('showTeleportButton'),
-        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.teleportUI()
+        onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.teleportUI()
       },
       'dsct-pwk': {
         name: 'dsct-pwk',
@@ -50,7 +50,7 @@ export const registerModuleButtons = () => {
         icon: 'fas fa-skull',
         button: true,
         visible: game.user.isGM && S('showPowerWordKillButton') && S('deathTrackerEnabled'),
-        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.powerWordKill()
+        onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.powerWordKill()
       },
       'dsct-dc': {
         name: 'dsct-dc',
@@ -58,7 +58,7 @@ export const registerModuleButtons = () => {
         icon: 'fas fa-bolt',
         button: true,
         visible: S('showDamageConditionsButton'),
-        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.damageConditionsUI()
+        onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.damageConditionsUI()
       },
     });
 
@@ -69,7 +69,7 @@ export const registerModuleButtons = () => {
         icon: 'fas fa-dungeon',
         button: true,
         visible: game.user.isGM && S('showWallBuilderButton'),
-        onClick: () => game.modules.get('draw-steel-combat-tools')?.api?.wallBuilder()
+        onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.wallBuilder()
       },
       'dsct-select-connected': {
         name: 'dsct-select-connected',
@@ -77,7 +77,7 @@ export const registerModuleButtons = () => {
         icon: 'fas fa-project-diagram',
         button: true,
         visible: true,
-        onClick: (event) => selectConnectedWalls(event?.shiftKey ?? false),
+        onChange: (event) => selectConnectedWalls(event?.shiftKey ?? false),
       },
     });
   });
