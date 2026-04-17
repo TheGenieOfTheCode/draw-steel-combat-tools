@@ -39,10 +39,10 @@ jobs:
             module.json \
             LICENSE \
             README.md \
-            src/ \
+            scripts/ \
             styles/ \
-            templates/ \
-            lang/
+            lang/ \
+            assets/
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1

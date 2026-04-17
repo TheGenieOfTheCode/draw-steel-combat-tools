@@ -306,7 +306,7 @@ export async function runTeleport(macroArgs = []) {
 }
 
 
-const { Application: ApplicationV2 } = foundry.applications.api;
+const { ApplicationV2 } = foundry.applications.api;
 
 export class TeleportPanel extends ApplicationV2 {
   constructor() {

@@ -325,7 +325,7 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, t
   await runGrab(grabberToken, targetToken, { tier: resolvedTier });
 };
 
-const { Application: ApplicationV2 } = foundry.applications.api;
+const { ApplicationV2 } = foundry.applications.api;
 
 
 export class GrabPanel extends ApplicationV2 {

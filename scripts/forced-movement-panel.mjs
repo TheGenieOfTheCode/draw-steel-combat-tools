@@ -3,7 +3,7 @@ import {
   getWindowById, getModuleApi,
 } from './helpers.mjs';
 
-const { Application: ApplicationV2 } = foundry.applications.api;
+const { ApplicationV2 } = foundry.applications.api;
 
 export class ForcedMovementPanel extends ApplicationV2 {
   constructor() {

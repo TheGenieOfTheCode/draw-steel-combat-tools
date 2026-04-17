@@ -8,7 +8,7 @@ import {
   s, palette, injectPanelChrome,
 } from './helpers.mjs';
 
-const { Application: ApplicationV2 } = foundry.applications.api;
+const { ApplicationV2 } = foundry.applications.api;
 
 const BASE_MAT_COLORS = { glass: 0x88ddff, wood: 0xaa6622, stone: 0x888888, metal: 0x4488aa };
 const MATERIAL_COLORS = BASE_MAT_COLORS;

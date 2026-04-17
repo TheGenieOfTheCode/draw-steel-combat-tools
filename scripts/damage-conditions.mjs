@@ -5,7 +5,7 @@ import {
 } from './helpers.mjs';
 import { applyFrightened, applyTaunted } from './conditions.mjs';
 
-const { Application: ApplicationV2 } = foundry.applications.api;
+const { ApplicationV2 } = foundry.applications.api;
 
 const M = 'draw-steel-combat-tools';
 

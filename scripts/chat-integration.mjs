@@ -1,7 +1,7 @@
 import { applyGrab, buildFreeStrikeButton, sizeRankG } from './grab.mjs';
 import { canForcedMoveTarget, getItemRange, getItemDsid, getSetting, registerInjector, scheduleInject, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, getSquadGroup, s, palette, injectPanelChrome } from './helpers.mjs';
 
-const { Application: ApplicationV2 } = foundry.applications.api;
+const { ApplicationV2 } = foundry.applications.api;
 import { registerAbilityInjectors } from './ability-automation.mjs';
 import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetween } from './conditions.mjs';
 

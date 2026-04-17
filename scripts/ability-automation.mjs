@@ -1,6 +1,6 @@
 import { registerInjector, getSetting, getModuleApi, getItemDsid, palette, injectPanelChrome } from './helpers.mjs';
 
-const { Application: ApplicationV2 } = foundry.applications.api;
+const { ApplicationV2 } = foundry.applications.api;
 
 const M = 'draw-steel-combat-tools';
 
