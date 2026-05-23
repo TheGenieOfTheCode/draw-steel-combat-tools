@@ -63,12 +63,10 @@ https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest/dow
 
 ## Compatibility
 
-| Module | Status |
-|---|---|
-| [Draw Steel Plus](https://github.com/featureJosh/draw-steel-plus) | Fully compatible |
-| [Draw Steel Target Damage](https://github.com/OmerCora/draw-steel-target-damage) | Fully compatible |
-| [DS Token Override](https://github.com/nelizzy/ds-token-override) | Fully compatible |
-| [Health Estimate](https://github.com/mclemente/healthEstimate) | Compatible |
+- [Draw Steel Plus](https://github.com/featureJosh/draw-steel-plus)
+- [Draw Steel Target Damage](https://github.com/OmerCora/draw-steel-target-damage)
+- [DS Token Override](https://github.com/nelizzy/ds-token-override)
+- [Health Estimate](https://github.com/mclemente/healthEstimate)
 
 ---
 
