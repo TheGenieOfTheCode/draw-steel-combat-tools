@@ -19,21 +19,21 @@ Full documentation is available on the **[Wiki](https://github.com/TheGenieOfThe
 
 ## Features
 
-**[Forced Movement](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Overview)** — Push, pull, and slide tokens with full collision detection, a visual arrow preview, vertical movement, fall confirmation, and an undo system.
+**[Forced Movement](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Overview)**: Push, pull, and slide tokens with full collision detection, a visual arrow preview, vertical movement, fall confirmation, and an undo system.
 
-**[Wall Builder](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Wall-Builder)** — Create, convert, and manage destructible walls with material rules and a live canvas overlay.
+**[Wall Builder](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Wall-Builder)**: Create, convert, and manage destructible walls with material rules and a live canvas overlay.
 
-**[Conditions](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Damage-and-Conditions-Panel)** — Apply damage and conditions to multiple targets from a single panel. Includes Grab, Frightened (with source ping), Taunted, and Bleeding auto-apply.
+**[Conditions](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Damage-and-Conditions-Panel)**: Apply damage and conditions to multiple targets from a single panel. Includes Grab, Frightened (with source ping), Taunted, and Bleeding auto-apply.
 
-**[Death Tracker](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Death-Notifications)** — Defeated tokens stay on the battlefield. Batch death notifications, Raise Dead, Power Word: Kill, death markers, and automatic condition cleanup on NPC death.
+**[Death Tracker](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Death-Notifications)**: Defeated tokens stay on the battlefield. Batch death notifications, Raise Dead, Power Word: Kill, death markers, and automatic condition cleanup on NPC death.
 
-**[Ability Automation](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Judgement)** — New roll UI with named modifier pills. Target picker for un-targeted rolls. Automations for Judgement, Mark, Aid Attack, Crossfade, Purifying Fire, and Hesitation Is Weakness.
+**[Ability Automation](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Judgement)**: New roll UI with named modifier pills. Target picker for un-targeted rolls. Automations for Judgement, Mark, Aid Attack, Crossfade, Purifying Fire, and Hesitation Is Weakness.
 
-**[Squad Labels](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Squad-Labels)** — Squads are auto-numbered at combat start and renumbered as membership changes. Captain succession is handled automatically on death.
+**[Squad Labels](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Squad-Labels)**: Squads are auto-numbered at combat start and renumbered as membership changes. Captain succession is handled automatically on death.
 
-**[Teleportation](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Overview)** — Teleport tokens with a canvas picker and an undo system.
+**[Teleportation](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Overview)**: Teleport tokens with a canvas picker and an undo system.
 
-**[Triggered Actions](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Triggered-Actions)** — Post triggered action reminders to chat for any ability.
+**[Triggered Actions](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Triggered-Actions)**: Post triggered action reminders to chat for any ability.
 
 ---
 
@@ -65,10 +65,10 @@ https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest/dow
 
 | Module | Status |
 |---|---|
-| Draw Steel Plus | Fully compatible |
-| draw-steel-target-damage | Fully compatible |
-| ds-token-override | Fully compatible |
-| Health Estimate | Compatible |
+| [Draw Steel Plus](https://github.com/featureJosh/draw-steel-plus) | Fully compatible |
+| [Draw Steel Target Damage](https://github.com/OmerCora/draw-steel-target-damage) | Fully compatible |
+| [DS Token Override](https://github.com/nelizzy/ds-token-override) | Fully compatible |
+| [Health Estimate](https://github.com/mclemente/healthEstimate) | Compatible |
 
 ---
 
