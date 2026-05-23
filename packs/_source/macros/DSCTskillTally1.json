@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTskillTally1",
+  "name": "DSCT: Skill Tally",
+  "type": "script",
+  "img": "icons/sundries/books/book-tooled-silver-blue.webp",
+  "command": "// Lists how many player heroes have each skill, and which skills nobody picked.\nconst { list: skillList } = ds.CONFIG.skills;\n\nconst nonGMUsers = game.users.filter(u => !u.isGM);\nconst playerActors = game.actors.filter(a =>\n  a.type === 'hero' && nonGMUsers.some(u => a.testUserPermission(u, 'OWNER'))\n);\n\nif (!playerActors.length) {\n  ui.notifications.warn('No player-owned hero actors found.');\n  return;\n}\n\nconst tally = new Map();\nfor (const actor of playerActors) {\n  for (const skill of (actor.system.skills?.value ?? [])) {\n    tally.set(skill, (tally.get(skill) ?? 0) + 1);\n  }\n}\n\nconst picked = [...tally.entries()]\n  .sort((a, b) => (skillList[a[0]]?.label ?? a[0]).localeCompare(skillList[b[0]]?.label ?? b[0]))\n  .map(([key, count]) => {\n    const label = skillList[key]?.label ?? key;\n    return count > 1 ? `<strong>${label}</strong> &times;${count}` : label;\n  });\n\nconst unpicked = Object.entries(skillList)\n  .filter(([key]) => !tally.has(key))\n  .sort((a, b) => (a[1].label ?? a[0]).localeCompare(b[1].label ?? b[0]))\n  .map(([key, { label }]) => label ?? key);\n\nconst actorNames = playerActors.map(a => `<em>${a.name}</em>`).join(', ');\n\nconst content = `\n  <p><strong>Heroes checked (${playerActors.length}):</strong> ${actorNames}</p>\n  <hr>\n  <p><strong>Skills picked (${tally.size} unique):</strong></p>\n  <p style=\"line-height:1.8\">${picked.join(' &nbsp;&middot;&nbsp; ') || '<em>None</em>'}</p>\n  <hr>\n  <p><strong>Unpicked skills (${unpicked.length}):</strong></p>\n  <p style=\"line-height:1.8;color:#888\">${unpicked.join(' &nbsp;&middot;&nbsp; ') || '<em>All skills picked!</em>'}</p>\n`;\n\nChatMessage.create({ content, whisper: game.users.filter(u => u.isGM).map(u => u.id) });",
+  "scope": "global",
+  "sort": 0,
+  "folder": "DSCTfoldUT000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTskillTally1"
+}

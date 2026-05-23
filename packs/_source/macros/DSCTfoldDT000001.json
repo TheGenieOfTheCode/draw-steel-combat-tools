@@ -1,0 +1,20 @@
+{
+  "_id": "DSCTfoldDT000001",
+  "name": "Death Tracker",
+  "type": "Macro",
+  "color": "#2d6645",
+  "sort": 400,
+  "folder": null,
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!folders!DSCTfoldDT000001"
+}

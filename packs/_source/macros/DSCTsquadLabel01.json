@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTsquadLabel01",
+  "name": "DSCT: Apply Squad Labels",
+  "type": "script",
+  "img": "icons/environment/people/group.webp",
+  "command": "// Manually applies squad label icons to all current combatants.\n// Normally runs automatically at combat start when Auto-Apply Squad Labels is enabled. Useful for applying labels mid-combat after adding new combatants.\nawait game.modules.get('draw-steel-combat-tools').api.squadLabels();",
+  "scope": "global",
+  "sort": 1200,
+  "folder": "DSCTfoldSL000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTsquadLabel01"
+}

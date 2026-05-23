@@ -1,0 +1,38 @@
+<div class="dsct-panel">
+
+  <div class="dsct-section-label" style="margin-bottom:5px;">{{localize "DSCT.panel.modFm.logEntry"}}</div>
+  <div class="dsct-fm-effect-section" style="margin-bottom:7px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="dsct-section-label">{{localize "DSCT.panel.modFm.name"}}</div>
+      <input type="text" data-field="note-name" placeholder="Optional" class="dsct-fm-name-input">
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div class="dsct-section-label" style="padding-top:4px;">{{localize "DSCT.panel.modFm.description"}}</div>
+      <textarea data-field="note-desc" placeholder="Optional" rows="2" class="dsct-fm-desc-textarea"
+        oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+    </div>
+  </div>
+
+  <div class="dsct-section-label" style="margin-bottom:5px;">{{localize "DSCT.panel.modFm.presets"}}</div>
+  <div style="display:flex;gap:5px;margin-bottom:7px;align-items:center;">
+    <select data-field="preset-select" style="flex:1;">
+      <option value="">{{localize "DSCT.panel.modFm.noPreset"}}</option>
+      {{#each presetOptions}}
+      <option value="{{value}}">{{label}}</option>
+      {{/each}}
+    </select>
+    <button type="button" data-action="save-preset" title="Save current inputs as a preset" class="dsct-fm-icon-btn">
+      <i class="fas fa-save" style="margin:0;"></i>
+    </button>
+    <button type="button" data-action="delete-preset" title="Delete selected preset" class="dsct-fm-icon-btn">
+      <i class="fas fa-trash" style="margin:0;"></i>
+    </button>
+  </div>
+
+  {{{effectSections}}}
+
+  <button type="button" data-action="apply-mod" class="dsct-execute-btn">
+    <i class="fas fa-check"></i> {{localize "DSCT.panel.modFm.apply"}}
+  </button>
+
+</div>

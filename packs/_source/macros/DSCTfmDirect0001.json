@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTfmDirect0001",
+  "name": "DSCT: Forced Movement (Direct)",
+  "type": "script",
+  "img": "icons/skills/movement/arrows-up-trio-red.webp",
+  "command": "// Executes forced movement directly without opening the panel.\n// Requires one targeted token (the creature to move). Optionally control one token to act as the source for range checks.\n//\n// Array format: [type, distance, bonusCreatureDmg, bonusObjectDmg, verticalHeight,\n//                fallReduction, noFallDamage, ignoreStability, noCollisionDamage,\n//                keywords, range, fastMove]\n//\n// Simple push - target a token then run:\nawait game.modules.get('draw-steel-combat-tools').api.forcedMovement(['Push', 3]);\n\n// Pull 2 squares with 2 squares of vertical lift, no fall damage:\n// await game.modules.get('draw-steel-combat-tools').api.forcedMovement(['Pull', 2, 0, 0, 2, 0, true]);\n\n// Programmatic use with explicit token IDs (e.g. from another macro or script):\n// await game.modules.get('draw-steel-combat-tools').api.forcedMovement({\n//   type: 'Push', distance: 3,\n//   targetId: targetToken.id,\n//   sourceId: sourceToken.id,\n//   verticalHeight: 0,\n//   suppressMessage: false\n// });",
+  "scope": "global",
+  "sort": 100,
+  "folder": "DSCTfoldFM000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTfmDirect0001"
+}

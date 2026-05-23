@@ -1,0 +1,67 @@
+{{!-- Add Modifier form (functional). Scope pre-selected via JS in _onRender. --}}
+<div class="dsct-amw">
+
+  {{!-- Type selector: 2-column grid, row-major: Edge|Bane / ×2Edge|×2Bane / Bonus|Penalty --}}
+  <div class="dsct-amw-type-grid">
+    <button type="button" class="dsct-amw-type-btn edge active" data-kind="edge"  data-amount="1">Edge</button>
+    <button type="button" class="dsct-amw-type-btn bane"        data-kind="bane"  data-amount="1">Bane</button>
+    <button type="button" class="dsct-amw-type-btn edge"        data-kind="edge"  data-amount="2">Double Edge</button>
+    <button type="button" class="dsct-amw-type-btn bane"        data-kind="bane"  data-amount="2">Double Bane</button>
+    <button type="button" class="dsct-amw-type-btn bonus"       data-kind="bonus" data-amount="1">Bonus</button>
+    <button type="button" class="dsct-amw-type-btn bonus"       data-kind="bonus" data-amount="-1">Penalty</button>
+  </div>
+
+  {{!-- Value (shown only for Bonus / Penalty) --}}
+  <div class="form-group dsct-amw-value-group" style="display:none">
+    <label>Value</label>
+    <div class="form-fields">
+      <input type="number" class="dsct-amw-value-input" min="1" value="1" step="1">
+    </div>
+  </div>
+
+  {{!-- Scope --}}
+  <div class="form-group">
+    <label>Applies to</label>
+    <div class="form-fields">
+      <select class="dsct-amw-scope-select">
+        <option value="global">Global (all targets)</option>
+        {{#each targets}}
+        <option value="{{id}}">{{name}}</option>
+        {{/each}}
+      </select>
+    </div>
+  </div>
+
+  {{!-- Source actor --}}
+  <div class="form-group">
+    <label>Source actor</label>
+    <div class="form-fields dsct-amw-source-actor">
+      <input type="text" class="dsct-amw-source-input" placeholder="Self">
+      <button type="button" class="dsct-amw-target-fill" title="Use currently targeted token">
+        <i class="fa-solid fa-bullseye-pointer"></i>
+      </button>
+    </div>
+  </div>
+
+  {{!-- Reason --}}
+  <div class="form-group">
+    <label>Reason</label>
+    <div class="form-fields">
+      <input type="text" class="dsct-amw-reason-input" placeholder="e.g. Inspired, Concealed, High ground">
+    </div>
+  </div>
+
+  {{!-- Live preview pill --}}
+  <div class="dsct-amw-preview">
+    <span class="dsct-amw-preview-label">Preview</span>
+    <button type="button" class="dsct-source-pill dsct-pill-edge dsct-pill-custom dsct-amw-preview-pill">
+      <span class="dsct-pip">+1 Edge &middot; (custom)</span>
+    </button>
+  </div>
+
+  <footer class="form-footer dsct-amw-footer">
+    <button type="button" class="dsct-amw-cancel">Cancel</button>
+    <button type="button" class="dsct-amw-submit">Add Modifier</button>
+  </footer>
+
+</div>{{!-- /.dsct-amw --}}

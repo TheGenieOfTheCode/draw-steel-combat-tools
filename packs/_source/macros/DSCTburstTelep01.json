@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTburstTelep01",
+  "name": "DSCT: Burst Teleport",
+  "type": "script",
+  "img": "icons/magic/movement/trail-streak-pink.webp",
+  "command": "// Teleports every token within a burst area to a new position inside that same area.\n// Control the caster token (burst center), then run.\n//\n// radius        - burst size in squares (e.g. 2 = Burst 2, a 5×5 area around the caster)\n// filter        - which tokens to include: 'all' (default), 'hero' (heroes only), 'npc' (NPCs only)\n// excludeSource - if true, the caster token is excluded from the teleport queue (default false)\n// sourceId      - (optional) explicit token ID for the caster; omit to use the controlled token\n//\n// How it works:\n//   1. All matching non-dead tokens within the burst are added to the queue.\n//   2. Click a highlighted token to choose who teleports next.\n//   3. Click a valid (purple) square in the burst to place them there.\n//   4. Repeat until done, or Right-Click to finish early.\n//      Right-Click during token selection ends the sequence.\n//      Right-Click during destination selection skips that token.\nawait game.modules.get('draw-steel-combat-tools').api.burstTeleport({\n  radius: 2,\n  filter: 'all',\n  excludeSource: false,\n  // sourceId: 'paste-token-id-here',\n});",
+  "scope": "global",
+  "sort": 1700,
+  "folder": "DSCTfoldTP000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTburstTelep01"
+}

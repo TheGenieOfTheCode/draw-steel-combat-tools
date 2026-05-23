@@ -1,0 +1,82 @@
+<div class="dsct-wbs-content dsct-sub-settings">
+
+  <div class="dsct-sub-scroll">
+  {{#each items}}
+  {{#if isDebugHeader}}
+  <h3 class="dsct-sub-debug-header">Debug Settings</h3>
+  {{else if isSectionHeader}}
+  <h4 class="dsct-sub-section-header">{{label}}</h4>
+  {{else if isNestedMenu}}
+  <div class="form-group">
+    <label>{{name}}</label>
+    <div class="form-fields">
+      <button type="button" id="{{id}}" class="dsct-sub-menu-btn"><i class="{{icon}}"></i> {{label}}</button>
+    </div>
+    <p class="hint">{{hint}}</p>
+  </div>
+  {{else if isInfo}}
+  <div class="form-group dsct-sub-info-entry">
+    <label>{{name}}</label>
+    <div class="form-fields">
+      {{#if isActive}}<span class="dsct-compat-badge dsct-compat-active"><i class="fas fa-check"></i> Active</span>{{else}}<span class="dsct-compat-badge dsct-compat-inactive">Not Detected</span>{{/if}}
+    </div>
+    <p class="hint">{{hint}}</p>
+  </div>
+  {{else if isBoolean}}
+  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}">
+    <label for="dsct-sub-{{key}}">{{name}}</label>
+    <div class="form-fields">
+      <input type="checkbox" id="dsct-sub-{{key}}" name="{{key}}" {{#if value}}checked{{/if}}>
+    </div>
+    <p class="hint">{{hint}}</p>
+  </div>
+  {{else if isSelect}}
+  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}">
+    <label for="dsct-sub-{{key}}">{{name}}</label>
+    <div class="form-fields">
+      <select id="dsct-sub-{{key}}" name="{{key}}">
+        {{#each choices}}<option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option>{{/each}}
+      </select>
+    </div>
+    <p class="hint">{{hint}}</p>
+  </div>
+  {{else if isRange}}
+  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}">
+    <label for="dsct-sub-{{key}}">{{name}}</label>
+    <div class="form-fields">
+      <input type="range" id="dsct-sub-{{key}}" name="{{key}}" value="{{value}}" min="{{range.min}}" max="{{range.max}}" step="{{range.step}}">
+      <span class="dsct-range-val" id="dsct-sub-val-{{key}}">{{value}}</span>
+    </div>
+    <p class="hint">{{hint}}</p>
+  </div>
+  {{else if isFilePicker}}
+  <div class="form-group">
+    <label for="dsct-sub-{{key}}">{{name}}</label>
+    <div class="form-fields dsct-file-picker-group">
+      <input type="text" id="dsct-sub-{{key}}" name="{{key}}" value="{{value}}" />
+      <button type="button" class="dsct-fp-btn" data-target="{{key}}" title="Browse Files">
+        <i class="fas fa-file-import"></i>
+      </button>
+      <img class="dsct-icon-preview" src="{{value}}" title="Current icon preview" />
+    </div>
+    <p class="hint">{{hint}}</p>
+  </div>
+  {{else}}
+  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}">
+    <label for="dsct-sub-{{key}}">{{name}}</label>
+    <div class="form-fields">
+      <input type="number" id="dsct-sub-{{key}}" name="{{key}}" value="{{value}}">
+    </div>
+    <p class="hint">{{hint}}</p>
+  </div>
+  {{/if}}
+  {{/each}}
+  </div>
+
+  <div class="dsct-wbs-footer">
+    <button type="button" id="dsct-sub-save-btn" class="dsct-wbs-save-btn">
+      <i class="fa-solid fa-floppy-disk"></i> Save Changes
+    </button>
+  </div>
+
+</div>

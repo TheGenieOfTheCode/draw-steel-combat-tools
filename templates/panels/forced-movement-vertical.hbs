@@ -1,0 +1,24 @@
+<div class="dsct-panel">
+  <div class="dsct-section dsct-col-gap">
+
+    <div class="dsct-vert-picker-row">
+      <div class="dsct-vert-slider-col">
+        <span class="dsct-vert-range-label">{{maxAbsVal}}</span>
+        <input type="range" id="dsct-vert-slider"
+               min="{{minVal}}" max="{{maxAbsVal}}" step="1" value="{{defaultVal}}">
+        <span class="dsct-vert-range-label">{{minVal}}</span>
+      </div>
+      <div class="dsct-vert-input-col">
+        <label class="dsct-param-label" for="dsct-vert-number">
+          {{localize "DSCT.label.verticalDistance"}}
+        </label>
+        <input type="number" id="dsct-vert-number" class="dsct-input-sm"
+               min="{{minVal}}" max="{{maxAbsVal}}" value="{{defaultVal}}" step="1">
+      </div>
+    </div>
+
+  </div>
+  <button type="button" class="dsct-execute-btn" data-action="confirm-vertical">
+    {{localize "DSCT.panel.fm.confirmVertical"}}
+  </button>
+</div>

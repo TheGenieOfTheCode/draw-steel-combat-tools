@@ -1,0 +1,5 @@
+docs/
+vault/
+dist-private/
+build-private.mjs
+commit-strip.mjs

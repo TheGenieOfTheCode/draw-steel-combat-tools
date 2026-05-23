@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTfall00000001",
+  "name": "DSCT: Fall",
+  "type": "script",
+  "img": "icons/magic/control/debuff-energy-snare-purple-pink.webp",
+  "command": "// Applies fall damage and drops the selected or targeted token to the ground.\n// Respects fly speed, prone status, and speed 0 (a grounded flyer still falls).\n// Useful when a creature ends up airborne outside of normal forced movement.\nconst token = canvas.tokens.controlled[0] ?? [...game.user.targets][0] ?? null;\nif (!token) { ui.notifications.warn('Select or target a token first.'); return; }\nawait game.modules.get('draw-steel-combat-tools').api.fall(token, 0, { silent: false });",
+  "scope": "global",
+  "sort": 1600,
+  "folder": "DSCTfoldFM000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTfall00000001"
+}

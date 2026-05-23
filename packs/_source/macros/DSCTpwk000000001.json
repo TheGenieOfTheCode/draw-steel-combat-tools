@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTpwk000000001",
+  "name": "DSCT: Power Word Kill",
+  "type": "script",
+  "img": "icons/magic/death/skull-horned-goat-pentagram-red.webp",
+  "command": "// Opens the Power Word Kill UI.\n// Target one or more tokens to instantly kill them, triggering the death animation and placing skull markers for any eligible creatures.\ngame.modules.get('draw-steel-combat-tools').api.powerWordKill();",
+  "scope": "global",
+  "sort": 600,
+  "folder": "DSCTfoldDT000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTpwk000000001"
+}

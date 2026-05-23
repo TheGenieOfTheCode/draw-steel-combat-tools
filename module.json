@@ -1,31 +1,43 @@
 {
   "id": "draw-steel-combat-tools",
   "title": "Draw Steel: Combat Tools",
-  "description": "<p>A Foundry VTT module for the Draw Steel system that provides a suite of tools to streamline or fully automate the combat mechanics of Draw Steel, including Forced Movement, Conditions (general and some class-specific), Teleportation, and NPC Death. It also includes miscellaneous utilities such as labels assigned by Groups in combat, and automation for the I'm No Threat Harlequin Shadow maneuver, previously distributed as standalone macros but bundled here for convenience and easier updates. Each feature can be individually toggled in the settings, so you can use as much or as little of the module as fits your table.</p>",
-  "version": "1.0.1",
+  "description": "<p>Bringing the rules of Draw Steel to Foundry, one ability at a time.</p><p>Draw Steel: Combat Tools automates the combat mechanics of Draw Steel, including Forced Movement with full collision detection, Conditions (Frightened, Taunted, Bleeding, and more), Grab, Teleportation, NPC Death tracking, and class-specific ability automations. Each feature can be individually toggled in the settings, so you can use as much or as little of the module as fits your table.</p>",
+  "version": "1.1.0",
   "socket": true,
-  "compatibility": { "minimum": "13", "verified": "14" },
+  "compatibility": { "minimum": "14", "verified": "14" },
   "authors": [{ "name": "Ady", "discord": "AdyGenie" }],
   "url": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools",
   "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest/download/module.json",
-  "download": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.0.1/draw-steel-combat-tools.zip",
+  "download": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.0.2/draw-steel-combat-tools.zip",
   "relationships": {
     "systems": [{ "id": "draw-steel", "type": "system", "compatibility": {} }],
     "requires": [
       { "id": "socketlib", "type": "module", "compatibility": { "minimum": "1.1.3" } },
       { "id": "color-picker", "type": "module", "compatibility": { "minimum": "1.7" } }
     ],
-    "incompatible": [
-      { "id": "draw-steel-plus", "type": "module" }
+    "optional": [
+      { "id": "lib-wrapper", "type": "module", "compatibility": { "minimum": "1.12.0" } }
     ]
   },
+  "documentTypes": {
+    "RegionBehavior": {
+      "statusEffect": {},
+      "statusEffectEvents": {},
+      "activeEffect": {},
+      "activeEffectEvents": {}
+    }
+  },
   "esmodules": [
-    "scripts/main.mjs"
+    "src/main.mjs",
+    "src/regions/index.mjs"
   ],
   "styles": [
     "styles/module.css"
   ],
   "languages": [
     { "lang": "en", "name": "English", "path": "lang/en.json" }
+  ],
+  "packs": [
+    { "name": "macros", "label": "DSCT: Macros", "path": "packs/macros", "type": "Macro" }
   ]
 }

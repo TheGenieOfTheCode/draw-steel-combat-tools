@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTconvertWall1",
+  "name": "DSCT: Convert Walls",
+  "type": "script",
+  "img": "icons/environment/settlement/fence-stone-brick.webp",
+  "command": "// Converts selected canvas walls into DSCT obstacle tiles. GM only.\n// Switch to the Walls layer (W key), select the walls you want to convert,\n// then run this macro. Each grid square covered by ≥ 50% of a wall gets\n// an invisible obstacle tile. Walls spanning multiple squares are tagged for\n// lazy splitting at collision time during forced movement.\n//\n// material     - 'stone' | 'wood' | 'glass' | 'metal' (or any custom material)\n// heightBottom / heightTop - wall elevation range (omit for unlimited)\n// invisible    - true (default): tiles are alpha 0 (collision only); false: show material texture\n// stable       - true (default): prevents Infinity-height bugs when elevation is unset\nawait game.modules.get('draw-steel-combat-tools').api.convertWalls('stone');\n// await game.modules.get('draw-steel-combat-tools').api.convertWalls('wood', 0, 3, true, true);\n// await game.modules.get('draw-steel-combat-tools').api.convertWalls('stone', '', '', false, false); // visible, unstable",
+  "scope": "global",
+  "sort": 1900,
+  "folder": "DSCTfoldFM000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTconvertWall1"
+}

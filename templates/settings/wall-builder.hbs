@@ -1,0 +1,53 @@
+<div class="dsct-wbs-content">
+
+  <div class="dsct-table-scroll{{#if showScroll}} dsct-table-scroll-capped{{/if}}">
+    <table class="dsct-wbs-table">
+      <thead>
+        <tr>
+          <th class="dsct-table-th" title="{{localize "DSCT.settings.wb.colIconTitle"}}">{{localize "DSCT.settings.wb.colIcon"}}</th>
+          <th class="dsct-table-th" title="{{localize "DSCT.settings.wb.colOpacityTitle"}}">{{localize "DSCT.settings.wb.colOpacity"}}</th>
+          <th class="dsct-table-th">{{localize "DSCT.settings.wb.colName"}}</th>
+          <th class="dsct-table-th" title="{{localize "DSCT.settings.wb.colBreakCostTitle"}}">{{localize "DSCT.settings.wb.colBreakCost"}}</th>
+          <th class="dsct-table-th" title="{{localize "DSCT.settings.wb.colBreakDamageTitle"}}">{{localize "DSCT.settings.wb.colBreakDamage"}}</th>
+          <th class="dsct-table-th" title="{{localize "DSCT.settings.wb.colMovementTitle"}}">{{localize "DSCT.settings.wb.colMovement"}}</th>
+          <th class="dsct-table-th" title="{{localize "DSCT.settings.wb.colVisionTitle"}}">{{localize "DSCT.settings.wb.colVision"}}</th>
+          <th class="dsct-table-th" title="{{localize "DSCT.settings.wb.colLightTitle"}}">{{localize "DSCT.settings.wb.colLight"}}</th>
+          <th class="dsct-table-th" title="{{localize "DSCT.settings.wb.colSoundTitle"}}">{{localize "DSCT.settings.wb.colSound"}}</th>
+          <th class="dsct-table-th"></th>
+        </tr>
+      </thead>
+      <tbody id="dsct-wb-mat-tbody">{{{rowsHTML}}}</tbody>
+    </table>
+  </div>
+
+  <h3 class="dsct-wbs-h3">{{localize "DSCT.settings.wb.defaults"}}</h3>
+  <div class="dsct-defaults-grid">
+    <div>
+      <label class="dsct-field-label">{{localize "DSCT.settings.wb.defaultMaterial"}}</label>
+      <select name="defaultMaterial" class="dsct-wbs-full-select">{{{matOptions}}}</select>
+    </div>
+    <div>
+      <label class="dsct-field-label">{{localize "DSCT.settings.wb.defaultHeightBottom"}}</label>
+      <input type="number" name="defaultHeightBot" value="{{defaultHeightBot}}" placeholder="(none)" class="dsct-wbs-full-input">
+    </div>
+    <div>
+      <label class="dsct-field-label">{{localize "DSCT.settings.wb.defaultHeightTop"}}</label>
+      <input type="number" name="defaultHeightTop" value="{{defaultHeightTop}}" placeholder="(none)" class="dsct-wbs-full-input">
+    </div>
+  </div>
+
+  <div class="dsct-wbs-option-row">
+    <input type="checkbox" id="dsct-wb-rubble-invisible" name="rubbleInvisible" {{#if rubbleInvisible}}checked{{/if}}>
+    <label for="dsct-wb-rubble-invisible">
+      <span class="dsct-wbs-opt-name">{{localize "DSCT.setting.rubbleInvisible.name"}}</span>
+      <span class="dsct-wbs-opt-hint">{{localize "DSCT.setting.rubbleInvisible.hint"}}</span>
+    </label>
+  </div>
+
+  <div class="dsct-wbs-footer">
+    <button type="button" id="dsct-wb-add-mat-btn"><i class="fa-solid fa-plus"></i> {{localize "DSCT.settings.wb.addMaterial"}}</button>
+    <button type="button" id="dsct-wb-reset-btn"><i class="fa-solid fa-rotate-left"></i> {{localize "DSCT.settings.wb.resetDefaults"}}</button>
+    <button type="button" id="dsct-wb-save-btn" class="dsct-wbs-save-btn"><i class="fa-solid fa-floppy-disk"></i> {{localize "DSCT.settings.wb.saveChanges"}}</button>
+  </div>
+
+</div>

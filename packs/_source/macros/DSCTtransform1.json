@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTtransform1",
+  "name": "DSCT: Transform Token",
+  "type": "script",
+  "img": "icons/magic/control/silhouette-hold-change-green.webp",
+  "command": "// === CONFIG ===\n// Actor IDs of the forms to offer in the transformation menu.\n// Edit these to match actors in your world.\nconst ACTOR_IDS = [\n  'actorId1',\n  'actorId2',\n];\nconst TITLE = 'Transform';\n// === END CONFIG ===\n\n// --- api.monsterFilter ---\n// Predicate factories for filtering DS actors and tokens.\n// Each returns a plain (actor) => boolean you can compose with && / ! / ||.\n//\n//   monsterFilter.keyword('abyssal')     -- actor has the given keyword\n//   monsterFilter.organization('minion') -- actor organization (minion/horde/solo/boss/leader)\n//   monsterFilter.level(3)               -- actor is exactly level 3\n//   monsterFilter.sameLevel(token)       -- matches the level of a token (captured at call time)\n//   monsterFilter.type('npc')            -- actor.type matches\n//   monsterFilter.onActor(fn)            -- wraps an actor predicate to filter Token objects\n//\n// Example -- target any non-minion abyssal token, offer same-level abyssal minions:\n//\n//   const { monsterFilter: f } = api;\n//   const _abyssal = f.keyword('abyssal');\n//   const _minion  = f.organization('minion');\n//   await api.transform(\n//     f.onActor(a => _abyssal(a) && !_minion(a)),\n//     tok => game.actors\n//       .filter(a => a.type==='npc' && _abyssal(a) && _minion(a) && f.sameLevel(tok)(a))\n//       .sort((a,b) => a.name.localeCompare(b.name)),\n//     'Abyssal Devolution',\n//     { color: 0x9900cc, hint: 'Click a token to devolve.' }\n//   );\n\nconst api    = game.modules.get('draw-steel-combat-tools')?.api;\nconst actors = ACTOR_IDS.map(id => game.actors.get(id)).filter(Boolean);\nif (!actors.length) { ui.notifications.warn('No valid actors found. Check ACTOR_IDS in the macro.'); return; }\n\nawait api?.transform(null, actors, TITLE);",
+  "scope": "global",
+  "sort": 0,
+  "folder": "DSCTfoldAA000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTtransform1"
+}

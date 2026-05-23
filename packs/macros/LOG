@@ -1,0 +1,5 @@
+2026/05/11-01:49:57.453 307c Delete type=3 #1
+2026/05/11-01:49:57.458 4848 Level-0 table #5: started
+2026/05/11-01:49:57.461 4848 Level-0 table #5: 13501 bytes OK
+2026/05/11-01:49:57.464 4848 Delete type=0 #3
+2026/05/11-01:49:57.464 4848 Manual compaction at level-0 from '!folders!DSCTfoldAA000001' @ 72057594037927935 : 1 .. '!macros!DSCTtrigAction01' @ 0 : 0; will stop at (end)

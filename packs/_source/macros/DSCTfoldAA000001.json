@@ -1,0 +1,20 @@
+{
+  "_id": "DSCTfoldAA000001",
+  "name": "Ability Automation",
+  "type": "Macro",
+  "color": "#4a2d70",
+  "sort": 600,
+  "folder": null,
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!folders!DSCTfoldAA000001"
+}

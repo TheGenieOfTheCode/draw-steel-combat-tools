@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTmark00000001",
+  "name": "DSCT: Mark",
+  "type": "script",
+  "img": "icons/skills/targeting/crosshair-pointed-orange.webp",
+  "command": "// Applies the Mark effect to the targeted token(s) using the Mark ability (DSID: mark).\n// Target one token (or two if the actor has Anticipation), then run.\n// When a marked target dies, a prompt appears to use a free triggered action to mark a new target within 10 squares.\n// Reusing this macro clears any previous marks placed by the Mark ability and applies fresh ones.\nawait game.modules.get('draw-steel-combat-tools').api.mark({ maxTargets: 1, override: true, dsid: 'mark' });",
+  "scope": "global",
+  "sort": 800,
+  "folder": "DSCTfoldAA000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTmark00000001"
+}

@@ -1,0 +1,20 @@
+{
+  "_id": "DSCTfoldSL000001",
+  "name": "Squad Labels",
+  "type": "Macro",
+  "color": "#2d4f70",
+  "sort": 500,
+  "folder": null,
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!folders!DSCTfoldSL000001"
+}

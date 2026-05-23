@@ -1,10 +1,6 @@
 {
   "DSCT": {
     "setting": {
-      "chatInjectDelay": {
-        "name": "Chat Button Inject Delay (ms)",
-        "hint": "Time in milliseconds to wait after a chat message renders before injecting forced movement buttons."
-      },
       "installMacros": {
         "name": "Install API Macros",
         "label": "Install Macros",
@@ -12,7 +8,7 @@
       },
       "macroPromptMode": {
         "name": "Sample Macro Import Prompt",
-        "hint": "Controls when Draw Steel: Combat Tools prompts the GM to import sample macros on initialization.",
+        "hint": "Controls when or if Draw Steel: Combat Tools should prompt the Director to import sample macros on load.",
         "choice": {
           "ask": "Ask on every initialization",
           "skipUpdate": "Ask only when the module updates",
@@ -23,9 +19,31 @@
         "name": "Draw Steel: Quick Strike",
         "hint": "Routes collision and fall damage through Quick Strike's socket so it appears in its chat log with source info and its undo button. DSCT's undo still handles position and status restoration independently."
       },
+      "dstdQuickFmButton": {
+        "name": "Quick Forced Movement Button",
+        "hint": "When multiple targets are present, adds a condensed Forced Movement button to the collapsed target header alongside the damage button. The damage button is shortened to icon and number only to fit both."
+      },
+      "playerCanUndoDstdDeaths": {
+        "name": "Players Can Undo Deaths via Target Damage",
+        "hint": "Allows players to utilize the undo button."
+      },
+      "minionHealthEstimate": {
+        "name": "Minion Health Estimate Display",
+        "hint": "Controls how Health Estimate behaves on minion tokens that are part of an active combat squad. Outside of combat, or when a minion has no squad group, Health Estimate is unaffected.",
+        "choice": {
+          "hide": "Hide Label",
+          "count": "Squad Count Label",
+          "off": "Show Label"
+        }
+      },
       "forcedMovementEnabled": {
-        "name": "Enable Forced Movement",
-        "hint": "Enables the Forced Movement panel and all push/pull/slide mechanics."
+        "name": "Forced Movement",
+        "hint": "Controls all Forced Movement functionality like the panel and chat messages, as well as all related automation."
+      },
+      "forcedMovementSettings": {
+        "name": "Forced Movement Settings",
+        "label": "Configure Forced Movement",
+        "hint": "Adjust animation speed, fall and friendly fire confirmation prompts, and Director-only movement restrictions."
       },
       "animationStepDelay": {
         "name": "Animation Step Delay (ms)",
@@ -33,87 +51,167 @@
       },
       "fallDamageCap": {
         "name": "Fall Damage Cap",
-        "hint": "Maximum damage a creature can take from a single fall."
+        "hint": "Maximum damage an actor can take from a single fall."
       },
-      "gmBypassesRangeCheck": {
-        "name": "GM Bypasses Range Check",
-        "hint": "When enabled, the GM can execute forced movement from chat buttons regardless of range."
+      "fallConfirmation": {
+        "name": "Fall Confirmation",
+        "hint": "Show a confirmation prompt in chat before resolving a token falls."
+      },
+      "friendlyFireConfirmation": {
+        "name": "Friendly Fire Confirmation",
+        "hint": "Show a confirmation prompt in chat when forced movement would cause an ally to take collision damage."
+      },
+      "ignoreAllyEnabled": {
+        "name": "Allow Allies to Dodge",
+        "hint": "Allow smaller allies to get out of the way of big enemies using a chat confirmation prompt. Requires Friendly Fire Confirmation."
+      },
+      "corpsesBlock": {
+        "name": "Corpses Block Movement",
+        "hint": "Defeated tokens act as indestructible obstacles during forced movement."
       },
       "fmModifyGmOnly": {
-        "name": "Restrict Modify Button to GM",
-        "hint": "When enabled, only the GM can see the pencil modify button on forced movement chat messages. Disable to let all players use it."
+        "name": "Restrict Modify Button to Director",
+        "hint": "Only the Director can see the pencil modify button on forced movement chat messages. Disable to let all players use it."
       },
       "grabEnabled": {
-        "name": "Enable Grab System",
-        "hint": "Enables the Grab panel and all grab mechanics."
+        "name": "Grab",
+        "hint": "Automates all aspects of the grab condition as per the Draw Steel rules, active grabs can be ended via the Grab panel."
       },
       "gmBypassesSizeCheck": {
-        "name": "GM Bypasses Size Check",
-        "hint": "When enabled, the GM can execute Knockback and Grab regardless of target size."
+        "name": "Director Bypasses Size Check",
+        "hint": "The Director can execute Knockback and Grab regardless of target size."
       },
       "restrictGrabButtons": {
-        "name": "Restrict Manual Grab Buttons to GM",
-        "hint": "If enabled, only the GM can see and click the Apply Grab and End Grab buttons in the Grab Panel."
-      },
-      "grabbedBaneEnabled": {
-        "name": "Enable Grabbed Bane",
-        "hint": "Edits abilities posted by a grabbed creature if they don't target their grabber to inflict 1 bane."
+        "name": "Restrict Automatic Grab Buttons to Director",
+        "hint": "Only the Director can see and click the Apply Grab and End Grab buttons in the Grab Panel, which bypass the need for a check."
       },
       "allowIllegalMovement": {
         "name": "Allow Illegal Movement",
-        "hint": "When enabled, movement that would normally be blocked (moving toward a fear source while frightened, or moving while grabbed) is allowed but a reminder notification is shown instead."
+        "hint": "Allow actors to move even under conditions that would forbid it, but provide a reminder of the condition that should prevent movement."
+      },
+      "conditionsEnabled": {
+        "name": "Conditions",
+        "hint": "Controls all Condition automation functionality."
       },
       "frightenedEnabled": {
-        "name": "Enable Frightened Automation",
-        "hint": "Applies bane/edge roll modifiers and movement restrictions for the DSCT Frightened condition. Replaces native frightened buttons in chat with our version."
+        "name": "Frightened",
+        "hint": "Automates all aspects of the frightened condition as per the Draw Steel rules."
+      },
+      "appliedEffectEnabled": {
+        "name": "Applied Effect Retargeting",
+        "hint": "Makes it so applied effect buttons on ability messages apply to Targeted token instead of selected token, and allows players to apply effects to unowned tokens if Director is online."
+      },
+      "applyDamageEnabled": {
+        "name": "Applied Damage Retargeting",
+        "hint": "Makes it so damage buttons on ability messages apply to Targeted tokens instead of selected tokens, and allows players to apply damage to unowned tokens if Director is online."
       },
       "tauntedEnabled": {
-        "name": "Enable Taunted Automation",
-        "hint": "Applies double-bane roll modifiers (with line-of-effect check) for the DSCT Taunted condition. Replaces native taunted buttons in chat with our version."
+        "name": "Taunted",
+        "hint": "Automates all aspects of the taunted condition as per the Draw Steel rules."
+      },
+      "conditionsSettings": {
+        "name": "Conditions & Damage",
+        "label": "Configure Conditions & Damage",
+        "hint": "Toggle and configure automation for Frightened, Taunted, Bleeding, Grab, and area damage."
+      },
+      "areaDamageEnabled": {
+        "name": "Area Damage Automation",
+        "hint": "Labels damage buttons on area abilities and caps area damage dealt to squad minions at their max stamina."
+      },
+      "squadStaminaClamp": {
+        "name": "Squad Stamina Overclamp Guard",
+        "hint": "Prevents a squad's total stamina from exceeding alive-minion count times individual max stamina after an update. Disable if sequential undo/revival causes stamina to clamp incorrectly."
       },
       "bleedingEnabled": {
-        "name": "Enable Bleeding Automation",
-        "hint": "Automatically handles the bleeding condition. When a bleeding creature uses a main action, triggered action ability, or makes a Might/Agility roll, it loses 1d6 + their level in stamina."
+        "name": "Bleeding",
+        "hint": "Automates all aspects of the bleeding condition as per the Draw Steel rules."
       },
       "bleedingMode": {
-        "name": "Bleeding Damage Mode",
-        "hint": "Auto-Apply: rolls 1d6+1 and applies the damage immediately with an undo button. Manual: posts the roll for the GM/player to apply.",
+        "name": "Bleeding Automation Mode",
+        "hint": "Controls whether Bleeding automatically applies damage and offers an undo, or just reminds to roll damage.",
         "choice": {
           "auto": "Auto-Apply (with undo)",
           "manual": "Manual (post roll to apply)"
         }
       },
       "deathTrackerEnabled": {
-        "name": "Enable Death Tracker",
-        "hint": "Automatically removes dead enemies from combat, triggers a death animation, and places a skull marker."
+        "name": "Death Tracker",
+        "hint": "Automatically hide defeated enemies from combat, preceded by an optional death animation, log their defeat in chat. Defeated creatures stay in place, tinted red, and can still be force moved."
+      },
+      "deathTrackerManualMode": {
+        "name": "Manual Mode",
+        "hint": "Disables all automatic death processing (death animation, chat log, minion defeat handling). Orphaned combatant cleanup still runs. Use this if you want to trigger kills through macros or your own workflow."
+      },
+      "deathTrackerSettings": {
+        "name": "Death Tracker Settings",
+        "label": "Configure Death Tracker",
+        "hint": "Adjust animation duration, end-of-combat cleanup, revive behavior, and minion defeat options."
       },
       "deathAnimationDuration": {
         "name": "Death Animation Duration (ms)",
-        "hint": "How long the red fade-out animation lasts before the token is removed. Set to 0 to skip."
+        "hint": "How long the red fade-out animation lasts before the token settles into its defeated state. Set to 0 to skip."
+      },
+      "batchAnimationSafety": {
+        "name": "Skip Animation on Mass Kill",
+        "hint": "When 8 or more tokens are killed simultaneously, skip the red fade animation to reduce lag. Tokens still snap to their final defeated state instantly."
       },
       "clearSkullsOnCombatEnd": {
-        "name": "Clear Skulls on Combat End",
-        "hint": "If enabled, all skull tiles placed during a combat encounter are deleted when combat ends."
+        "name": "Clear Defeated Tokens at Combat End",
+        "hint": "All defeated tokens are removed from the scene when combat ends."
       },
       "clearEffectsOnRevive": {
         "name": "Clear Effects on Revive",
-        "hint": "If enabled, reviving a creature automatically removes all active conditions and effects (except core system states like Winded)."
+        "hint": "Reviving a creature automatically removes all active conditions and effects."
       },
       "autoAssignDamagedMinion": {
         "name": "Auto-Assign Damaged Minion on Death",
-        "hint": "When a squad takes damage that kills one or more minions, the minion that received the damage is pre-locked into the selection and cannot be deselected. If exactly one minion must die and the damaged minion is identifiable, the selection dialog is skipped entirely."
+        "hint": "Controls automated minion death selection. On: the Death Tracker tracks which minion was hit and automatically chooses who dies when a squad takes partial damage. Off: only full squad wipes are resolved automatically; partial kills require the Director to assign deaths manually."
+      },
+      "pickDeathsEnabled": {
+        "name": "Pick Ambiguous Deaths",
+        "hint": "When it's unclear which minions should die (more must die than took damage, fewer must die than took damage, or no damage was tracked at all), show a canvas picker so you can choose. When off, the system picks automatically."
       },
       "overrideMinionDefeat": {
-        "name": "Override Minion Defeat UI",
-        "hint": "Replace the Draw Steel system's minion defeat selection dialog with the Death Tracker's Power Word: Kill UI. When disabled, the system's built-in dialog is used instead."
+        "name": "Alternative Minion Defeat UI",
+        "hint": "Replace the Draw Steel system's minion defeat selection dialog with the Death Tracker's automated defeat processing."
+      },
+      "cleanOrphanedCombatants": {
+        "name": "Clean Up Orphaned Combat Tracker Entries",
+        "hint": "Automatically removes Combat Tracker entries whose token or actor no longer exists. Runs on load and whenever a token or actor is deleted."
+      },
+      "deathMarkerEnabled": {
+        "name": "Show Death Marker",
+        "hint": "Place a Death Marker tile under defeated NPC tokens. The tile follows if the token is moved and disappears when revived."
+      },
+      "deathMarkerIcon": {
+        "name": "Death Marker Icon",
+        "hint": "Icon for the Death Marker tile."
+      },
+      "squadLabelsSettings": {
+        "name": "Squad Labels Settings",
+        "label": "Configure Squad Labels",
+        "hint": "Configure automatic squad label behavior during combat."
       },
       "autoSquadLabelsEnabled": {
         "name": "Enable Squad Labels",
-        "hint": "Automatically apply squad label icons to tokens when combat starts."
+        "hint": "Prompts to apply purely visual squad label effects to squads when combat starts. Optionally renames squads to match numbers with labels."
+      },
+      "squadLabelAutoRelabel": {
+        "name": "Auto-Relabel on Group Changes",
+        "hint": "When a squad is fully wiped or all its minions die, automatically rename remaining groups to fill numbering gaps and reapply labels."
+      },
+      "squadLabelCaptainNow": {
+        "name": "I Am The Captain Now",
+        "hint": "Prompt the Director to assign a captain to minion squads that lack one at the start of combat or start of the round."
       },
       "autoTriggeredActionsEnabled": {
-        "name": "Enable Triggered Action Tracker",
-        "hint": "Automatically place the Unspent Triggered Action effect on combatants when combat starts."
+        "name": "Triggered Action Tracker",
+        "hint": "Automatically place the Unspent Triggered Action effect on set combatants when combat starts, which then gets removed upon using a Triggered Action ability and is refreshed at round start."
+      },
+      "triggeredActionsSettings": {
+        "name": "Triggered Actions Settings",
+        "label": "Configure Triggered Actions",
+        "hint": "Choose which combatants receive the tracker and whether to require a triggered ability on their sheet."
       },
       "autoTriggeredActionsTarget": {
         "name": "Triggered Action Tracker Targets",
@@ -126,27 +224,80 @@
       },
       "triggeredActionsRequireAbility": {
         "name": "Only Track Combatants With Triggered Abilities",
-        "hint": "When enabled, the Triggered Action tracker is only applied to combatants that have at least one triggered ability on their sheet. Useful for keeping the tracker off minions and other enemies that cannot take triggered actions."
+        "hint": "Apply Unspent Triggered Action effect only to combatants that have at least one triggered ability on their sheet."
       },
       "teleportEnabled": {
         "name": "Enable Teleport Tool",
-        "hint": "Adds a teleport button to the token controls for phasing tokens across the map."
+        "hint": "UI and API to enable teleporting a controlled token across the battlemap."
+      },
+      "abilityAutomationSettings": {
+        "name": "Ability Automation Settings",
+        "label": "Configure Ability Automation",
+        "hint": "Configure class ability automations for Censor, Tactician, and Shadow, plus ability range enforcement and malice features."
+      },
+      "abilityAutomationEnabled": {
+        "name": "Ability Automation",
+        "hint": "Master toggle for all ability automation."
       },
       "judgementAutomation": {
-        "name": "Enable Judgement Button",
-        "hint": "Injects a Judgement button into chat when the Judgement ability is used."
+        "name": "Judgement",
+        "hint": "Adds an action button to the Judgement chat card to mark the target, then tracks the judged creature and posts chat reminders for each trigger and a prompt to reapply Judgement as a free triggered action when the judged is defeated."
+      },
+      "judgementBaneLock": {
+        "name": "Lock Ability Roll UI on Judgement Bane Trigger",
+        "hint": "When a judged creature makes a power roll, the Ability Roll UI is disabled briefly so the Censor has time to impose the bane or decline."
+      },
+      "judgementBaneLockDuration": {
+        "name": "Bane Reminder Lock Duration (seconds)",
+        "hint": "How long in seconds the Ability Roll UI is locked when a Judgement bane reminder is posted."
       },
       "markAutomation": {
-        "name": "Enable Mark Buttons",
-        "hint": "Injects Mark buttons into chat when mark abilities (Mark, Fog of War, etc.) are used."
+        "name": "Mark",
+        "hint": "Adds an Apply Mark button to the chat cards of all Mark-applying abilities, then posts a prompt to reapply Mark as a free triggered action when the marked target is defeated. Keeps track of marks which override when reapplied and those that don't."
       },
       "aidAttackAutomation": {
-        "name": "Enable Aid Attack Button",
-        "hint": "Injects an Aid Attack button into chat when the Aid Attack ability is used."
+        "name": "Aid Attack",
+        "hint": "Adds an Aid Attack button to the Aid Attack chat card which applies and sets a hook to remove the effect."
       },
       "imNoThreatEnabled": {
-        "name": "Enable I'm No Threat Panel",
-        "hint": "Injects an I'm No Threat button into chat when the I'm No Threat ability is used."
+        "name": "I'm No Threat",
+        "hint": "Adds an I'm No Threat button to the I'm No Threat chat card. The buttons open a UI that allows picking a visual for the illusion, adds the active effect, and removes it when a power roll is made."
+      },
+      "abyssalEvolutionEnabled": {
+        "name": "Enable Abyssal Evolution Button",
+        "hint": "Injects an Abyssal Evolution button into chat when the Abyssal Evolution ability is used."
+      },
+      "crossfadeEnabled": {
+        "name": "Enable Crossfade Automation",
+        "hint": "Automates the Crossfade feature from SurfingBird's (bendking) Shadow Reshade supplement. Automatically adds an edge to the power roll when Crossfade applies, and posts a Disengage reminder to chat."
+      },
+      "hiwEnabled": {
+        "name": "Hesitation Is Weakness",
+        "hint": "Posts a chat notification with a Start Turn button when another hero ends their turn and the Hesitation Is Weakness ability can be triggered, may require pressing \"End Turn\" twice after a player turn ends."
+      },
+      "purifyingFireEnabled": {
+        "name": "Purifying Fire",
+        "hint": "Adds an Apply Fire Damage button alongside holy damage buttons when the acting hero has the Purifying Fire ability, so they can deal fire damage instead and trigger the target's fire weakness."
+      },
+      "autoConfirmSelection": {
+        "name": "Auto-Confirm Target Selection",
+        "hint": "When the required number of targets are selected in a target picker (ability targeting, Power Word: Kill, Raise Dead), automatically confirm without needing to press Enter."
+      },
+      "rollDialogPillUI": {
+        "name": "Alternative Ability Roll UI",
+        "hint": "Replaces the standard ability roll UI with an enhanced variant which displays modifiers by name, sometimes with their sources. Includes various unimplemented situational banes and edges that exist within the rules."
+      },
+      "highGroundEnabled": {
+        "name": "High Ground Edge",
+        "hint": "Shows a High Ground edge pill in the roll dialog when the attacker is on higher elevation than the target. When DS Terrain Designer is active, the pill is informational only as DSTD already applies the edge. Without DSTD, DSCT applies the edge directly."
+      },
+      "enforceAbilityRange": {
+        "name": "Enforce Ability Range",
+        "hint": "Prevents Ability Roll UI from opening if target is out of range."
+      },
+      "gmBypassRangeEnforcement": {
+        "name": "Director Bypasses Range Enforcement",
+        "hint": "Director is exempt from range enforcement."
       },
       "intAnimalsMenu": {
         "name": "I'm No Threat Animals",
@@ -158,13 +309,22 @@
         "label": "Configure Wall Builder",
         "hint": "Adjust material costs, damage values, wall restrictions, and wall builder defaults."
       },
-      "keepInvisibleWhenBroken": {
-        "name": "Keep Invisible Wall Tiles Invisible When Broken",
-        "hint": "If enabled, obstacle tiles tagged as invisible (e.g. converted walls created with the invisible option) remain at alpha 0 after being broken. Useful when you want no visual change on the canvas regardless of state."
+      "rubbleInvisible": {
+        "name": "Rubble is Invisible",
+        "hint": "When a wall block is broken, the rubble tile becomes invisible. The block remains invisible when fixed. Rubble is still detectable in Wall Builder's Inspect mode."
       },
       "showWallBuilderButton": {
         "name": "Show Wall Builder Button",
         "hint": "Show the Wall Builder toolbar button in the Walls layer controls (GM only)."
+      },
+      "moduleButtonsSettings": {
+        "name": "Module Button Visibility",
+        "label": "Configure Module Buttons",
+        "hint": "Choose which toolbar buttons this module adds to the token controls and wall layer."
+      },
+      "toolboxEnabled": {
+        "name": "Group Buttons in Toolbox",
+        "hint": "Group the token control buttons under a single collapsible Combat Toolbox toggle."
       },
       "showForcedMovementButton": {
         "name": "Show Forced Movement Button",
@@ -178,34 +338,682 @@
         "name": "Show Teleport Button",
         "hint": "Show the Teleport toolbar button in the token controls."
       },
-      "showPowerWordKillButton": {
-        "name": "Show Power Word Kill Button",
-        "hint": "Show the Power Word Kill toolbar button in the token controls (GM only)."
-      },
       "showDamageConditionsButton": {
         "name": "Show Damage & Conditions Button",
         "hint": "Show the Damage & Conditions toolbar button in the token controls."
       },
       "debugMode": {
         "name": "Debug Mode",
-        "hint": "If enabled, verbose debug messages are printed to the browser console."
+        "hint": "For developers trying to figure out problems with the module, provides verbose debug messages into the console."
+      },
+      "experimentalObstacleArrow": {
+        "name": "Experimental Obstacle Arrow",
+        "hint": "A discarded arrow design that seeks to display which sections of the movement overlap obstacles."
       },
       "cornerCutMode": {
         "name": "Corner Cut Movement",
-        "hint": "Collide on Corner Cuts (default): diagonal movement clipping a wall corner is allowed but triggers collision damage.\nBlock Corner Cutting: diagonal movement through a wall corner is forbidden entirely.",
+        "hint": "Collide on Corner Cuts (default): Diagonal movement clipping a wall to trigger collision damage.\nBlock Corner Cutting: Diagonal movement through a wall corner is illegal for pathfinding, may be buggy.",
         "choice": {
           "block": "Block Corner Cutting",
           "collide": "Collide on Corner Cuts"
         }
       },
-      "legacySingleCellCollisions": {
-        "name": "Legacy Single-Cell Collisions",
-        "hint": "When enabled, forced movement collision uses only the top-left corner cell for all tokens regardless of size. Default (off) checks the full footprint for size 2+ tokens: multiple blockers each take damage once, the mover takes damage once; multiple breakable walls are each broken if movement permits, stopping at the hardest wall that cannot be broken."
-      },
       "allowCrookedPushPull": {
         "name": "Wiggly Lines for Push/Pull",
-        "hint": "When enabled, Push and Pull are not restricted to a straight line during manual path selection. Houserule option, off by default."
+        "hint": "Push and Pull are not restricted to a straight line during manual path selection, strictly against the rules but it's fun so it's here."
+      },
+      "undoExpirationCheck": {
+        "name": "Undo Expiration Check",
+        "hint": "When enabled, undo buttons check whether the token has moved from its last position before allowing undo."
+      },
+      "cancelOnRightClick": {
+        "name": "Cancel Pickers on Right Click",
+        "hint": "Right-clicking on the canvas cancels any active DSCT selection UI."
+      },
+      "homeRulesSettings": {
+        "name": "Home Rules",
+        "label": "Configure Home Rules",
+        "hint": "Optional rule modifications for groups that prefer to run things differently."
+      },
+      "homeRulesEnabled": {
+        "name": "Home Rules",
+        "hint": "Master toggle for all home rule options."
+      },
+      "homebrewOptions": {
+        "name": "Homebrew Options",
+        "hint": "Enable support for third-party supplements and homebrew content."
+      },
+      "compatibilitySettings": {
+        "name": "Compatibility",
+        "label": "Configure Compatibility",
+        "hint": "Settings for compatibility with other installed modules."
       }
+    },
+    "FM": {
+      "Property": {
+        "NoCollisionDamage": "No Collision Damage",
+        "FastAutoPath": "Fast Auto-Path"
+      }
+    },
+    "panel": {
+      "title": {
+        "ForcedMovement": "Forced Movement",
+        "ModuleButtonsSettings": "Module Button Visibility",
+        "ForcedMovementSettings": "Forced Movement Settings",
+        "ConditionsSettings": "Conditions & Damage Settings",
+        "DeathTrackerSettings": "Death Tracker Settings",
+        "TriggeredActionsSettings": "Triggered Actions Settings",
+        "AbilityAutomationSettings": "Ability Automation Settings",
+        "Grab": "Grab",
+        "Teleport": "Teleport",
+        "WallBuilder": "Wall Builder",
+        "WallBuilderSettings": "Wall Builder Settings",
+        "ModifyFM": "Modify Forced Movement",
+        "AbyssalEvolution": "Abyssal Evolution",
+        "Transform": "Transform",
+        "ImNoThreat": "I'm No Threat",
+        "ImNoThreatSettings": "I'm No Threat: Animal Settings",
+        "DamageConditions": "Damage & Conditions",
+        "VerticalDistance": "Vertical Distance",
+        "HomeRulesSettings": "Home Rules",
+        "CompatibilitySettings": "Compatibility",
+        "SquadLabelsSettings": "Squad Labels Settings"
+      },
+      "fm": {
+        "noTarget": "No Target",
+        "countTargets": "{count} Target{s}",
+        "noSource": "No Source",
+        "moves": "moves",
+        "parameters": "Parameters",
+        "distance": "Distance",
+        "vertical": "Vertical",
+        "fallReduction": "Fall Reduction",
+        "noFallDamage": "No Fall Damage",
+        "noCollisionDamage": "No Collision Damage",
+        "ignoreStability": "Ignore Stability",
+        "fastAutoPath": "Fast Auto-Path",
+        "juggernaut": "Juggernaut Mode",
+        "executeMove": "Execute Move",
+        "confirmVertical": "Confirm Vertical Distance",
+        "push": "Push",
+        "pull": "Pull",
+        "slide": "Slide"
+      },
+      "grab": {
+        "to": "to",
+        "attemptGrab": "Attempt Grab",
+        "applyGrab": "Apply Grab",
+        "activeGrabs": "Active Grabs"
+      },
+      "tp": {
+        "parameters": "Parameters",
+        "distance": "Distance",
+        "animatePhase": "Animate Phase",
+        "phaseColor": "Phase Color",
+        "duration": "Duration (ms)",
+        "executeTeleport": "Execute Teleport",
+        "pickSource": "Pick Token"
+      },
+      "wb": {
+        "mode": "Mode",
+        "build": "Build",
+        "destroy": "Destroy",
+        "fix": "Fix",
+        "transmute": "Transmute",
+        "break": "Break",
+        "inspect": "Inspect",
+        "convertWalls": "Convert Walls",
+        "invisibleTiles": "Invisible tiles (alpha 0)",
+        "retainRestrictions": "Save restrictions for Fix mode",
+        "material": "Material",
+        "wallHeight": "Wall Height",
+        "bottom": "Bottom",
+        "top": "Top",
+        "stable": "Stable (splits on mid-height collision)",
+        "execStopInspect": "Stop Inspecting",
+        "execStartInspect": "Start Inspect",
+        "execConvert": "Convert Selected Walls",
+        "execSelect": "Select Squares"
+      },
+      "dc": {
+        "damage": "Damage",
+        "amount": "Amount",
+        "ignoreImmunity": "Ignore Immunity",
+        "strike": "Strike",
+        "area": "Area",
+        "condition": "Condition",
+        "requiresSource": "Requires a controlled source token.",
+        "pickSource": "Pick Source",
+        "pickTargets": "Pick Targets"
+      },
+      "modFm": {
+        "logEntry": "Log Entry",
+        "name": "Name",
+        "description": "Description",
+        "presets": "Presets",
+        "noPreset": "(No Preset)",
+        "apply": "Apply",
+        "modifierTitle": "Click to remove this modifier",
+        "defaultName": "Forced Movement Modifier {n}"
+      },
+      "int": {
+        "noIllusion": "No illusion active",
+        "appearance": "Appearance",
+        "clickToRevert": "Click image to revert",
+        "random": "Random",
+        "mimic": "Mimic",
+        "noTarget": "No Target",
+        "freeSpentInsight": "Free (spent Insight)"
+      }
+    },
+    "settings": {
+      "wb": {
+        "colIcon": "Icon",
+        "colIconTitle": "Icon shown on the canvas tile for this material.",
+        "colOpacity": "Opacity",
+        "colOpacityTitle": "Opacity of the canvas tile (0 = invisible, 1 = fully opaque).",
+        "colName": "Name",
+        "colBreakCost": "Break Cost",
+        "colBreakCostTitle": "Squares of forced-movement momentum required to break through this material.",
+        "colBreakDamage": "Break Damage",
+        "colBreakDamageTitle": "Damage dealt to a creature when they crash through this material.",
+        "colMovement": "Movement",
+        "colMovementTitle": "Whether this material blocks physical movement through it.",
+        "colVision": "Vision",
+        "colVisionTitle": "Whether this material blocks line of sight for vision.",
+        "colLight": "Light",
+        "colLightTitle": "Whether this material blocks light from passing through.",
+        "colSound": "Sound",
+        "colSoundTitle": "Whether this material blocks sound from passing through.",
+        "defaults": "Wall Builder Defaults",
+        "defaultMaterial": "Default Material",
+        "defaultHeightBottom": "Default Height Bottom",
+        "defaultHeightTop": "Default Height Top",
+        "addMaterial": "Add Material",
+        "resetDefaults": "Reset Defaults",
+        "saveChanges": "Save Changes"
+      },
+      "int": {
+        "colIcon": "Icon",
+        "colIconTitle": "Icon shown in the I'm No Threat panel.",
+        "colName": "Name",
+        "colEmoji": "Emoji",
+        "colEmojiTitle": "Emoji shown on the panel button (click to pick).",
+        "addAnimal": "Add Animal",
+        "resetDefaults": "Reset Defaults",
+        "saveChanges": "Save Changes"
+      }
+    },
+    "dialog": {
+      "autoRenameSquads": {
+        "title": "Auto-Rename Squads?"
+      },
+      "sampleMacros": {
+        "title": "Draw Steel: Combat Tools - Sample Macros",
+        "body": "<p>Would you like to import sample macros for <strong>Draw Steel: Combat Tools</strong>?</p><p>These provide ready-to-use buttons for Forced Movement, Grab, Teleport, and all other module features.</p>",
+        "rememberLabel": "Remember my choice:",
+        "optAsk": "Ask me on next initialization",
+        "optSkipUpdate": "Don't ask until the next update",
+        "optNever": "Don't ask again",
+        "yes": "Yes, Import",
+        "no": "No Thanks"
+      },
+      "unusualItemCount": {
+        "title": "Unusual Item Count",
+        "body": "<p>This operation is about to add <strong>{count} items</strong> to every actor sheet, which is more than expected (max {max}). Something may have gone wrong.</p><p>Proceed anyway?</p>"
+      }
+    },
+    "notice": {
+      "notActive": "Draw Steel: Combat Tools not active.",
+      "playerCannotUndoDamage": "Players lack permission to undo damage. Enable \"Players Can Undo Deaths via Target Damage\" in Compatibility settings.",
+      "abilityRange": {
+        "outOfRange": "{names} {verb} not within range {range} of {ability}"
+      },
+      "targetPicker": {
+        "instruction": "Select up to {max} target{s}. Enter or double-click to confirm. Escape to cancel.",
+        "noValidTargets": "No valid targets in range.",
+        "cancelled": "Target selection cancelled.",
+        "maxTargets": "You can only select up to {max} target{s}.",
+        "selectAtLeastOne": "Select at least one target before confirming.",
+        "couldTargetMore": "{count} more valid target{s} in range. This ability can hit up to {max} total.",
+        "allyStrikeWarning": "{names} {verb} your allies. Striking them anyway."
+      },
+      "picker": {
+        "chooseSource": "Click a token to select it as the source. Right-click or Escape to cancel.",
+        "chooseTargets": "Click tokens to select or deselect. Enter to confirm, right-click or Escape to cancel."
+      },
+      "wb": {
+        "selectWallFirst": "Select at least one wall first.",
+        "connectedWalls": "Selected {count} connected wall{s}.",
+        "gmOnlyConvert": "Only the GM can convert walls.",
+        "noWallsSelected": "No walls selected. Switch to the Walls layer, select walls, then click Convert.",
+        "squareSelectMode": "Select squares for {mode}. Click to toggle, Enter to confirm, Right-Click to cancel.",
+        "inspectMode": "Inspect: hover tiles to see info. Right-click, Escape, or Stop Inspecting to exit.",
+        "cancelled": "Cancelled.",
+        "squareAlreadyHasWall": "Square ({x},{y}) already has a wall block, skipping.",
+        "wallBuildUndone": "Wall build undone.",
+        "wallPlaced": "Placed {count} wall block{s}.",
+        "noWallAtSquare": "No wall block at ({x},{y}).",
+        "wallDestroyed": "Destroyed {count} wall block{s}.",
+        "noBrokenWallAtSquare": "No broken wall block at ({x},{y}).",
+        "wallFixed": "Fixed {count} wall block{s}.",
+        "wallFixUndone": "Wall fix undone.",
+        "wallAlreadyBroken": "Wall at ({x},{y}) is already broken.",
+        "wallBroke": "Broke {count} wall block{s}.",
+        "wallBreakUndone": "Wall break undone.",
+        "wallTransmuted": "Transmuted {count} wall block{s}.",
+        "wallTransmuteUndone": "Wall transmute undone.",
+        "duplicateMaterial": "Duplicate material name \"{name}\" - skipping.",
+        "settingsReset": "Wall Builder settings reset to defaults.",
+        "settingsSaved": "Wall Builder settings saved.",
+        "wallsConverted": "Converted {walls} wall{ws}: {tiles} tile{ts} created/linked, {stubs} stub{ss} disabled."
+      },
+      "fm": {
+        "noTarget": "You must target at least one token.",
+        "grabbed": "A grabbed creature can't be force moved except by a creature, object, or effect that has them grabbed.",
+        "restrained": "{name} is restrained and cannot be force moved.",
+        "largerBonus": "+1 {type} {source} is larger than {target}.",
+        "stabilityFullyResists": "{name}'s stability fully resists the forced movement.",
+        "stabilityReduces": "{name}'s stability reduces forced movement by {amount} ({parts}).",
+        "autoPathFailed": "DSCT | Auto-Path failed: Source and Target are in the exact same spot.",
+        "fastMoveOnlyPushPull": "DSCT | Fast Move is only available for Push and Pull. Falling back to manual pathing.",
+        "noValidPath": "No valid path to that square.",
+        "invalidStepForType": "Invalid step for {type}.",
+        "pathInstruction": "{type} {distance}{vert}: click squares to trace path. Right-click to undo. Enter to confirm. Escape to cancel.",
+        "cancelled": "Forced movement cancelled.",
+        "resolveInstruction": "Click a highlighted target to resolve their forced movement. Escape to cancel.",
+        "invalidType": "Invalid type. Use Push, Pull, or Slide.",
+        "invalidDistance": "Invalid distance.",
+        "noTokenToMove": "Target or select the creature to move.",
+        "invalidMovementType": "Invalid movement type.",
+        "notInRange": "{name} is not within range.",
+        "targetNotFound": "DSCT | Target token not found on canvas.",
+        "chooseLanding": "Choose where {name} lands. Escape to skip."
+      },
+      "grab": {
+        "noGrabber": "No grabber token specified.",
+        "noTarget": "No target token specified.",
+        "selfGrab": "A creature cannot grab itself.",
+        "alreadyGrabbing": "{name} is already grabbing {max} creature{s} (the maximum for this ability).",
+        "tooLarge": "{grabber} cannot grab {target}: target is too large given their size and Might score.",
+        "notAdjacent": "{name} is not adjacent ({dist} squares away).",
+        "noGrabItem": "No \"Grab\" item found on {name}.",
+        "rollNotDetected": "Roll not detected.",
+        "noEscapeItem": "No \"Escape Grab\" ability found on {name}.",
+        "mustBeAdjacent": "{name} must be placed adjacent to {grabber}, reverted.",
+        "repositioned": "{name} repositioned.",
+        "knockbackWhileGrabbed": "{name} is grabbed and cannot use the Knockback maneuver.",
+        "grabbedCannotMove": "{name} is grabbed and cannot move. Moving ends the grab.",
+        "grabbedBlocked": "{name} is grabbed and cannot move!"
+      },
+      "conditions": {
+        "frightenedCannotMove": "{name} is frightened of {source} and cannot willingly move closer.",
+        "frightenedBlocked": "{name} is frightened of {source} and cannot move closer!"
+      },
+      "int": {
+        "tokenNotFound": "Token not found on scene.",
+        "multipleTokens": "Multiple tokens for {name} found - remove duplicates first.",
+        "outOfCombatAgain": "{name} can use I'm No Threat outside of combat again.",
+        "notEnoughInsight": "{name} doesn't have enough Insight to mimic a target.",
+        "alreadyUsedOutsideCombat": "Already used outside of combat since last victory.",
+        "notEnoughMalice": "Not enough Malice to use Mimic.",
+        "targetTooFar": "{name} is beyond the 10 square range ({dist} squares away).",
+        "targetTooLarge": "{name} is too large to mimic (size {targetSize} vs {mySize}).",
+        "illusionEnded": "{name}'s illusion ended.",
+        "noTarget": "Select or target a token to open I'm No Threat.",
+        "noMimicTarget": "No target selected to mimic.",
+        "illusionsEndedSettings": "I'm No Threat: ended {count} active illusion{s} due to settings change.",
+        "animalsReset": "I'm No Threat animals reset to defaults.",
+        "duplicateAnimal": "Duplicate animal name \"{name}\" - skipping.",
+        "animalSettingsSaved": "I'm No Threat animal settings saved. Reloading..."
+      },
+      "tactical": {
+        "judgeOneTarget": "Target exactly one creature to judge.",
+        "judgeRequiresAbility": "The selected token does not have the Judgement ability.",
+        "markOneTarget": "Target one or more creatures to mark.",
+        "markRequiresAbility": "The selected token does not have the Mark ability.",
+        "markTooMany": "This ability can mark up to {max} target{s}.",
+        "aidAttackOneSelect": "Select exactly one token before using Aid Attack.",
+        "aidAttackOneTarget": "Target exactly one adjacent enemy before using Aid Attack.",
+        "aidAttackCleared": "Aid Attack on {name} cleared - {reason}.",
+        "aidAttackApplied": "Aid Attack applied to {name}.",
+        "notEnoughWrath": "Not enough Wrath to use this Judgement trigger."
+      },
+      "dc": {
+        "noTarget": "Target at least one token first.",
+        "requiresSource": "Select a source token (control it) to apply {condition}.",
+        "nothingToApply": "Nothing to apply.",
+        "appliedToCount": "Applied to {count} target{s}."
+      },
+      "dt": {
+        "gmOnly": "Revive is a GM-only tool.",
+        "noSkulls": "No defeated creatures found.",
+        "noDefeated": "No defeated creatures on the board.",
+        "reviveInstruction": "REVIVE | Click skulls to select them, press ENTER to revive, or Right-Click to cancel.",
+        "reviveCancelled": "Revival cancelled.",
+        "raiseDeadInstruction": "RAISE DEAD | Click defeated creatures to select. Enter or double-click to confirm. Escape to cancel.",
+        "raiseDeadCancelled": "Raise Dead cancelled.",
+        "noSkullsSelected": "No defeated creatures selected.",
+        "noValidTargets": "No valid targets found on the board.",
+        "pwkInstruction": "POWER WORD: KILL | Click NPCs to select. Enter or double-click to confirm. Escape to cancel.",
+        "pwkCancelled": "POWER WORD: KILL cancelled.",
+        "noTargetsSelected": "No targets selected.",
+        "selectionCancelled": "Selection cancelled.",
+        "tokenNotFound": "Token not found on scene.",
+        "revived": "{name} has been revived!",
+        "pwkCannotDeselect": "{name} took the damage and cannot be deselected.",
+        "pwkSelectExactly": "You must select exactly {max} target{s}.",
+        "pickDeathsInstruction": "SELECT DEATHS | {summary} | Click to select. Enter or double-click to confirm. Escape to cancel.",
+        "pickDeathsCancelled": "Death selection cancelled.",
+        "pickerTokensAlreadyDead": "Death picker cancelled: selected tokens are already dead. The deaths were processed automatically.",
+        "pickerMustDie": "{name} took the damage and cannot be deselected.",
+        "pickerAtLimit": "{group}: already at {count}. Deselect one first.",
+        "pickerWrongCount": "Please select additional targets: {summary}."
+      },
+      "squads": {
+        "noActiveCombat": "No active combat encounter found.",
+        "labelsApplied": "Squad labels applied.",
+        "renamedAndLabeled": "Combat squads renamed and labels applied.",
+        "labelsAppliedExisting": "Squad labels applied to existing groups.",
+        "noCaptainCandidates": "No valid captain candidates found for {group}.",
+        "pickCaptain": "Click a token to become captain of {group}. Right-click or Escape to skip.",
+        "captainAssigned": "{name} is now captain of {group}.",
+        "captainAutoSelected": "{name} is the only valid candidate and has been assigned as captain of {group}."
+      },
+      "noCompatModules": "No compatible modules detected. Enable a supported module (like DS Quick Strike or DS Terrain Designer) to see compatibility settings.",
+      "conflict": {
+        "minionDeath": "Conflict: Draw Steel: Target Damage's Minion Damage Automation is enabled. Override Minion Defeat has been disabled to prevent double-processing.",
+        "dstdQuickStrike": "Conflict: Draw Steel: Target Damage and Quick Strike are both enabled. Quick Strike compatibility has been turned off to prevent conflicts."
+      },
+      "ta": {
+        "noActiveCombat": "No active combat encounter.",
+        "noTargetForTargeted": "Target at least one token for TARGETED mode.",
+        "active": "Triggered Action Tracker active ({mode})."
+      },
+      "tp": {
+        "noValidDestinations": "DSCT | No valid teleport destinations within range.",
+        "chooseDestination": "Choose where {name} teleports. Right-Click to cancel.",
+        "sourceNotFound": "DSCT | Source token not found.",
+        "mustSelectOne": "DSCT | You must select exactly 1 token to teleport.",
+        "noValidBurst": "DSCT | Burst Teleport | No valid destinations for {name}.",
+        "noBurstSource": "DSCT | Burst Teleport | Select or specify a source token (the caster).",
+        "noBurstTargets": "DSCT | Burst Teleport | No tokens found within the burst area.",
+        "undoExpiredMoved": "DSCT | Undo expired: Token has moved since the teleport.",
+        "undoExpiredGone": "DSCT | Undo expired: Token no longer exists on this scene.",
+        "teleportReversed": "Teleport reversed."
+      },
+      "macros": {
+        "gmOnly": "Only the GM can install DSCT macros.",
+        "packNotFound": "DSCT macros compendium not found.",
+        "gmOnlyDistribute": "Only the GM can distribute abilities.",
+        "abilitiesPackNotFound": "Could not find the draw-steel.abilities compendium.",
+        "knockbackNotFound": "Could not find Knockback in the abilities pack.",
+        "cancelled": "Cancelled.",
+        "updatedActors": "Done. Updated {added} actor{s}, skipped {skipped} (already complete)."
+      },
+      "chat": {
+        "modifierAlreadyApplied": "A modifier named \"{name}\" is already applied. Remove the existing one first or use a different name.",
+        "presetExists": "A preset named \"{name}\" already exists. Shift+click the save button to overwrite it."
+      },
+      "sys": {
+        "noTargetForDamage": "No tokens targeted. Target one or more tokens before applying damage.",
+        "controlGrabber": "Control the grabber token.",
+        "grabApplyTarget": "Target the creature{s} to apply Grabbed to.",
+        "grabTooManyTargets": "This ability can only grab up to {max} creature{s} at once.",
+        "grabTargetTooLarge": "{grabber} cannot grab {target}: target is too large.",
+        "noConditionTargets": "Target one or more tokens to apply the condition.",
+        "noTargetForEffect": "Target one or more tokens before applying this effect."
+      },
+      "noSceneForTemplate": "Open a scene before configuring this ability template."
+    },
+    "button": {
+      "undo": "Undo",
+      "acceptEscape": "Accept Escape",
+      "stayGrabbed": "Stay Grabbed",
+      "undoBleeding": "Undo Bleeding",
+      "applyJudgement": "Apply Judgement",
+      "aidAttack": "Aid Attack",
+      "imNoThreat": "I'm No Threat",
+      "abyssalEvolution": "Abyssal Evolution",
+      "freeMimicUsed": "Free Mimic used",
+      "spentInsight": "Spent Insight: Free Mimic ready",
+      "illusionBroken": "Illusion Broken.",
+      "endIllusion": "End Illusion",
+      "grabbed": "Grabbed",
+      "teleport": "Teleport",
+      "rollBleedingDamage": "Roll Bleeding Damage (1d6 + level)",
+      "applyDamage": "Apply {amount} Damage",
+      "purifyingFireDamage": "Apply {amount} Fire Damage",
+      "judgementImposeBane": "Impose Bane (Judgement)",
+      "judgementApplyTaunted": "Apply Taunted (1 Wrath)",
+      "judgementDecline": "Decline",
+      "judgementSpendWrath": "Spend 1 Wrath (Reduce Potency by 1)",
+      "applyCondition": "Apply {label}",
+      "confirmGrab": "Confirm Grab",
+      "cancelGrab": "Cancel",
+      "confirmFall": "Confirm Fall",
+      "cancelFall": "Cancel Fall",
+      "stopMovement": "Stop Movement",
+      "proceedAnyway": "Proceed Anyway",
+      "confirmCollision": "Confirm",
+      "cancelCollision": "Cancel",
+      "ignoreAlly": "Ignore Ally",
+      "configureTemplate": "Configure Template",
+      "hideDefeated": "Hide Defeated Tokens"
+    },
+    "chat": {
+      "dt": {
+        "fallen": "<strong>{name}</strong> has fallen.",
+        "destroyed": "<strong>{name}</strong> was destroyed.",
+        "fallenMultiple": "{names} have fallen.",
+        "destroyedMultiple": "{names} were destroyed."
+      },
+      "tactical": {
+        "judged": "<strong>Judgement:</strong> {name} is judged.",
+        "marked": "<strong>Mark:</strong> {names} {verb} marked.",
+        "judgementFallen": "<strong>{name} has fallen!</strong> You may use a free triggered action to apply Judgement to a new target.",
+        "judgementBaneReminder": "<strong>Judgement:</strong> {name} is making a power roll. Spend 1 heroic resource to impose a bane.",
+        "judgementBaneImposed": "Bane imposed.",
+        "judgementBaneCanceled": "Ability Canceled: Cost Refunded",
+        "judgementBaneDeclined": "Bane declined.",
+        "judgementBaneLockCountdown": "Roll locked for {seconds}s: Impose Bane or Decline?",
+        "judgementTriggerUsed": "Triggered action used.",
+        "judgementTauntedReminder": "<strong>Judgement:</strong> {censorName} hit {targetNames} with a melee ability. Spend 1 Wrath to apply Taunted as a free triggered action.",
+        "judgementTauntedApplied": "Taunted applied.",
+        "judgementT3FiredTag": "Taunted reminder sent.",
+        "judgementPotencyReminder": "<strong>Judgement:</strong> {name} used an ability with a potency that targets only one creature within 10 squares of {censorName}, which allows {censorName} to reduce its potency by 1 by spending 1 wrath.",
+        "judgementPotencyUsed": "<strong>Judgement:</strong> {name} used an ability with a potency that targets only one creature within 10 squares of {censorName}, its potency is reduced by 1.",
+        "markFallen": "<strong>{name} has fallen!</strong> You may use a free triggered action to mark a new target within 10 squares.",
+        "aidAttack": "<strong>Aid Attack:</strong> The next ally ability roll against <strong>{name}</strong> has an edge."
+      },
+      "grab": {
+        "ended": "<strong>Grab ended:</strong> {grabber} releases {grabbed}.",
+        "applied": "<strong>Grab applied:</strong> {grabber} grabs {target}!",
+        "failed": "<strong>Grab:</strong> {grabber} fails to grab {target}.",
+        "tier2": "<strong>Grab - Tier 2:</strong> {grabber} gets hold of {target}!",
+        "tier3": "<strong>Grab - Tier 3:</strong> {grabber} grabs {target}!",
+        "staysGrabbed": "<strong>Escape Grab:</strong> {name} stays grabbed.",
+        "escapeAfterFreeStrike": "<strong>Escape Grab:</strong> {grabbed} escapes after taking a free strike from {grabber}.",
+        "brokeFree": "<strong>Escape Grab:</strong> {grabbed} breaks free from {grabber}!",
+        "failedEscape": "<strong>Escape Grab:</strong> {grabbed} fails to escape.",
+        "escapeAccepted": "Escape Accepted",
+        "stayedGrabbed": "Stayed Grabbed",
+        "grabConfirmed": "Grab Confirmed",
+        "grabCancelled": "Grab Cancelled",
+        "freeStrikePrompt": "<strong>{grabber}</strong> may make a free strike:"
+      },
+      "bleeding": {
+        "applied": "Bleeding damage applied.",
+        "applying": "Bleeding: applying damage...",
+        "rollTitle": "Bleeding: {name}",
+        "rollCreated": "Bleeding damage rolled."
+      },
+      "squads": {
+        "captainFell": "<strong>Captain fallen:</strong> {name} has fallen as captain of {group}.",
+        "captainLostSquad": "<strong>Squad wiped:</strong> {name} is no longer the captain of {group}. Their entire squad has been wiped out.",
+        "newCaptain": "<strong>I Am The Captain Now:</strong> {name} is now the captain of {group}."
+      },
+      "tp": {
+        "teleported": "<strong>{name}</strong> teleported {dist} square{s}"
+      },
+      "int": {
+        "animalDisguise": "<strong>I'm No Threat</strong> <em>{name} takes on the appearance of a <strong>{disguise}</strong>.</em><br><br>Strikes gain an edge, and Disengage gains +1 distance.",
+        "mimic": "<strong>I'm No Threat</strong> <em>{name} appears as <strong>{target}</strong>, their allies may mistake {name} for the real thing.</em><br><br>This illusion covers your entire body, including clothing and armor, and alters your voice to sound like that of the creature. You gain an edge on tests made to convince the creature's allies that you are the creature.<br><br>Strikes gain an edge, and Disengage gains +1 distance.",
+        "illusionShatters": "<strong>I'm No Threat</strong> <em>{name}'s illusion shatters, the enemy never saw it coming!</em> {name} gains a <strong>Surge</strong>."
+      }
+    },
+    "label": {
+      "tier": "Tier",
+      "verticalDistance": "Vertical Distance",
+      "verticalDistanceHint": "Leave at 0 to keep it the same as the normal distance, requires \"vertical\" property.",
+      "fallDistanceReduction": "Fall Distance Reduction",
+      "regionOpacity": "Region Opacity",
+      "excludeSourceSpace": "Exclude Source Space",
+      "excludeSourceSpaceHint": "When enabled, the source token's space is excluded from the aura region. Disable to include the source space.",
+      "attachedVisibility": "Attached Visibility Options",
+      "visExtraCombatTurn": "Active Combat Turn",
+      "visExtraControlled": "Token Controlled",
+      "visExtraHover": "Token Hovered"
+    },
+    "friendlyFire": {
+      "case1Content": "<strong><i class=\"fa-solid fa-shield-heart\"></i> Ally Collision Warning:</strong> <strong>{source}</strong> is force moving <strong>{target}</strong> toward a collision. Would you like to shorten the movement to avoid unnecessary damage to your ally? This will also spare any creature they collide with.",
+      "case2Content": "<strong><i class=\"fa-solid fa-shield-heart\"></i> Ally Collision:</strong> <strong>{source}</strong> is about to cause <strong>{target}</strong> to collide with {blockers}, dealing <strong>{dmg} damage</strong> to all parties.",
+      "movementStopped": "(Movement stopped to protect ally)",
+      "proceeded": "(Proceeding with collision)",
+      "collisionConfirmed": "(Collision confirmed)",
+      "collisionCancelled": "(Collision cancelled)",
+      "allyIgnored": "(Ally dodged out of the way)"
+    },
+    "fall": {
+      "confirmed": "(Fall Confirmed)",
+      "cancelled": "(Fall Cancelled)",
+      "awaitingConfirm": "(Awaiting confirmation...)",
+      "fallsSquares": "<strong>{name}</strong> falls <strong>{dist}</strong> square{s}",
+      "noAgility": ", dealing <strong>{dmg}</strong> fall damage ({effective} effective).",
+      "tooShort": " but the fall is too short to deal damage.",
+      "withAgility": ", dealing <strong>{dmg}</strong> fall damage.",
+      "agilityNote": " (<strong>{effective}</strong> effective after Agility reduction)",
+      "agilityNotEnough": " - not enough to deal damage."
+    },
+    "region": {
+      "disposition": {
+        "friendly": "Friendly",
+        "neutral":  "Neutral",
+        "hostile":  "Hostile",
+        "secret":   "Secret"
+      },
+      "action": {
+        "add": "Add",
+        "resetDuration": "Reset Duration",
+        "enable": "Enable",
+        "disable": "Disable",
+        "delete": "Delete"
+      },
+      "statusEffect": {
+        "FIELDS": {
+          "statusId": {
+            "label": "Status",
+            "hint": "The status effect to apply when a token enters or exits the Region."
+          },
+          "overlay": {
+            "label": "Overlay",
+            "hint": "Display the status effect as a token overlay."
+          },
+          "dispositions": {
+            "label": "Filter by Disposition",
+            "hint": "Only trigger for tokens matching these dispositions. Leave empty to trigger for all."
+          }
+        }
+      },
+      "statusEffectEvents": {
+        "FIELDS": {
+          "action": {
+            "label": "Action",
+            "hint": "What to do with the status effect when the event fires.",
+            "choices": {
+              "toggle": "Toggle",
+              "apply": "Apply",
+              "remove": "Remove"
+            }
+          },
+          "dispositions": {
+            "label": "Filter by Disposition",
+            "hint": "Only trigger for tokens matching these dispositions. Leave empty to trigger for all."
+          }
+        }
+      },
+      "activeEffect": {
+        "FIELDS": {
+          "uuid": {
+            "label": "Active Effect",
+            "hint": "The Active Effect to use when a token enters the Region."
+          },
+          "disable": {
+            "label": "Disable on Exit",
+            "hint": "Disable the effect when the token leaves instead of deleting it."
+          },
+          "dispositions": {
+            "label": "Filter by Disposition",
+            "hint": "Only trigger for tokens matching these dispositions. Leave empty to trigger for all."
+          }
+        }
+      },
+      "activeEffectEvents": {
+        "FIELDS": {
+          "uuid": {
+            "label": "Active Effect",
+            "hint": "The Active Effect to add, reset, enable, disable, or delete."
+          },
+          "action": {
+            "label": "Action",
+            "hint": "What to do with the active effect when the event fires."
+          },
+          "dispositions": {
+            "label": "Filter by Disposition",
+            "hint": "Only trigger for tokens matching these dispositions. Leave empty to trigger for all."
+          }
+        }
+      }
+    },
+    "compat": {
+      "dsTerrain": {
+        "name": "DS Terrain Designer",
+        "hint": "Forced Movement reads terrain elevation data to resolve slopes and surface heights, ensuring pushed tokens land correctly on multi-level terrain. The High Ground roll modifier pill automatically defers to DS Terrain Designer's edge calculation when this module is active."
+      },
+      "tagger": {
+        "name": "Tagger",
+        "hint": "Wall tagging in Forced Movement uses the Tagger module API. Without Tagger, an internal flag-based fallback is used instead."
+      },
+      "wallHeight": {
+        "name": "Wall Height",
+        "hint": "The Wall Builder exposes height controls for setting the top and bottom elevation of individual walls."
+      },
+      "dsTargetDamage": {
+        "name": "Draw Steel: Target Damage",
+        "hint": "DSCT cedes damage automation and moves all its buttons to the per-target collapsible boxes, minion defeat automation has a warning and safety automation if conflicting options are enabled."
+      },
+      "dsTokenOverride": {
+        "name": "DS Token Override",
+        "hint": "Death Tracker accounts for Token Override's combatant animation hooks during kill and revival. Squad stamina tick bars are manually redrawn after minion deaths, and tint/alpha restoration on revival uses explicit targets instead of reading mid-animation document values."
+      },
+      "healthEstimate": {
+        "name": "Health Estimate",
+        "hint": "DSCT patches Health Estimate's break conditions and estimation logic for minion tokens in active combat squads, based on the Minion Health Estimate Display setting."
+      }
+    },
+    "healthEstimate": {
+      "minionCount": {
+        "one": "1 Minion",
+        "many": "{count} Minions"
+      }
+    }
+  },
+  "TYPES": {
+    "RegionBehavior": {
+      "draw-steel-combat-tools.statusEffect": "[DSCT] Status Effect",
+      "draw-steel-combat-tools.statusEffectEvents": "[DSCT] Status Effect (Events)",
+      "draw-steel-combat-tools.activeEffect": "[DSCT] Active Effect",
+      "draw-steel-combat-tools.activeEffectEvents": "[DSCT] Active Effect (Events)"
     }
   }
 }

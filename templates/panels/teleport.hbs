@@ -1,0 +1,42 @@
+<div class="dsct-panel">
+
+  <div class="dsct-section dsct-col-gap dsct-center-items">
+    <img id="tp-source-img" src="{{sourceSrc}}" class="dsct-token-img dsct-token-img-lg">
+    <div id="tp-source-name" class="dsct-token-name{{#unless sourceSelected}} dim{{/unless}}">{{sourceLabel}}</div>
+
+  </div>
+
+  <div class="dsct-section-label">{{localize "DSCT.panel.tp.parameters"}}</div>
+  <div class="dsct-section dsct-col-gap">
+
+    <div class="dsct-row">
+      <div class="dsct-param-label">{{localize "DSCT.panel.tp.distance"}}</div>
+      <input type="number" id="tp-dist" value="{{dist}}" min="1" step="1" class="dsct-input-sm" title="Squares">
+    </div>
+
+    <div class="dsct-divider"></div>
+
+    <div class="dsct-row">
+      <label class="dsct-checkbox-label">
+        <input type="checkbox" id="tp-anim"{{#if anim}} checked{{/if}}> {{localize "DSCT.panel.tp.animatePhase"}}
+      </label>
+    </div>
+
+    <div id="tp-anim-options" class="dsct-tp-anim-options{{#unless anim}} disabled{{/unless}}">
+      <div class="dsct-row">
+        <div class="dsct-param-label">{{localize "DSCT.panel.tp.phaseColor"}}</div>
+        <input type="text" id="tp-color" data-color-picker='{"format":"hex","alphaChannel":false}' value="{{color}}" class="dsct-input-xl"{{#unless anim}} disabled{{/unless}}>
+      </div>
+      <div class="dsct-row">
+        <div class="dsct-param-label">{{localize "DSCT.panel.tp.duration"}}</div>
+        <input type="number" id="tp-duration" value="{{duration}}" min="100" step="100" class="dsct-input-md"{{#unless anim}} disabled{{/unless}}>
+      </div>
+    </div>
+
+  </div>
+
+  <button type="button" class="dsct-execute-btn sm" data-action="execute-tp">
+    <i class="fas fa-magic"></i> {{localize "DSCT.panel.tp.executeTeleport"}}
+  </button>
+
+</div>

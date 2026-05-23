@@ -1,0 +1,64 @@
+<div class="dsct-panel">
+
+  <div class="dsct-section">
+    <div class="dsct-fm-actors">
+      <div class="dsct-token-col">
+        <img id="fm-source-img" src="{{sourceSrc}}" class="dsct-token-img dsct-token-img-lg">
+        <div id="fm-source-name" class="dsct-token-name{{#unless sourceSelected}} dim{{/unless}}">{{sourceLabel}}</div>
+      </div>
+      <div class="dsct-center-col">
+        <div class="dsct-fm-moves-label">{{localize "DSCT.panel.fm.moves"}}</div>
+      </div>
+      <div id="fm-target-container" class="dsct-target-col">
+        {{{targetHTML}}}
+      </div>
+    </div>
+  </div>
+
+  <div class="dsct-section-label">{{localize "DSCT.panel.fm.parameters"}}</div>
+  <div class="dsct-section dsct-col-gap">
+
+    <div class="dsct-row">
+      <div class="dsct-param-label">{{localize "DSCT.panel.fm.distance"}}</div>
+      <div class="dsct-btn-group">
+        <select id="fm-type" class="dsct-input-lg">
+          <option value="Push">{{localize "DSCT.panel.fm.push"}}</option>
+          <option value="Pull">{{localize "DSCT.panel.fm.pull"}}</option>
+          <option value="Slide">{{localize "DSCT.panel.fm.slide"}}</option>
+        </select>
+        <input type="number" id="fm-dist" value="1" min="0" step="1" class="dsct-input-sm" title="Squares">
+      </div>
+    </div>
+
+    <div class="dsct-row">
+      <label class="dsct-checkbox-label">
+        <input type="checkbox" id="fm-vert-check"> {{localize "DSCT.panel.fm.vertical"}}
+      </label>
+      <input type="number" id="fm-vert-dist" placeholder="Dist" step="1" class="dsct-input-md" title="Leave blank to match horizontal distance">
+    </div>
+
+    <div class="dsct-divider"></div>
+
+    <div class="dsct-row">
+      <div class="dsct-param-label">{{localize "DSCT.panel.fm.fallReduction"}}</div>
+      <input type="number" id="fm-fall-red" value="0" min="0" step="1" class="dsct-input-sm" title="Bonus (Stacks with Agility)">
+    </div>
+
+    <div class="dsct-checkbox-grid">
+      <label class="dsct-checkbox-label"><input type="checkbox" id="fm-no-fall"> {{localize "DSCT.panel.fm.noFallDamage"}}</label>
+      <label class="dsct-checkbox-label"><input type="checkbox" id="fm-no-col"> {{localize "DSCT.panel.fm.noCollisionDamage"}}</label>
+      <label class="dsct-checkbox-label"><input type="checkbox" id="fm-ign-stab"> {{localize "DSCT.panel.fm.ignoreStability"}}</label>
+      <label class="dsct-checkbox-label"><input type="checkbox" id="fm-fast-move"> {{localize "DSCT.panel.fm.fastAutoPath"}}</label>
+    </div>
+    {{#if isGMDebug}}
+    <div class="dsct-divider"></div>
+    <label class="dsct-checkbox-label"><input type="checkbox" id="fm-juggernaut"> {{localize "DSCT.panel.fm.juggernaut"}}</label>
+    {{/if}}
+
+  </div>
+
+  <button type="button" class="dsct-execute-btn" data-action="execute-fm">
+    <i class="fas fa-arrows-alt"></i> <span id="fm-exec-text">{{localize "DSCT.panel.fm.executeMove"}}</span>
+  </button>
+
+</div>

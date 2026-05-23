@@ -1,0 +1,20 @@
+{
+  "_id": "DSCTfoldCond0001",
+  "name": "Conditions",
+  "type": "Macro",
+  "color": "#70662a",
+  "sort": 300,
+  "folder": null,
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!folders!DSCTfoldCond0001"
+}

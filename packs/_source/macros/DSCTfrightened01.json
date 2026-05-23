@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTfrightened01",
+  "name": "DSCT: Apply Frightened",
+  "type": "script",
+  "img": "icons/svg/terror.svg",
+  "command": "// Applies the Frightened condition (DSCT version) to all targeted tokens.\n// Control the source token (the creature causing fear) and target the affected creatures.\n//\n// duration - controls when the condition expires:\n//   'turn'      → End of the target's next turn\n//   'encounter' → End of the encounter (no save)\n//   'save'      → Save ends (encounter roll: 1d10 + save bonus)\n//   null        → Defaults to save ends\nconst duration = 'save';\n\nconst sourceToken = canvas.tokens.controlled[0];\nconst targets     = [...game.user.targets];\nif (!sourceToken) { ui.notifications.warn('Control the source token (the frightening creature).'); return; }\nif (!targets.length) { ui.notifications.warn('Target one or more tokens to apply Frightened to.'); return; }\n\nconst api = game.modules.get('draw-steel-combat-tools').api;\nfor (const t of targets) {\n  await api.applyFrightened(t, sourceToken.actor, sourceToken.id, duration);\n}",
+  "scope": "global",
+  "sort": 1800,
+  "folder": "DSCTfoldCond0001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTfrightened01"
+}

@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTjudgement001",
+  "name": "DSCT: Judgement",
+  "type": "script",
+  "img": "icons/magic/death/skull-humanoid-white-red.webp",
+  "command": "// Applies the Judgement effect to the targeted token. Target exactly one token then run.\n// When the judged target dies, a prompt appears to use a free triggered action to apply Judgement to a new target.\nawait game.modules.get('draw-steel-combat-tools').api.judgement();",
+  "scope": "global",
+  "sort": 700,
+  "folder": "DSCTfoldAA000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTjudgement001"
+}

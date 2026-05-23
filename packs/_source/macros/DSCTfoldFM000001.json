@@ -1,0 +1,20 @@
+{
+  "_id": "DSCTfoldFM000001",
+  "name": "Forced Movement",
+  "type": "Macro",
+  "color": "#7a3535",
+  "sort": 100,
+  "folder": null,
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!folders!DSCTfoldFM000001"
+}

@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTteleportUI01",
+  "name": "DSCT: Teleport Panel",
+  "type": "script",
+  "img": "icons/magic/movement/trail-streak-pink.webp",
+  "command": "// Opens or closes the Teleport panel.\n// Select one or more tokens, configure color and animation in the panel, then click a destination on the canvas.\ngame.modules.get('draw-steel-combat-tools').api.teleportUI();",
+  "scope": "global",
+  "sort": 1000,
+  "folder": "DSCTfoldTP000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTteleportUI01"
+}

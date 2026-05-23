@@ -1,0 +1,54 @@
+<div class="dsct-panel">
+
+  <div class="dsct-section-label dsct-text-dim">{{localize "DSCT.panel.wb.mode"}}</div>
+  <div class="dsct-wb-mode-grid">
+    <button type="button" id="wb-mode-build"     data-action="set-mode" data-mode="build"     class="dsct-wb-mode-btn{{#if buildActive}} active{{/if}}">{{localize "DSCT.panel.wb.build"}}</button>
+    <button type="button" id="wb-mode-destroy"   data-action="set-mode" data-mode="destroy"   class="dsct-wb-mode-btn{{#if destroyActive}} active{{/if}}">{{localize "DSCT.panel.wb.destroy"}}</button>
+    <button type="button" id="wb-mode-fix"       data-action="set-mode" data-mode="fix"       class="dsct-wb-mode-btn{{#if fixActive}} active{{/if}}">{{localize "DSCT.panel.wb.fix"}}</button>
+    <button type="button" id="wb-mode-transmute" data-action="set-mode" data-mode="transmute" class="dsct-wb-mode-btn{{#if transmuteActive}} active{{/if}}">{{localize "DSCT.panel.wb.transmute"}}</button>
+    <button type="button" id="wb-mode-break"     data-action="set-mode" data-mode="break"     class="dsct-wb-mode-btn{{#if breakActive}} active{{/if}}">{{localize "DSCT.panel.wb.break"}}</button>
+    <button type="button" id="wb-mode-inspect"   data-action="set-mode" data-mode="inspect"   class="dsct-wb-mode-btn{{#if inspectActive}} active{{/if}}">{{localize "DSCT.panel.wb.inspect"}}</button>
+    <button type="button" id="wb-mode-convert"   data-action="set-mode" data-mode="convert"   class="dsct-wb-mode-btn{{#if convertActive}} active{{/if}}" style="grid-column:span 2;">{{localize "DSCT.panel.wb.convertWalls"}}</button>
+  </div>
+
+  <div id="wb-convert-row" class="dsct-wb-convert-options{{#unless convertActive}} dsct-hidden{{/unless}}">
+    <div class="dsct-row-start">
+      <input id="wb-invisible" type="checkbox" {{#if invisible}}checked{{/if}}>
+      <label for="wb-invisible" class="dsct-wb-height-label" style="font-size:11px;color:var(--dsct-text);">{{localize "DSCT.panel.wb.invisibleTiles"}}</label>
+    </div>
+    <div class="dsct-row-start">
+      <input id="wb-retain-restrictions" type="checkbox" {{#if retainRestrictions}}checked{{/if}}>
+      <label for="wb-retain-restrictions" class="dsct-wb-height-label" style="font-size:11px;color:var(--dsct-text);">{{localize "DSCT.panel.wb.retainRestrictions"}}</label>
+    </div>
+  </div>
+
+  <div id="wb-material-row" class="dsct-col-gap{{#unless showMat}} dsct-hidden{{/unless}}" style="margin-bottom:10px;">
+    <div class="dsct-section-label dsct-text-dim" style="margin-bottom:0;">{{localize "DSCT.panel.wb.material"}}</div>
+    <select id="wb-material-select" class="dsct-wb-material-select">
+      {{#each materialOptions}}
+        <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+      {{/each}}
+    </select>
+  </div>
+
+  <div id="wb-height-row" class="dsct-col-gap{{#unless showHeight}} dsct-hidden{{/unless}}" style="margin-bottom:10px;">
+    <div class="dsct-section-label dsct-text-dim" style="margin-bottom:0;">{{localize "DSCT.panel.wb.wallHeight"}}</div>
+    <div class="dsct-wb-height-row">
+      <div style="flex:1;">
+        <div class="dsct-wb-height-label">{{localize "DSCT.panel.wb.bottom"}}</div>
+        <input id="wb-height-bottom" type="number" value="{{heightBottom}}" class="dsct-wb-height-input" placeholder="default">
+      </div>
+      <div style="flex:1;">
+        <div class="dsct-wb-height-label">{{localize "DSCT.panel.wb.top"}}</div>
+        <input id="wb-height-top" type="number" value="{{heightTop}}" class="dsct-wb-height-input" placeholder="default">
+      </div>
+    </div>
+    <div class="dsct-row-start">
+      <input id="wb-stable" type="checkbox" {{#if stable}}checked{{/if}}>
+      <label for="wb-stable" class="dsct-wb-height-label" style="font-size:11px;color:var(--dsct-text);">{{localize "DSCT.panel.wb.stable"}}</label>
+    </div>
+  </div>
+
+  <button type="button" class="dsct-execute-btn sm" data-action="execute">{{execLabel}}</button>
+
+</div>

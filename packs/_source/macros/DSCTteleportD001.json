@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTteleportD001",
+  "name": "DSCT: Teleport (Direct)",
+  "type": "script",
+  "img": "icons/magic/movement/trail-streak-pink.webp",
+  "command": "// Teleports the selected (or specified) token without opening the panel.\n// After running, click a valid destination square on the canvas.\n//\n// distance  - maximum teleport range in squares\n// colorHex  - phase-out colour as a hex string (e.g. '#a030ff' for purple, '#00ccff' for cyan)\n//             set animate: false to skip the colour effect entirely\n// duration  - length of the phase-in/out animation in milliseconds\n// sourceId  - (optional) explicit token ID; omit to use the currently controlled token\nawait game.modules.get('draw-steel-combat-tools').api.teleport({\n  distance: 5,\n  animate:  true,\n  colorHex: '#a030ff',\n  duration: 600,\n  // sourceId: 'paste-token-id-here',\n});",
+  "scope": "global",
+  "sort": 1100,
+  "folder": "DSCTfoldTP000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTteleportD001"
+}

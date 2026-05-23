@@ -1,0 +1,10 @@
+<div class="dsct-panel">
+  <div class="dsct-int-animal-grid">
+    {{#each actors}}
+    <button type="button" data-action="pick-actor" data-actor-id="{{id}}" class="dsct-int-animal-btn">
+      <img src="{{img}}" class="dsct-int-animal-icon">
+      <div class="dsct-int-animal-name">{{name}}</div>
+    </button>
+    {{/each}}
+  </div>
+</div>

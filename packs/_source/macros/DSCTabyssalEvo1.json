@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTabyssalEvo1",
+  "name": "DSCT: Abyssal Evolution",
+  "type": "script",
+  "img": "icons/creatures/unholy/demon-winged-cyclops-drooling.webp",
+  "command": "await game.modules.get('draw-steel-combat-tools')?.api?.abyssalEvolution();",
+  "scope": "global",
+  "sort": 0,
+  "folder": "DSCTfoldAA000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTabyssalEvo1"
+}

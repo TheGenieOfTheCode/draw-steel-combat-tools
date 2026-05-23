@@ -1,0 +1,58 @@
+<div class="dsct-panel">
+
+  <div class="dsct-section">
+    <div class="dsct-fm-actors">
+      <div class="dsct-token-col">
+        <img id="dc-source-img" src="{{sourceSrc}}" class="dsct-token-img dsct-token-img-lg">
+        <div id="dc-source-name" class="dsct-token-name{{#unless sourceSelected}} dim{{/unless}}">{{sourceLabel}}</div>
+      </div>
+      <div class="dsct-arrow">→</div>
+      <div id="dc-target-container" class="dsct-target-col">
+        {{{targetHTML}}}
+      </div>
+    </div>
+
+  </div>
+
+  <div class="dsct-section-label">{{localize "DSCT.panel.dc.damage"}}</div>
+  <div class="dsct-section dsct-col-gap">
+    <div class="dsct-row">
+      <span class="dsct-param-label">{{localize "DSCT.panel.dc.amount"}}</span>
+      <div class="dsct-btn-group">
+        <input type="number" id="dc-amount" value="{{amount}}" min="0" step="1" class="dsct-input-md">
+        <select id="dc-type" class="dsct-select-md">
+          {{#each damageTypes}}
+          <option value="{{this.value}}"{{#if this.selected}} selected{{/if}}>{{this.label}}</option>
+          {{/each}}
+        </select>
+      </div>
+    </div>
+    <label class="dsct-checkbox-label">
+      <input type="checkbox" id="dc-ignore-immunity"{{#if ignoreImmunity}} checked{{/if}}> {{localize "DSCT.panel.dc.ignoreImmunity"}}
+    </label>
+    <div class="dsct-flex-row">
+      <button type="button" data-action="set-mode" data-mode="strike" class="dsct-mode-btn{{#if modeStrike}} active{{/if}}">{{localize "DSCT.panel.dc.strike"}}</button>
+      <button type="button" data-action="set-mode" data-mode="area"   class="dsct-mode-btn{{#if modeArea}} active{{/if}}">{{localize "DSCT.panel.dc.area"}}</button>
+    </div>
+  </div>
+
+  <div class="dsct-section-label">{{localize "DSCT.panel.dc.condition"}}</div>
+  <div class="dsct-section dsct-col-gap">
+    <div class="dsct-row-start">
+      <select id="dc-condition" class="dsct-select-grow">
+        {{#each conditions}}
+        <option value="{{this.value}}"{{#if this.selected}} selected{{/if}}>{{this.label}}</option>
+        {{/each}}
+      </select>
+      <select id="dc-condition-end" class="dsct-select-md"{{#if conditionDisabled}} disabled{{/if}}>
+        {{#each durOptions}}
+        <option value="{{this.value}}"{{#if this.selected}} selected{{/if}}>{{this.label}}</option>
+        {{/each}}
+      </select>
+    </div>
+    <div id="dc-source-note" class="dsct-source-note{{#unless requiresSource}} dsct-hidden{{/unless}}">{{localize "DSCT.panel.dc.requiresSource"}}</div>
+  </div>
+
+  <button type="button" class="dsct-execute-btn sm" data-action="execute-dc">{{buttonText}}</button>
+
+</div>

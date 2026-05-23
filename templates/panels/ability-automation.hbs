@@ -1,0 +1,49 @@
+<div class="dsct-panel">
+
+  <div id="int-preview-wrap" class="dsct-int-preview-wrap">
+    <img id="int-preview-img" src="{{currentSrc}}" data-action="{{#if illusion}}revert{{/if}}"
+      class="dsct-int-preview-img{{#if illusion}} active{{/if}}">
+    <div style="flex:1;min-width:0;">
+      <div class="dsct-int-appearance-label">{{localize "DSCT.panel.int.appearance"}}</div>
+      <div id="int-status-label" class="dsct-int-status-label{{#if illusion}} active{{/if}}">
+        {{statusLabel}}
+      </div>
+      <div id="int-revert-hint" class="dsct-int-revert-hint{{#unless illusion}} dsct-hidden{{/unless}}">
+        {{localize "DSCT.panel.int.clickToRevert"}}
+      </div>
+    </div>
+  </div>
+
+  <div class="dsct-int-animal-grid">
+    {{#each animals}}
+    <button type="button" data-action="apply-animal" data-animal-id="{{id}}" class="dsct-int-animal-btn">
+      <img src="{{src}}" class="dsct-int-animal-icon">
+      <div class="dsct-int-animal-name">{{name}}</div>
+    </button>
+    {{/each}}
+  </div>
+
+  <div class="dsct-int-bottom-row">
+    <button type="button" data-action="apply-random" class="dsct-int-animal-btn dsct-int-random-btn" style="width:calc((100% - 12px) / 4);flex:none;">
+      <img src="icons/magic/symbols/question-stone-yellow.webp" class="dsct-int-animal-icon">
+      <div class="dsct-int-animal-name">{{localize "DSCT.panel.int.random"}}</div>
+    </button>
+
+    <button type="button" data-action="apply-mimic" class="dsct-int-mimic-btn">
+      <img id="int-mimic-img" src="{{mimicSrc}}" class="dsct-int-mimic-icon">
+      <div style="pointer-events:none;min-width:0;">
+        <div class="dsct-int-mimic-label">{{localize "DSCT.panel.int.mimic"}}</div>
+        <div id="int-mimic-name" class="dsct-int-mimic-name{{#if mimicName}} active{{/if}}">
+          {{#if mimicName}}{{mimicName}}{{else}}{{localize "DSCT.panel.int.noTarget"}}{{/if}}
+        </div>
+        <div id="int-mimic-cost" class="dsct-int-mimic-cost{{#if isFree}} dsct-hidden{{/if}}">
+          1 {{priLabel}} <span id="int-insight-count">({{insight}})</span>
+        </div>
+        <div id="int-mimic-free" class="dsct-int-mimic-free{{#unless isFree}} dsct-hidden{{/unless}}">
+          {{localize "DSCT.panel.int.freeSpentInsight"}}
+        </div>
+      </div>
+    </button>
+  </div>
+
+</div>

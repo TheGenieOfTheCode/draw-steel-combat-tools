@@ -30,7 +30,7 @@ jobs:
           jq \
             --arg version "${{ steps.version.outputs.version }}" \
             --arg download "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ env.MODULE_ID }}.zip" \
-            '.version = $version | .download = $download' \
+            '.version = $version | .download = $download | del(.documentTypes) | .esmodules = [.esmodules[] | select(. != "src/regions/index.mjs")]' \
             module.json > module.json.tmp && mv module.json.tmp module.json
 
       - name: Create module zip
@@ -39,10 +39,13 @@ jobs:
             module.json \
             LICENSE \
             README.md \
-            scripts/ \
+            src/ \
             styles/ \
             lang/ \
-            assets/
+            assets/ \
+            templates/ \
+            packs/ \
+            -x 'src/regions/*'
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
