@@ -292,6 +292,35 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
     if (noFallDamage) {
       await safeUpdate(targetToken.document, { elevation: landingSurface });
       collisionMsgs.push(`${targetToken.name} falls ${rawFall} square${rawFall !== 1 ? 's' : ''} but takes no damage.`);
+      if (effectiveFall >= 2) {
+        const fallDmg = Math.min(effectiveFall * 2, getSetting('fallDamageCap'));
+        const _landedOnRaw = tokenAt(landingGrid.x, landingGrid.y, targetToken.id);
+        const landedOn = (_landedOnRaw && !isTokenDead(_landedOnRaw)) ? _landedOnRaw : null;
+        if (landedOn) {
+          undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { animate: false, teleport: true } });
+          await applyDamage(landedOn.actor, fallDmg);
+          collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
+          const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
+          const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
+          if (fallerSize > blockerMight) {
+            await safeToggleStatusEffect(landedOn.actor, 'prone', { active: true });
+            undoOps.push({ op: 'status', uuid: landedOn.actor.uuid, effectId: 'prone', active: false });
+            collisionMsgs.push(`${landedOn.name} is knocked prone (${targetToken.name}'s size ${fallerSize} exceeds their Might ${blockerMight}).`);
+          }
+          const blockerWouldDie = (landedOn.actor.system.stamina?.value ?? 1) <= 0;
+          if (!blockerWouldDie) {
+            const chosen = await chooseFreeSquare(targetToken, landedOn);
+            if (chosen) {
+              await safeUpdate(targetToken.document, { x: chosen.x * GRID, y: chosen.y * GRID });
+              collisionMsgs.push(`${targetToken.name} lands in a nearby free space.`);
+            } else {
+              collisionMsgs.push(`${targetToken.name} could not find a free space to land.`);
+            }
+          } else {
+            collisionMsgs.push(`${targetToken.name} and ${landedOn.name} are both defeated; no repositioning needed.`);
+          }
+        }
+      }
       return landingSurface;
     }
 
@@ -394,6 +423,35 @@ const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landing
   if (noFallDamage) {
     await safeUpdate(targetToken.document, { elevation: landingSurface });
     collisionMsgs.push(`${targetToken.name} is slammed ${forcedDist} square${forcedDist !== 1 ? 's' : ''} downward but takes no fall damage.`);
+    if (effectiveFall >= 2) {
+      const fallDmg = Math.min(effectiveFall * 2, getSetting('fallDamageCap'));
+      const _landedOnRaw = tokenAt(landingGrid.x, landingGrid.y, targetToken.id);
+      const landedOn = (_landedOnRaw && !isTokenDead(_landedOnRaw)) ? _landedOnRaw : null;
+      if (landedOn) {
+        undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { animate: false, teleport: true } });
+        await applyDamage(landedOn.actor, fallDmg);
+        collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
+        const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
+        const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
+        if (fallerSize > blockerMight) {
+          await safeToggleStatusEffect(landedOn.actor, 'prone', { active: true });
+          undoOps.push({ op: 'status', uuid: landedOn.actor.uuid, effectId: 'prone', active: false });
+          collisionMsgs.push(`${landedOn.name} is knocked prone.`);
+        }
+        const blockerWouldDie = (landedOn.actor.system.stamina?.value ?? 1) <= 0;
+        if (!blockerWouldDie) {
+          const chosen = await chooseFreeSquare(targetToken, landedOn);
+          if (chosen) {
+            await safeUpdate(targetToken.document, { x: chosen.x * GRID, y: chosen.y * GRID });
+            collisionMsgs.push(`${targetToken.name} lands in a nearby free space.`);
+          } else {
+            collisionMsgs.push(`${targetToken.name} could not find a free space to land.`);
+          }
+        } else {
+          collisionMsgs.push(`${targetToken.name} and ${landedOn.name} are both defeated; no repositioning needed.`);
+        }
+      }
+    }
     return landingSurface;
   }
 
