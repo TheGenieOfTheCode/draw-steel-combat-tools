@@ -3,7 +3,7 @@
   "name": "DSCT: I'm No Threat",
   "type": "script",
   "img": "icons/creatures/mammals/humanoid-fox-cat-archer.webp",
-  "command": "// Opens the I'm No Threat panel for the selected or targeted token.\n// Control or target the Harlequin actor, then run.\n// The panel tracks OOC victories, manages the I'm No Threat illusion effect, and handles the Harlequin Illusion roll.\nconst token = canvas.tokens.controlled[0] ?? [...game.user.targets][0] ?? null;\nconst actor = token?.actor ?? null;\ngame.modules.get('draw-steel-combat-tools').api.imNoThreat(actor);",
+  "command": "// Opens the I'm No Threat panel for the selected or targeted token.\n// Control or target the Harlequin actor, then run.\n// The panel tracks OOC victories, manages the I'm No Threat illusion effect, and handles the Harlequin Illusion roll.\nconst token = canvas.tokens.controlled[0] ?? [...game.user.targets][0] ?? null;\nconst actor = token?.actor ?? null;\ngame.modules.get('draw-steel-combat-tools').api.disguisePanel(actor);",
   "scope": "global",
   "sort": 2100,
   "folder": "DSCTfoldAA000001",
