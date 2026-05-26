@@ -1,14 +1,16 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget } from '../helpers.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete } from '../helpers.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { applyGrab, runGrab } from '../conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { _addDamagedToken, reviveTokens } from '../death-tracker/death-tracker.mjs';
+import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 
 const DSTD       = 'draw-steel-target-damage';
 const DSTD_PANEL = `section.${DSTD}-panel`;
 const DSTD_ROW   = `.${DSTD}-target-row[data-target-key]`;
 const M          = 'draw-steel-combat-tools';
+
 
 const _fmState = new Map();
 
@@ -127,6 +129,7 @@ export function registerDstdCompat() {
 let _panelObserver = null;
 const _detachedObservers = new Map();
 
+
 const DSTD_ROW_CLS = `.${DSTD}-target-row`;
 
 function _makePanelCallback() {
@@ -183,6 +186,7 @@ function _stopDetachedObserver(id) {
 }
 
 const _collapseKey = (msgId) => `dsct-dstd-collapse-${msgId}`;
+
 
 function _installUndoDeathHook(panel) {
   if (panel.dataset.dsctDmgUndoTracked) return;
@@ -259,6 +263,7 @@ function _installUndoDeathHook(panel) {
   });
 }
 
+
 export async function runDstdUndoRevival(tokenUuid) {
   const dbg = getSetting('debugMode');
   try {
@@ -277,6 +282,7 @@ export async function runDstdUndoRevival(tokenUuid) {
     console.warn('DSCT | DSTD undo-death | revival error:', e);
   }
 }
+
 
 function _installGlobalDamageButtons(panel, message) {
   panel.querySelector('.dsct-dstd-global-row')?.remove();
@@ -530,13 +536,19 @@ async function _injectFmButtons(message, root) {
   const ability = await fromUuid(abilityUuid).catch(() => null);
   if (!ability) return;
 
-  const tier = _getMessageTier(message);
-  if (!tier) return;
+  const dsid     = getItemDsid(ability);
+  const maxGrabs = MULTI_GRAB_LIMITS[dsid] ?? 1;
 
-  const fmEffects = Array.from(ability.system?.power?.effects ?? [])
-    .filter(e => e.forced && typeof e.forced === 'object');
-  const appliedEffects = Array.from(ability.system?.power?.effects ?? [])
-    .filter(e => e.applied && typeof e.applied === 'object');
+  const doMark      = getSetting('markAutomation') && (dsid in MARK_ABILITY_CONFIG);
+  const doJudgement = getSetting('judgementAutomation') && dsid === 'judgement';
+
+  const tier = _getMessageTier(message);
+  if (!tier && !doMark && !doJudgement) return;
+
+  const fmEffects = tier ? Array.from(ability.system?.power?.effects ?? [])
+    .filter(e => e.forced && typeof e.forced === 'object') : [];
+  const appliedEffects = tier ? Array.from(ability.system?.power?.effects ?? [])
+    .filter(e => e.applied && typeof e.applied === 'object') : [];
 
   const dstdState       = message.flags?.[DSTD]?.state;
   const sourceTokenUuid = dstdState?.sourceTokenUuid;
@@ -553,12 +565,10 @@ async function _injectFmButtons(message, root) {
   const doConditions = appliedEffects.length > 0 &&
     (getSetting('grabEnabled') || getSetting('frightenedEnabled') || getSetting('tauntedEnabled'));
   const doPf         = holyRolls.length > 0;
-  if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons fmEffects=${fmEffects.length} appliedEffects=${appliedEffects.length} tier=${tier} doFm=${doFm} doConditions=${doConditions} doPf=${doPf}`);
-  if (!doFm && !doConditions && !doPf) return;
+  if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons fmEffects=${fmEffects.length} appliedEffects=${appliedEffects.length} tier=${tier} doFm=${doFm} doConditions=${doConditions} doMark=${doMark} doJudgement=${doJudgement} doPf=${doPf}`);
+  if (!doFm && !doConditions && !doPf && !doMark && !doJudgement) return;
 
   const savedFlagState = message.getFlag(M, 'dstdFmState') ?? {};
-  const dsid     = getItemDsid(ability);
-  const maxGrabs = MULTI_GRAB_LIMITS[dsid] ?? 1;
 
   const targetRows = panel.querySelectorAll(DSTD_ROW);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons found ${targetRows.length} target rows`);
@@ -925,8 +935,151 @@ async function _injectFmButtons(message, root) {
       }
     }
 
+    if (doMark) {
+      const markKey = `${targetKey}:dsct-mark`;
+      if (!actions.querySelector(`[data-dsct-mark-key="${markKey}"]`)) {
+        for (const nativeRow of actions.querySelectorAll(`.${DSTD}-status-row`)) {
+          nativeRow.style.display = 'none';
+        }
+
+        const config     = MARK_ABILITY_CONFIG[dsid];
+        const shortName  = config.override ? 'Mark (Override)' : 'Mark';
+        const applyLbl   = `Apply ${shortName}`;
+        const appliedLbl = `Applied: ${shortName}`;
+
+        const targetDocMark   = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+        const targetActorMark = targetDocMark?.object?.actor ?? targetDocMark?.actor ?? null;
+        const markIsApplied   = !!targetActorMark?.effects.some(e =>
+          e.flags?.[M]?.mark?.userId === game.user.id &&
+          (!sourceActor?.id || e.flags?.[M]?.mark?.actorId === sourceActor.id));
+
+        const markBtn = document.createElement('button');
+        markBtn.type = 'button';
+        markBtn.classList.add(`${DSTD}-action-button`, `${DSTD}-stretch-button`);
+        markBtn.dataset.dsctMarkKey = markKey;
+        markBtn.dataset.tooltip     = markIsApplied ? appliedLbl : applyLbl;
+        markBtn.disabled            = markIsApplied;
+        const markImg = document.createElement('img');
+        markImg.src = 'icons/skills/targeting/crosshair-pointed-orange.webp';
+        markImg.alt = '';
+        markImg.classList.add(`${DSTD}-button-icon-img`);
+        const markSpan = document.createElement('span');
+        markSpan.textContent = markIsApplied ? appliedLbl : applyLbl;
+        markBtn.append(markImg, markSpan);
+
+        const undoMarkBtn = document.createElement('button');
+        undoMarkBtn.type = 'button';
+        undoMarkBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
+        undoMarkBtn.dataset.tooltip = 'Undo Mark';
+        undoMarkBtn.disabled        = !markIsApplied;
+        undoMarkBtn.append(_makeIcon('fa-solid fa-rotate-left'));
+
+        markBtn.addEventListener('click', async (e) => {
+          e.stopPropagation(); e.preventDefault();
+          const d = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+          d?.object?.setTarget(true, { user: game.user, releaseOthers: true });
+          await getModuleApi(false)?.mark({ ...config, dsid, sourceActorId: sourceActor?.id ?? null });
+          markBtn.disabled        = true;
+          undoMarkBtn.disabled    = false;
+          markSpan.textContent    = appliedLbl;
+          markBtn.dataset.tooltip = appliedLbl;
+        });
+
+        undoMarkBtn.addEventListener('click', async (e) => {
+          e.stopPropagation(); e.preventDefault();
+          const d     = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+          const actor = d?.object?.actor ?? d?.actor ?? null;
+          if (actor) {
+            for (const ef of [...actor.effects]) {
+              if (ef.flags?.[M]?.mark?.userId === game.user.id &&
+                  (!sourceActor?.id || ef.flags?.[M]?.mark?.actorId === sourceActor.id)) {
+                await safeDelete(ef);
+              }
+            }
+          }
+          markBtn.disabled        = false;
+          undoMarkBtn.disabled    = true;
+          markSpan.textContent    = applyLbl;
+          markBtn.dataset.tooltip = applyLbl;
+        });
+
+        const markRow = document.createElement('div');
+        markRow.className = `${DSTD}-action-row dsct-dstd-condition-row`;
+        markRow.append(markBtn, undoMarkBtn);
+        actions.appendChild(markRow);
+      }
+    }
+
+    if (doJudgement) {
+      const judgeKey = `${targetKey}:dsct-judgement`;
+      if (!actions.querySelector(`[data-dsct-judge-key="${judgeKey}"]`)) {
+        for (const nativeRow of actions.querySelectorAll(`.${DSTD}-status-row`)) {
+          nativeRow.style.display = 'none';
+        }
+
+        const targetDocJudge   = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+        const targetActorJudge = targetDocJudge?.object?.actor ?? targetDocJudge?.actor ?? null;
+        const judgeIsApplied   = !!targetActorJudge?.effects.some(e =>
+          e.flags?.[M]?.judgement?.userId === game.user.id);
+
+        const judgeBtn = document.createElement('button');
+        judgeBtn.type = 'button';
+        judgeBtn.classList.add(`${DSTD}-action-button`, `${DSTD}-stretch-button`);
+        judgeBtn.dataset.dsctJudgeKey = judgeKey;
+        judgeBtn.dataset.tooltip      = judgeIsApplied ? 'Applied: Judgement' : 'Apply Judgement';
+        judgeBtn.disabled             = judgeIsApplied;
+        const judgeImg = document.createElement('img');
+        judgeImg.src = 'icons/magic/death/skull-humanoid-white-red.webp';
+        judgeImg.alt = '';
+        judgeImg.classList.add(`${DSTD}-button-icon-img`);
+        const judgeSpan = document.createElement('span');
+        judgeSpan.textContent = judgeIsApplied ? 'Applied: Judgement' : 'Apply Judgement';
+        judgeBtn.append(judgeImg, judgeSpan);
+
+        const undoJudgeBtn = document.createElement('button');
+        undoJudgeBtn.type = 'button';
+        undoJudgeBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
+        undoJudgeBtn.dataset.tooltip = 'Undo Judgement';
+        undoJudgeBtn.disabled        = !judgeIsApplied;
+        undoJudgeBtn.append(_makeIcon('fa-solid fa-rotate-left'));
+
+        judgeBtn.addEventListener('click', async (e) => {
+          e.stopPropagation(); e.preventDefault();
+          const d = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+          d?.object?.setTarget(true, { user: game.user, releaseOthers: true });
+          await getModuleApi(false)?.judgement();
+          judgeBtn.disabled        = true;
+          undoJudgeBtn.disabled    = false;
+          judgeSpan.textContent    = 'Applied: Judgement';
+          judgeBtn.dataset.tooltip = 'Applied: Judgement';
+        });
+
+        undoJudgeBtn.addEventListener('click', async (e) => {
+          e.stopPropagation(); e.preventDefault();
+          const d     = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+          const actor = d?.object?.actor ?? d?.actor ?? null;
+          if (actor) {
+            for (const ef of [...actor.effects]) {
+              if (ef.flags?.[M]?.judgement?.userId === game.user.id) {
+                await safeDelete(ef);
+              }
+            }
+          }
+          judgeBtn.disabled        = false;
+          undoJudgeBtn.disabled    = true;
+          judgeSpan.textContent    = 'Apply Judgement';
+          judgeBtn.dataset.tooltip = 'Apply Judgement';
+        });
+
+        const judgeRow = document.createElement('div');
+        judgeRow.className = `${DSTD}-action-row dsct-dstd-condition-row`;
+        judgeRow.append(judgeBtn, undoJudgeBtn);
+        actions.appendChild(judgeRow);
+      }
+    }
+
     
-    if (body.querySelector('[data-dsct-dstd-cond], [data-dsct-fm-key]')) {
+    if (body.querySelector('[data-dsct-dstd-cond], [data-dsct-fm-key], [data-dsct-mark-key], [data-dsct-judge-key]')) {
       const muted = body.querySelector(`.${DSTD}-muted`);
       if (muted) muted.hidden = true;
     }

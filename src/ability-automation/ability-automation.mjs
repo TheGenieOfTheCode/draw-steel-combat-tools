@@ -4,6 +4,7 @@ import { applyTaunted } from '../conditions/conditions.mjs';
 
 const M = 'draw-steel-combat-tools';
 
+
 const _INT_EFFECT_ABILITY = {
   name: "I'm No Threat",
   img: 'icons/creatures/mammals/humanoid-fox-cat-archer.webp',
@@ -26,10 +27,12 @@ const _INT_EFFECT_PASSIVE = {
   description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'int' } },
 };
 
+
 const INT_OOC_FLAG     = 'imNoThreatOOCVictories';
 const INT_DEFAULT_ICON = 'icons/creatures/mammals/humanoid-fox-cat-archer.webp';
 
 const revertingActors = new Set();
+
 
 const sizeRank = (size) => size.value >= 2 ? size.value + 2 : ({ T: 0, S: 1, M: 2, L: 3 })[size.letter] ?? 2;
 const fmtSize  = (size) => size.value >= 2 ? `${size.value}` : `${size.value}${size.letter}`;
@@ -346,12 +349,14 @@ export const openImNoThreatPanel = (actor = null) => {
   else new ImNoThreatPanel(target).render({ force: true });
 };
 
+
 const markButtonHTML = (maxTargets, override) => {
   const noun = maxTargets === 1 ? 'Mark' : `${maxTargets} Marks`;
   return `<i class="fa-solid fa-crosshairs"></i> Apply ${noun}${override ? ' (Override)' : ''}`;
 };
 
-const MARK_ABILITY_CONFIG = {
+
+export const MARK_ABILITY_CONFIG = {
   'mark':                   { maxTargets: 1, override: true  },
   'mind-game':              { maxTargets: 1, override: false },
   'fog-of-war':             { maxTargets: 2, override: false },
@@ -381,7 +386,7 @@ export const registerAbilityInjectors = () => {
     };
     const dsid = msg.getFlag('draw-steel-combat-tools', 'abilityDsid');
 
-    if (getSetting('judgementAutomation') && dsid === 'judgement') {
+    if (getSetting('judgementAutomation') && dsid === 'judgement' && !game.modules.get('draw-steel-target-damage')?.active) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'dsct-judgement-btn';
@@ -432,7 +437,7 @@ export const registerAbilityInjectors = () => {
       }
     }
 
-    if (getSetting('markAutomation')) {
+    if (getSetting('markAutomation') && !game.modules.get('draw-steel-target-damage')?.active) {
       const config = MARK_ABILITY_CONFIG[dsid];
       if (config) {
         const speakerActor   = game.actors.get(msg.speaker?.actor);
@@ -722,6 +727,7 @@ export const registerAbilityInjectors = () => {
 
 };
 
+
 export const INT_ANIMAL_DEFAULTS = [
   { id: 'bullfrog',  name: 'Bullfrog',  src: 'icons/creatures/amphibians/bullfrog-glowing-green.webp',         emoji: '🐸' },
   { id: 'chicken',   name: 'Chicken',   src: 'icons/creatures/birds/chicken-hen-white.webp',                   emoji: '🐔' },
@@ -737,6 +743,7 @@ export const getAnimals = () => {
   const stored = game.settings.get(M, 'intAnimals');
   return (Array.isArray(stored) && stored.length) ? stored : INT_ANIMAL_DEFAULTS;
 };
+
 
 const INT_EMOJI_LIST = [
   ['🐕','dog puppy canine'],          ['🐈','cat kitten feline'],
@@ -905,6 +912,8 @@ const _openPicker = (triggerEl, onSelect) => {
   };
   document.addEventListener('mousedown', _outsideOff);
 };
+
+
 
 const DEFAULT_ICON = 'icons/creatures/mammals/humanoid-fox-cat-archer.webp';
 const buildRow = (idx, animal) => `
