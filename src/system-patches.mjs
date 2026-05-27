@@ -36,6 +36,7 @@ export function registerSystemPatches() {
   _registerFMEditorFields();
   _registerConditionSheetHooks();
   _registerAbilityHudCompat();
+  _patchEffectExpiryEvent();
   if (!globalThis.libWrapper) {
     console.warn('DSCT | registerSystemPatches | libWrapper not found -- constructButtons patches skipped');
     return;
@@ -45,7 +46,6 @@ export function registerSystemPatches() {
   _patchAppliedEffect();
   _patchDamageRollButton();
   _patchToggleStatusEffect();
-  _patchEffectExpiryEvent();
   _registerButtonHooks();
 }
 
@@ -246,6 +246,7 @@ function _patchDamageRollButton() {
     'MIXED'
   );
 }
+
 
 const _usedJudgementT3 = new Set();
 
@@ -602,23 +603,28 @@ function _patchToggleStatusEffect() {
     }, 'MIXED');
 }
 
+
+
 function _patchEffectExpiryEvent() {
-  libWrapper.register(
-    M,
-    'ds.documents.DrawSteelActiveEffect.prototype.isExpiryEvent',
-    function(wrapped, event, context) {
-      if (event !== 'turnEnd') return wrapped(event, context);
-      const combat = context.combat ?? game.combat;
-      const effectCombatant = combat?.started
-        ? (combat === this.start.combat
-            ? combat.combatants.get(this.start.combatant)
-            : combat.getCombatantsByActor(this.actor ?? '')[0])
-        : null;
-      if (!effectCombatant) return false;
-      return wrapped(event, context);
-    },
-    'MIXED'
-  );
+  Hooks.once('ready', () => {
+    const registry = foundry.documents?.ActiveEffect?.registry;
+    if (!registry) {
+      console.warn('DSCT | _patchEffectExpiryEvent | registry not found -- DB error guard skipped');
+      return;
+    }
+    const _origRefresh = registry.refresh.bind(registry);
+    registry.refresh = async function(event, context) {
+      for (const effect of this) {
+        if (effect.parent?.isToken
+          || !(effect.parent instanceof foundry.abstract.Document)
+          || !effect.parent?.effects?.has?.(effect.id)
+          || ['squad-label', 'triggered-action'].includes(effect.getFlag?.(M, 'effectType'))) {
+          this.delete(effect);
+        }
+      }
+      return _origRefresh(event, context);
+    };
+  });
 }
 
 function _registerFMEditorFields() {
