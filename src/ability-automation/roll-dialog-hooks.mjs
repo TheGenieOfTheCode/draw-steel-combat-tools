@@ -251,8 +251,10 @@ function _buildModifierSources(app) {
   
   if (casterToken && getStrikeType(ability) === 'ranged') {
     const casterDisp = casterToken.document.disposition;
+    const _dead = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
     const adj = canvas.tokens.placeables.filter(t => {
       if (!t.actor || t.id === casterToken.id) return false;
+      if (t.actor.statuses?.has(_dead)) return false;
       const d = t.document.disposition;
       return d !== CONST.TOKEN_DISPOSITIONS.NEUTRAL
         && casterDisp !== CONST.TOKEN_DISPOSITIONS.NEUTRAL
