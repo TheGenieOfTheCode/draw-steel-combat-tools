@@ -229,6 +229,22 @@ const _processCaptainQueue = async (groups, combat) => {
 };
 
 export const registerSquadLabelHooks = () => {
+  Hooks.on('canvasReady', async () => {
+    if (!game.users.activeGM?.isSelf) return;
+    if (!getSetting('autoSquadLabelsEnabled')) return;
+
+    const combatantTokenIds = new Set(
+      (game.combat?.combatants.contents ?? []).map(c => c.tokenId)
+    );
+
+    for (const token of canvas.tokens.placeables) {
+      if (!token.actor) continue;
+      const labels = token.actor.effects.filter(e => e.getFlag(M, 'effectType') === 'squad-label');
+      if (!labels.length || combatantTokenIds.has(token.id)) continue;
+      for (const e of labels) await safeDelete(e);
+    }
+  });
+
   Hooks.on('combatStart', async (combat) => {
     if (!getSetting('autoSquadLabelsEnabled')) return;
     if (!game.users.activeGM?.isSelf) return;
