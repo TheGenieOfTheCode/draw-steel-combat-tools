@@ -3,12 +3,16 @@ import { getSetting } from './helpers.mjs';
 const roundFmt = (text) => `<hr><p style="text-align:center"><span style="font-family:'Draw Steel Book'"><span style="font-size:x-large">${text}</span></span></p><hr>`;
 
 export const registerCombatLogHooks = () => {
+  Hooks.on('combatStart', async () => {
+    if (!getSetting('combatRoundLog')) return;
+    if (!game.users.activeGM?.isSelf) return;
+    await ChatMessage.create({ content: roundFmt('Draw Steel!') });
+  });
+
   Hooks.on('updateCombat', async (combat, changes) => {
     if (!getSetting('combatRoundLog')) return;
     if (!game.users.activeGM?.isSelf) return;
-    if (changes.active === true && combat.started) {
-      await ChatMessage.create({ content: roundFmt('Combat Begins') });
-    } else if (changes.round !== undefined && combat.started && changes.round > 1) {
+    if (changes.round !== undefined && combat.started && changes.round > 1) {
       await ChatMessage.create({ content: roundFmt(`Round ${changes.round}`) });
     }
   });
