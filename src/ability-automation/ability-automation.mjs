@@ -281,9 +281,10 @@ class ImNoThreatPanel extends ds.applications.api.DSApplication {
   }
 
   async _activateIllusion(name, id) {
+    const intIcon = getSetting('imNoThreatEffectIcon') || INT_DEFAULT_ICON;
     await this._actor.createEmbeddedDocuments('ActiveEffect', [
-      foundry.utils.deepClone(_INT_EFFECT_ABILITY),
-      foundry.utils.deepClone(_INT_EFFECT_PASSIVE),
+      { ...foundry.utils.deepClone(_INT_EFFECT_ABILITY), img: intIcon },
+      { ...foundry.utils.deepClone(_INT_EFFECT_PASSIVE), img: intIcon },
     ]);
     this._illusionActive = true;
     this._disguiseName   = name;

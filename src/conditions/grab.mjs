@@ -185,7 +185,7 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
 
   await safeCreateEmbedded(grabbedTok.actor, 'ActiveEffect', [{
     name: 'Grabbed',
-    img: 'icons/skills/melee/unarmed-punch-fist-yellow-red.webp',
+    img: getSetting('grabbedEffectIcon') || 'icons/skills/melee/unarmed-punch-fist-yellow-red.webp',
     type: 'base',
     statuses: [],
     changes: [],
@@ -204,7 +204,7 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
 
   const [grabberEffect] = await safeCreateEmbedded(grabberTok.actor, 'ActiveEffect', [{
     name: 'Grabber',
-    img: 'icons/magic/control/debuff-chains-shackle-movement-red.webp',
+    img: getSetting('grabberEffectIcon') || 'icons/magic/control/debuff-chains-shackle-movement-red.webp',
     type: 'base',
     system: { end: { type: 'encounter', roll: '' }, filters: { keywords: [] } },
     changes: speedChanges, disabled: false, transfer: false, statuses: [], flags: {},

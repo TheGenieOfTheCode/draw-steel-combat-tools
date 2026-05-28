@@ -61,7 +61,7 @@ const applyJudgedEffect = async (targetToken, sourceActor, sourceTokenId, endStr
   const end = resolveEnd(endStr);
   await safeCreateEmbedded(actor, 'ActiveEffect', [{
     name: `Judged [${sourceActor.name}]`,
-    img: 'icons/magic/death/skull-humanoid-white-red.webp',
+    img: getSetting('judgedEffectIcon') || 'icons/magic/death/skull-humanoid-white-red.webp',
     type: 'base',
     system: end?.systemEnd ? { end: end.systemEnd } : {},
     duration: end?.duration ?? {},
@@ -76,7 +76,7 @@ const applyMarkedEffect = async (targetToken, sourceActor, sourceTokenId, endStr
   const end = resolveEnd(endStr);
   await safeCreateEmbedded(actor, 'ActiveEffect', [{
     name: `Mark [${sourceActor.name}]`,
-    img: 'icons/skills/targeting/crosshair-pointed-orange.webp',
+    img: getSetting('markedEffectIcon') || 'icons/skills/targeting/crosshair-pointed-orange.webp',
     type: 'base',
     system: end?.systemEnd ? { end: end.systemEnd } : {},
     duration: end?.duration ?? {},
@@ -94,7 +94,7 @@ const applyNativeCondition = async (actor, condId, endStr) => {
   const statusCfg = CONFIG.statusEffects?.find(e => e.id === condId);
   await safeCreateEmbedded(actor, 'ActiveEffect', [{
     name:     statusCfg?.name ?? condId,
-    img:      statusCfg?.img  ?? 'icons/svg/mystery-man.svg',
+    img:      (condId === 'bleeding' ? getSetting('bleedingEffectIcon') : '') || (statusCfg?.img ?? 'icons/svg/mystery-man.svg'),
     type:     'base',
     system:   end.systemEnd ? { end: end.systemEnd } : {},
     duration: end.duration,

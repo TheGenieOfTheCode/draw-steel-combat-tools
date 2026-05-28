@@ -101,6 +101,22 @@ class SettingsSubmenu extends ds.applications.api.DSApplication {
       }
     }
 
+    el.querySelectorAll('.dsct-fp-btn').forEach(btn => {
+      const input   = el.querySelector(`[name="${btn.dataset.target}"]`);
+      const preview = btn.closest('.form-fields')?.querySelector('.dsct-icon-preview');
+      input?.addEventListener('input', () => { if (preview) preview.src = input.value; });
+      btn.addEventListener('click', () => {
+        new FilePicker({
+          type: 'imagevideo',
+          current: input?.value ?? '',
+          callback: (path) => {
+            if (input)   input.value = path;
+            if (preview) preview.src = path;
+          },
+        }).render(true);
+      });
+    });
+
     el.querySelector('#dsct-sub-save-btn')?.addEventListener('click', async () => {
       await this._doSave();
       this.close();
@@ -214,14 +230,19 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
       'applyDamageEnabled',
       header('Frightened'),
       'frightenedEnabled',
+      'frightenedEffectIcon',
       'allowIllegalMovement',
       header('Taunted'),
       'tauntedEnabled',
+      'tauntedEffectIcon',
       header('Bleeding'),
       'bleedingEnabled',
+      'bleedingEffectIcon',
       'bleedingMode',
       header('Grab'),
       'grabEnabled',
+      'grabbedEffectIcon',
+      'grabberEffectIcon',
       'gmBypassesSizeCheck',
       'restrictGrabButtons',
       'allowIllegalMovement',
@@ -229,6 +250,14 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
       'areaDamageEnabled',
       'squadStaminaClamp',
     ];
+  }
+
+  static _FILE_PICKER_KEYS = new Set(['frightenedEffectIcon', 'tauntedEffectIcon', 'bleedingEffectIcon', 'grabbedEffectIcon', 'grabberEffectIcon']);
+
+  _buildEntry(key) {
+    const entry = super._buildEntry(key);
+    if (entry && ConditionsSettingsMenu._FILE_PICKER_KEYS.has(key)) entry.isFilePicker = true;
+    return entry;
   }
 
   _onRender(context, options) {
@@ -244,10 +273,32 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
       });
     }
 
+    
+    const enableInput = this.element.querySelector(`[name="${this.constructor.enableKey}"]`);
+    const iconPairs = [
+      ['frightenedEnabled', 'frightenedEffectIcon'],
+      ['tauntedEnabled',    'tauntedEffectIcon'],
+      ['bleedingEnabled',   'bleedingEffectIcon'],
+      ['grabEnabled',       'grabbedEffectIcon'],
+      ['grabEnabled',       'grabberEffectIcon'],
+    ];
+    for (const [toggleName, iconKey] of iconPairs) {
+      const toggle    = this.element.querySelector(`[name="${toggleName}"]`);
+      const iconGroup = this.element.querySelector(`[name="${iconKey}"]`)?.closest('.form-group');
+      if (!toggle || !iconGroup) continue;
+      const sync = () => {
+        const on = (enableInput?.checked ?? true) && toggle.checked;
+        iconGroup.classList.toggle('dsct-sub-disabled', !on);
+        iconGroup.querySelectorAll('input, button').forEach(i => { i.disabled = !on; });
+      };
+      toggle.addEventListener('change', sync);
+      enableInput?.addEventListener('change', sync);
+      sync();
+    }
+
     const bleedToggle = this.element.querySelector('[name="bleedingEnabled"]');
     const modeGroup   = this.element.querySelector('[name="bleedingMode"]')?.closest('.form-group');
     if (bleedToggle && modeGroup) {
-      const enableInput = this.element.querySelector(`[name="${this.constructor.enableKey}"]`);
       const sync = () => {
         const on = (enableInput?.checked ?? true) && bleedToggle.checked;
         modeGroup.classList.toggle('dsct-sub-disabled', !on);
@@ -262,7 +313,6 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
     const applyDmgToggle  = this.element.querySelector('[name="applyDamageEnabled"]');
     const areaDmgGroup    = this.element.querySelector('[name="areaDamageEnabled"]')?.closest('.form-group');
     if (applyDmgToggle && areaDmgGroup) {
-      const enableInput = this.element.querySelector(`[name="${this.constructor.enableKey}"]`);
       const sync = () => {
         const on = (enableInput?.checked ?? true) && applyDmgToggle.checked;
         areaDmgGroup.classList.toggle('dsct-sub-disabled', !on);
@@ -323,22 +373,6 @@ export class DeathTrackerSettingsMenu extends SettingsSubmenu {
   _onRender(context, options) {
     super._onRender(context, options);
     const el = this.element;
-
-    el.querySelectorAll('.dsct-fp-btn').forEach(btn => {
-      const input   = el.querySelector(`[name="${btn.dataset.target}"]`);
-      const preview = btn.closest('.form-fields')?.querySelector('.dsct-icon-preview');
-      input?.addEventListener('input', () => { if (preview) preview.src = input.value; });
-      btn.addEventListener('click', () => {
-        new FilePicker({
-          type: 'imagevideo',
-          current: input?.value ?? '',
-          callback: (path) => {
-            if (input)   input.value = path;
-            if (preview) preview.src = path;
-          },
-        }).render(true);
-      });
-    });
 
     const skullToggle   = el.querySelector('[name="deathMarkerEnabled"]');
     const iconGroup     = el.querySelector('[name="deathMarkerIcon"]')?.closest('.form-group');
@@ -415,20 +449,32 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       'enforceAbilityRange',
       'gmBypassRangeEnforcement',
       'aidAttackAutomation',
+      'aidAttackEffectIcon',
       header('Class — Censor'),
       'judgementAutomation',
+      'judgedEffectIcon',
       'judgementBaneLock',
       'judgementBaneLockDuration',
       'purifyingFireEnabled',
       header('Class — Tactician'),
       'markAutomation',
+      'markedEffectIcon',
       header('Class — Shadow'),
       'hiwEnabled',
       'imNoThreatEnabled',
+      'imNoThreatEffectIcon',
       'crossfadeEnabled',
       header('Malice'),
       'abyssalEvolutionEnabled',
     ];
+  }
+
+  static _FILE_PICKER_KEYS = new Set(['judgedEffectIcon', 'markedEffectIcon', 'aidAttackEffectIcon', 'imNoThreatEffectIcon']);
+
+  _buildEntry(key) {
+    const entry = super._buildEntry(key);
+    if (entry && AbilityAutomationSettingsMenu._FILE_PICKER_KEYS.has(key)) entry.isFilePicker = true;
+    return entry;
   }
 
   _regularItems() {
@@ -471,18 +517,58 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
     const judgementToggle     = this.element.querySelector('[name="judgementAutomation"]');
     const baneLockGroup       = this.element.querySelector('[name="judgementBaneLock"]')?.closest('.form-group');
     const baneLockDurGroup    = this.element.querySelector('[name="judgementBaneLockDuration"]')?.closest('.form-group');
+    const judgedIconGroup     = this.element.querySelector('[name="judgedEffectIcon"]')?.closest('.form-group');
     if (judgementToggle) {
       const syncJudgement = () => {
         const on = (aaEnableInput?.checked ?? true) && judgementToggle.checked;
-        for (const grp of [baneLockGroup, baneLockDurGroup]) {
+        for (const grp of [baneLockGroup, baneLockDurGroup, judgedIconGroup]) {
           if (!grp) continue;
           grp.classList.toggle('dsct-sub-disabled', !on);
-          grp.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
+          grp.querySelectorAll('input, select, button').forEach(i => { i.disabled = !on; });
         }
       };
       judgementToggle.addEventListener('change', syncJudgement);
       aaEnableInput?.addEventListener('change', syncJudgement);
       syncJudgement();
+    }
+
+    const markToggle      = this.element.querySelector('[name="markAutomation"]');
+    const markedIconGroup = this.element.querySelector('[name="markedEffectIcon"]')?.closest('.form-group');
+    if (markToggle && markedIconGroup) {
+      const syncMark = () => {
+        const on = (aaEnableInput?.checked ?? true) && markToggle.checked;
+        markedIconGroup.classList.toggle('dsct-sub-disabled', !on);
+        markedIconGroup.querySelectorAll('input, select, button').forEach(i => { i.disabled = !on; });
+      };
+      markToggle.addEventListener('change', syncMark);
+      aaEnableInput?.addEventListener('change', syncMark);
+      syncMark();
+    }
+
+    const aidAttackToggle    = this.element.querySelector('[name="aidAttackAutomation"]');
+    const aidAttackIconGroup = this.element.querySelector('[name="aidAttackEffectIcon"]')?.closest('.form-group');
+    if (aidAttackToggle && aidAttackIconGroup) {
+      const syncAidAttack = () => {
+        const on = (aaEnableInput?.checked ?? true) && aidAttackToggle.checked;
+        aidAttackIconGroup.classList.toggle('dsct-sub-disabled', !on);
+        aidAttackIconGroup.querySelectorAll('input, select, button').forEach(i => { i.disabled = !on; });
+      };
+      aidAttackToggle.addEventListener('change', syncAidAttack);
+      aaEnableInput?.addEventListener('change', syncAidAttack);
+      syncAidAttack();
+    }
+
+    const imNoThreatToggle    = this.element.querySelector('[name="imNoThreatEnabled"]');
+    const imNoThreatIconGroup = this.element.querySelector('[name="imNoThreatEffectIcon"]')?.closest('.form-group');
+    if (imNoThreatToggle && imNoThreatIconGroup) {
+      const syncImNoThreat = () => {
+        const on = (aaEnableInput?.checked ?? true) && imNoThreatToggle.checked;
+        imNoThreatIconGroup.classList.toggle('dsct-sub-disabled', !on);
+        imNoThreatIconGroup.querySelectorAll('input, select, button').forEach(i => { i.disabled = !on; });
+      };
+      imNoThreatToggle.addEventListener('change', syncImNoThreat);
+      aaEnableInput?.addEventListener('change', syncImNoThreat);
+      syncImNoThreat();
     }
 
     

@@ -51,7 +51,7 @@ export const applyJudgement = async () => {
 
   const effectData = {
     name: `Judged [${censorActor.name}]`,
-    img: 'icons/magic/death/skull-humanoid-white-red.webp',
+    img: getSetting('judgedEffectIcon') || 'icons/magic/death/skull-humanoid-white-red.webp',
     type: 'base',
     system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
     changes: [],
@@ -86,7 +86,7 @@ export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'othe
   for (const targetToken of targets) {
     const effectData = {
       name: 'Mark',
-      img: 'icons/skills/targeting/crosshair-pointed-orange.webp',
+      img: getSetting('markedEffectIcon') || 'icons/skills/targeting/crosshair-pointed-orange.webp',
       type: 'base',
       system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
       changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
@@ -177,7 +177,7 @@ export const applyAidAttack = async () => {
   const existing = targetActor.effects.find(e => e.getFlag(M, 'effectType') === 'aid-attack');
   if (existing) await safeDelete(existing);
 
-  await safeCreateEmbedded(targetActor, 'ActiveEffect', [foundry.utils.deepClone(AID_ATTACK_EFFECT)]);
+  await safeCreateEmbedded(targetActor, 'ActiveEffect', [{ ...foundry.utils.deepClone(AID_ATTACK_EFFECT), img: getSetting('aidAttackEffectIcon') || AID_ATTACK_EFFECT.img }]);
 
   await ChatMessage.create({ content: game.i18n.format('DSCT.chat.tactical.aidAttack', { name: targetActor.name }) });
 

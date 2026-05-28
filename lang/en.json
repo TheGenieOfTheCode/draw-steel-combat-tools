@@ -77,6 +77,14 @@
         "name": "Grab",
         "hint": "Automates all aspects of the grab condition as per the Draw Steel rules, active grabs can be ended via the Grab panel."
       },
+      "grabbedEffectIcon": {
+        "name": "Grabbed Effect Icon",
+        "hint": "Icon used for the Grabbed active effect applied by DSCT."
+      },
+      "grabberEffectIcon": {
+        "name": "Grabber Effect Icon",
+        "hint": "Icon used for the Grabber active effect applied to the grabbing token."
+      },
       "gmBypassesSizeCheck": {
         "name": "Director Bypasses Size Check",
         "hint": "The Director can execute Knockback and Grab regardless of target size."
@@ -97,6 +105,10 @@
         "name": "Frightened",
         "hint": "Automates all aspects of the frightened condition as per the Draw Steel rules."
       },
+      "frightenedEffectIcon": {
+        "name": "Frightened Effect Icon",
+        "hint": "Icon used for the Frightened active effect applied by DSCT."
+      },
       "appliedEffectEnabled": {
         "name": "Applied Effect Retargeting",
         "hint": "Makes it so applied effect buttons on ability messages apply to Targeted token instead of selected token, and allows players to apply effects to unowned tokens if Director is online."
@@ -108,6 +120,10 @@
       "tauntedEnabled": {
         "name": "Taunted",
         "hint": "Automates all aspects of the taunted condition as per the Draw Steel rules."
+      },
+      "tauntedEffectIcon": {
+        "name": "Taunted Effect Icon",
+        "hint": "Icon used for the Taunted active effect applied by DSCT."
       },
       "conditionsSettings": {
         "name": "Conditions & Damage",
@@ -125,6 +141,10 @@
       "bleedingEnabled": {
         "name": "Bleeding",
         "hint": "Automates all aspects of the bleeding condition as per the Draw Steel rules."
+      },
+      "bleedingEffectIcon": {
+        "name": "Bleeding Effect Icon",
+        "hint": "Icon used for the Bleeding active effect applied by DSCT."
       },
       "bleedingMode": {
         "name": "Bleeding Automation Mode",
@@ -252,6 +272,10 @@
         "name": "Judgement",
         "hint": "Adds an action button to the Judgement chat card to mark the target, then tracks the judged creature and posts chat reminders for each trigger and a prompt to reapply Judgement as a free triggered action when the judged is defeated."
       },
+      "judgedEffectIcon": {
+        "name": "Judged Effect Icon",
+        "hint": "Icon used for the Judged active effect applied by DSCT."
+      },
       "judgementBaneLock": {
         "name": "Lock Ability Roll UI on Judgement Bane Trigger",
         "hint": "When a judged creature makes a power roll, the Ability Roll UI is disabled briefly so the Censor has time to impose the bane or decline."
@@ -264,13 +288,25 @@
         "name": "Mark",
         "hint": "Adds an Apply Mark button to the chat cards of all Mark-applying abilities, then posts a prompt to reapply Mark as a free triggered action when the marked target is defeated. Keeps track of marks which override when reapplied and those that don't."
       },
+      "markedEffectIcon": {
+        "name": "Marked Effect Icon",
+        "hint": "Icon used for the Mark active effect applied by DSCT."
+      },
       "aidAttackAutomation": {
         "name": "Aid Attack",
         "hint": "Adds an Aid Attack button to the Aid Attack chat card which applies and sets a hook to remove the effect."
       },
+      "aidAttackEffectIcon": {
+        "name": "Aid Attack Effect Icon",
+        "hint": "Icon used for the Aid Attack active effect applied by DSCT."
+      },
       "imNoThreatEnabled": {
         "name": "I'm No Threat",
         "hint": "Adds an I'm No Threat button to the I'm No Threat chat card. The buttons open a UI that allows picking a visual for the illusion, adds the active effect, and removes it when a power roll is made."
+      },
+      "imNoThreatEffectIcon": {
+        "name": "I'm No Threat Effect Icon",
+        "hint": "Icon used for the I'm No Threat active effects applied by DSCT."
       },
       "abyssalEvolutionEnabled": {
         "name": "Enable Abyssal Evolution Button",

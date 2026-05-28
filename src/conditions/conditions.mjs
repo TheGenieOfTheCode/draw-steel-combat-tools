@@ -15,7 +15,7 @@ const FRIGHTENED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, sou
   const end = resolveEffectEnd(endStr);
   return {
   name: `Frightened [${sourceName}]`,
-  img: 'icons/svg/terror.svg',
+  img: getSetting('frightenedEffectIcon') || 'icons/svg/terror.svg',
   type: 'base',
   system: { ...(end?.systemEnd ? { end: end.systemEnd } : {}), source: sourceActorUuid ?? '' },
   duration: end?.duration ?? {},
@@ -29,7 +29,7 @@ const TAUNTED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, source
   const end = resolveEffectEnd(endStr);
   return {
   name: `Taunted [${sourceName}]`,
-  img: 'systems/draw-steel/assets/icons/flag-banner-fold-fill.svg',
+  img: getSetting('tauntedEffectIcon') || 'systems/draw-steel/assets/icons/flag-banner-fold-fill.svg',
   type: 'base',
   system: { ...(end?.systemEnd ? { end: end.systemEnd } : {}), source: sourceActorUuid ?? '' },
   duration: end?.duration ?? {},

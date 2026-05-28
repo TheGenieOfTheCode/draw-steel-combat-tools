@@ -155,6 +155,14 @@ export const registerSettings = () => {
     name: L('grabEnabled.name'), hint: L('grabEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'grabbedEffectIcon', {
+    name: L('grabbedEffectIcon.name'), hint: L('grabbedEffectIcon.hint'),
+    scope: 'world', config: false, type: String, default: 'icons/skills/melee/unarmed-punch-fist-yellow-red.webp',
+  });
+  game.settings.register(M, 'grabberEffectIcon', {
+    name: L('grabberEffectIcon.name'), hint: L('grabberEffectIcon.hint'),
+    scope: 'world', config: false, type: String, default: 'icons/magic/control/debuff-chains-shackle-movement-red.webp',
+  });
   game.settings.register(M, 'gmBypassesSizeCheck', {
     name: L('gmBypassesSizeCheck.name'), hint: L('gmBypassesSizeCheck.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
@@ -172,13 +180,25 @@ export const registerSettings = () => {
     name: L('frightenedEnabled.name'), hint: L('frightenedEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'frightenedEffectIcon', {
+    name: L('frightenedEffectIcon.name'), hint: L('frightenedEffectIcon.hint'),
+    scope: 'world', config: false, type: String, default: 'icons/svg/terror.svg',
+  });
   game.settings.register(M, 'tauntedEnabled', {
     name: L('tauntedEnabled.name'), hint: L('tauntedEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'tauntedEffectIcon', {
+    name: L('tauntedEffectIcon.name'), hint: L('tauntedEffectIcon.hint'),
+    scope: 'world', config: false, type: String, default: 'systems/draw-steel/assets/icons/flag-banner-fold-fill.svg',
+  });
   game.settings.register(M, 'bleedingEnabled', {
     name: L('bleedingEnabled.name'), hint: L('bleedingEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'bleedingEffectIcon', {
+    name: L('bleedingEffectIcon.name'), hint: L('bleedingEffectIcon.hint'),
+    scope: 'world', config: false, type: String, default: 'icons/svg/blood.svg',
   });
   game.settings.register(M, 'bleedingMode', {
     name: L('bleedingMode.name'), hint: L('bleedingMode.hint'),
@@ -349,6 +369,10 @@ export const registerSettings = () => {
     name: L('judgementAutomation.name'), hint: L('judgementAutomation.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'judgedEffectIcon', {
+    name: L('judgedEffectIcon.name'), hint: L('judgedEffectIcon.hint'),
+    scope: 'world', config: false, type: String, default: 'icons/magic/death/skull-humanoid-white-red.webp',
+  });
   game.settings.register(M, 'judgementBaneLock', {
     name: L('judgementBaneLock.name'), hint: L('judgementBaneLock.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
@@ -361,13 +385,25 @@ export const registerSettings = () => {
     name: L('markAutomation.name'), hint: L('markAutomation.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'markedEffectIcon', {
+    name: L('markedEffectIcon.name'), hint: L('markedEffectIcon.hint'),
+    scope: 'world', config: false, type: String, default: 'icons/skills/targeting/crosshair-pointed-orange.webp',
+  });
   game.settings.register(M, 'aidAttackAutomation', {
     name: L('aidAttackAutomation.name'), hint: L('aidAttackAutomation.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'aidAttackEffectIcon', {
+    name: L('aidAttackEffectIcon.name'), hint: L('aidAttackEffectIcon.hint'),
+    scope: 'world', config: false, type: String, default: 'icons/skills/social/diplomacy-handshake-blue.webp',
+  });
   game.settings.register(M, 'imNoThreatEnabled', {
     name: L('imNoThreatEnabled.name'), hint: L('imNoThreatEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'imNoThreatEffectIcon', {
+    name: L('imNoThreatEffectIcon.name'), hint: L('imNoThreatEffectIcon.hint'),
+    scope: 'world', config: false, type: String, default: 'icons/creatures/mammals/humanoid-fox-cat-archer.webp',
   });
   game.settings.register(M, 'abyssalEvolutionEnabled', {
     name: L('abyssalEvolutionEnabled.name'), hint: L('abyssalEvolutionEnabled.hint'),
