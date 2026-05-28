@@ -603,6 +603,6 @@ export class SquadLabelsSettingsMenu extends SettingsSubmenu {
   static get enableKey()   { return 'autoSquadLabelsEnabled'; }
 
   static get regularKeys() {
-    return ['autoSquadLabelsEnabled', 'squadLabelAutoRelabel', 'squadLabelCaptainNow'];
+    return ['autoSquadLabelsEnabled', 'squadLabelAutoRelabel', 'squadLabelCaptainNow', 'squadCaptainShortcut'];
   }
 }

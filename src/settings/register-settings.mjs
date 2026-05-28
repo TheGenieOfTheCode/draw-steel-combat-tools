@@ -292,6 +292,10 @@ export const registerSettings = () => {
     name: L('squadLabelCaptainNow.name'), hint: L('squadLabelCaptainNow.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'squadCaptainShortcut', {
+    name: L('squadCaptainShortcut.name'), hint: L('squadCaptainShortcut.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
 
   game.settings.registerMenu(M, 'triggeredActionsSettings', {
     name: L('triggeredActionsSettings.name'), label: L('triggeredActionsSettings.label'),

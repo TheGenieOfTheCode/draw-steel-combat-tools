@@ -8,6 +8,7 @@ import {
 
 const M = 'draw-steel-combat-tools';
 
+
 const _dsctPreTargeted = new Set();
 
 const _cross = (ox, oy, px, py, qx, qy) => (px - ox) * (qy - oy) - (py - oy) * (qx - ox);
@@ -26,10 +27,12 @@ const _sightBlockedPoints = (from, to) => {
   return false;
 };
 
+
 const _CELL_SAMPLES = [
   [0.5, 0.5],
   [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9],
 ];
+
 
 const _hasAnySightTo = (casterToken, targetToken) => {
   const GS   = canvas.grid.size;
@@ -51,6 +54,8 @@ const _hasAnySightTo = (casterToken, targetToken) => {
 const _defeatedStatus = () => CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
 const _isDefeated     = (t) => t.actor?.statuses?.has(_defeatedStatus()) ?? false;
 const _hidingDefeated = () => (game.user.getFlag(M, 'hideDefeated') ?? false) === true;
+
+
 
 function _isPickerEligible(ability) {
   const target = ability.system?.target;
@@ -415,6 +420,95 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
     const onContextMenu = (e) => { e.preventDefault(); if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } };
 
     canvas.stage.on('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('contextmenu', onContextMenu);
+  });
+}
+
+const _cssHexToNum = (css) => parseInt(css.slice(1), 16);
+
+const _darkenHex = (hex) => {
+  const r = Math.round(((hex >> 16) & 0xff) * 0.6);
+  const g = Math.round(((hex >> 8)  & 0xff) * 0.6);
+  const b = Math.round( (hex        & 0xff) * 0.6);
+  return (r << 16) | (g << 8) | b;
+};
+
+const _brightenHex = (hex) => {
+  const r = Math.min(255, ((hex >> 16) & 0xff) + 60);
+  const g = Math.min(255, ((hex >> 8)  & 0xff) + 60);
+  const b = Math.min(255,  (hex        & 0xff) + 60);
+  return (r << 16) | (g << 8) | b;
+};
+
+
+export async function runColoredTokenPicker({ tokens, colorMap, hint }) {
+  if (!tokens.length) return null;
+
+  const hlName = 'dsct-colored-picker-hl';
+  if (canvas.interface.grid.highlightLayers[hlName]) canvas.interface.grid.destroyHighlightLayer(hlName);
+  canvas.interface.grid.addHighlightLayer(hlName);
+
+  const GS = canvas.grid.size;
+  const drawHighlights = (hoverId = null) => {
+    canvas.interface.grid.clearHighlightLayer(hlName);
+    for (const t of tokens) {
+      const base   = _cssHexToNum(colorMap.get(t.id) ?? '#4488ff');
+      const color  = t.id === hoverId ? _brightenHex(base) : base;
+      const border = _darkenHex(base);
+      const w = Math.max(1, Math.round(t.document.width));
+      const h = Math.max(1, Math.round(t.document.height));
+      for (let dx = 0; dx < w; dx++) {
+        for (let dy = 0; dy < h; dy++) {
+          canvas.interface.grid.highlightPosition(hlName, {
+            x: Math.floor(t.x / GS) * GS + dx * GS,
+            y: Math.floor(t.y / GS) * GS + dy * GS,
+            color, border,
+          });
+        }
+      }
+    }
+  };
+
+  drawHighlights();
+
+  return new Promise(resolve => {
+    const notif = ui.notifications.info(hint, { permanent: true });
+
+    const cleanup = () => {
+      ui.notifications.remove(notif);
+      canvas.interface.grid.destroyHighlightLayer(hlName);
+      canvas.stage.off('mousedown', onClick);
+      canvas.stage.off('mousemove', onMove);
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('contextmenu', onContextMenu);
+    };
+
+    let hoverId = null;
+
+    const onMove = (event) => {
+      const pos   = event.data.getLocalPosition(canvas.app.stage);
+      const newId = _hitToken(pos, tokens)?.id ?? null;
+      if (newId !== hoverId) { hoverId = newId; drawHighlights(hoverId); }
+    };
+
+    const onClick = (event) => {
+      if (event.data.originalEvent.button === 2) {
+        if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); }
+        return;
+      }
+      if (event.data.originalEvent.button !== 0) return;
+      const hit = _hitToken(event.data.getLocalPosition(canvas.app.stage), tokens);
+      if (!hit) return;
+      cleanup();
+      resolve(hit);
+    };
+
+    const onKey           = (e) => { if (e.key === 'Escape') { cleanup(); resolve(null); } };
+    const onContextMenu   = (e) => { e.preventDefault(); if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } };
+
+    canvas.stage.on('mousedown', onClick);
+    canvas.stage.on('mousemove', onMove);
     document.addEventListener('keydown', onKey);
     document.addEventListener('contextmenu', onContextMenu);
   });
