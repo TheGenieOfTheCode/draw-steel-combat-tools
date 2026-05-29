@@ -89,8 +89,8 @@ function _hudTargetPos(tokens) {
     sx += t.x + (t.document.width  ?? 1) * gs / 2;
     sy += t.y + (t.document.height ?? 1) * gs / 2;
   }
-  const hx = Math.round(sx / tokens.length - HUD_W / 2);
-  let   hy = Math.round(sy / tokens.length - HUD_H / 2);
+  let hx = Math.round(sx / tokens.length - HUD_W / 2);
+  let hy = Math.round(sy / tokens.length - HUD_H / 2);
 
   for (let pass = 0; pass < 2; pass++) {
     for (const t of tokens) {
