@@ -2525,8 +2525,25 @@ export const runPowerWordKillUI = async (options = {}) => {
   canvas.controls.addChild(xContainer);
   window._dsctPwkXContainer = xContainer;
 
+  const hoverContainer = new PIXI.Container();
+  canvas.controls.addChild(hoverContainer);
+
+  let _pwkT = 0;
+  const _pwkTicker = () => {
+    _pwkT += canvas.app.ticker.elapsedMS;
+    const _pwkDur = 2000, _pwkPause = _pwkDur * 0.6;
+    const _pwkCycle = _pwkT % _pwkDur;
+    const _pwkAlpha = _pwkCycle < _pwkPause
+      ? 0.4
+      : 0.4 + 0.15 * Math.sin(((_pwkCycle - _pwkPause) / (_pwkDur - _pwkPause)) * Math.PI);
+    xContainer.alpha = _pwkAlpha;
+    hoverContainer.alpha = _pwkAlpha * 0.45;
+  };
+  canvas.app.ticker.add(_pwkTicker);
+
   const lockedTokens = new Set();
   const selectedTokens = new Set();
+  let hoveredNpcId = null;
 
   if (getSetting('debugMode')) console.log(`DSCT | DT | PWK start: autoAssign=${autoAssign} maxTargets=${maxTargets} damagedTokenIds=[${damagedTokenIds.join(',')}] npcs=[${npcs.map(t=>t.id).join(',')}]`);
   if (autoAssign && damagedTokenIds.length > 0) {
@@ -2534,8 +2551,11 @@ export const runPowerWordKillUI = async (options = {}) => {
     if (getSetting('debugMode')) console.log(`DSCT | DT | PWK autoAssign: eligibleDamaged=[${eligibleDamaged.join(',')}] maxTargets=${maxTargets} willAutoKill=${eligibleDamaged.length === maxTargets}`);
     if (eligibleDamaged.length === maxTargets) {
       window._pwkActive = false;
+      canvas.app.ticker.remove(_pwkTicker);
       xContainer.parent?.removeChild(xContainer);
       xContainer.destroy({ children: true });
+      hoverContainer.parent?.removeChild(hoverContainer);
+      hoverContainer.destroy({ children: true });
       canvas.interface.grid.destroyHighlightLayer(hlName);
 
       if (squadGroup) {
@@ -2585,48 +2605,61 @@ export const runPowerWordKillUI = async (options = {}) => {
     }
   }
 
+  const _drawXSprite = (token, container) => {
+    const tw  = Math.ceil(token.document.width  * canvas.grid.size);
+    const th  = Math.ceil(token.document.height * canvas.grid.size);
+    const pad = Math.max(6, tw * 0.08);
+    const lw  = Math.max(16, tw * 0.22);
+    const olw = Math.round(lw * 1.5);
+    const gfx = new PIXI.Graphics();
+    gfx.lineStyle(olw, 0x000000, 1);
+    gfx.moveTo(pad,      pad); gfx.lineTo(tw - pad, th - pad);
+    gfx.moveTo(tw - pad, pad); gfx.lineTo(pad,      th - pad);
+    gfx.lineStyle(lw, 0xFF0000, 1);
+    gfx.moveTo(pad,      pad); gfx.lineTo(tw - pad, th - pad);
+    gfx.moveTo(tw - pad, pad); gfx.lineTo(pad,      th - pad);
+    const rt = PIXI.RenderTexture.create({ width: tw, height: th });
+    canvas.app.renderer.render(gfx, { renderTexture: rt, clear: true });
+    gfx.destroy();
+    const sprite = new PIXI.Sprite(rt);
+    sprite.x = token.x;
+    sprite.y = token.y;
+    container.addChild(sprite);
+  };
+
   const drawXMarks = () => {
     for (const child of xContainer.removeChildren()) child.destroy({ texture: true, baseTexture: true });
     for (const npc of npcs) {
       if (!selectedTokens.has(npc.id)) continue;
-      const tw  = Math.ceil(npc.document.width  * canvas.grid.size);
-      const th  = Math.ceil(npc.document.height * canvas.grid.size);
-      const pad = Math.max(6, tw * 0.08);
-      const lw  = Math.max(16, tw * 0.22);
-      const olw = Math.round(lw * 1.5);
-      const gfx = new PIXI.Graphics();
-      gfx.lineStyle(olw, 0x000000, 1);
-      gfx.moveTo(pad,      pad); gfx.lineTo(tw - pad, th - pad);
-      gfx.moveTo(tw - pad, pad); gfx.lineTo(pad,      th - pad);
-      gfx.lineStyle(lw, 0xFF0000, 1);
-      gfx.moveTo(pad,      pad); gfx.lineTo(tw - pad, th - pad);
-      gfx.moveTo(tw - pad, pad); gfx.lineTo(pad,      th - pad);
-      const rt = PIXI.RenderTexture.create({ width: tw, height: th });
-      canvas.app.renderer.render(gfx, { renderTexture: rt, clear: true });
-      gfx.destroy();
-      const sprite = new PIXI.Sprite(rt);
-      sprite.x = npc.x;
-      sprite.y = npc.y;
-      sprite.alpha = 0.5;
-      xContainer.addChild(sprite);
+      _drawXSprite(npc, xContainer);
     }
+  };
+
+  const drawHoverX = (token) => {
+    for (const child of hoverContainer.removeChildren()) child.destroy({ texture: true, baseTexture: true });
+    if (token) _drawXSprite(token, hoverContainer);
   };
 
   const drawHighlights = () => {
     canvas.interface.grid.clearHighlightLayer(hlName);
     for (const npc of npcs) {
       if (selectedTokens.has(npc.id)) continue;
+      const isHovered = npc.id === hoveredNpcId;
+      const color  = isHovered ? 0xFFCC44 : 0xFF8800;
+      const border = isHovered ? 0xCC8800 : 0xAA4400;
       const w = Math.max(1, Math.round(npc.document.width));
       const h = Math.max(1, Math.round(npc.document.height));
       for (let dx = 0; dx < w; dx++) {
         for (let dy = 0; dy < h; dy++) {
           const gx = Math.floor(npc.x / canvas.grid.size) * canvas.grid.size + (dx * canvas.grid.size);
           const gy = Math.floor(npc.y / canvas.grid.size) * canvas.grid.size + (dy * canvas.grid.size);
-          canvas.interface.grid.highlightPosition(hlName, { x: gx, y: gy, color: 0xFF8800, border: 0xAA4400 });
+          canvas.interface.grid.highlightPosition(hlName, { x: gx, y: gy, color, border });
         }
       }
     }
     drawXMarks();
+    const hoveredToken = npcs.find(t => t.id === hoveredNpcId);
+    drawHoverX(hoveredToken && !selectedTokens.has(hoveredToken.id) ? hoveredToken : null);
   };
 
   drawHighlights();
@@ -2637,11 +2670,15 @@ export const runPowerWordKillUI = async (options = {}) => {
     window._pwkActive = false;
     ui.notifications.remove(pwkNotif);
     window._dsctPwkNotif = null;
+    canvas.app.ticker.remove(_pwkTicker);
     canvas.interface.grid.destroyHighlightLayer(hlName);
     xContainer.parent?.removeChild(xContainer);
     xContainer.destroy({ children: true });
     window._dsctPwkXContainer = null;
+    hoverContainer.parent?.removeChild(hoverContainer);
+    hoverContainer.destroy({ children: true });
     canvas.stage.off('mousedown', onClick);
+    canvas.stage.off('mousemove', onMove);
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('contextmenu', onContextMenu);
   };
@@ -2738,7 +2775,21 @@ export const runPowerWordKillUI = async (options = {}) => {
     }
   };
 
+  const onMove = (event) => {
+    const pos = event.data.getLocalPosition(canvas.app.stage);
+    const hit = npcs.find(t => {
+      const w = t.document.width * canvas.grid.size;
+      const h = t.document.height * canvas.grid.size;
+      return pos.x >= t.x && pos.x <= t.x + w && pos.y >= t.y && pos.y <= t.y + h;
+    });
+    const newId = hit?.id ?? null;
+    if (newId === hoveredNpcId) return;
+    hoveredNpcId = newId;
+    drawHighlights();
+  };
+
   canvas.stage.on('mousedown', onClick);
+  canvas.stage.on('mousemove', onMove);
   document.addEventListener('keydown', onKey);
   document.addEventListener('contextmenu', onContextMenu);
 };

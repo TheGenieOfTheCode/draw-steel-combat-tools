@@ -137,14 +137,21 @@ async function _runTargetPicker(ability, casterToken) {
 
   const isAllyToken = (t) => isStrike && t.document.disposition === cDisp;
 
+  let hoveredId = null;
+
   const drawHighlights = () => {
     canvas.interface.grid.clearHighlightLayer(hlName);
     for (const t of validTokens) {
       const sel   = selectedTokens.has(t.id);
       const ally  = isAllyToken(t);
+      const hover = t.id === hoveredId && !sel;
       
-      const color  = sel ? (ally ? 0xFF4400 : 0x44CC44) : (ally ? 0xFF8800 : 0x4488FF);
-      const border = sel ? (ally ? 0xAA2200 : 0x228822) : (ally ? 0xAA4400 : 0x2244AA);
+      const color  = sel   ? (ally ? 0xFF4400 : 0x44CC44)
+                   : hover ? (ally ? 0xFFAA44 : 0x66AAFF)
+                   :          (ally ? 0xFF8800 : 0x4488FF);
+      const border = sel   ? (ally ? 0xAA2200 : 0x228822)
+                   : hover ? (ally ? 0xCC6622 : 0x4477CC)
+                   :          (ally ? 0xAA4400 : 0x2244AA);
       const w = Math.max(1, Math.round(t.document.width));
       const h = Math.max(1, Math.round(t.document.height));
       for (let dx = 0; dx < w; dx++) {
@@ -168,7 +175,9 @@ async function _runTargetPicker(ability, casterToken) {
     const cleanup = () => {
       ui.notifications.remove(notif);
       canvas.interface.grid.destroyHighlightLayer(hlName);
+      _clearPickerReticles();
       canvas.stage.off('mousedown', onClick);
+      canvas.stage.off('mousemove', onMove);
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('contextmenu', onContextMenu);
       if (needsReveal) { setRaisedDeadVisible(false); activateTokenLayer(); }
@@ -197,6 +206,16 @@ async function _runTargetPicker(ability, casterToken) {
       resolve(selected);
     };
 
+    const onMove = (event) => {
+      const pos = event.data.getLocalPosition(canvas.app.stage);
+      const hit = _hitToken(pos, validTokens);
+      const newId = hit?.id ?? null;
+      if (newId === hoveredId) return;
+      hoveredId = newId;
+      drawHighlights();
+      _syncReticles(validTokens, selectedTokens, hoveredId);
+    };
+
     const onClick = (event) => {
       if (event.data.originalEvent.button === 2) {
         if (getSetting('cancelOnRightClick')) {
@@ -209,11 +228,7 @@ async function _runTargetPicker(ability, casterToken) {
       if (event.data.originalEvent.button !== 0) return;
 
       const pos     = event.data.getLocalPosition(canvas.app.stage);
-      const clicked = validTokens.find(t => {
-        const tw = t.document.width  * canvas.grid.size;
-        const th = t.document.height * canvas.grid.size;
-        return pos.x >= t.x && pos.x <= t.x + tw && pos.y >= t.y && pos.y <= t.y + th;
-      });
+      const clicked = _hitToken(pos, validTokens);
       if (!clicked) {
         const now = Date.now();
         if (now - (onClick._lastEmptyClick ?? 0) < 400) { onClick._lastEmptyClick = 0; doConfirm(); }
@@ -234,6 +249,7 @@ async function _runTargetPicker(ability, casterToken) {
         selectedTokens.add(clicked.id);
       }
       drawHighlights();
+      _syncReticles(validTokens, selectedTokens, hoveredId);
       if (getSetting('autoConfirmSelection') && selectedTokens.size >= maxTargets) doConfirm();
     };
 
@@ -262,6 +278,7 @@ async function _runTargetPicker(ability, casterToken) {
     };
 
     canvas.stage.on('mousedown', onClick);
+    canvas.stage.on('mousemove', onMove);
     document.addEventListener('keydown', onKey);
     document.addEventListener('contextmenu', onContextMenu);
   });
@@ -323,6 +340,7 @@ export async function runSourcePicker() {
     const cleanup = () => {
       ui.notifications.remove(notif);
       canvas.interface.grid.destroyHighlightLayer(hlName);
+      _clearPickerReticles();
       canvas.stage.off('mousedown', onClick);
       canvas.stage.off('mousemove', onMove);
       document.removeEventListener('keydown', onKey);
@@ -332,8 +350,12 @@ export async function runSourcePicker() {
     const onMove = (event) => {
       const pos = event.data.getLocalPosition(canvas.app.stage);
       const hit = _hitToken(pos, candidates);
+      const newId = hit?.id ?? null;
+      const prevId = [...hoverIds][0] ?? null;
+      if (newId === prevId) return;
       hoverIds.clear();
-      if (hit) hoverIds.add(hit.id);
+      if (hit) { hoverIds.add(hit.id); _addPickerReticle(hit); }
+      if (prevId && prevId !== newId) _removePickerReticle(canvas.tokens.get(prevId));
       _drawTokenHighlights(hlName, candidates, new Set(), hoverIds);
     };
 
@@ -371,6 +393,7 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
   canvas.interface.grid.addHighlightLayer(hlName);
 
   const selectedIds = new Set();
+  let hoveredId = null;
   _drawTokenHighlights(hlName, tokens, selectedIds);
 
   return new Promise(resolve => {
@@ -381,12 +404,24 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
     const cleanup = () => {
       ui.notifications.remove(notif);
       canvas.interface.grid.destroyHighlightLayer(hlName);
+      _clearPickerReticles();
       canvas.stage.off('mousedown', onClick);
+      canvas.stage.off('mousemove', onMove);
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('contextmenu', onContextMenu);
     };
 
     const doConfirm = () => { cleanup(); resolve(tokens.filter(t => selectedIds.has(t.id))); };
+
+    const onMove = (event) => {
+      const pos = event.data.getLocalPosition(canvas.app.stage);
+      const hit = _hitToken(pos, tokens);
+      const newId = hit?.id ?? null;
+      if (newId === hoveredId) return;
+      hoveredId = newId;
+      _drawTokenHighlights(hlName, tokens, selectedIds, hoveredId ? new Set([hoveredId]) : new Set());
+      _syncReticles(tokens, selectedIds, hoveredId);
+    };
 
     const onClick = (event) => {
       if (event.data.originalEvent.button === 2) {
@@ -403,7 +438,8 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
         if (selectedIds.size >= maxTargets) selectedIds.clear();
         selectedIds.add(hit.id);
       }
-      _drawTokenHighlights(hlName, tokens, selectedIds);
+      _drawTokenHighlights(hlName, tokens, selectedIds, hoveredId ? new Set([hoveredId]) : new Set());
+      _syncReticles(tokens, selectedIds, hoveredId);
       if (selectedIds.size >= maxTargets) doConfirm();
     };
 
@@ -420,10 +456,79 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
     const onContextMenu = (e) => { e.preventDefault(); if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } };
 
     canvas.stage.on('mousedown', onClick);
+    canvas.stage.on('mousemove', onMove);
     document.addEventListener('keydown', onKey);
     document.addEventListener('contextmenu', onContextMenu);
   });
 }
+
+
+
+const _pickerReticles = new Map(); 
+let   _pickerTickerFn = null;
+let   _pickerTime     = 0;
+
+function _addPickerReticle(token, color) {
+  color ??= token._getBorderColor();
+  const existing = _pickerReticles.get(token.id);
+  if (existing) { existing.color = color; return; }
+  const was = token.targeted.has(game.user);
+  if (!was) token.targeted.add(game.user);
+  _pickerReticles.set(token.id, { token, color, was });
+  if (!_pickerTickerFn) {
+    _pickerTime     = 0;
+    _pickerTickerFn = () => {
+      _pickerTime += canvas.app.ticker.elapsedMS;
+      const duration = 2000, pause = duration * 0.6, fade = (duration - pause) * 0.25;
+      const t  = _pickerTime % duration;
+      let   dt = Math.max(0, t - pause) / (duration - pause);
+      dt = CanvasAnimation.easeOutCircle(dt);
+      const m  = t < pause ? 0.5 : 0.5 + 0.5 * dt;
+      const ta = Math.max(0, t - duration + fade);
+      const a  = 1 - ta / fade;
+      const bw = 2 * canvas.dimensions.uiScale;
+      for (const [, e] of _pickerReticles)
+        e.token._drawTargetArrows({ margin: m, alpha: a, color: e.color, border: { width: bw } });
+    };
+    canvas.app.ticker.add(_pickerTickerFn);
+  }
+}
+
+function _removePickerReticle(token) {
+  const entry = _pickerReticles.get(token.id);
+  if (!entry) return;
+  _pickerReticles.delete(token.id);
+  if (!entry.was) {
+    token.targeted.delete(game.user);
+    token.targetArrows.clear();
+  } else {
+    token._drawTargetArrows();
+  }
+  if (_pickerReticles.size === 0 && _pickerTickerFn) {
+    canvas.app.ticker.remove(_pickerTickerFn);
+    _pickerTickerFn = null;
+  }
+}
+
+function _clearPickerReticles() {
+  for (const [, { token, was }] of _pickerReticles) {
+    if (!was) { token.targeted.delete(game.user); token.targetArrows.clear(); }
+    else token._drawTargetArrows();
+  }
+  _pickerReticles.clear();
+  if (_pickerTickerFn) { canvas.app.ticker.remove(_pickerTickerFn); _pickerTickerFn = null; }
+}
+
+
+function _syncReticles(tokens, selectedIds, hoveredId, colorFn = (t) => t._getBorderColor()) {
+  for (const t of tokens) {
+    const show = selectedIds.has(t.id) || t.id === hoveredId;
+    if (show)  _addPickerReticle(t, colorFn(t));
+    else       _removePickerReticle(t);
+  }
+}
+
+
 
 const _cssHexToNum = (css) => parseInt(css.slice(1), 16);
 
@@ -478,6 +583,7 @@ export async function runColoredTokenPicker({ tokens, colorMap, hint }) {
     const cleanup = () => {
       ui.notifications.remove(notif);
       canvas.interface.grid.destroyHighlightLayer(hlName);
+      _clearPickerReticles();
       canvas.stage.off('mousedown', onClick);
       canvas.stage.off('mousemove', onMove);
       document.removeEventListener('keydown', onKey);
@@ -487,9 +593,14 @@ export async function runColoredTokenPicker({ tokens, colorMap, hint }) {
     let hoverId = null;
 
     const onMove = (event) => {
-      const pos   = event.data.getLocalPosition(canvas.app.stage);
-      const newId = _hitToken(pos, tokens)?.id ?? null;
-      if (newId !== hoverId) { hoverId = newId; drawHighlights(hoverId); }
+      const pos    = event.data.getLocalPosition(canvas.app.stage);
+      const hit    = _hitToken(pos, tokens);
+      const newId  = hit?.id ?? null;
+      if (newId === hoverId) return;
+      if (hoverId) _removePickerReticle(canvas.tokens.get(hoverId));
+      hoverId = newId;
+      if (hit) _addPickerReticle(hit, _cssHexToNum(colorMap.get(hit.id) ?? '#ffffff'));
+      drawHighlights(hoverId);
     };
 
     const onClick = (event) => {
