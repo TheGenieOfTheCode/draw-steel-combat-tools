@@ -6,6 +6,7 @@ import { applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, 
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken } from './death-tracker/death-tracker.mjs';
 import { applySquadLabels, autoRenameGroups, registerSquadLabelHooks } from './squad-labels.mjs';
+import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
 import { installMacros, distributeAbilities } from './setup-macros.mjs';
@@ -62,6 +63,7 @@ const api = {
   damageConditionsUI:   toggleDamageConditionsPanel,
   cleanupPixi:          cleanupPixi,
   setRollDialogLock:         setBaneDialogLockWithOverlay,
+  getStickBugged:   getStickBugged,
   isFMActive:       () => !!window._dsctFMActive,
   socket:           null,
 };
@@ -81,6 +83,7 @@ Hooks.once('init', () => {
   registerTacticalHooks();
   registerDeathTrackerHooks();
   registerSquadLabelHooks();
+  registerSquadHudHooks();
   registerTriggeredActionHooks();
   registerModuleButtons();
   registerForcedMovementHooks();

@@ -316,6 +316,18 @@ export const registerSettings = () => {
     name: L('squadCaptainShortcut.name'), hint: L('squadCaptainShortcut.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'squadHudEnabled', {
+    name: L('squadHudEnabled.name'), hint: L('squadHudEnabled.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'stickbugMode', {
+    name: L('stickbugMode.name'), hint: L('stickbugMode.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'stickbugChatTrigger', {
+    name: L('stickbugChatTrigger.name'), hint: L('stickbugChatTrigger.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
 
   game.settings.registerMenu(M, 'triggeredActionsSettings', {
     name: L('triggeredActionsSettings.name'), label: L('triggeredActionsSettings.label'),

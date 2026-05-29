@@ -233,6 +233,18 @@
         "name": "Captain Shortcut Assignment",
         "hint": "When enabled and the number of available captain candidates exactly matches the number of squads needing a captain, automatically assign each candidate to a squad without opening the picker."
       },
+      "squadHudEnabled": {
+        "name": "Floating Squad HUD",
+        "hint": "Replaces individual minion token health bars with a shared floating bar for each squad. The bar shows the squad name, a segmented fill per minion, and live HP numbers. Hovering any minion or the bar fades in lines linking the bar to each squad member."
+      },
+      "stickbugMode": {
+        "name": "Get Stick Bugged",
+        "hint": "Teaches the squad health bars a new skill."
+      },
+      "stickbugChatTrigger": {
+        "name": "Chat Trigger: Get Stick Bugged",
+        "hint": "Does something when you get stick bugged in chat."
+      },
       "autoTriggeredActionsEnabled": {
         "name": "Triggered Action Tracker",
         "hint": "Automatically place the Unspent Triggered Action effect on set combatants when combat starts, which then gets removed upon using a Triggered Action ability and is refreshed at round start."
