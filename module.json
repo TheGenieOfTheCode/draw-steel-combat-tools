@@ -2,13 +2,13 @@
   "id": "draw-steel-combat-tools",
   "title": "Draw Steel: Combat Tools",
   "description": "<p>Bringing the rules of Draw Steel to Foundry, one ability at a time.</p><p>Draw Steel: Combat Tools automates the combat mechanics of Draw Steel, including Forced Movement with full collision detection, Conditions (Frightened, Taunted, Bleeding, and more), Grab, Teleportation, NPC Death tracking, and class-specific ability automations. Each feature can be individually toggled in the settings, so you can use as much or as little of the module as fits your table.</p>",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "socket": true,
   "compatibility": { "minimum": "14", "verified": "14" },
   "authors": [{ "name": "Ady", "discord": "AdyGenie" }],
   "url": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools",
   "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest/download/module.json",
-  "download": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.1.2/draw-steel-combat-tools.zip",
+  "download": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v1.1.3/draw-steel-combat-tools.zip",
   "relationships": {
     "systems": [{ "id": "draw-steel", "type": "system", "compatibility": {} }],
     "requires": [

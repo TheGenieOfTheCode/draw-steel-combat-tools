@@ -1,5 +1,5 @@
-2026/05/28-20:26:40.221 b318 Delete type=3 #1
-2026/05/28-20:26:40.224 9378 Level-0 table #5: started
-2026/05/28-20:26:40.226 9378 Level-0 table #5: 13506 bytes OK
-2026/05/28-20:26:40.227 9378 Delete type=0 #3
-2026/05/28-20:26:40.227 9378 Manual compaction at level-0 from '!folders!DSCTfoldAA000001' @ 72057594037927935 : 1 .. '!macros!DSCTtrigAction01' @ 0 : 0; will stop at (end)
+2026/05/30-14:11:17.651 a808 Delete type=3 #1
+2026/05/30-14:11:17.654 2bf0 Level-0 table #5: started
+2026/05/30-14:11:17.656 2bf0 Level-0 table #5: 13506 bytes OK
+2026/05/30-14:11:17.657 2bf0 Delete type=0 #3
+2026/05/30-14:11:17.657 2bf0 Manual compaction at level-0 from '!folders!DSCTfoldAA000001' @ 72057594037927935 : 1 .. '!macros!DSCTtrigAction01' @ 0 : 0; will stop at (end)
