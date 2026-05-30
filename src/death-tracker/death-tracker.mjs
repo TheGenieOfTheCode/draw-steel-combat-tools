@@ -1267,6 +1267,17 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
   const xContainer = new PIXI.Container();
   canvas.controls.addChild(xContainer);
 
+  let _dpT = 0;
+  const _dpTicker = () => {
+    _dpT += canvas.app.ticker.elapsedMS;
+    const dur = 2000, pause = dur * 0.6;
+    const cycle = _dpT % dur;
+    xContainer.alpha = cycle < pause
+      ? 0.4
+      : 0.4 + 0.15 * Math.sin(((cycle - pause) / (dur - pause)) * Math.PI);
+  };
+  canvas.app.ticker.add(_dpTicker);
+
   const drawXMarks = () => {
     for (const child of xContainer.removeChildren()) child.destroy({ texture: true, baseTexture: true });
     for (const squad of squads) {
@@ -1338,6 +1349,7 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
   const finish = () => {
     clearTimeout(_staleCheckTimer);
     ui.notifications.remove(notif);
+    canvas.app.ticker.remove(_dpTicker);
     if (canvas.interface.grid.highlightLayers?.[hlName]) canvas.interface.grid.destroyHighlightLayer(hlName);
     xContainer.parent?.removeChild(xContainer);
     xContainer.destroy({ children: true });
