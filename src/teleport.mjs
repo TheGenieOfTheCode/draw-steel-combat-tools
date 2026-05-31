@@ -637,12 +637,45 @@ export const runBurstTeleport = async ({ sourceId, radius = 2, filter = 'all', e
 };
 
 export const registerTeleportHooks = () => {
+  const safeEval = (expr) => {
+    if (!/^[\d\s+\-*/().]+$/.test(expr)) return NaN;
+    try { return Function('"use strict"; return (' + expr + ')')(); } catch { return NaN; }
+  };
+
+  const resolveLabel = (tmpl, spent) => {
+    const s = tmpl.replace(/@spend/gi, String(spent));
+    return s.replace(/\d+(?:\s*[+\-*/]\s*(?:\([^)]*\)|\d+))+/g, sub => {
+      const val = safeEval(sub);
+      return Number.isFinite(val) ? String(Math.round(val)) : sub;
+    });
+  };
+
   CONFIG.TextEditor.enrichers.push({
     id:      'dsct.teleport',
     pattern: /\[\[\/teleport(?<args>[^\]]*?)?\]\](?:\{(?<label>[^}]+)\})?/gi,
     onRender: (element) => {
       const a = element.querySelector('a.roll-link');
       if (!a) return;
+
+      if (a.dataset.formula || a.dataset.labelTemplate) {
+        const msgEl = element.closest('[data-message-id]');
+        const msg   = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
+        const m     = msg?.flavor?.match(/^Spent (\d+)/i);
+        const spent = m ? parseInt(m[1]) : 0;
+        const base  = parseInt(a.dataset.dist);
+        if (a.dataset.formula) {
+          const val = safeEval(a.dataset.formula.replace(/@spend/gi, String(spent)));
+          if (Number.isFinite(val)) a.dataset.dist = String(Math.round(val));
+        }
+        const total = parseInt(a.dataset.dist);
+        if (a.dataset.labelTemplate) {
+          a.innerHTML = `<i class="fa-solid fa-person-through-window"></i> ${resolveLabel(a.dataset.labelTemplate, spent)}`;
+        } else if (total !== base) {
+          const name = a.dataset.fixedName ?? null;
+          a.innerHTML = `<i class="fa-solid fa-person-through-window"></i> Teleport ${name ? `${name} ` : ''}${total} square${total !== 1 ? 's' : ''}`;
+        }
+      }
+
       a.addEventListener('click', async (e) => {
         e.preventDefault();
         const saved  = game.user.getFlag('draw-steel-combat-tools', 'tpSettings') ?? { dist: 5, anim: true, color: '#a030ff', duration: 600 };
@@ -654,7 +687,12 @@ export const registerTeleportHooks = () => {
 
         let token;
         if (fSrcId) {
-          token = getTokenById(fSrcId);
+          if (fSrcId.startsWith('Actor.')) {
+            const actor = game.actors.get(fSrcId.replace('Actor.', ''));
+            token = actor?.getActiveTokens()?.[0] ?? null;
+          } else {
+            token = getTokenById(fSrcId);
+          }
           if (!token) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sourceNotFound')); return; }
         } else if (e.shiftKey) {
           const targets = [...game.user.targets];
@@ -669,16 +707,32 @@ export const registerTeleportHooks = () => {
         await executeTeleport(token, fDist, fAnim, fColor, fDur);
       });
     },
-    enricher: async (match) => {
+    enricher: async (match, options) => {
       const raw = (match.groups?.args ?? '').trim().split(/\s+/).filter(Boolean);
 
+      const CHAR_MAP = { '@r': 'reason', '@m': 'might', '@a': 'agility', '@i': 'intuition', '@p': 'presence', '@v': 'vitality' };
       let dist = null, animate = undefined, colorHex = undefined, duration = undefined, sourceId = undefined;
+      let distFormula = null;
+
       for (const val of raw) {
+        if (/@/.test(val)) { distFormula = val; continue; }
         if (val === 'true' || val === 'false') { animate = val === 'true'; continue; }
         if (val.startsWith('#'))               { colorHex = val;           continue; }
         const num = parseInt(val);
         if (!isNaN(num)) { if (dist === null) { dist = num; } else { duration = num; } continue; }
         sourceId = val;
+      }
+
+      const actor = options?.relativeTo?.actor ?? null;
+      let resolvedFormula = null;
+      if (distFormula) {
+        resolvedFormula = distFormula.replace(/@([rmaiPv])/gi, (_, ch) => {
+          const key     = CHAR_MAP['@' + ch.toLowerCase()];
+          const charVal = key ? (actor?.system?.characteristics?.[key]?.value ?? null) : null;
+          return charVal != null ? String(charVal) : `@${ch}`;
+        });
+        const evaluated = safeEval(resolvedFormula.replace(/@spend/gi, '0'));
+        if (Number.isFinite(evaluated)) dist = Math.round(evaluated);
       }
 
       if (!dist) {
@@ -687,8 +741,14 @@ export const registerTeleportHooks = () => {
         return span;
       }
 
-      const tokenDoc  = sourceId ? (canvas.scene?.tokens.get(sourceId) ?? null) : null;
-      const fixedName = tokenDoc?.name ?? null;
+      let fixedName = null;
+      if (sourceId) {
+        if (sourceId.startsWith('Actor.')) {
+          fixedName = game.actors.get(sourceId.replace('Actor.', ''))?.name ?? null;
+        } else {
+          fixedName = canvas.scene?.tokens.get(sourceId)?.name ?? null;
+        }
+      }
 
       const a = document.createElement('a');
       a.className = 'roll-link';
@@ -697,9 +757,21 @@ export const registerTeleportHooks = () => {
       if (colorHex !== undefined) a.dataset.color     = colorHex;
       if (duration !== undefined) a.dataset.duration  = duration;
       if (sourceId !== undefined) a.dataset.sourceId  = sourceId;
+      if (fixedName)              a.dataset.fixedName = fixedName;
+      if (resolvedFormula && /@spend/i.test(resolvedFormula)) a.dataset.formula = resolvedFormula;
 
       const customLabel = match.groups?.label?.trim() ?? null;
-      a.innerHTML = `<i class="fa-solid fa-person-through-window"></i> ${customLabel ?? `Teleport ${fixedName ? `${fixedName} ` : ''}${dist} square${dist !== 1 ? 's' : ''}`}`;
+      let labelTemplate = null;
+      if (customLabel) {
+        labelTemplate = customLabel.replace(/@([rmaiPv])/gi, (_, ch) => {
+          const key = CHAR_MAP['@' + ch.toLowerCase()];
+          const val = key ? (actor?.system?.characteristics?.[key]?.value ?? null) : null;
+          return val != null ? String(val) : `@${ch}`;
+        });
+        a.dataset.labelTemplate = labelTemplate;
+      }
+      const displayLabel = labelTemplate != null ? resolveLabel(labelTemplate, 0) : null;
+      a.innerHTML = `<i class="fa-solid fa-person-through-window"></i> ${displayLabel ?? `Teleport ${fixedName ? `${fixedName} ` : ''}${dist} square${dist !== 1 ? 's' : ''}`}`;
       if (!fixedName) a.title = game.i18n.localize('DSCT.panel.tp.enricherHint');
 
       return a;

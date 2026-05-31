@@ -107,6 +107,84 @@ Hooks.once('init', () => {
 });
 
 
+Hooks.once('setup', () => {
+  const CHAR_ROLLKEYS = { r: 'R', m: 'M', a: 'A', i: 'I', p: 'P', v: 'V' };
+
+  const patchDsEnricher = (id) => {
+    const idx = CONFIG.TextEditor.enrichers.findIndex(e => e.id === id);
+    if (idx === -1) return;
+    const cfg = CONFIG.TextEditor.enrichers[idx];
+    const origEnricher = cfg.enricher;
+    const origOnRender = cfg.onRender;
+
+    CONFIG.TextEditor.enrichers[idx] = {
+      ...cfg,
+      enricher: async function(match, options) {
+        const el = await origEnricher.call(this, match, options);
+        if (!el || !match.groups?.label) return el;
+        const rollData = options.rollData ?? options.relativeTo?.getRollData?.() ?? {};
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          if (!/@[rmaiPv]/i.test(node.textContent)) continue;
+          node.textContent = node.textContent.replace(/@([rmaiPv])/gi, (_, ch) => {
+            const key = CHAR_ROLLKEYS[ch.toLowerCase()];
+            return (key && rollData[key] != null) ? String(rollData[key]) : `@${ch}`;
+          });
+        }
+        return el;
+      },
+      onRender: async function(element) {
+        await origOnRender.call(this, element);
+        let spent = null;
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          if (!/@spend/i.test(node.textContent)) continue;
+          if (spent === null) {
+            const msgEl = element.closest('[data-message-id]');
+            const msg   = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
+            const m     = msg?.flavor?.match(/^Spent (\d+)/i);
+            spent = m ? parseInt(m[1]) : 0;
+          }
+          node.textContent = node.textContent
+            .replace(/@spend/gi, String(spent))
+            .replace(/(\d+)\s*\+\s*(\d+)/g, (_, a, b) => String(parseInt(a) + parseInt(b)));
+        }
+      },
+    };
+  };
+
+  ['ds.roll', 'ds.apply'].forEach(patchDsEnricher);
+
+  const lookupIdx = CONFIG.TextEditor.enrichers.findIndex(e => e.id === 'ds.lookup');
+  if (lookupIdx !== -1) {
+    const lCfg            = CONFIG.TextEditor.enrichers[lookupIdx];
+    const origLookup      = lCfg.enricher;
+    const origLookupRender = lCfg.onRender;
+    CONFIG.TextEditor.enrichers[lookupIdx] = {
+      ...lCfg,
+      enricher: async function(match, options) {
+        if (!/@spend/i.test(match.groups?.config ?? '')) return origLookup.call(this, match, options);
+        const span = document.createElement('span');
+        span.classList.add('lookup-value');
+        span.dataset.spendLookup = 'true';
+        span.innerText = match.groups?.label?.trim() ?? '0';
+        return span;
+      },
+      onRender: async function(element) {
+        await origLookupRender.call(this, element);
+        const span = element.querySelector('[data-spend-lookup]');
+        if (!span) return;
+        const msgEl = element.closest('[data-message-id]');
+        const msg   = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
+        const m     = msg?.flavor?.match(/^Spent (\d+)/i);
+        span.innerText = String(m ? parseInt(m[1]) : 0);
+      },
+    };
+  }
+});
+
 Hooks.once('ready', async () => {
   if (!game.user.isGM) return;
 
