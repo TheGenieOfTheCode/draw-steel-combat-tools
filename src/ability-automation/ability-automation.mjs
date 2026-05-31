@@ -410,7 +410,7 @@ export const registerAbilityInjectors = () => {
       }
     }
 
-    if (getSetting('markAutomation')) {
+    if (getSetting('markAutomation') && !game.modules.get('draw-steel-target-damage')?.active) {
       const reminder = msg.getFlag('draw-steel-combat-tools', 'markReminder');
       if (reminder && !msg.getFlag('draw-steel-combat-tools', 'markReminderUsed')) {
         const { dsid: rDsid, isMarkAbility, sourceActorId } = reminder;

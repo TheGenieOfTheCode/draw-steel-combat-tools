@@ -237,6 +237,10 @@
         "name": "Captain Shortcut Assignment",
         "hint": "When enabled and the number of available captain candidates exactly matches the number of squads needing a captain, automatically assign each candidate to a squad without opening the picker."
       },
+      "squadSimultaneousTurns": {
+        "name": "Simultaneous Squad Turns",
+        "hint": "When a squad group takes its turn, all minions in the squad activate simultaneously. Each member's initiative is decremented, start-of-turn effects fire for all of them, and the combat marker appears under every squad token."
+      },
       "squadHudEnabled": {
         "name": "Floating Squad HUD",
         "hint": "Replaces individual minion token health bars with a shared floating bar for each squad. The bar shows the squad name, a segmented fill per minion, and live HP numbers. Hovering any minion or the bar fades in lines linking the bar to each squad member."
@@ -917,7 +921,7 @@
         "judgementT3FiredTag": "Taunted reminder sent.",
         "judgementPotencyReminder": "<strong>Judgement:</strong> {name} used an ability with a potency that targets only one creature within 10 squares of {censorName}, which allows {censorName} to reduce its potency by 1 by spending 1 wrath.",
         "judgementPotencyUsed": "<strong>Judgement:</strong> {name} used an ability with a potency that targets only one creature within 10 squares of {censorName}, its potency is reduced by 1.",
-        "markFallen": "<strong>{name} has fallen!</strong> You may use a free triggered action to mark a new target within 10 squares.",
+        "markFallen": "<strong>{name} has fallen!</strong> You may use a free triggered action to mark a new target within 10 squares.<span class=\"dsct-hidden-enricher\">{enricher}</span>",
         "aidAttack": "<strong>Aid Attack:</strong> The next ally ability roll against <strong>{name}</strong> has an edge."
       },
       "grab": {

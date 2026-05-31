@@ -1719,3 +1719,7 @@ body.detached .chat-form {
   flex: 0 0 auto !important;
   width: 100% !important;
 }
+
+.dsct-hidden-enricher {
+  display: none;
+}

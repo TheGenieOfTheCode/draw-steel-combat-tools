@@ -99,6 +99,7 @@ export function registerDstdCompat() {
       
       const live = root.ownerDocument.querySelector(`li.chat-message[data-message-id="${msgId}"]`) ?? root;
       _injectFmButtons(message, live);
+      _injectMarkReminder(message, live);
     }, 0);
   });
 
@@ -398,6 +399,16 @@ function _getMessageTier(message) {
     if (tier >= 1 && tier <= 3) return tier;
   }
   return null;
+}
+
+
+function _injectMarkReminder(message, live) {
+  if (!message.getFlag(M, 'markReminder')) return;
+  const panel = live.querySelector(DSTD_PANEL);
+  if (!panel) return;
+  for (const row of panel.querySelectorAll(`.${DSTD}-status-row`)) {
+    row.style.display = 'none';
+  }
 }
 
 function _makeIcon(cls) {

@@ -80,7 +80,18 @@ export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'othe
     return;
   }
 
-  if (override) await removeMarkAbilityMarks();
+  if (override) {
+    const all = game.actors.contents
+      .flatMap(a => [...a.effects])
+      .concat([...canvas.tokens.placeables.flatMap(t => t.actor?.isToken ? [...t.actor.effects] : [])]);
+    const marksElsewhere = all.filter(e =>
+      e.flags?.[M]?.mark?.isMarkAbility &&
+      e.flags?.[M]?.mark?.userId === game.user.id &&
+      !targets.some(t => t.actor?.id === e.parent?.id)
+    );
+    const toRemove = Math.max(0, marksElsewhere.length + targets.length - effectiveMax);
+    for (let i = 0; i < toRemove; i++) await safeDelete(marksElsewhere[i]);
+  }
 
   const isMarkAbility = dsid === 'mark';
   for (const targetToken of targets) {
@@ -140,10 +151,16 @@ const triggerProc = async (actor, effect) => {
       flags: { [M]: { judgementFallen: { userId } } },
     });
   } else if (isMark) {
-    const markFlag = effect.flags?.[M]?.mark ?? {};
+    const markFlag    = effect.flags?.[M]?.mark ?? {};
+    const sourceActor = game.actors.get(markFlag.actorId);
+    const markItem    = sourceActor?.items.find(i => getItemDsid(i) === (markFlag.dsid ?? 'other'));
     await ChatMessage.create({
-      content: game.i18n.format('DSCT.chat.tactical.markFallen', { name: actor.name }),
-      flags: { [M]: { markReminder: { dsid: markFlag.dsid ?? 'other', isMarkAbility: markFlag.isMarkAbility ?? false, sourceActorId: markFlag.actorId ?? null } } },
+      content: game.i18n.format('DSCT.chat.tactical.markFallen', { name: actor.name, enricher: '[[/apply taunted]]' }),
+      speaker: sourceActor ? ChatMessage.getSpeaker({ actor: sourceActor }) : undefined,
+      flags: {
+        [M]: { markReminder: { dsid: markFlag.dsid ?? 'other', isMarkAbility: markFlag.isMarkAbility ?? false, sourceActorId: markFlag.actorId ?? null } },
+        ...(markItem ? { 'draw-steel-target-damage': { state: { abilityUuid: markItem.uuid } } } : {}),
+      },
     });
   }
 
