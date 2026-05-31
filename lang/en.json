@@ -542,6 +542,8 @@
         "phaseColor": "Phase Color",
         "duration": "Duration (ms)",
         "executeTeleport": "Execute Teleport",
+        "noTarget": "Target exactly 1 token",
+        "shiftHint": "Hold Shift to teleport the targeted token instead",
         "pickSource": "Pick Token"
       },
       "wb": {
@@ -825,6 +827,7 @@
         "chooseDestination": "Choose where {name} teleports. Right-Click to cancel.",
         "sourceNotFound": "DSCT | Source token not found.",
         "mustSelectOne": "DSCT | You must select exactly 1 token to teleport.",
+        "noShiftTarget": "DSCT | No targeted token to teleport. Target a token first, then Shift+click.",
         "noValidBurst": "DSCT | Burst Teleport | No valid destinations for {name}.",
         "noBurstSource": "DSCT | Burst Teleport | Select or specify a source token (the caster).",
         "noBurstTargets": "DSCT | Burst Teleport | No tokens found within the burst area.",

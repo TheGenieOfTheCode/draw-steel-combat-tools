@@ -329,6 +329,8 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
     super();
     this._sourceToken  = null;
     this._pinnedSource = null;
+    this._targetToken  = null;
+    this._shiftHeld    = false;
     this._updatePreview();
   }
 
@@ -357,19 +359,24 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
     } else {
       this._sourceToken = null;
     }
+    const targets = [...game.user.targets];
+    this._targetToken = targets.length === 1 ? targets[0] : null;
   }
 
   _refreshPanel() {
     if (!this.rendered) return;
     this._updatePreview();
 
-    const sourceImg  = this.element.querySelector('#tp-source-img');
-    const sourceName = this.element.querySelector('#tp-source-name');
-    if (sourceImg)  sourceImg.src = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
-    if (sourceName) { sourceName.textContent = this._sourceToken?.name ?? 'Select exactly 1 token'; sourceName.classList.toggle('dim', !this._sourceToken); }
+    const token   = (this._shiftHeld && this._targetToken) ? this._targetToken : this._sourceToken;
+    const noLabel = this._shiftHeld ? game.i18n.localize('DSCT.panel.tp.noTarget') : 'Select exactly 1 token';
+    const img  = this.element.querySelector('#tp-source-img');
+    const name = this.element.querySelector('#tp-source-name');
+    if (img)  img.src = token?.document.texture.src ?? 'icons/svg/mystery-man.svg';
+    if (name) { name.textContent = token?.name ?? noLabel; name.classList.toggle('dim', !token); }
   }
 
   async _prepareContext(_options) {
+    this._updatePreview();
     const sourceSrc   = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
     const sourceLabel = this._sourceToken?.name ?? 'Select exactly 1 token';
     const saved = game.user.getFlag('draw-steel-combat-tools', 'tpSettings') ?? { dist: 5, anim: true, color: '#a030ff', duration: 600 };
@@ -392,32 +399,60 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
     await game.user.setFlag('draw-steel-combat-tools', 'tpSettings', { dist, anim, color, duration });
   }
 
-  static async _onExecuteTp() {
-    if (!this._sourceToken) {
-      if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.mustSelectOne')); return; }
-      const picked = await runSourcePicker();
-      if (!picked) return;
-      this._pinnedSource = picked;
-      this._sourceToken  = picked;
-      this._refreshPanel();
+  static async _onExecuteTp(event) {
+    if (event?.shiftKey && !this._targetToken) {
+      ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.noShiftTarget'));
+      return;
     }
+
+    let token;
+    if (event?.shiftKey) {
+      token = this._targetToken;
+    } else {
+      if (!this._sourceToken) {
+        if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.mustSelectOne')); return; }
+        const picked = await runSourcePicker();
+        if (!picked) return;
+        this._pinnedSource = picked;
+        this._sourceToken  = picked;
+        this._refreshPanel();
+      }
+      token = this._sourceToken;
+    }
+
     const dist     = parseInt(this.element.querySelector('#tp-dist')?.value) || 5;
     const animate  = this.element.querySelector('#tp-anim')?.checked;
     const color    = this.element.querySelector('#tp-color')?.value || '#a030ff';
     const duration = parseInt(this.element.querySelector('#tp-duration')?.value) || 600;
     await this._saveSettings();
-    await executeTeleport(this._sourceToken, dist, animate, color, duration);
+    await executeTeleport(token, dist, animate, color, duration);
   }
 
   _onRender(_context, _options) {
     if (typeof ColorPicker !== 'undefined') ColorPicker.install();
     setTimeout(() => this.setPosition({ height: 'auto' }), 0);
 
-
     if (this._hookControl) Hooks.off('controlToken', this._hookControl);
     this._hookControl = Hooks.on('controlToken', () => this._refreshPanel());
+
+    if (this._hookTarget) Hooks.off('targetToken', this._hookTarget);
+    this._hookTarget = Hooks.on('targetToken', () => this._refreshPanel());
+
     this._themeObserver = new MutationObserver(() => this._refreshPanel());
     this._themeObserver.observe(document.body, { attributeFilter: ['class'] });
+
+    this._onShiftDown = (e) => {
+      if (!e.shiftKey || this._shiftHeld) return;
+      this._shiftHeld = true;
+      this._refreshPanel();
+    };
+    this._onShiftUp = (e) => {
+      if (e.shiftKey || !this._shiftHeld) return;
+      this._shiftHeld = false;
+      this._refreshPanel();
+    };
+    document.addEventListener('keydown', this._onShiftDown);
+    document.addEventListener('keyup',   this._onShiftUp);
 
     const animCheck = this.element.querySelector('#tp-anim');
     const animOpts  = this.element.querySelector('#tp-anim-options');
@@ -433,7 +468,10 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
 
   async close(options = {}) {
     if (this._hookControl)   Hooks.off('controlToken', this._hookControl);
+    if (this._hookTarget)    Hooks.off('targetToken',  this._hookTarget);
     if (this._themeObserver) this._themeObserver.disconnect();
+    if (this._onShiftDown)   document.removeEventListener('keydown', this._onShiftDown);
+    if (this._onShiftUp)     document.removeEventListener('keyup',   this._onShiftUp);
     return super.close(options);
   }
 }
