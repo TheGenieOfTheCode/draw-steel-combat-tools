@@ -329,6 +329,10 @@ export const registerSettings = () => {
     name: L('squadCaptainShortcut.name'), hint: L('squadCaptainShortcut.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'squadSimultaneousTurns', {
+    name: L('squadSimultaneousTurns.name'), hint: L('squadSimultaneousTurns.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'squadHudEnabled', {
     name: L('squadHudEnabled.name'), hint: L('squadHudEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: false,

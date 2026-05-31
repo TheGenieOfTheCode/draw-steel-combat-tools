@@ -7,6 +7,7 @@ import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken } from './death-tracker/death-tracker.mjs';
 import { applySquadLabels, autoRenameGroups, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
+import { registerSquadTurnHooks } from './squad-turns.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
 import { installMacros, distributeAbilities } from './setup-macros.mjs';
@@ -84,6 +85,7 @@ Hooks.once('init', () => {
   registerDeathTrackerHooks();
   registerSquadLabelHooks();
   registerSquadHudHooks();
+  registerSquadTurnHooks();
   registerTriggeredActionHooks();
   registerModuleButtons();
   registerForcedMovementHooks();
