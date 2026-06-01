@@ -101,15 +101,19 @@ export const applySquadLabels = async () => {
     }
     _tm(`updating label for ${token.name} (${want.img})`);
     for (const e of existing) await safeDelete(e);
-    await safeCreateEmbedded(token.actor, 'ActiveEffect', [{
-      name: want.name, img: want.img,
-      type: "base",
-      system: { end: { type: "encounter", roll: "" }, filters: { keywords: [] } },
-      changes: [], disabled: false,
-      duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
-      description: "", tint: want.tint, transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'squad-label' } },
-    }]);
-    updated++;
+    try {
+      await safeCreateEmbedded(token.actor, 'ActiveEffect', [{
+        name: want.name, img: want.img,
+        type: "base",
+        system: { end: { type: "encounter", roll: "" }, filters: { keywords: [] } },
+        changes: [], disabled: false,
+        duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
+        description: "", tint: want.tint, transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'squad-label' } },
+      }]);
+      updated++;
+    } catch (err) {
+      console.warn(`DSCT | SL | failed to create label for ${token.name}:`, err);
+    }
   }
 
   if (dbg) console.log(`DSCT | SL | applySquadLabels done in ${(performance.now()-_t0).toFixed(0)}ms -- skipped=${skipped} updated=${updated}`);
