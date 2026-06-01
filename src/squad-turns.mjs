@@ -110,7 +110,9 @@ export function registerSquadTurnHooks() {
     const combat = group.parent;
     if (!combat) return;
 
-    const primary = [...group.members].find(m => m.initiative > 0);
+    const members  = [...group.members];
+    const minInit  = Math.min(...members.map(m => m.initiative));
+    const primary  = members.find(m => m.initiative === minInit);
     if (getSetting('debugMode')) console.log(`DSCT | squad batch activate (group): ${group.name}, primary=${primary?.name}`);
 
     _squadBatchInProgress = true;
