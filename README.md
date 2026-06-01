@@ -11,6 +11,12 @@ A Foundry VTT module for the Draw Steel system that automates and streamlines th
 
 ---
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/genieofthecode)
+
+*If you like what I do, consider donating on Ko-fi. Thanks!*
+
+---
+
 ## Documentation
 
 Full documentation is available on the **[Wiki](https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki)**.
