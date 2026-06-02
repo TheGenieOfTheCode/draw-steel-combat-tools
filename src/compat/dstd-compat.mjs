@@ -5,6 +5,7 @@ import { applyGrab, runGrab } from '../conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { _addDamagedToken, reviveTokens } from '../death-tracker/death-tracker.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
+import { _pendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
 const DSTD       = 'draw-steel-target-damage';
 const DSTD_PANEL = `section.${DSTD}-panel`;
@@ -515,15 +516,66 @@ async function _persistDstdState(message, subKey, state) {
   else await message.setFlag(M, 'dstdFmState', allState);
 }
 
+function _hoverMinions(minionIds) {
+  if (getSetting('debugMode')) {
+    console.log(`DSCT | squadHover | _hoverMinions ids=`, minionIds);
+    for (const id of minionIds) {
+      const tok = canvas.tokens?.get(id);
+      console.log(`DSCT | squadHover | token id=${id} found=${!!tok} hasFn=${typeof tok?._onHoverIn}`);
+      tok?._onHoverIn?.({});
+    }
+    return;
+  }
+  for (const id of minionIds) canvas.tokens?.get(id)?._onHoverIn?.({});
+}
+
+function _unhoverMinions(minionIds) {
+  for (const id of minionIds) canvas.tokens?.get(id)?._onHoverOut?.({});
+}
+
+function _installSquadHoverListeners(panel, message) {
+  const rows = panel.querySelectorAll(DSTD_ROW);
+  if (getSetting('debugMode')) console.log(`DSCT | squadHover | _installSquadHoverListeners msgId=${message.id} rows=${rows.length}`);
+  for (const row of rows) {
+    const key = row.dataset?.targetKey;
+    if (!key || key === 'selected-token') continue;
+    const applyBtns = row.querySelectorAll('[data-dstd-action="applyDamage"]');
+    const qdBtn     = row.querySelector(`.${DSTD}-quick-damage:not(.dsct-dstd-quick-fm-btn)`);
+    if (getSetting('debugMode')) console.log(`DSCT | squadHover | row key=${key} applyBtns=${applyBtns.length} qdBtn=${!!qdBtn}`);
+    const hover = () => {
+      const sqMap = message.getFlag(M, 'squadTargetMap');
+      const ids   = sqMap?.[key]?.minionIds;
+      if (getSetting('debugMode')) console.log(`DSCT | squadHover | hover key=${key} sqMap=${!!sqMap} sqEntry=${!!sqMap?.[key]} ids=`, ids);
+      if (ids?.length) _hoverMinions(ids);
+    };
+    const unhov = () => {
+      const ids = message.getFlag(M, 'squadTargetMap')?.[key]?.minionIds;
+      if (ids?.length) _unhoverMinions(ids);
+    };
+    for (const btn of applyBtns) {
+      if (btn.dataset.dsctSquadHoverRt) continue;
+      btn.dataset.dsctSquadHoverRt = '1';
+      btn.addEventListener('mouseenter', hover);
+      btn.addEventListener('mouseleave', unhov);
+    }
+    if (qdBtn && !qdBtn.dataset.dsctSquadHoverRt) {
+      qdBtn.dataset.dsctSquadHoverRt = '1';
+      qdBtn.addEventListener('mouseenter', hover);
+      qdBtn.addEventListener('mouseleave', unhov);
+    }
+  }
+}
+
 async function _injectFmButtons(message, root) {
   const panel = root?.querySelector(DSTD_PANEL);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons msgId=${message.id} hasPanel=${!!panel}`);
   if (!panel) return;
   _installUndoDeathHook(panel);
+  _installSquadHoverListeners(panel, message);
 
-  
-  
-  
+
+
+
   const defeatedStatus = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
   for (const deadRow of panel.querySelectorAll(DSTD_ROW)) {
     const dk = deadRow.dataset.targetKey;
@@ -579,7 +631,47 @@ async function _injectFmButtons(message, root) {
     return result;
   })());
 
-  if (!tier && !doMark && !doJudgement && !descEnrichers.length) return;
+  if (!window._dsctSquadTargetCache) window._dsctSquadTargetCache = new Map();
+  let squadTargetMap = window._dsctSquadTargetCache.get(message.id) ?? null;
+  if (getSetting('debugMode')) console.log(`DSCT | squadMap | msgId=${message.id} fromCache=${!!squadTargetMap} flagValue=`, message.getFlag(M, 'squadTargetMap'), `pendingMap=${!!_pendingSquadMap}`);
+  if (!squadTargetMap) {
+    const stored = message.getFlag(M, 'squadTargetMap') ?? null;
+    if (stored) {
+      window._dsctSquadTargetCache.set(message.id, stored);
+      squadTargetMap = stored;
+      if (getSetting('debugMode')) console.log(`DSCT | squadMap | loaded from DB flag, keys=`, Object.keys(stored));
+    } else if (_pendingSquadMap) {
+      if (getSetting('debugMode')) console.log(`DSCT | squadMap | building from _pendingSquadMap, entries=${_pendingSquadMap.size}`);
+      const uuidMap = {};
+      for (const [tokenId, entry] of _pendingSquadMap) {
+        const tok      = canvas.tokens.get(tokenId);
+        if (!tok) continue;
+        const minionIds = [...(entry.minionIds ?? [])];
+        if (!minionIds.length) continue;
+        const fs = entry.extraMinions > 0
+          ? (canvas.tokens.get(entry.primaryMinionId)?.actor?.system?.monster?.freeStrike ?? 0)
+          : 0;
+        uuidMap[tok.document.uuid.replace(/\./g, '__')] = { extraMinions: entry.extraMinions, freeStrike: fs, minionIds };
+      }
+      if (getSetting('debugMode')) console.log(`DSCT | squadMap | uuidMap built, keys=`, Object.keys(uuidMap));
+      if (Object.keys(uuidMap).length) {
+        window._dsctSquadTargetCache.set(message.id, uuidMap);
+        squadTargetMap = uuidMap;
+        const mapWrite = { [`flags.${M}.squadTargetMap`]: uuidMap };
+        if (game.users.activeGM?.isSelf) {
+          if (getSetting('debugMode')) console.log(`DSCT | squadMap | writing to DB as GM`);
+          message.update(mapWrite).catch((e) => { if (getSetting('debugMode')) console.error('DSCT | squadMap | DB write failed:', e); });
+        } else {
+          if (getSetting('debugMode')) console.log(`DSCT | squadMap | writing to DB via socket`);
+          getModuleApi(false)?.socket?.executeAsGM('dsct.updateDocument', message.uuid, mapWrite);
+        }
+      }
+    }
+  }
+  const doSquad = !!squadTargetMap && getSetting('squadTargetBonus');
+  if (getSetting('debugMode')) console.log(`DSCT | squadMap | doSquad=${doSquad} squadTargetBonus=${getSetting('squadTargetBonus')} squadTargetMap=${!!squadTargetMap}`);
+
+  if (!tier && !doMark && !doJudgement && !descEnrichers.length && !doSquad) return;
 
   const fmEffects = tier ? Array.from(ability.system?.power?.effects ?? [])
     .filter(e => e.forced && typeof e.forced === 'object') : [];
@@ -601,8 +693,9 @@ async function _injectFmButtons(message, root) {
   const doConditions = appliedEffects.length > 0 &&
     (getSetting('grabEnabled') || getSetting('frightenedEnabled') || getSetting('tauntedEnabled'));
   const doPf         = holyRolls.length > 0;
+
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons fmEffects=${fmEffects.length} appliedEffects=${appliedEffects.length} tier=${tier} doFm=${doFm} doConditions=${doConditions} doMark=${doMark} doJudgement=${doJudgement} doPf=${doPf}`);
-  if (!doFm && !doConditions && !doPf && !doMark && !doJudgement && !descEnrichers.length) return;
+  if (!doFm && !doConditions && !doPf && !doMark && !doJudgement && !descEnrichers.length && !doSquad) return;
 
   const savedFlagState = message.getFlag(M, 'dstdFmState') ?? {};
 
@@ -1195,6 +1288,52 @@ async function _injectFmButtons(message, root) {
       enrichRow.className = `${DSTD}-action-row dsct-dstd-condition-row`;
       enrichRow.append(enrichBtn, undoEnrichBtn);
       actions.appendChild(enrichRow);
+    }
+
+    if (doSquad && squadTargetMap && tokenUuid) {
+      const sqEntry   = squadTargetMap[targetKey];
+      const minionIds = sqEntry?.minionIds ?? [];
+      if (getSetting('debugMode')) console.log(`DSCT | squad Phase3 | row tokenUuid=${tokenUuid} sqEntry=`, sqEntry);
+
+      
+      if (sqEntry?.extraMinions > 0 && sqEntry.freeStrike > 0) {
+        const bonus          = sqEntry.extraMinions * sqEntry.freeStrike;
+        const dstdMsgState   = message.flags?.[DSTD]?.state ?? null;
+        const nativeApplyBtn = actions.querySelector('[data-dstd-action="applyDamage"]');
+        const operationId    = nativeApplyBtn?.dataset?.operationId;
+        const qdBtn          = row.querySelector(`.${DSTD}-quick-damage:not(.dsct-dstd-quick-fm-btn)`);
+        if (getSetting('debugMode')) console.log(`DSCT | squad Phase3 | bonus=${bonus} operationId=${operationId} hasState=${!!dstdMsgState}`);
+        if (operationId && dstdMsgState) {
+          const existingOverride = dstdMsgState.damageOverrides?.[operationId];
+          if (existingOverride?.bonus !== bonus) {
+            const baseText   = qdBtn?.textContent ?? nativeApplyBtn?.textContent ?? '';
+            const base       = parseInt(baseText.match(/\d+/)?.[0] ?? '0');
+            const typeClass  = [...(qdBtn?.classList ?? [])].find(c => c.includes('-damage-type-'));
+            const damageType = typeClass?.split('-damage-type-')[1] ?? existingOverride?.damageType ?? '';
+            const typeLabel  = existingOverride?.typeLabel || (damageType && damageType !== 'untyped' ? damageType.charAt(0).toUpperCase() + damageType.slice(1) : '');
+            if (base > 0 && game.users.activeGM?.isSelf) {
+              message.update({
+                [`flags.${DSTD}.state.damageOverrides.${operationId}`]: {
+                  amount: base + bonus, baseAmount: base, bonus,
+                  additional: String(bonus), damageType, typeLabel,
+                  surges: 0, surgeDamage: 0, surgeBonus: 0,
+                },
+                [`flags.${M}.squadTargetMap`]: squadTargetMap,
+              }).catch(() => {});
+            }
+          }
+          const strikesLabel = sqEntry.extraMinions === 1
+            ? `+${bonus} from 1 extra free strike`
+            : `+${bonus} from ${sqEntry.extraMinions} extra free strikes`;
+          const squadTooltip = `${strikesLabel}<hr>Hold Shift to deal half damage`;
+          if (getSetting('debugMode')) console.log(`DSCT | squadTooltip | setting tooltip="${squadTooltip}" on operationId=${operationId}`);
+          for (const btn of row.querySelectorAll('[data-dstd-action="applyDamage"]')) {
+            if (btn.dataset.operationId !== operationId) continue;
+            btn.dataset.tooltip = squadTooltip;
+          }
+          if (qdBtn) qdBtn.dataset.tooltip = squadTooltip;
+        }
+      }
     }
 
     if (body.querySelector('[data-dsct-dstd-cond], [data-dsct-fm-key], [data-dsct-mark-key], [data-dsct-enrich-key], [data-dsct-judge-key]')) {

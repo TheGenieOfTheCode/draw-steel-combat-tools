@@ -7,7 +7,7 @@ let _pillIdCounter = 0;
 const mkId = (s) => `dsct-p-${++_pillIdCounter}-${s}`;
 
 function pill(id, kind, amount, reason, src, scope, dsNative = false) {
-  return { id, kind, amount, reason, src, srcTokenId: null, srcAbility: null, scope, enabled: true, custom: false, dsNative };
+  return { id, kind, amount, reason, src, srcTokenId: null, srcTokenIds: [], srcAbility: null, scope, enabled: true, custom: false, dsNative };
 }
 
 
@@ -129,17 +129,73 @@ function _buildTargetPills(app, tokenId) {
   const isMeleeStrike = ability.system?.keywords?.has('melee') && ability.system?.keywords?.has('strike');
   const pills = [];
 
-  
+
   if (targetActor.statuses?.has('restrained'))
     pills.push(pill(mkId(`rst-${tokenId}`), 'edge', 1, 'Target Restrained', null, tokenId, true));
   if (targetActor.statuses?.has('surprised'))
     pills.push(pill(mkId(`sup-${tokenId}`), 'edge', 1, 'Target Surprised', null, tokenId, true));
-  if (isMeleeStrike && casterToken && targetActor.system?.statuses?.flankable !== false && typeof casterToken.isFlanking === 'function' && casterToken.isFlanking(targetToken)) {
-    const allies = casterToken.getAdjacentAllies?.(targetToken)?.filter(a => a !== targetToken && a.canFlank) ?? [];
-    const flanker = _pickFlankingAlly(casterToken, targetToken, allies);
-    const p = pill(mkId(`fl-${tokenId}`), 'edge', 1, 'Flanking', flanker?.name ?? null, tokenId, true);
-    p.srcTokenId = flanker?.id ?? null;
-    pills.push(p);
+  const isMinion   = actor.system?.isMinion ?? false;
+  const casterDisp = casterToken?.document.disposition ?? -1;
+  const squadMembers = isMinion
+    ? canvas.tokens.placeables.filter(t =>
+        t.actor?.system?.isMinion &&
+        t.actor?.name === actor.name &&
+        t.document.disposition === casterDisp
+      )
+    : (casterToken ? [casterToken] : []);
+
+  if (isMeleeStrike && targetActor.system?.statuses?.flankable !== false) {
+    let flankingAttacker = null;
+    for (const tok of squadMembers) {
+      if (typeof tok.isFlanking === 'function' && tok.isFlanking(targetToken)) { flankingAttacker = tok; break; }
+    }
+    if (getSetting('debugMode')) console.log(`DSCT | flanking | target=${targetToken.name} flankingAttacker=${flankingAttacker?.name ?? 'none'} casterToken=${casterToken?.name ?? 'none'} origTEdges=${app._dsctOrigTargets?.[tokenId]?.edges ?? 0}`);
+    if (flankingAttacker) {
+      const allies = flankingAttacker.getAdjacentAllies?.(targetToken)?.filter(a => a !== targetToken && a.canFlank) ?? [];
+      const flanker = _pickFlankingAlly(flankingAttacker, targetToken, allies);
+      const origTEdges = app._dsctOrigTargets?.[tokenId]?.edges ?? 0;
+      
+      const p = pill(mkId(`fl-${tokenId}`), 'edge', 1, 'Flanking', flanker?.name ?? null, tokenId, flankingAttacker === casterToken && origTEdges >= 1);
+      p.srcTokenId = flanker?.id ?? null;
+      
+      if (isMinion) p.srcTokenIds = [flankingAttacker.id, flanker?.id].filter(Boolean);
+      pills.push(p);
+    }
+  }
+
+  
+  if (getStrikeType(ability) === 'ranged' && isMinion && squadMembers.length > 0) {
+    const _dead = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+    const _isInMelee = (tok) => canvas.tokens.placeables.some(t => {
+      if (!t.actor || t.id === tok.id) return false;
+      if (t.actor.statuses?.has(_dead)) return false;
+      const d = t.document.disposition;
+      return d !== CONST.TOKEN_DISPOSITIONS.NEUTRAL
+        && tok.document.disposition !== CONST.TOKEN_DISPOSITIONS.NEUTRAL
+        && d !== tok.document.disposition
+        && typeof tok.isAdjacentTo === 'function' && tok.isAdjacentTo(t);
+    });
+    const anyNotInMelee = squadMembers.some(m => !_isInMelee(m));
+    if (!anyNotInMelee) {
+      let adjEnemy = null;
+      for (const m of squadMembers) {
+        adjEnemy = canvas.tokens.placeables.find(t => {
+          if (!t.actor || t.id === m.id) return false;
+          if (t.actor.statuses?.has(_dead)) return false;
+          const d = t.document.disposition;
+          return d !== CONST.TOKEN_DISPOSITIONS.NEUTRAL
+            && m.document.disposition !== CONST.TOKEN_DISPOSITIONS.NEUTRAL
+            && d !== m.document.disposition
+            && typeof m.isAdjacentTo === 'function' && m.isAdjacentTo(t);
+        }) ?? null;
+        if (adjEnemy) break;
+      }
+      if (adjEnemy) {
+        const p = pill(mkId(`rng-adj-${tokenId}`), 'bane', 1, 'Adjacent Enemy', adjEnemy.name, tokenId, false);
+        p.srcTokenId = adjEnemy.id;
+        pills.push(p);
+      }
+    }
   }
   
   for (const eff of targetActor.appliedEffects ?? []) {
@@ -249,10 +305,11 @@ function _buildModifierSources(app) {
   }
 
   
-  if (casterToken && getStrikeType(ability) === 'ranged') {
+  
+  if (getStrikeType(ability) === 'ranged' && casterToken && !(actor.system?.isMinion)) {
     const casterDisp = casterToken.document.disposition;
     const _dead = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
-    const adj = canvas.tokens.placeables.filter(t => {
+    const adjEnemy = canvas.tokens.placeables.find(t => {
       if (!t.actor || t.id === casterToken.id) return false;
       if (t.actor.statuses?.has(_dead)) return false;
       const d = t.document.disposition;
@@ -261,9 +318,9 @@ function _buildModifierSources(app) {
         && d !== casterDisp
         && typeof casterToken.isAdjacentTo === 'function' && casterToken.isAdjacentTo(t);
     });
-    if (adj.length) {
-      const p = pill(mkId('rng-adj'), 'bane', 1, 'Adjacent Enemy', adj[0].name, 'global', false);
-      p.srcTokenId = adj[0].id;
+    if (adjEnemy) {
+      const p = pill(mkId('rng-adj'), 'bane', 1, 'Adjacent Enemy', adjEnemy.name, 'global', false);
+      p.srcTokenId = adjEnemy.id;
       pills.push(p);
     }
   }
@@ -273,7 +330,7 @@ function _buildModifierSources(app) {
 }
 
 
-function _recomputeAndSync(app) {
+export function _recomputeAndSync(app) {
   const ctx    = app.options.context;
   if (!ctx?.modifiers) return;
   const origG  = app._dsctOrigGlobal;
@@ -347,11 +404,13 @@ function _pillHTML(p) {
   const disClass     = p.enabled ? '' : ' dsct-pill-disabled';
   const custClass    = p.custom ? ' dsct-pill-custom' : '';
   const title        = p.custom ? 'Click to toggle · Right-click to remove' : (p.enabled ? 'Click to disable' : 'Click to enable');
-  const srcTokenAttr = p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : '';
+  const srcTokenAttr = p.srcTokenIds?.length > 0
+    ? ` data-src-token-ids="${p.srcTokenIds.join(',')}"`
+    : (p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : '');
   return `<button type="button" class="dsct-source-pill dsct-pill-${p.kind}${disClass}${custClass}"${srcTokenAttr} data-pill-id="${p.id}" title="${title}"><span class="dsct-pip">${amtStr} &middot; ${p.reason}</span>${fromStr}</button>`;
 }
 
-function _injectPillUI(app) {
+export function _injectPillUI(app) {
   const el  = app.element;
   const ctx = app.options.context;
   if (!el) return;
@@ -492,15 +551,38 @@ function _injectPillUI(app) {
 
   el.addEventListener('contextmenu', contextHandler);
 
-  
-  
-  
+  const _clearHighlights = (e) => {
+    app._dsctHighlightedToken?._onHoverOut(e ?? null);
+    app._dsctHighlightedToken = null;
+    for (const t of (app._dsctHighlightedTokens ?? [])) t._onHoverOut(e ?? null);
+    app._dsctHighlightedTokens = null;
+  };
+
+  for (const pillEl of el.querySelectorAll('.dsct-source-pill[data-src-token-ids]')) {
+    const ids    = pillEl.dataset.srcTokenIds.split(',').filter(Boolean);
+    const tokens = ids.map(id => canvas.tokens.placeables.find(t => t.id === id)).filter(Boolean);
+    if (!tokens.length) continue;
+    pillEl.addEventListener('pointerenter', (e) => {
+      if (!canvas.ready) return;
+      _clearHighlights(e);
+      for (const tok of tokens) {
+        if (tok._canHover(game.user, e) && tok.visible) tok._onHoverIn(e, { hoverOutOthers: false });
+      }
+      app._dsctHighlightedTokens = tokens;
+    });
+    pillEl.addEventListener('pointerleave', (e) => {
+      for (const tok of tokens) tok._onHoverOut(e);
+      if (app._dsctHighlightedTokens === tokens) app._dsctHighlightedTokens = null;
+    });
+    pillEl.addEventListener('pointermove', (e) => e.stopPropagation());
+  }
+
   for (const pillEl of el.querySelectorAll('.dsct-source-pill[data-src-token-id]')) {
     const token = canvas.tokens.placeables.find(t => t.id === pillEl.dataset.srcTokenId);
     if (!token) continue;
     pillEl.addEventListener('pointerenter', (e) => {
       if (!canvas.ready || !token._canHover(game.user, e) || !token.visible) return;
-      app._dsctHighlightedToken?._onHoverOut(e);
+      _clearHighlights(e);
       token._onHoverIn(e, { hoverOutOthers: true });
       app._dsctHighlightedToken = token;
     });
@@ -514,8 +596,7 @@ function _injectPillUI(app) {
   app._dsctPillClickOff = () => {
     el.removeEventListener('click', clickHandler);
     el.removeEventListener('contextmenu', contextHandler);
-    app._dsctHighlightedToken?._onHoverOut(null);
-    app._dsctHighlightedToken = null;
+    _clearHighlights(null);
   };
 }
 
@@ -784,7 +865,9 @@ export function registerRollDialogPillHooks() {
       for (const [id, t] of Object.entries(app.options.context.targets ?? {})) {
         app._dsctOrigTargets[id] = { ...(t.modifiers ?? { edges: 0, banes: 0, bonuses: 0 }) };
       }
+        if (getSetting('debugMode')) console.log('DSCT | RollDialog | DS originals | global=', JSON.stringify(app._dsctOrigGlobal), 'targets=', JSON.stringify(app._dsctOrigTargets));
       app._dsctSources = _buildModifierSources(app);
+      if (getSetting('debugMode')) console.log('DSCT | RollDialog | DSCT pills=', app._dsctSources.map(p => `${p.kind}:${p.reason}:scope=${p.scope}:dsNative=${p.dsNative}`).join(' | '));
       _recomputeAndSync(app);
     } else {
       const existingScopes = new Set(app._dsctSources.map(p => p.scope));

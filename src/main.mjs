@@ -18,6 +18,7 @@ import { openImNoThreatPanel } from './ability-automation/ability-automation.mjs
 import { openTransformPicker, runTransform } from './ability-automation/transformation.mjs';
 import { triggerAbyssalEvolution, registerMaliceInjectors } from './ability-automation/malice-features.mjs';
 import { registerCrossfadeHooks } from './ability-automation/crossfade.mjs';
+import { registerSquadTargetingHooks } from './ability-automation/squad-targeting.mjs';
 import { executeHIWTurn, registerHIWHooks } from './ability-automation/hesitation.mjs';
 import { registerDefeatedTokenVisibility } from './death-tracker/defeated-token-visibility.mjs';
 import { registerSettings, registerCompatibilityChecks } from './settings/register-settings.mjs';
@@ -96,6 +97,7 @@ Hooks.once('init', () => {
   registerSystemPatches();
   registerDefeatedTokenVisibility();
   registerRollDialogPillHooks();
+  registerSquadTargetingHooks();
   registerMaliceInjectors();
   registerDstdCompat();
   registerHealthEstimateCompat();
@@ -108,6 +110,17 @@ Hooks.once('init', () => {
   });
 });
 
+
+Hooks.once('canvasReady', () => {
+  
+  canvas.app?.view?.addEventListener('webglcontextlost', (e) => {
+    console.error('DSCT | WebGL context lost -- likely cause of DevTools disconnect', e);
+    e.preventDefault();
+  });
+  canvas.app?.view?.addEventListener('webglcontextrestored', () => {
+    console.warn('DSCT | WebGL context restored');
+  });
+});
 
 Hooks.once('setup', () => {
   const CHAR_ROLLKEYS = { r: 'R', m: 'M', a: 'A', i: 'I', p: 'P', v: 'V' };

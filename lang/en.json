@@ -27,6 +27,14 @@
         "name": "Players Can Undo Deaths via Target Damage",
         "hint": "Allows players to utilize the undo button."
       },
+      "squadTargetBonus": {
+        "name": "Squad Action Bonus Free Strikes",
+        "hint": "When a minion squad uses a signature attack and multiple minions target the same enemy, adds the extra free strike damage to that target's damage total in the Target Damage panel."
+      },
+      "squadTargetingIcon": {
+        "name": "Squad Targeting Icon",
+        "hint": "Icon displayed on each minion token during squad target selection."
+      },
       "minionHealthEstimate": {
         "name": "Minion Health Estimate Display",
         "hint": "Controls how Health Estimate behaves on minion tokens that are part of an active combat squad. Outside of combat, or when a minion has no squad group, Health Estimate is unaffected.",
@@ -356,6 +364,15 @@
         "name": "Enable Abyssal Evolution Button",
         "hint": "Injects an Abyssal Evolution button into chat when the Abyssal Evolution ability is used."
       },
+      "squadAutoAssignStaminaPriority": {
+        "name": "Auto-Assign Stamina Priority",
+        "hint": "When auto-assigning targets for a squad action, determines which enemies receive extra free strikes from overflow minions. Coverage (one minion per enemy) is always resolved first.",
+        "choice": {
+          "high": "Focus Healthy (More Stamina)",
+          "low": "Finish Wounded (Less Stamina)",
+          "none": "Spread Evenly"
+        }
+      },
       "crossfadeEnabled": {
         "name": "Enable Crossfade Automation",
         "hint": "Automates the Crossfade feature from SurfingBird's (bendking) Shadow Reshade supplement. Automatically adds an edge to the power roll when Crossfade applies, and posts a Disengage reminder to chat."
@@ -446,6 +463,10 @@
       "debugMode": {
         "name": "Debug Mode",
         "hint": "For developers trying to figure out problems with the module, provides verbose debug messages into the console."
+      },
+      "effectExpiryPatch": {
+        "name": "Effect Expiry Fix",
+        "hint": "Fixes a DS system bug where active effects set to expire at end of turn are never removed."
       },
       "experimentalObstacleArrow": {
         "name": "Experimental Obstacle Arrow",

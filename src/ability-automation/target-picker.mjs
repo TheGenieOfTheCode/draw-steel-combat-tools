@@ -500,7 +500,7 @@ const _pickerReticles = new Map();
 let   _pickerTickerFn = null;
 let   _pickerTime     = 0;
 
-function _addPickerReticle(token, color, alphaMult = 1) {
+export function _addPickerReticle(token, color, alphaMult = 1) {
   color ??= token._getBorderColor();
   const existing = _pickerReticles.get(token.id);
   if (existing) { existing.color = color; existing.alphaMult = alphaMult; return; }
@@ -526,7 +526,7 @@ function _addPickerReticle(token, color, alphaMult = 1) {
   }
 }
 
-function _removePickerReticle(token) {
+export function _removePickerReticle(token) {
   const entry = _pickerReticles.get(token.id);
   if (!entry) return;
   _pickerReticles.delete(token.id);
@@ -542,7 +542,7 @@ function _removePickerReticle(token) {
   }
 }
 
-function _clearPickerReticles() {
+export function _clearPickerReticles() {
   for (const [, { token, was }] of _pickerReticles) {
     if (!was) { token.targeted.delete(game.user); token.targetArrows.clear(); }
     else token._drawTargetArrows();

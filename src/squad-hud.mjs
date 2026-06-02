@@ -427,7 +427,8 @@ function _redrawLines(lineGfx, container, tokens, tint, kneeScale = 1) {
 function _destroyEntry(entry) {
   if (entry.container?.parent) entry.container.parent.removeChild(entry.container);
   if (entry.lineGfx?.parent)   entry.lineGfx.parent.removeChild(entry.lineGfx);
-  entry.container?.destroy({ children: true });
+  
+  entry.container?.destroy({ children: true, texture: true, baseTexture: true });
   entry.lineGfx?.destroy();
 }
 

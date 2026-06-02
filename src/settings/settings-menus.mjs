@@ -646,6 +646,9 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
       keys.push(header('Draw Steel: Target Damage'));
       keys.push('dstdQuickFmButton');
       keys.push('playerCanUndoDstdDeaths');
+      keys.push('squadTargetBonus');
+      keys.push('squadAutoAssignStaminaPriority');
+      keys.push('squadTargetingIcon');
       keys.push(compatInfo('draw-steel-target-damage', 'DSCT.compat.dsTargetDamage.name', 'DSCT.compat.dsTargetDamage.hint'));
     }
 
@@ -669,6 +672,14 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
     return keys;
   }
 
+  static _FILE_PICKER_KEYS = new Set(['squadTargetingIcon']);
+
+  _buildEntry(key) {
+    const entry = super._buildEntry(key);
+    if (entry && CompatibilitySettingsMenu._FILE_PICKER_KEYS.has(key)) entry.isFilePicker = true;
+    return entry;
+  }
+
   async render(...args) {
     const debugMode = game.settings.get(M, 'debugMode');
     if (!debugMode && !this.constructor.regularKeys.length) {
@@ -676,6 +687,22 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
       return;
     }
     return super.render(...args);
+  }
+
+  _onRender(context, options) {
+    super._onRender(context, options);
+
+    const squadBonusInput  = this.element.querySelector('[name="squadTargetBonus"]');
+    const staminaPrioGroup = this.element.querySelector('[name="squadAutoAssignStaminaPriority"]')?.closest('.form-group');
+    if (squadBonusInput && staminaPrioGroup) {
+      const sync = () => {
+        const on = squadBonusInput.checked;
+        staminaPrioGroup.classList.toggle('dsct-sub-disabled', !on);
+        staminaPrioGroup.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
+      };
+      squadBonusInput.addEventListener('change', sync);
+      sync();
+    }
   }
 
 }

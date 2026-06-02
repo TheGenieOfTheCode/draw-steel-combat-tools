@@ -1,6 +1,7 @@
 import { getSetting, safeCreateEmbedded, safeDelete, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, footprintDistFromBounds, tokFootprintDist, getItemRange } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunTargetPicker, runSourcePicker, runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
+import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -714,6 +715,7 @@ export function registerKnockbackGuard() {
       function(wrapped, ...args) {
         if (getSetting('conditionsEnabled') && _isKnockbackGrabbed(this)) return false;
         if (getSetting('abilityAutomationEnabled') && _checkAbilityRange(this) === 'block') return false;
+        if (getSetting('abilityAutomationEnabled') && checkAndRunSquadTargeting(this) === 'block') return false;
         if (getSetting('abilityAutomationEnabled') && checkAndRunTargetPicker(this) === 'block') return false;
         return wrapped(...args);
       },
