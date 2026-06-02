@@ -324,7 +324,19 @@ const _processCaptainQueue = async (groups, combat) => {
   }
 };
 
+let _shiftOverrideRename = false;
+
 export const registerSquadLabelHooks = () => {
+  Hooks.on('renderCombatTracker', (_app, html) => {
+    if (!getSetting('autoSquadLabelsEnabled')) return;
+    if (!game.users.activeGM?.isSelf) return;
+    const el = html instanceof HTMLElement ? html : html[0];
+    const btn = el?.querySelector('[data-action="startCombat"]');
+    if (!btn || btn.dataset.dsctShiftBound) return;
+    btn.dataset.dsctShiftBound = '1';
+    btn.dataset.tooltip = game.i18n.localize('DSCT.tooltip.shiftStartCombat');
+    btn.addEventListener('click', e => { if (e.shiftKey) _shiftOverrideRename = true; });
+  });
   Hooks.on('canvasReady', async () => {
     if (!game.users.activeGM?.isSelf) return;
     if (!getSetting('autoSquadLabelsEnabled')) return;
@@ -358,7 +370,9 @@ export const registerSquadLabelHooks = () => {
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const preference = getSetting('squadLabelRenamePreference');
+    const shiftOverride = _shiftOverrideRename;
+    _shiftOverrideRename = false;
+    const preference = shiftOverride ? 'ask' : getSetting('squadLabelRenamePreference');
 
     if (preference === 'rename') {
       await autoRenameGroups();

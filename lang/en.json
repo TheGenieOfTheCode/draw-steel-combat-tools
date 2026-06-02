@@ -656,6 +656,9 @@
         "saveChanges": "Save Changes"
       }
     },
+    "tooltip": {
+      "shiftStartCombat": "Shift-Click to Override Saved Squad Labels Rename Preference"
+    },
     "dialog": {
       "autoRenameSquads": {
         "title": "Auto-Rename Squads?",
