@@ -329,6 +329,15 @@ export const registerSettings = () => {
     name: L('squadCaptainShortcut.name'), hint: L('squadCaptainShortcut.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'squadLabelRenamePreference', {
+    name: L('squadLabelRenamePreference.name'), hint: L('squadLabelRenamePreference.hint'),
+    scope: 'world', config: false, type: String, default: 'ask',
+    choices: {
+      ask:    L('squadLabelRenamePreference.ask'),
+      rename: L('squadLabelRenamePreference.rename'),
+      apply:  L('squadLabelRenamePreference.apply'),
+    },
+  });
   game.settings.register(M, 'squadSimultaneousTurns', {
     name: L('squadSimultaneousTurns.name'), hint: L('squadSimultaneousTurns.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

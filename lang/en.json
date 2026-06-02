@@ -245,6 +245,13 @@
         "name": "Captain Shortcut Assignment",
         "hint": "When enabled and the number of available captain candidates exactly matches the number of squads needing a captain, automatically assign each candidate to a squad without opening the picker."
       },
+      "squadLabelRenamePreference": {
+        "name": "Auto-Rename Preference",
+        "hint": "Controls what happens at combat start when squad labels are applied. Choose a saved preference or reset to always ask.",
+        "ask": "Ask every time",
+        "rename": "Always rename and apply",
+        "apply": "Always just apply labels"
+      },
       "squadSimultaneousTurns": {
         "name": "Simultaneous Squad Turns",
         "hint": "When a squad group takes its turn, all minions in the squad activate simultaneously. Each member's initiative is decremented, start-of-turn effects fire for all of them, and the combat marker appears under every squad token."
@@ -651,7 +658,11 @@
     },
     "dialog": {
       "autoRenameSquads": {
-        "title": "Auto-Rename Squads?"
+        "title": "Auto-Rename Squads?",
+        "content": "Do you want to rename all NPC combat groups to <strong>Group 1</strong>, <strong>Group 2</strong>, etc. before applying the labels?",
+        "remember": "Save this choice and don't ask again",
+        "rename": "Rename and Apply",
+        "apply": "Just Apply Labels"
       },
       "sampleMacros": {
         "title": "Draw Steel: Combat Tools - Sample Macros",
