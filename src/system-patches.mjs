@@ -38,7 +38,7 @@ export function registerSystemPatches() {
   _registerFMEditorFields();
   _registerConditionSheetHooks();
   _registerAbilityHudCompat();
-  _patchEffectExpiryEvent();
+  if (getSetting('effectExpiryPatch')) _patchEffectExpiryEvent();
   if (!globalThis.libWrapper) {
     console.warn('DSCT | registerSystemPatches | libWrapper not found -- constructButtons patches skipped');
     return;

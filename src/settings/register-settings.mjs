@@ -46,6 +46,23 @@ export const registerSettings = () => {
     name: L('playerCanUndoDstdDeaths.name'), hint: L('playerCanUndoDstdDeaths.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'squadTargetBonus', {
+    name: L('squadTargetBonus.name'), hint: L('squadTargetBonus.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'squadTargetingIcon', {
+    name: L('squadTargetingIcon.name'), hint: L('squadTargetingIcon.hint'),
+    scope: 'world', config: false, type: String, default: 'icons/svg/dice-target.svg',
+  });
+  game.settings.register(M, 'squadAutoAssignStaminaPriority', {
+    name: L('squadAutoAssignStaminaPriority.name'), hint: L('squadAutoAssignStaminaPriority.hint'),
+    scope: 'world', config: false, type: String, default: 'high',
+    choices: {
+      high: L('squadAutoAssignStaminaPriority.choice.high'),
+      low:  L('squadAutoAssignStaminaPriority.choice.low'),
+      none: L('squadAutoAssignStaminaPriority.choice.none'),
+    },
+  });
 
   game.settings.register(M, 'minionHealthEstimate', {
     name: L('minionHealthEstimate.name'), hint: L('minionHealthEstimate.hint'),
@@ -62,6 +79,11 @@ export const registerSettings = () => {
   game.settings.register(M, 'debugMode', {
     name: L('debugMode.name'), hint: L('debugMode.hint'),
     scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
+  });
+
+  game.settings.register(M, 'effectExpiryPatch', {
+    name: L('effectExpiryPatch.name'), hint: L('effectExpiryPatch.hint'),
+    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
   });
 
   game.settings.registerMenu(M, 'homeRulesSettings', {
