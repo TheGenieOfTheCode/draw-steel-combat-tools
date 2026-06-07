@@ -679,6 +679,9 @@ function _checkAbilityRange(dialog) {
   if (!ability) return null;
   if (ability.system?.keywords?.has('area')) return null;
 
+  const _actor = ability.actor ?? ability.parent;
+  if (_actor?.system?.isMinion && ability.system?.category === 'signature') return null;
+
   const range = getItemRange(ability);
   if (!range || isNaN(range)) return null;
 
