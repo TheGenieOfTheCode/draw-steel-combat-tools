@@ -5,7 +5,7 @@ import { applyGrab, runGrab } from '../conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { _addDamagedToken, reviveTokens } from '../death-tracker/death-tracker.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
-import { _pendingSquadMap } from '../ability-automation/squad-targeting.mjs';
+import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
 const DSTD       = 'draw-steel-target-damage';
 const DSTD_PANEL = `section.${DSTD}-panel`;
@@ -666,6 +666,7 @@ async function _injectFmButtons(message, root) {
           getModuleApi(false)?.socket?.executeAsGM('dsct.updateDocument', message.uuid, mapWrite);
         }
       }
+      consumePendingSquadMap();
     }
   }
   const doSquad = !!squadTargetMap && getSetting('squadTargetBonus');

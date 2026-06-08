@@ -136,13 +136,16 @@ function _buildTargetPills(app, tokenId) {
     pills.push(pill(mkId(`sup-${tokenId}`), 'edge', 1, 'Target Surprised', null, tokenId, true));
   const isMinion   = actor.system?.isMinion ?? false;
   const casterDisp = casterToken?.document.disposition ?? -1;
-  const squadMembers = isMinion
-    ? canvas.tokens.placeables.filter(t =>
-        t.actor?.system?.isMinion &&
-        t.actor?.name === actor.name &&
-        t.document.disposition === casterDisp
-      )
-    : (casterToken ? [casterToken] : []);
+  let squadMembers;
+  if (isMinion && casterToken) {
+    const srcCombatant = game.combat?.combatants.find(c => c.tokenId === casterToken.id);
+    const srcGroup = srcCombatant && game.combat?.groups?.contents.find(g => [...g.members].some(c => c.id === srcCombatant.id));
+    squadMembers = srcGroup
+      ? [...srcGroup.members].filter(c => c.actor?.system?.isMinion).map(c => canvas.tokens.placeables.find(t => t.id === c.tokenId)).filter(Boolean)
+      : [casterToken];
+  } else {
+    squadMembers = casterToken ? [casterToken] : [];
+  }
 
   if (isMeleeStrike && targetActor.system?.statuses?.flankable !== false) {
     let flankingAttacker = null;

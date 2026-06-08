@@ -62,7 +62,11 @@ function _findAdjacentEnemy(token) {
 
 function _getSquadMinions(actor) {
   if (!game.combat) return [];
-  const combatant = game.combat.combatants.find(c => c.actorId === actor.id && c.token);
+  const controlledTok   = canvas.tokens?.controlled.find(t => t.actor?.id === actor.id);
+  const activeCombatant = game.combat.combatant?.actorId === actor.id ? game.combat.combatant : null;
+  const sourceToken     = controlledTok ?? activeCombatant?.token?.object ?? null;
+  if (!sourceToken) return [];
+  const combatant = game.combat.combatants.find(c => c.tokenId === sourceToken.id);
   if (!combatant) return [];
   const group = game.combat.groups?.contents.find(
     g => [...g.members].some(c => c.id === combatant.id)
@@ -537,7 +541,8 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
 
 export function registerSquadTargetingHooks() {
   Hooks.on('renderAbilityConfigurationDialog', (app) => {
-    if (!_pendingSquadMap) return;
+    const pendingMap = _pendingSquadMap;
+    if (!pendingMap) return;
     if (!app._dsctSources) return;
 
     const ability = app.options.ability;
@@ -549,7 +554,7 @@ export function registerSquadTargetingHooks() {
       s => !(s.reason === 'Adjacent Enemy' && s.scope === 'global')
     );
 
-    for (const [tokenId, entry] of _pendingSquadMap) {
+    for (const [tokenId, entry] of pendingMap) {
       const pillId = `dsct-sq-adj-${tokenId}`;
       if (app._dsctSources.some(s => s.id === pillId)) continue;
       const primaryTok = canvas.tokens.get(entry.primaryMinionId);
