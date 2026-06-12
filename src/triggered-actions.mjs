@@ -18,7 +18,8 @@ const getActorFromCombatant = (combatant) => {
   return token.document.actorLink ? game.actors.get(combatant.actorId) : token.actor;
 };
 
-const hasTriggeredAbility = (actor) => actor.items.some(i => i.system?.type === 'triggered');
+const MALICE_ICON = 'icons/magic/unholy/silhouette-robe-evil-power.webp';
+const hasTriggeredAbility = (actor) => actor.items.some(i => i.system?.type === 'triggered' && i.img !== MALICE_ICON);
 
 const shouldApply = (actor, mode, targetedIds = new Set()) => {
   if (!actor) return false;
