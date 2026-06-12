@@ -5,7 +5,7 @@ import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockback
 import { applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter } from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken } from './death-tracker/death-tracker.mjs';
-import { applySquadLabels, autoRenameGroups, registerSquadLabelHooks } from './squad-labels.mjs';
+import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { registerSquadTurnHooks } from './squad-turns.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
@@ -45,6 +45,7 @@ const api = {
   aidAttack:        applyAidAttack,
   forcedMovementUI: toggleForcedMovementPanel,
   squadLabels:      applySquadLabels,
+  clearSquadLabels: clearSquadLabels,
   renameSquads:     autoRenameGroups,
   triggeredActions: applyTriggeredActions,
   teleport:         runTeleport,

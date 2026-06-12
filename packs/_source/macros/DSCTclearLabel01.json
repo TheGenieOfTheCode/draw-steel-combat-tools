@@ -1,0 +1,23 @@
+{
+  "_id": "DSCTclearLabel01",
+  "name": "DSCT: Clear Squad Labels",
+  "type": "script",
+  "img": "icons/environment/people/group.webp",
+  "command": "await game.modules.get('draw-steel-combat-tools').api.clearSquadLabels();",
+  "scope": "global",
+  "sort": 1250,
+  "folder": "DSCTfoldSL000001",
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTclearLabel01"
+}

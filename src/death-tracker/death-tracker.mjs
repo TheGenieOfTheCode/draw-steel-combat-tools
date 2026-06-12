@@ -795,7 +795,7 @@ const _schedulePostReviveLabels = () => {
   if (_postReviveLabelTimer) clearTimeout(_postReviveLabelTimer);
   _postReviveLabelTimer = setTimeout(async () => {
     _postReviveLabelTimer = null;
-    if (getSetting('autoSquadLabelsEnabled') && game.combat) await applySquadLabels();
+    if (getSetting('autoSquadLabelsEnabled') && getSetting('squadLabelApplyEffects') && game.combat) await applySquadLabels();
   }, 600);
 };
 

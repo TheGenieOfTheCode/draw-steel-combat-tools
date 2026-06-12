@@ -339,6 +339,10 @@ export const registerSettings = () => {
     name: L('autoSquadLabelsEnabled.name'), hint: L('autoSquadLabelsEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'squadLabelApplyEffects', {
+    name: L('squadLabelApplyEffects.name'), hint: L('squadLabelApplyEffects.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'squadLabelAutoRelabel', {
     name: L('squadLabelAutoRelabel.name'), hint: L('squadLabelAutoRelabel.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

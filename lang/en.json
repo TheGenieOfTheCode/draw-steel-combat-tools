@@ -241,6 +241,10 @@
         "name": "Enable Squad Labels",
         "hint": "Prompts to apply purely visual squad label effects to squads when combat starts. Optionally renames squads to match numbers with labels."
       },
+      "squadLabelApplyEffects": {
+        "name": "Auto-Apply Label Effects",
+        "hint": "When enabled, label effects (the group number and role icons visible on tokens) are applied automatically. When disabled, groups are still renamed at combat start but label effects must be applied manually via the Squad Labels macro."
+      },
       "squadLabelAutoRelabel": {
         "name": "Auto-Relabel on Group Changes",
         "hint": "When a squad is fully wiped or all its minions die, automatically rename remaining groups to fill numbering gaps and reapply labels."
@@ -854,6 +858,7 @@
         "noActiveCombat": "No active combat encounter found.",
         "labelsApplied": "Squad labels applied.",
         "renamedAndLabeled": "Combat squads renamed and labels applied.",
+        "renamedOnly": "Combat squads renamed.",
         "labelsAppliedExisting": "Squad labels applied to existing groups.",
         "noCaptainCandidates": "No valid captain candidates found for {group}.",
         "pickCaptain": "Click a token to become captain of {group}. Escape to skip.",
