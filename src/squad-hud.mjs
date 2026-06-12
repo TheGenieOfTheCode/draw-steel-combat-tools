@@ -108,8 +108,12 @@ function _hudTargetPos(tokens) {
   let hx = Math.round(sx / tokens.length - hudW / 2);
   let hy = Math.round(sy / tokens.length - hudH / 2);
 
+  const allCombatantTokens = (game.combat?.combatants ?? [])
+    .map(c => c.token?.object).filter(Boolean);
+  const avoidTargets = allCombatantTokens.length ? allCombatantTokens : tokens;
+
   for (let pass = 0; pass < 2; pass++) {
-    for (const t of tokens) {
+    for (const t of avoidTargets) {
       const tw = (t.document.width  ?? 1) * gs;
       const th = (t.document.height ?? 1) * gs;
       if (t.x + tw <= hx || t.x >= hx + hudW) continue;
