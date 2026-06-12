@@ -128,6 +128,7 @@ function _patchCombatDock() {
   };
 
   proto._dsctSquadPatch = true;
+  dock.render();
 }
 
 export function registerSquadTurnHooks() {
@@ -138,7 +139,10 @@ export function registerSquadTurnHooks() {
     window._dsctActivatingGroupId   = null;
   });
 
-  Hooks.on('ready', _patchCombatDock);
+  Hooks.on('ready', () => {
+    _patchCombatDock();
+    if (game.combat) ui.combat?.render();
+  });
   Hooks.on('combatStart', _patchCombatDock);
 
   Hooks.on('renderCombatTracker', (_app, html) => {
