@@ -2,11 +2,11 @@
 
 const M = 'draw-steel-combat-tools';
 
-const BAR_W  = 160;
-const BAR_H  = 14;
-const PAD    = 8;
-const NAME_H = 21;
-const NUM_H  = 19;
+const BAR_W  = 112;
+const BAR_H  = 10;
+const PAD    = 6;
+const NAME_H = 15;
+const NUM_H  = 13;
 const HUD_W  = BAR_W + PAD * 2;
 const HUD_H  = PAD * 2 + NAME_H + 4 + BAR_H + 4 + NUM_H;
 
@@ -33,6 +33,20 @@ const DANCE_DUR       = 7200;
 const STICKBUG_COOLDOWN = 60000; 
 
 
+
+const _hudScale = () => getSetting('squadHudScale') || 1;
+
+function _dims() {
+  const f    = (canvas?.grid?.size ?? 100) / 100 * _hudScale();
+  const barW = Math.round(BAR_W  * f);
+  const barH = Math.round(BAR_H  * f);
+  const pad  = Math.round(PAD    * f);
+  const nameH = Math.round(NAME_H * f);
+  const numH  = Math.round(NUM_H  * f);
+  const hudW  = barW + pad * 2;
+  const hudH  = pad * 2 + nameH + 4 + barH + 4 + numH;
+  return { barW, barH, pad, nameH, numH, hudW, hudH, f };
+}
 
 function _squadDataList() {
   if (!game.combat || !canvas?.tokens) return [];
@@ -90,23 +104,24 @@ function _hudTargetPos(tokens) {
     sx += t.x + (t.document.width  ?? 1) * gs / 2;
     sy += t.y + (t.document.height ?? 1) * gs / 2;
   }
-  let hx = Math.round(sx / tokens.length - HUD_W / 2);
-  let hy = Math.round(sy / tokens.length - HUD_H / 2);
+  const { hudW, hudH } = _dims();
+  let hx = Math.round(sx / tokens.length - hudW / 2);
+  let hy = Math.round(sy / tokens.length - hudH / 2);
 
   for (let pass = 0; pass < 2; pass++) {
     for (const t of tokens) {
       const tw = (t.document.width  ?? 1) * gs;
       const th = (t.document.height ?? 1) * gs;
-      if (t.x + tw <= hx || t.x >= hx + HUD_W) continue; 
-      if (t.y + th <= hy || t.y >= hy + HUD_H) continue; 
-      hy = Math.min(hy, Math.round(t.y - HUD_H - gap));   
+      if (t.x + tw <= hx || t.x >= hx + hudW) continue;
+      if (t.y + th <= hy || t.y >= hy + hudH) continue;
+      hy = Math.min(hy, Math.round(t.y - hudH - gap));
     }
   }
 
   const rect = canvas.dimensions?.rect;
   if (rect) {
-    hx = Math.max(rect.x, Math.min(hx, rect.x + rect.width  - HUD_W));
-    hy = Math.max(rect.y, Math.min(hy, rect.y + rect.height - HUD_H));
+    hx = Math.max(rect.x, Math.min(hx, rect.x + rect.width  - hudW));
+    hy = Math.max(rect.y, Math.min(hy, rect.y + rect.height - hudH));
   }
 
   return { x: hx, y: hy };
@@ -176,9 +191,10 @@ function _openHudEditor(entry) {
   document.getElementById('dsct-squad-hp-editor')?.remove();
 
   
+  const { hudW, hudH } = _dims();
   const pixiPt = canvas.controls.toGlobal({
-    x: entry.container.x + HUD_W / 2,
-    y: entry.container.y + HUD_H + 6,
+    x: entry.container.x + hudW / 2,
+    y: entry.container.y + hudH + 6,
   });
   const cr   = canvas.app.view.getBoundingClientRect();
   const left = Math.round(cr.left + pixiPt.x);
@@ -233,56 +249,53 @@ function _openHudEditor(entry) {
 
 function _buildContainer(data, entry, vis = 'all') {
   const { name, total, living, currHP, maxHP, tokens } = data;
+  const { barW, barH, pad, nameH, hudW, hudH, f } = _dims();
+  const iconSz  = Math.round(13 * f);
+  const iconPad = Math.round(3  * f);
+  const barY    = pad + nameH + 4;
+
   const c = new PIXI.Container();
   c.eventMode = 'static';
   c.interactiveChildren = true;
 
-  
   const bg = new PIXI.Graphics();
   bg.beginFill(0x0e0e0e, 0.88);
   bg.lineStyle(1, 0x555555, 0.8);
-  bg.drawRoundedRect(0, 0, HUD_W, HUD_H, 6);
+  bg.drawRoundedRect(0, 0, hudW, hudH, Math.round(6 * f));
   bg.endFill();
   c.addChild(bg);
 
-  
   const nameTx = _txt(name, {
-    fontSize: 15, fill: data.tint, fontWeight: 'bold',
+    fontSize: Math.round(11 * f), fill: data.tint, fontWeight: 'bold',
     stroke: 0x000000, strokeThickness: 2,
   });
-  nameTx.x = Math.round(HUD_W / 2 - nameTx.width / 2);
-  nameTx.y = PAD;
+  nameTx.x = Math.round(hudW / 2 - nameTx.width / 2);
+  nameTx.y = pad;
   c.addChild(nameTx);
 
-  
-  const barY     = PAD + NAME_H + 4;
   const repToken = tokens[0];
   const barGfx   = new PIXI.Graphics();
   const nativeW  = repToken?.w ?? canvas.grid.size;
-  
   const nativeH  = 8 * (canvas.dimensions?.uiScale ?? 1) * ((repToken?.document?.height ?? 1) >= 2 ? 1.5 : 1);
-  barGfx.scale.set(BAR_W / nativeW, BAR_H / nativeH);
+  barGfx.scale.set(barW / nativeW, barH / nativeH);
   _drawBarGfx(barGfx, repToken, currHP, maxHP, total, nativeW, nativeH);
-  
-  barGfx.x = PAD;
+  barGfx.x = pad;
   barGfx.y = barY;
   c.addChild(barGfx);
 
-  
   const hpStr = maxHP > 0 ? `${currHP} / ${maxHP}` : `${living} / ${total}`;
-  const hpTx  = _txt(hpStr, { fontSize: 14, fill: 0xdddddd });
-  hpTx.x = Math.round(HUD_W / 2 - hpTx.width / 2);
-  hpTx.y = barY + BAR_H + 4;
+  const hpTx  = _txt(hpStr, { fontSize: Math.round(10 * f), fill: 0xdddddd });
+  hpTx.x = Math.round(hudW / 2 - hpTx.width / 2);
+  hpTx.y = barY + barH + 4;
   if (vis !== 'bar') c.addChild(hpTx);
 
-  
   const lockSvg = new PIXI.SVGResource('icons/svg/padlock.svg', { scale: (window.devicePixelRatio || 1) * 4 });
   const lockGfx = new PIXI.Sprite(new PIXI.Texture(new PIXI.BaseTexture(lockSvg)));
-  lockGfx.width   = 18;
-  lockGfx.height  = 18;
+  lockGfx.width   = iconSz;
+  lockGfx.height  = iconSz;
   lockGfx.tint    = 0xcccccc;
-  lockGfx.x = HUD_W - 22;
-  lockGfx.y = 4;
+  lockGfx.x = hudW - iconSz - iconPad;
+  lockGfx.y = iconPad;
   lockGfx.visible = false;
   c.addChild(lockGfx);
 
@@ -290,12 +303,12 @@ function _buildContainer(data, entry, vis = 'all') {
     const visSvg = new PIXI.SVGResource('icons/svg/blind.svg', { scale: (window.devicePixelRatio || 1) * 4 });
     const visGfx = new PIXI.Sprite(new PIXI.Texture(new PIXI.BaseTexture(visSvg)));
     visGfx.name   = 'vis-toggle';
-    visGfx.width  = 18;
-    visGfx.height = 18;
+    visGfx.width  = iconSz;
+    visGfx.height = iconSz;
     visGfx.tint   = 0xffffff;
     visGfx.alpha  = data.hidden ? 1.0 : 0.3;
-    visGfx.x      = 4;
-    visGfx.y      = 4;
+    visGfx.x      = iconPad;
+    visGfx.y      = iconPad;
     c.addChild(visGfx);
   }
 
@@ -329,7 +342,8 @@ function _buildContainer(data, entry, vis = 'all') {
 
     const local = ev.getLocalPosition(c);
 
-    if (game.user.isGM && local.x >= 2 && local.x <= 24 && local.y >= 2 && local.y <= 24) {
+    const { iconSz: _isz, iconPad: _ip, hudW: _hw } = (() => { const { hudW, f } = _dims(); return { iconSz: Math.round(18*f), iconPad: Math.round(4*f), hudW }; })();
+    if (game.user.isGM && local.x >= _ip && local.x <= _ip + _isz && local.y >= _ip && local.y <= _ip + _isz) {
       ev.stopPropagation();
       const _group = game.combat?.groups?.get(entry.groupId);
       if (_group) {
@@ -340,7 +354,7 @@ function _buildContainer(data, entry, vis = 'all') {
       return;
     }
 
-    if (entry.locked && local.x >= HUD_W - 24 && local.x <= HUD_W - 2 && local.y >= 2 && local.y <= 24) {
+    if (entry.locked && local.x >= _hw - _ip - _isz && local.x <= _hw - _ip && local.y >= _ip && local.y <= _ip + _isz) {
       entry.locked  = false;
       entry.gliding = true;
       lockGfx.visible = false;
@@ -393,8 +407,9 @@ function _redrawLines(lineGfx, container, tokens, tint, kneeScale = 1) {
   
   const outlineAlpha = isStickbug ? (isInArrange ? (1 - kneeScale) * 0.75 : 0) : 0.75;
   const gs  = canvas.grid.size;
-  const hcx = container.x + HUD_W / 2;
-  const hcy = container.y + HUD_H / 2;
+  const { hudW, hudH } = _dims();
+  const hcx = container.x + hudW / 2;
+  const hcy = container.y + hudH / 2;
 
   
   
@@ -413,7 +428,7 @@ function _redrawLines(lineGfx, container, tokens, tint, kneeScale = 1) {
     if (len < 0.5) { visibleIdx++; continue; }
     const r    = Math.min(tw, th) / 2;
     const from = { x: tcx + (dx / len) * r, y: tcy + (dy / len) * r };
-    const to   = _lineExitBox(hcx, hcy, -dx, -dy, container.x, container.y, HUD_W, HUD_H);
+    const to   = _lineExitBox(hcx, hcy, -dx, -dy, container.x, container.y, hudW, hudH);
     let knee = null;
     if (isStickbug) {
       const amp = Math.min(len * 0.2, 38);
@@ -638,8 +653,9 @@ function _tickHuds() {
       const animHP = entry.animFrom + (entry.animTo - entry.animFrom) * eased;
       _drawBarGfx(entry.barGfx, entry.repToken, animHP, entry.maxHP, entry.total, entry.nativeW, entry.nativeH);
       
-      entry.barGfx.x = PAD;
-      entry.barGfx.y = PAD + NAME_H + 4;
+      const { pad: _p, nameH: _nH } = _dims();
+      entry.barGfx.x = _p;
+      entry.barGfx.y = _p + _nH + 4;
     }
 
     if (stickbug) {
@@ -735,7 +751,8 @@ function _registerHandlers() {
     const gs = canvas.grid.size;
     for (const entry of _squadHuds.values()) {
       const cx = entry.container.x, cy = entry.container.y;
-      let hit = pos.x >= cx && pos.x <= cx + HUD_W && pos.y >= cy && pos.y <= cy + HUD_H;
+      const { hudW, hudH } = _dims();
+      let hit = pos.x >= cx && pos.x <= cx + hudW && pos.y >= cy && pos.y <= cy + hudH;
       if (!hit) {
         for (const t of entry.tokens) {
           const tw = (t.document.width  ?? 1) * gs;

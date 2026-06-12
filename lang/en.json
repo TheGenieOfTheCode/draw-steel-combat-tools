@@ -272,6 +272,10 @@
         "name": "Floating Squad HUD",
         "hint": "Replaces individual minion token health bars with a shared floating bar for each squad. The bar shows the squad name, a segmented fill per minion, and live HP numbers. Hovering any minion or the bar fades in lines linking the bar to each squad member."
       },
+      "squadHudScale": {
+        "name": "Squad HUD Size",
+        "hint": "Scales the size of the floating Squad HUD. Per-client: each player sets it independently. The HUD is sized proportionally to the scene grid, so this is a fine-tuning knob."
+      },
       "squadHudPlayerVisibility": {
         "name": "Squad HUD Player Visibility",
         "hint": "Controls what players see of the Squad HUD. Directors always see the full HUD.",

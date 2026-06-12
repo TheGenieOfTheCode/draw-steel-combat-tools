@@ -372,6 +372,11 @@ export const registerSettings = () => {
     name: L('squadHudEnabled.name'), hint: L('squadHudEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'squadHudScale', {
+    name: L('squadHudScale.name'), hint: L('squadHudScale.hint'),
+    scope: 'client', config: false, type: Number, default: 1,
+    range: { min: 0.5, max: 2.0, step: 0.05 },
+  });
   game.settings.register(M, 'squadHudPlayerVisibility', {
     name: L('squadHudPlayerVisibility.name'), hint: L('squadHudPlayerVisibility.hint'),
     scope: 'world', config: false, type: String,
