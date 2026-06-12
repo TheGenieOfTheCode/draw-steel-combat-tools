@@ -8,7 +8,11 @@ window._dsctActiveSquadGroupId   = window._dsctActiveSquadGroupId   ?? null;
 window._dsctActivatingGroupId    = window._dsctActivatingGroupId    ?? null;
 
 function getSquadGroup(combatant) {
-  return combatant?.group?.type === 'squad' ? combatant.group : null;
+  const g = combatant?.group;
+  if (!g) return null;
+  if (g.type === 'squad') return g;
+  if (g.type === 'base' && g.members.size > 1) return g;
+  return null;
 }
 
 function getGroupBaseName(name) {
@@ -20,7 +24,9 @@ function findSiblingGroups(combat, group) {
   const base = getGroupBaseName(group.name);
   if (!base) return [];
   return [...(combat.groups ?? [])].filter(g =>
-    g !== group && g.type === 'squad' && getGroupBaseName(g.name) === base
+    g !== group &&
+    (g.type === 'squad' || (g.type === 'base' && g.members.size > 1)) &&
+    getGroupBaseName(g.name) === base
   );
 }
 
@@ -101,7 +107,7 @@ function _patchCombatDock() {
     for (const entry of entries) {
       if (!entry.isGroup) continue;
       const group = this.combat?.groups?.get(entry.id);
-      if (group?.type !== 'squad') continue;
+      if (group?.type !== 'squad' && !(group?.type === 'base' && group?.members?.size > 1)) continue;
       const groupCanAct = group.initiative > 0;
       for (const m of [entry.captainData, ...(entry.nonMinionMembers ?? []), ...(entry.minionGroups ?? []).flat()].filter(Boolean)) {
         m.canAct = groupCanAct;
@@ -114,7 +120,8 @@ function _patchCombatDock() {
   proto._onMiniPortraitClick = function(event, el) {
     if (!getSetting('squadSimultaneousTurns')) return origMiniClick.call(this, event, el);
     const combatant = this.combat?.combatants?.get(el.dataset.memberId);
-    if (combatant?.group?.type === 'squad') {
+    const cg = combatant?.group;
+    if (cg?.type === 'squad' || (cg?.type === 'base' && cg?.members?.size > 1)) {
       return this._onGroupPillClick(event, { dataset: { id: combatant.group.id } });
     }
     return origMiniClick.call(this, event, el);
@@ -138,8 +145,11 @@ export function registerSquadTurnHooks() {
     if (!getSetting('squadSimultaneousTurns')) return;
     const el = html instanceof HTMLElement ? html : html[0];
     if (!el) return;
-    for (const group of el.querySelectorAll('.combatant-group:has(.squad-stamina)')) {
-      for (const initDiv of group.querySelectorAll('.group-turns .token-initiative')) {
+    for (const [groupId, group] of (game.combat?.groups ?? [])) {
+      if (group.type !== 'squad' && !(group.type === 'base' && group.members.size > 1)) continue;
+      const groupEl = el.querySelector(`.combatant-group[data-group-id="${groupId}"]`);
+      if (!groupEl) continue;
+      for (const initDiv of groupEl.querySelectorAll('.group-turns .token-initiative')) {
         initDiv.style.display = 'none';
       }
     }
@@ -154,7 +164,8 @@ export function registerSquadTurnHooks() {
     if (!getSetting('squadSimultaneousTurns')) return;
     if (!game.user.isGM) return;
     if (_squadBatchInProgress) return;
-    if (!('initiative' in changes) || group.type !== 'squad') return;
+    if (!('initiative' in changes)) return;
+    if (group.type !== 'squad' && !(group.type === 'base' && group.members.size > 1)) return;
 
     const oldInit = _priorGroupInitiative.get(group.id);
     _priorGroupInitiative.delete(group.id);
