@@ -48,7 +48,7 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'squadTargetBonus', {
     name: L('squadTargetBonus.name'), hint: L('squadTargetBonus.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'squadTargetingIcon', {
     name: L('squadTargetingIcon.name'), hint: L('squadTargetingIcon.hint'),

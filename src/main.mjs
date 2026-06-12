@@ -212,6 +212,11 @@ Hooks.once('ready', async () => {
   if (!game.user.isGM) return;
 
   const M              = 'draw-steel-combat-tools';
+
+  if (!game.modules.get('draw-steel-target-damage')?.active && game.settings.get(M, 'squadTargetBonus')) {
+    await game.settings.set(M, 'squadTargetBonus', false);
+  }
+
   const currentVersion = game.modules.get(M).version ?? '';
   const promptMode     = game.settings.get(M, 'macroPromptMode');
   const seenVersion    = game.settings.get(M, 'macroPromptSeenVersion') ?? '';
