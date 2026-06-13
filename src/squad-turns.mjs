@@ -100,6 +100,8 @@ function refreshSquadMarkers(group, primaryToken) {
 function _cleanupMarkerWrapper(token) {
   if (token._dsctGlowGraphic) {
     _glowTargets.delete(token._dsctGlowGraphic);
+    token.removeChild?.(token._dsctGlowGraphic);
+    try { token._dsctGlowGraphic.destroy(); } catch {}
     token._dsctGlowGraphic = null;
     if (_glowTargets.size === 0 && _glowTicker) {
       canvas.app.ticker.remove(_glowTicker);
@@ -364,14 +366,9 @@ export function registerSquadTurnHooks() {
         if (!this._dsctGlowGraphic) {
           _cleanupMarkerWrapper(this);
           const glow = _makeGlowGraphic(this, _resolveGlowColor(myCombatant, myCombatant?.group?.id ?? activeGroupId));
-          const wrapper = new PIXI.Container();
-          const { x, y } = this.document;
-          wrapper.position.set(x, y);
-          canvas.tokens.addChildAt(wrapper, 0);
-          wrapper.addChild(glow);
-          this._dsctMarkerWrapper = wrapper;
-          this._dsctGlowGraphic   = glow;
-          this.turnMarker         = null;
+          this.addChildAt(glow, 0);
+          this._dsctGlowGraphic = glow;
+          this.turnMarker       = null;
         }
         canvas.tokens.turnMarkers?.add(this);
         return;
