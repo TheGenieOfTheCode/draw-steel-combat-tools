@@ -1,4 +1,5 @@
-﻿import { getSetting } from './helpers.mjs';
+﻿import { getSetting, monsterFilter as filter } from './helpers.mjs';
+import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -62,6 +63,12 @@ function _squadDataList() {
       .filter(Boolean);
     if (!tokens.length) continue;
 
+    const captainId        = group.system?.captainId;
+    const captainCombatant = captainId ? game.combat.combatants.get(captainId) : null;
+    const captainToken     = (captainCombatant && !captainCombatant.defeated)
+      ? (canvas.tokens.placeables.find(t => t.id === captainCombatant.tokenId) ?? null)
+      : null;
+
     const num      = parseInt(group.name.match(/^Group (\d+)/i)?.[1]) || 1;
     const indivMax = living[0]?.actor?.system?.stamina?.max ?? 0;
     const maxHP    = allMinions.length * indivMax;
@@ -75,6 +82,7 @@ function _squadDataList() {
       currHP,
       maxHP,
       tokens,
+      captainToken,
       tint:   GROUP_TINTS[num] ?? 0xffffff,
       hidden: group.hidden ?? false,
     });
@@ -269,13 +277,68 @@ function _buildContainer(data, entry, vis = 'all') {
   bg.endFill();
   c.addChild(bg);
 
+  const nameFontSize = Math.round(11 * f);
   const nameTx = _txt(name, {
-    fontSize: Math.round(11 * f), fill: data.tint, fontWeight: 'bold',
+    fontSize: nameFontSize, fill: data.tint, fontWeight: 'bold',
     stroke: 0x000000, strokeThickness: 2,
   });
-  nameTx.x = Math.round(hudW / 2 - nameTx.width / 2);
   nameTx.y = pad;
+
+  const crownSz     = nameH;
+  const crownSprite = PIXI.Sprite.from('icons/skills/social/intimidation-impressing.webp');
+  crownSprite.width  = crownSz;
+  crownSprite.height = crownSz;
+  crownSprite.alpha  = data.captainToken ? 1.0 : 0.3;
+  const gap    = Math.round(3 * f);
+  const totalW = crownSz + gap + nameTx.width;
+  crownSprite.x = Math.round(hudW / 2 - totalW / 2);
+  crownSprite.y = pad + Math.round((nameH - crownSz) / 2);
+  nameTx.x = crownSprite.x + crownSz + gap;
+  c.addChild(crownSprite);
   c.addChild(nameTx);
+
+  if (game.user.isGM) {
+    crownSprite.eventMode = 'static';
+    crownSprite.cursor = 'pointer';
+    crownSprite.on('pointerdown', async (event) => {
+      event.stopPropagation();
+      const group = game.combat?.groups?.get(data.groupId);
+      if (!group) return;
+
+      if (group.system?.captainId) await group.update({ 'system.captainId': null });
+
+      const isLeader = filter.organization('leader');
+      const isSolo   = filter.organization('solo');
+      const isMount  = filter.keyword('mount');
+      const candidateTokens = [...(game.combat?.combatants ?? [])]
+        .filter(c => {
+          const a = c.actor;
+          if (!a || a.type !== 'npc') return false;
+          if (a.system?.isMinion) return false;
+          if (isLeader(a) || isSolo(a) || isMount(a)) return false;
+          return !c.defeated;
+        })
+        .map(c => canvas.tokens.placeables.find(t => t.id === c.tokenId))
+        .filter(Boolean);
+
+      if (!candidateTokens.length) {
+        ui.notifications.info(game.i18n.format('DSCT.notice.squads.noCaptainCandidates', { group: group.name }));
+        return;
+      }
+
+      const colorMap = new Map(candidateTokens.map(t => [t.id, '#ffcc00']));
+      const picked   = await runColoredTokenPicker({
+        tokens: candidateTokens,
+        colorMap,
+        hint: game.i18n.format('DSCT.notice.squads.pickCaptain', { group: group.name }),
+      });
+
+      if (!picked) return;
+      const combatant = game.combat?.combatants?.find(c => c.tokenId === picked.id);
+      if (!combatant) return;
+      await group.update({ 'system.captainId': combatant.id });
+    });
+  }
 
   const repToken = tokens[0];
   const barGfx   = new PIXI.Graphics();
@@ -295,24 +358,28 @@ function _buildContainer(data, entry, vis = 'all') {
 
   const lockSvg = new PIXI.SVGResource('icons/svg/padlock.svg', { scale: (window.devicePixelRatio || 1) * 4 });
   const lockGfx = new PIXI.Sprite(new PIXI.Texture(new PIXI.BaseTexture(lockSvg)));
-  lockGfx.width   = iconSz;
-  lockGfx.height  = iconSz;
-  lockGfx.tint    = 0xcccccc;
-  lockGfx.x = hudW - iconSz - iconPad;
-  lockGfx.y = iconPad;
-  lockGfx.visible = false;
+  lockGfx.width       = iconSz;
+  lockGfx.height      = iconSz;
+  lockGfx.tint        = 0xcccccc;
+  lockGfx.x           = hudW - iconSz - iconPad;
+  lockGfx.y           = iconPad;
+  lockGfx.visible     = false;
+  lockGfx.eventMode   = 'static';
+  lockGfx.cursor      = 'pointer';
   c.addChild(lockGfx);
 
   if (game.user.isGM) {
     const visSvg = new PIXI.SVGResource('icons/svg/blind.svg', { scale: (window.devicePixelRatio || 1) * 4 });
     const visGfx = new PIXI.Sprite(new PIXI.Texture(new PIXI.BaseTexture(visSvg)));
-    visGfx.name   = 'vis-toggle';
-    visGfx.width  = iconSz;
-    visGfx.height = iconSz;
-    visGfx.tint   = 0xffffff;
-    visGfx.alpha  = data.hidden ? 1.0 : 0.3;
-    visGfx.x      = iconPad;
-    visGfx.y      = iconPad;
+    visGfx.name        = 'vis-toggle';
+    visGfx.width       = iconSz;
+    visGfx.height      = iconSz;
+    visGfx.tint        = 0xffffff;
+    visGfx.alpha       = data.hidden ? 1.0 : 0.3;
+    visGfx.x           = iconPad;
+    visGfx.y           = iconPad;
+    visGfx.eventMode   = 'static';
+    visGfx.cursor      = 'pointer';
     c.addChild(visGfx);
   }
 
@@ -401,27 +468,42 @@ function _lineExitBox(px, py, dx, dy, bx, by, bw, bh) {
   return { x: px + tBest * dx, y: py + tBest * dy };
 }
 
-function _redrawLines(lineGfx, container, tokens, tint, kneeScale = 1) {
-  lineGfx.clear();
-  if (!tokens.length) return;
+function _strokeDashed(gfx, from, knee, to, dashLen, gapLen) {
+  const pts = knee ? [from, knee, to] : [from, to];
+  let drawing   = true;
+  let phaseLeft = dashLen;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const segLen = Math.sqrt(dx * dx + dy * dy);
+    if (segLen < 0.01) continue;
+    const ux = dx / segLen, uy = dy / segLen;
+    let t = 0, cx = a.x, cy = a.y;
+    while (t < segLen) {
+      const step = Math.min(phaseLeft, segLen - t);
+      const nx = cx + ux * step, ny = cy + uy * step;
+      if (drawing) { gfx.moveTo(cx, cy); gfx.lineTo(nx, ny); }
+      t += step; cx = nx; cy = ny; phaseLeft -= step;
+      if (phaseLeft <= 0.001) { drawing = !drawing; phaseLeft = drawing ? dashLen : gapLen; }
+    }
+  }
+}
 
-  const isStickbug  = getSetting('stickbugMode') || (_stickbugAnim !== null);
-  const isInArrange = _stickbugAnim !== null && _stickbugAnim.elapsed < ARRANGE_DUR;
-  const lineColor   = isStickbug ? _lerpColor(tint ?? 0xffffff, 0x88ff88, kneeScale) : (tint ?? 0xffffff);
-  
+function _redrawLines(lineGfx, container, tokens, tint, kneeScale = 1, captainToken = null) {
+  lineGfx.clear();
+  if (!tokens.length && !captainToken) return;
+
+  const isStickbug   = getSetting('stickbugMode') || (_stickbugAnim !== null);
+  const isInArrange  = _stickbugAnim !== null && _stickbugAnim.elapsed < ARRANGE_DUR;
+  const lineColor    = isStickbug ? _lerpColor(tint ?? 0xffffff, 0x88ff88, kneeScale) : (tint ?? 0xffffff);
   const outlineAlpha = isStickbug ? (isInArrange ? (1 - kneeScale) * 0.75 : 0) : 0.75;
   const gs  = canvas.grid.size;
   const { hudW, hudH } = _dims();
   const hcx = container.x + hudW / 2;
   const hcy = container.y + hudH / 2;
 
-  
-  
-  const paths = [];
-  let visibleIdx = 0;
-  for (let i = 0; i < tokens.length; i++) {
-    const t   = tokens[i];
-    if (!t.visible) continue;
+  const calcPath = (t, idx) => {
+    if (!t.visible) return null;
     const tw  = (t.document.width  ?? 1) * gs;
     const th  = (t.document.height ?? 1) * gs;
     const tcx = t.x + tw / 2;
@@ -429,7 +511,7 @@ function _redrawLines(lineGfx, container, tokens, tint, kneeScale = 1) {
     const dx  = hcx - tcx;
     const dy  = hcy - tcy;
     const len = Math.sqrt(dx * dx + dy * dy);
-    if (len < 0.5) { visibleIdx++; continue; }
+    if (len < 0.5) return null;
     const r    = Math.min(tw, th) / 2;
     const from = { x: tcx + (dx / len) * r, y: tcy + (dy / len) * r };
     const to   = _lineExitBox(hcx, hcy, -dx, -dy, container.x, container.y, hudW, hudH);
@@ -438,38 +520,55 @@ function _redrawLines(lineGfx, container, tokens, tint, kneeScale = 1) {
       const amp = Math.min(len * 0.2, 38);
       const px  = -dy / len;
       const py  =  dx / len;
-      
-      const dir = (visibleIdx % 2 === 0) ? 1 : -1;
+      const dir = (idx % 2 === 0) ? 1 : -1;
       let kneeOff;
       if (isInArrange) {
         kneeOff = dir * amp * kneeScale;
       } else {
-        const phase = (visibleIdx % 2 === 0) ? 0 : Math.PI;
+        const phase = (idx % 2 === 0) ? 0 : Math.PI;
         kneeOff = Math.tanh(Math.sin(_stickbugTime * 12.5 + phase) * 2.5) * amp * kneeScale;
       }
       knee = { x: (from.x + to.x) / 2 + px * kneeOff, y: (from.y + to.y) / 2 + py * kneeOff };
     }
-    paths.push({ from, knee, to });
+    return { from, knee, to };
+  };
+
+  const paths = [];
+  let visibleIdx = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const p = calcPath(tokens[i], visibleIdx);
+    if (!p) { if (tokens[i].visible !== false) visibleIdx++; continue; }
+    paths.push(p);
     visibleIdx++;
   }
 
-  const drawPaths = () => {
-    for (const { from, knee, to } of paths) {
-      lineGfx.moveTo(from.x, from.y);
-      if (knee) lineGfx.lineTo(knee.x, knee.y);
-      lineGfx.lineTo(to.x, to.y);
-    }
+  const captainPath = captainToken ? calcPath(captainToken, paths.length) : null;
+
+  const dashLen = gs * 0.12;
+  const gapLen  = gs * 0.06;
+
+  const strokePath = ({ from, knee, to }) => {
+    lineGfx.moveTo(from.x, from.y);
+    if (knee) lineGfx.lineTo(knee.x, knee.y);
+    lineGfx.lineTo(to.x, to.y);
   };
 
-  
   if (outlineAlpha > 0.01) {
     lineGfx.lineStyle(4.5, 0x000000, outlineAlpha);
-    drawPaths();
+    for (const p of paths) strokePath(p);
+    if (captainPath) {
+      lineGfx.lineStyle(8, 0x000000, outlineAlpha);
+      _strokeDashed(lineGfx, captainPath.from, captainPath.knee, captainPath.to, dashLen, gapLen);
+    }
   }
 
-  
   lineGfx.lineStyle(2.5, lineColor, 0.9);
-  drawPaths();
+  for (const p of paths) strokePath(p);
+
+  if (captainPath) {
+    lineGfx.lineStyle(4.5, lineColor, 0.9);
+    _strokeDashed(lineGfx, captainPath.from, captainPath.knee, captainPath.to, dashLen, gapLen);
+  }
 }
 
 
@@ -545,16 +644,17 @@ export function rebuildSquadHuds() {
     canvas.controls.addChild(lineGfx);
 
     const entry = {
-      groupId:   data.groupId,
-      container: null,
+      groupId:      data.groupId,
+      container:    null,
       lineGfx,
-      lockGfx:   null,
-      barGfx:    null,
-      repToken:  null,
-      nativeW:   0,
-      nativeH:   0,
-      tokens:    data.tokens,
-      tint:      data.tint,
+      lockGfx:      null,
+      barGfx:       null,
+      repToken:     null,
+      nativeW:      0,
+      nativeH:      0,
+      tokens:       data.tokens,
+      captainToken: data.captainToken,
+      tint:         data.tint,
       maxHP:     data.maxHP,
       currHP:    data.currHP,
       total:     data.total,
@@ -583,7 +683,7 @@ export function rebuildSquadHuds() {
     container.y = y;
     canvas.controls.addChild(container);
 
-    _redrawLines(lineGfx, container, data.tokens, data.tint);
+    _redrawLines(lineGfx, container, data.tokens, data.tint, 1, data.captainToken);
     _squadHuds.set(data.groupId, entry);
   }
 
@@ -604,7 +704,7 @@ export function rebuildSquadHuds() {
     entry.container.x = stored.x;
     entry.container.y = stored.y;
     entry.lockGfx.visible = true;
-    _redrawLines(entry.lineGfx, entry.container, entry.tokens, entry.tint);
+    _redrawLines(entry.lineGfx, entry.container, entry.tokens, entry.tint, 1, entry.captainToken);
   }
 
   if (_squadHuds.size) {
@@ -639,8 +739,8 @@ function _tickHuds() {
         e.container.y -= e._sbSwayY;
         e._sbSwayX = 0;
         e._sbSwayY = 0;
-        _redrawLines(e.lineGfx, e.container, e.tokens, e.tint);
-        e.lineAlpha = 1; 
+        _redrawLines(e.lineGfx, e.container, e.tokens, e.tint, 1, e.captainToken);
+        e.lineAlpha = 1;
       }
     }
   }
@@ -666,7 +766,7 @@ function _tickHuds() {
       
       entry.lineGfx.alpha = 1;
       entry.lineAlpha = 1;
-      _redrawLines(entry.lineGfx, entry.container, entry.tokens, entry.tint, animKneeScale);
+      _redrawLines(entry.lineGfx, entry.container, entry.tokens, entry.tint, animKneeScale, entry.captainToken);
       
       const bodyRaw  = Math.tanh(Math.sin(_stickbugTime * 12.5 + entry.swayPhase) * 2);
       const newSwayX = isInArrange ? 0 : bodyRaw * 14;
@@ -716,7 +816,7 @@ function _tickHuds() {
         entry.container.x += dx * rate;
         entry.container.y += dy * rate;
       }
-      _redrawLines(entry.lineGfx, entry.container, entry.tokens, entry.tint);
+      _redrawLines(entry.lineGfx, entry.container, entry.tokens, entry.tint, 1, entry.captainToken);
     }
   }
 }
@@ -732,7 +832,7 @@ export function nudgeSquadHud(tokenId) {
       entry.container.y = pos.y;
     }
     
-    if (!entry.gliding) _redrawLines(entry.lineGfx, entry.container, entry.tokens, entry.tint);
+    if (!entry.gliding) _redrawLines(entry.lineGfx, entry.container, entry.tokens, entry.tint, 1, entry.captainToken);
   }
 }
 
@@ -748,7 +848,7 @@ function _registerHandlers() {
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) _drag.moved = true;
       _drag.entry.container.x = Math.round(_drag.startContainer.x + dx);
       _drag.entry.container.y = Math.round(_drag.startContainer.y + dy);
-      _redrawLines(_drag.entry.lineGfx, _drag.entry.container, _drag.entry.tokens, _drag.entry.tint);
+      _redrawLines(_drag.entry.lineGfx, _drag.entry.container, _drag.entry.tokens, _drag.entry.tint, 1, _drag.entry.captainToken);
       return;
     }
 

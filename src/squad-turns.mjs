@@ -351,9 +351,13 @@ export function registerSquadTurnHooks() {
 
   if (typeof libWrapper !== 'undefined') {
     libWrapper.register('draw-steel-combat-tools', 'Token.prototype._refreshTurnMarker', function(wrapped, ...args) {
+      if (!game.combat) {
+        _cleanupMarkerWrapper(this);
+        return wrapped(...args);
+      }
       const myCombatant    = game.combat?.combatants?.find(c => c.tokenId === this.id);
       const activeGroupId  = window._dsctActiveSquadGroupId;
-      const isNativeActive = myCombatant?.id === game.combat?.combatant?.id;
+      const isNativeActive = !!myCombatant && myCombatant.id === game.combat?.combatant?.id;
       const inActiveGroup  = !!activeGroupId && myCombatant?.group?.id === activeGroupId;
 
       if (getSetting('squadGlowMarker') && (isNativeActive || inActiveGroup)) {
