@@ -638,9 +638,9 @@ export const chooseFreeSquare = (targetToken, landedOnToken = null, { forceOnCan
 export const sizeRank = (size) =>
   size.value >= 2 ? size.value + 2 : ({ T: 0, S: 1, M: 2, L: 3 })[size.letter] ?? 2;
 
-export const canForcedMoveTarget = (attackerActor, targetActor) => {
+export const canForcedMoveTarget = (attackerActor, targetActor, mightOverride = null) => {
   const targetSizeValue = targetActor?.system?.combat?.size?.value ?? 1;
-  const might           = attackerActor?.system?.characteristics?.might?.value ?? 0;
+  const might = mightOverride ?? (attackerActor?.system?.characteristics?.might?.value ?? 0);
   if (might >= 2 && targetSizeValue <= might) return true;
   const attackerRank = sizeRank(attackerActor?.system?.combat?.size ?? { value: 1, letter: 'M' });
   const targetRank   = sizeRank(targetActor?.system?.combat?.size ?? { value: 1, letter: 'M' });

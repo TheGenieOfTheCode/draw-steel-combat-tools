@@ -504,6 +504,14 @@ export const registerSettings = () => {
     name: L('crossfadeEnabled.name'), hint: L('crossfadeEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'nullGrabIntuition', {
+    name: L('nullGrabIntuition.name'), hint: L('nullGrabIntuition.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'psionicMartialArts', {
+    name: L('psionicMartialArts.name'), hint: L('psionicMartialArts.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
   game.settings.register(M, 'hiwEnabled', {
     name: L('hiwEnabled.name'), hint: L('hiwEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

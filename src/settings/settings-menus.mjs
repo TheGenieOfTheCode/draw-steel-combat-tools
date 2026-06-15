@@ -470,6 +470,9 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       'imNoThreatEnabled',
       'imNoThreatEffectIcon',
       'crossfadeEnabled',
+      header('Class — Null'),
+      'nullGrabIntuition',
+      'psionicMartialArts',
       header('Malice'),
       'abyssalEvolutionEnabled',
     ];
@@ -577,11 +580,25 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       syncImNoThreat();
     }
 
-    
-    const homebrewOn    = game.settings.get(M, 'homebrewOptions');
+
+    const homebrewOn     = game.settings.get(M, 'homebrewOptions');
     const crossfadeGroup = this.element.querySelector('[name="crossfadeEnabled"]')?.closest('.form-group');
-    if (crossfadeGroup && !homebrewOn) {
-      crossfadeGroup.style.display = 'none';
+    if (crossfadeGroup && !homebrewOn) crossfadeGroup.style.display = 'none';
+
+    const psionicGroup     = this.element.querySelector('[name="psionicMartialArts"]')?.closest('.form-group');
+    const nullGrabToggle   = this.element.querySelector('[name="nullGrabIntuition"]');
+    if (psionicGroup) {
+      if (!homebrewOn) {
+        psionicGroup.style.display = 'none';
+      } else if (nullGrabToggle) {
+        const syncPsionic = () => {
+          const on = nullGrabToggle.checked;
+          psionicGroup.classList.toggle('dsct-sub-disabled', !on);
+          psionicGroup.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
+        };
+        nullGrabToggle.addEventListener('change', syncPsionic);
+        syncPsionic();
+      }
     }
   }
 }

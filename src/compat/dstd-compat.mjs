@@ -1,7 +1,8 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete } from '../helpers.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced-movement/forced-movement-modify-panel.mjs';
-import { applyGrab, runGrab } from '../conditions/grab.mjs';
+import { applyGrab, runGrab, endGrab } from '../conditions/grab.mjs';
+import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { _addDamagedToken, reviveTokens } from '../death-tracker/death-tracker.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
@@ -952,12 +953,39 @@ async function _injectFmButtons(message, root) {
           const endStr = effectData?.end ?? '';
 
           if (effectId === 'grabbed' && getSetting('grabEnabled')) {
+            const grabTargetDoc  = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+            const grabTargetTok  = grabTargetDoc?.object ?? null;
+            const grabbedId      = grabTargetTok?.id ?? null;
+            const alreadyGrabbed = grabbedId ? !!window._activeGrabs?.has(grabbedId) : false;
+
+            const grabImg = document.createElement('img');
+            grabImg.src = getSetting('grabbedEffectIcon') || 'icons/skills/melee/unarmed-punch-fist-yellow-red.webp';
+            grabImg.alt = '';
+            grabImg.className = `${DSTD}-button-icon-img`;
+            const grabSpan = document.createElement('span');
+            grabSpan.textContent = alreadyGrabbed ? 'Applied: Grabbed' : 'Grabbed';
             const grabBtn = document.createElement('button');
-            grabBtn.type      = 'button';
+            grabBtn.type = 'button';
             grabBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
             grabBtn.dataset.dsctDstdCond = condKey;
-            grabBtn.dataset.tooltip = 'Holding Shift bypasses restrictions';
-            grabBtn.append(_makeIcon('fa-solid fa-hand-rock'), _makeSpan('Grabbed'));
+            grabBtn.dataset.tooltip = alreadyGrabbed ? 'Applied: Grabbed' : 'Holding Shift bypasses restrictions';
+            grabBtn.disabled = alreadyGrabbed;
+            grabBtn.append(grabImg, grabSpan);
+
+            const undoGrabBtn = document.createElement('button');
+            undoGrabBtn.type = 'button';
+            undoGrabBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
+            undoGrabBtn.dataset.tooltip = 'End Grab';
+            undoGrabBtn.disabled = !alreadyGrabbed;
+            undoGrabBtn.append(_makeIcon('fa-solid fa-rotate-left'));
+
+            const settingsGrabBtn = document.createElement('button');
+            settingsGrabBtn.type = 'button';
+            settingsGrabBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-cog-button`);
+            settingsGrabBtn.dataset.tooltip = 'Grab settings are in the Conditions menu';
+            settingsGrabBtn.disabled = true;
+            settingsGrabBtn.append(_makeIcon('fa-solid fa-gear'));
+
             grabBtn.addEventListener('click', async (e) => {
               e.stopPropagation(); e.preventDefault();
               const shiftBypass = e.shiftKey;
@@ -973,7 +1001,8 @@ async function _injectFmButtons(message, root) {
               if (!targetToken) { ui.notifications.warn('DSCT | Target token not found on canvas'); return; }
               const appliedProps = tierData?.properties instanceof Set ? tierData.properties : new Set(tierData?.properties ?? []);
               if (!shiftBypass && !appliedProps.has('ignore-size') && !(game.user.isGM && getSetting('gmBypassesSizeCheck'))) {
-                if (!canForcedMoveTarget(sourceToken.actor, targetToken.actor)) {
+                const mightOvr = isNullGrabIntuitionActive(sourceToken.actor) ? nullIntuitionScore(sourceToken.actor) : null;
+                if (!canForcedMoveTarget(sourceToken.actor, targetToken.actor, mightOvr)) {
                   ui.notifications.warn(game.i18n.format('DSCT.notice.sys.grabTargetTooLarge', { grabber: sourceToken.name, target: targetToken.name }));
                   return;
                 }
@@ -983,10 +1012,27 @@ async function _injectFmButtons(message, root) {
                 await applyGrab(sourceToken, targetToken, { maxGrabs });
                 ChatMessage.create({ content: `<strong>Grab:</strong> ${sourceToken.name} grabs ${targetToken.name}!` });
               }
+              grabBtn.disabled = true;
+              undoGrabBtn.disabled = false;
+              grabSpan.textContent = 'Applied: Grabbed';
+              grabBtn.dataset.tooltip = 'Applied: Grabbed';
             });
+
+            undoGrabBtn.addEventListener('click', async (e) => {
+              e.stopPropagation(); e.preventDefault();
+              const d   = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+              const tId = d?.object?.id ?? grabbedId;
+              if (!tId) return;
+              await endGrab(tId);
+              grabBtn.disabled = false;
+              undoGrabBtn.disabled = true;
+              grabSpan.textContent = 'Grabbed';
+              grabBtn.dataset.tooltip = 'Holding Shift bypasses restrictions';
+            });
+
             const grabRow = document.createElement('div');
             grabRow.className = `${DSTD}-action-row dsct-dstd-condition-row`;
-            grabRow.append(grabBtn);
+            grabRow.append(grabBtn, undoGrabBtn, settingsGrabBtn);
             actions.appendChild(grabRow);
           }
 

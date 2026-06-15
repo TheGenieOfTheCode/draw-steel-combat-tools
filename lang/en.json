@@ -397,6 +397,14 @@
         "name": "Enable Crossfade Automation",
         "hint": "Automates the Crossfade feature from SurfingBird's (bendking) Shadow Reshade supplement. Automatically adds an edge to the power roll when Crossfade applies, and posts a Disengage reminder to chat."
       },
+      "nullGrabIntuition": {
+        "name": "Psionic Martial Arts Size Check",
+        "hint": "Actors with Psionic Martial Arts use Intuition instead of Might for grab size checks. Requires Grab Automation."
+      },
+      "psionicMartialArts": {
+        "name": "No Speed Penalty While Grabbing",
+        "hint": "Actors with Psionic Martial Arts do not have their speed halved while grabbing a creature of equal or larger size. Homebrew from Matte's Null Unbroken."
+      },
       "hiwEnabled": {
         "name": "Hesitation Is Weakness",
         "hint": "Posts a chat notification with a Start Turn button when another hero ends their turn and the Hesitation Is Weakness ability can be triggered."

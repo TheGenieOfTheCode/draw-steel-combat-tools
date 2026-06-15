@@ -2,6 +2,7 @@ import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTa
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunTargetPicker, runSourcePicker, runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
+import { isNullGrabIntuitionActive, nullIntuitionScore, isNullSpeedExemptActive } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -199,7 +200,7 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
 
   const grabberSizeObj = grabberTok.actor.system?.combat?.size ?? { value: 1, letter: 'M' };
   const grabbedSizeObj = grabbedTok.actor.system?.combat?.size ?? { value: 1, letter: 'M' };
-  const speedChanges = sizeRankG(grabberSizeObj) <= sizeRankG(grabbedSizeObj)
+  const speedChanges = (!isNullSpeedExemptActive(grabberTok.actor) && sizeRankG(grabberSizeObj) <= sizeRankG(grabbedSizeObj))
     ? [{ key: 'system.movement.value', mode: 5, value: String(Math.floor((grabberTok.actor.system?.movement?.value ?? 5) / 2)), priority: null }]
     : [];
 
@@ -258,7 +259,8 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
   const targetActor  = targetToken.actor;
 
   if (!forceApply && !ignoreSizeCheck && !(game.user.isGM && getSetting('gmBypassesSizeCheck'))) {
-    if (!canForcedMoveTarget(grabberActor, targetActor)) {
+    const mightOverride = isNullGrabIntuitionActive(grabberActor) ? nullIntuitionScore(grabberActor) : null;
+    if (!canForcedMoveTarget(grabberActor, targetActor, mightOverride)) {
       ui.notifications.warn(game.i18n.format('DSCT.notice.grab.tooLarge', { grabber: grabberToken.name, target: targetToken.name }));
       return;
     }
