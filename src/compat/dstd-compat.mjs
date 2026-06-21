@@ -743,17 +743,34 @@ async function _injectFmButtons(message, root) {
 
         const baseState = _buildBaseState(movementType, baseDistance, properties, verticalDistance, fallReduction);
 
-        
-        
+        const _tgtDoc      = tokenUuid ? fromUuidSync(tokenUuid) : null;
+        const _tgtIsFlying = !baseState.vertical && (_tgtDoc?.actor?.statuses?.has('fly') ?? false);
+        const _flyingMod   = _tgtIsFlying ? {
+          modState: [{
+            distanceDelta:             0,
+            movement:                  movementType,
+            vertical:                  true,
+            verticalDistance:          '',
+            fallReduction:             baseState.fallReduction,
+            noFallDamage:              baseState.noFallDamage,
+            noCollisionDamage:         baseState.noCollisionDamage,
+            noMoverCollisionDamage:    baseState.noMoverCollisionDamage,
+            noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
+            ignoreStability:           baseState.ignoreStability,
+            fastMove:                  baseState.fastMove,
+          }],
+          noteName: 'Flying',
+          noteDesc:  '',
+        } : null;
+
         let quickBtn = null;
 
-        
         let saved = _fmState.get(stateKey);
         if (!saved) {
           const fromFlags = savedFlagState[subKey];
           saved = fromFlags
             ? { applied: fromFlags.applied ?? false, undoMsgId: fromFlags.undoMsgId ?? null, modStack: (fromFlags.modStack ?? []).map(e => ({ ...e })) }
-            : { applied: false, undoMsgId: null, modStack: [] };
+            : { applied: false, undoMsgId: null, modStack: _flyingMod ? [_flyingMod] : [] };
           _fmState.set(stateKey, saved);
         }
 

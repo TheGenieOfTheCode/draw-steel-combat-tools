@@ -636,6 +636,8 @@ export class HomeRulesSettingsMenu extends SettingsSubmenu {
       'allowCrookedPushPull',
       'ignoreAllyEnabled',
       'corpsesBlock',
+      'negativeElevationIsBurrowing',
+      'statusDrivesMovementType',
     ];
   }
 }

@@ -62,7 +62,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     }
   }
 
-  const reduced     = Math.max(0, effectiveDistance - stability);
+  let reduced       = Math.max(0, effectiveDistance - stability);
   const vertSign    = effectiveVertical >= 0 ? 1 : -1;
   let reducedVert = Math.max(0, Math.abs(effectiveVertical) - stability) * vertSign;
   let isVertical  = reducedVert !== 0;
@@ -101,8 +101,11 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
   const startGrid  = toGrid(targetToken.document);
 
   const buildSummary = () => {
-    const parts = [`${type} ${reduced}`];
-    if (isVertical)         parts.push(`vertical ${reducedVert}`);
+    const flyingConversion = origReduced > 0 && reduced === 0;
+    const parts = flyingConversion
+      ? [`${type} ${Math.abs(reducedVert)} (vertical)`]
+      : [`${type} ${reduced}`];
+    if (!flyingConversion && isVertical) parts.push(`vertical ${reducedVert}`);
     if (bonusCreatureDmg)   parts.push(`+${bonusCreatureDmg} creature collision`);
     if (bonusObjectDmg)     parts.push(`+${bonusObjectDmg} object collision`);
     if (fallReduction)      parts.push(`+${fallReduction} fall reduction`);
@@ -116,8 +119,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     let summary = `${summaryPrefix}<strong>${targetToken.name}</strong> forced: ${parts.join(', ')}.`;
     if (stability > 0 && !ignoreStability) {
       const stabParts = [];
-      if (distance !== reduced)                                stabParts.push(`push ${distance} to ${reduced}`);
-      if (Math.abs(verticalHeight) !== Math.abs(reducedVert)) stabParts.push(`vertical ${Math.abs(verticalHeight)} to ${Math.abs(reducedVert)}`);
+      if (distance !== origReduced && origReduced > 0)                                        stabParts.push(`push ${distance} to ${origReduced}`);
+      if (Math.abs(verticalHeight) !== Math.abs(reducedVert) && Math.abs(verticalHeight) > 0) stabParts.push(`vertical ${Math.abs(verticalHeight)} to ${Math.abs(reducedVert)}`);
       if (stabParts.length) summary += ` Stability reduced ${stabParts.join(', ')}.`;
     }
     if (friendlyFireNote) summary += ` ${friendlyFireNote}`;
@@ -145,8 +148,20 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     return frac === 0.5 ? Math.floor(x) : Math.round(x);
   };
 
+  const isBurrowing  = targetToken.actor?.statuses?.has('burrow') ?? false;
+  const isFlying     = targetToken.actor?.statuses?.has('fly')    ?? false;
+  const statusMode   = getSetting('statusDrivesMovementType');
+  const origReduced  = reduced;
+
+  if (isFlying && (startElev > 0 || statusMode) && reduced > 0 && reducedVert === 0) {
+    reducedVert = (type === 'Pull' ? -1 : 1) * reduced;
+    reduced     = 0;
+    isVertical  = true;
+  }
+
   const checkStepCollisionAtElev = (from, to, elev) => {
-    if (elev < 0) return true;
+    if (elev < 0 && (getSetting('negativeElevationIsBurrowing') || isBurrowing)) return true;
+    if (isBurrowing && statusMode) return true;
     const w = wallBetween(from, to);
     if (w && !hasTags(w, 'broken')) {
       const wb = w.flags?.['wall-height']?.bottom ?? 0;
@@ -1653,17 +1668,22 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         ? startElev + roundHalfFloor(reducedVert * (i + 1) / path.length)
         : startElev;
 
-      
-      if (stepElev < 0 || (i === 0 && startElev < 0)) {
+
+      const burrowBlock = isBurrowing && statusMode;
+      if (stepElev < 0 || (i === 0 && (startElev < 0 || burrowBlock))) {
         landingIndex = i - 1;
         if (startElev < 0) {
-          
+
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
           collisionMsgs.push(`${targetToken.name} cannot be force-moved while underground${moverAndTakes(dmg)}.`);
+        } else if (burrowBlock) {
+          const dmg = 2 + remaining + bonusObjectDmg;
+          await dmgTarget(dmg);
+          collisionMsgs.push(`${targetToken.name} cannot be force-moved while burrowing${moverAndTakes(dmg)}.`);
         }
-        
-        
+
+
         break;
       }
 

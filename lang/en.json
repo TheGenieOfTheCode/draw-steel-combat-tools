@@ -77,6 +77,14 @@
         "name": "Corpses Block Movement",
         "hint": "Defeated tokens act as indestructible obstacles during forced movement."
       },
+      "negativeElevationIsBurrowing": {
+        "name": "Negative Elevation Blocks FM",
+        "hint": "Tokens at negative elevation cannot be forced-moved, treating underground position as burrowing. Disable on maps where terrain goes below elevation 0. Tokens with the Burrow status are still blocked when this is off."
+      },
+      "statusDrivesMovementType": {
+        "name": "Status Determines Movement Mode",
+        "hint": "When enabled, the Burrow and Fly Foundry statuses alone determine movement mode regardless of elevation. Burrowing tokens cannot be forced-moved at any elevation; flying tokens always receive vertical forced movement."
+      },
       "fmModifyGmOnly": {
         "name": "Restrict Modify Button to Director",
         "hint": "Only the Director can see the pencil modify button on forced movement chat messages. Disable to let all players use it."

@@ -139,6 +139,14 @@ export const registerSettings = () => {
     name: L('corpsesBlock.name'), hint: L('corpsesBlock.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'negativeElevationIsBurrowing', {
+    name: L('negativeElevationIsBurrowing.name'), hint: L('negativeElevationIsBurrowing.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'statusDrivesMovementType', {
+    name: L('statusDrivesMovementType.name'), hint: L('statusDrivesMovementType.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
   game.settings.register(M, 'fmModifyGmOnly', {
     name: L('fmModifyGmOnly.name'), hint: L('fmModifyGmOnly.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
