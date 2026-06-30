@@ -16,7 +16,8 @@ const _getSquadMinionCount = (token) => {
   return Array.from(group.members ?? []).filter(m => !m.defeated && m.actor?.system?.isMinion).length;
 };
 
-let _wrappedGetEstimation = null;
+let _wrappedGetEstimation  = null;
+let _wrappedHandleOverlay  = null;
 
 const _applyPatch = () => {
   if (!game.healthEstimate) return;
@@ -26,10 +27,17 @@ const _applyPatch = () => {
     game.healthEstimate.getEstimation = _wrappedGetEstimation;
     _wrappedGetEstimation = null;
   }
+  if (_wrappedHandleOverlay) {
+    game.healthEstimate._handleOverlay = _wrappedHandleOverlay;
+    _wrappedHandleOverlay = null;
+  }
 
   if (setting === 'hide') {
-    const _innerBreak = game.healthEstimate.breakOverlayRender.bind(game.healthEstimate);
-    game.healthEstimate.breakOverlayRender = (token) => _isMinionInSquad(token) || _innerBreak(token);
+    _wrappedHandleOverlay = game.healthEstimate._handleOverlay.bind(game.healthEstimate);
+    game.healthEstimate._handleOverlay = (token, hovered) => {
+      if (_isMinionInSquad(token)) return;
+      return _wrappedHandleOverlay(token, hovered);
+    };
   }
 
   if (setting === 'count') {
