@@ -2,7 +2,7 @@ import { getSetting, getModuleApi } from '../helpers.mjs';
 import { applyTaunted, applyFrightened } from '../conditions/conditions.mjs';
 import { registerImNoThreatHooks } from './class-shadow/im-no-threat.mjs';
 import { registerJudgementHooks } from './class-censor/judgement.mjs';
-import { registerMarkHooks } from './class-tactician/mark.mjs';
+import { registerMarkHooks, MARK_ABILITY_CONFIG } from './class-tactician/mark.mjs';
 
 export { openImNoThreatPanel, ImNoThreatSettingsMenu, getAnimals, INT_ANIMAL_DEFAULTS } from './class-shadow/im-no-threat.mjs';
 export { MARK_ABILITY_CONFIG } from './class-tactician/mark.mjs';
@@ -46,6 +46,13 @@ export const registerAbilityInjectors = () => {
           const statusId = type === 'status' ? (link?.dataset?.status ?? null) : null;
           const endStr   = link?.dataset?.end ?? null;
           const label    = link?.textContent?.trim() ?? wrapper.textContent?.trim() ?? '';
+
+          if (!statusId) {
+            const dsctOwnsAbility =
+              (getSetting('judgementAutomation') && dsid === 'judgement') ||
+              (getSetting('markAutomation') && dsid in MARK_ABILITY_CONFIG);
+            if (!dsctOwnsAbility) continue;
+          }
 
           if (statusId && !cached.some(e => e.statusId === statusId)) {
             cached.push({ statusId, endStr, label });
