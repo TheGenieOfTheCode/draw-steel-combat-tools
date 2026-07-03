@@ -3,3 +3,4 @@ vault/
 dist-private/
 build-private.mjs
 commit-strip.mjs
+src/test-features.mjs

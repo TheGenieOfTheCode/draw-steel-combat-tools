@@ -102,6 +102,7 @@ Hooks.once('init', () => {
   registerMaliceInjectors();
   registerDstdCompat();
   registerHealthEstimateCompat();
+  import('./test-features.mjs').then(m => { m.registerTestFeaturesSettings(); m.registerTestFeatureHooks(); }).catch(() => {});
   console.log('DSCT | Initialized');
 
   game.keybindings.register('draw-steel-combat-tools', 'refreshChatInjections', {

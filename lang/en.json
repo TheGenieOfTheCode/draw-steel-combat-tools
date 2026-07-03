@@ -1,6 +1,23 @@
 {
   "DSCT": {
     "setting": {
+      "testFeaturesSettings": {
+        "name": "Test Features",
+        "label": "Configure Test Features",
+        "hint": "Experimental features currently under active development."
+      },
+      "testFeaturesEnabled": {
+        "name": "Test Features",
+        "hint": "Enables experimental features currently under development. Turn this off to disable all test features at once."
+      },
+      "ironSaintRegionEffect": {
+        "name": "Iron Saint Region Effect",
+        "hint": "Applies a specific active effect to hostile tokens inside regions named 'The Iron Saint Does Not Recognize Retreat', and removes it when they leave all such regions."
+      },
+      "letheWindedEffect": {
+        "name": "Lethe Winded Effect",
+        "hint": "Applies two specific active effects to any token with the Lethe feature while winded, and removes them when they recover above half stamina."
+      },
       "installMacros": {
         "name": "Install API Macros",
         "label": "Install Macros",

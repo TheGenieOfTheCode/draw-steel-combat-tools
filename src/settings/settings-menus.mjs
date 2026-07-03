@@ -4,7 +4,7 @@ import { getSetting } from '../helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
 
-class SettingsSubmenu extends ds.applications.api.DSApplication {
+export class SettingsSubmenu extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     classes:  ['draw-steel'],
     window:   { minimizable: false, resizable: true },

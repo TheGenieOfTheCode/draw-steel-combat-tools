@@ -1,4 +1,5 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete } from '../helpers.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist } from '../helpers.mjs';
+import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { applyGrab, runGrab, endGrab } from '../conditions/grab.mjs';
@@ -15,6 +16,16 @@ const M          = 'draw-steel-combat-tools';
 
 
 const _fmState = new Map();
+
+const _fmUndoIndex = new Map();
+
+const _squadAbilityRange = (ability) => {
+  const dist = ability?.system?.distance;
+  if (!dist) return null;
+  const p = parseInt(dist.primary) || 0;
+  const s = parseInt(dist.secondary) || 0;
+  return dist.type === 'meleeRanged' ? Math.max(p, s) : (p || null);
+};
 
 function _regionContainsToken(region, token) {
   if (!region?.testPoint) return false;
@@ -125,6 +136,22 @@ export function registerDstdCompat() {
 
   
   
+  Hooks.on('updateChatMessage', (msg, changes) => {
+    if (!game.modules.get(DSTD)?.active) return;
+    if (!foundry.utils.getProperty(changes, `flags.${M}.isUndone`)) return;
+    const entry = _fmUndoIndex.get(msg.id);
+    if (!entry) return;
+    const { fmRow, applyBtn, undoBtn, modBtn, quickBtn, stateKey, baseState, movementType, message, subKey } = entry;
+    _fmUndoIndex.delete(msg.id);
+    const cur = _fmState.get(stateKey) ?? { applied: false, undoMsgId: msg.id, modStack: [] };
+    const newState = { ...cur, applied: false };
+    _fmState.set(stateKey, newState);
+    const eff = _effectiveState(baseState, newState.modStack);
+    _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, _makeLabel(eff));
+    if (quickBtn) _syncQuickBtn(quickBtn, newState, movementType, eff.distance);
+    _persistDstdState(message, subKey, newState);
+  });
+
   if (dbg) console.log(`DSCT | DSTD compat | registerDstdCompat called, starting panel observer`);
   _startPanelObserver();
 }
@@ -774,7 +801,8 @@ async function _injectFmButtons(message, root) {
           _fmState.set(stateKey, saved);
         }
 
-        const label = _makeLabel(_effectiveState(baseState, saved.modStack));
+        const label          = _makeLabel(_effectiveState(baseState, saved.modStack));
+        const fmSquadMinions = squadTargetMap?.[targetKey]?.minionIds ?? [];
 
         const applyBtn = document.createElement('button');
         applyBtn.type         = 'button';
@@ -849,11 +877,34 @@ async function _injectFmButtons(message, root) {
             ? (clickState.verticalDistance !== '' ? Number(clickState.verticalDistance) : clickState.distance)
             : 0;
 
+          let fmSource = sourceToken;
+          if (fmSquadMinions.length) {
+            let candidates = fmSquadMinions.map(id => canvas.tokens.get(id)).filter(Boolean);
+            if (targetToken && candidates.length > 1) {
+              const rawRange = _squadAbilityRange(ability);
+              if (rawRange) {
+                const rangeDist = rawRange * canvas.grid.distance;
+                const inRange = candidates.filter(t => tokFootprintDist(t, targetToken) < rangeDist);
+                if (inRange.length) candidates = inRange;
+              }
+            }
+            if (candidates.length === 1) {
+              fmSource = candidates[0];
+            } else if (candidates.length > 1) {
+              const colorMap = new Map(candidates.map(t => [t.id, '#ffaa00']));
+              const picked = await runColoredTokenPicker({
+                tokens: candidates, colorMap,
+                hint: `SQUAD FM | Select which minion executes the ${clickState.movement}. Escape to cancel.`,
+              });
+              if (picked) fmSource = picked;
+            }
+          }
+
           try {
             await runForcedMovement({
               movement: clickState.movement, distance: String(clickState.distance),
               properties: props, verticalDistance: vertDist, fallReduction: clickState.fallReduction,
-              target: targetToken, source: sourceToken,
+              target: targetToken, source: fmSource,
             });
           } catch {  }
 
@@ -870,6 +921,7 @@ async function _injectFmButtons(message, root) {
 
           const newState = { ...cur, applied: true, undoMsgId: capturedMsgId };
           _fmState.set(stateKey, newState);
+          _fmUndoIndex.set(capturedMsgId, { fmRow, applyBtn, undoBtn, modBtn, quickBtn, stateKey, baseState, movementType, message, subKey });
           _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, _makeLabel(clickState));
           if (quickBtn) _syncQuickBtn(quickBtn, newState, movementType, clickState.distance);
           await _persistDstdState(message, subKey, newState);
@@ -885,6 +937,7 @@ async function _injectFmButtons(message, root) {
           const dsctUndo = chatLi?.querySelector('.dsct-undo-fm');
           if (dsctUndo) {
             dsctUndo.click();
+            _fmUndoIndex.delete(msgId);
           } else {
             ui.notifications.warn('DSCT | Could not find FM undo button in chat log');
             return;
@@ -917,6 +970,11 @@ async function _injectFmButtons(message, root) {
           ).render({ force: true });
         });
 
+        if (fmSquadMinions.length) {
+          applyBtn.addEventListener('mouseenter', () => _hoverMinions(fmSquadMinions));
+          applyBtn.addEventListener('mouseleave', () => _unhoverMinions(fmSquadMinions));
+        }
+
         actions.appendChild(fmRow);
 
         const head   = row.querySelector(`.${DSTD}-target-head`);
@@ -932,6 +990,10 @@ async function _injectFmButtons(message, root) {
           const initEff = _effectiveState(baseState, saved.modStack);
           _syncQuickBtn(quickBtn, saved, movementType, initEff.distance);
           head.insertBefore(quickBtn, toggle);
+          if (fmSquadMinions.length) {
+            quickBtn.addEventListener('mouseenter', () => _hoverMinions(fmSquadMinions));
+            quickBtn.addEventListener('mouseleave', () => _unhoverMinions(fmSquadMinions));
+          }
 
           
           for (const qdBtn of head.querySelectorAll(`.${DSTD}-quick-damage:not(.dsct-dstd-quick-fm-btn):not([data-dsct-condensed])`)) {
