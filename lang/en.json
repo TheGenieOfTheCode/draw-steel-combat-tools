@@ -18,6 +18,10 @@
         "name": "Lethe Winded Effect",
         "hint": "Applies two specific active effects to any token with the Lethe feature while winded, and removes them when they recover above half stamina."
       },
+      "encroachingHorde": {
+        "name": "Encroaching Horde",
+        "hint": "A region named 'Encroaching Horde' activates at round 2 and advances one square right after each turn, reducing any heroes it overtakes to 0 stamina."
+      },
       "installMacros": {
         "name": "Install API Macros",
         "label": "Install Macros",
@@ -365,6 +369,14 @@
         "name": "Ability Automation",
         "hint": "Master toggle for all ability automation."
       },
+      "abilityTargetingEnabled": {
+        "name": "Ability Targeting",
+        "hint": "Intercepts ability macro rolls to show a target picker before the roll dialog. Disable if you prefer to set targets manually before rolling."
+      },
+      "groupActionsEnabled": {
+        "name": "Group Actions",
+        "hint": "Enables automated group actions for minion squads. When a squad member uses a signature attack, all squad members within range coordinate to target the same enemy. Requires Draw Steel: Target Damage."
+      },
       "judgementAutomation": {
         "name": "Judgement",
         "hint": "Adds an action button to the Judgement chat card to mark the target, then tracks the judged creature and posts chat reminders for each trigger and a prompt to reapply Judgement as a free triggered action when the judged is defeated."
@@ -452,7 +464,7 @@
       },
       "autoConfirmSelection": {
         "name": "Auto-Confirm Target Selection",
-        "hint": "When the required number of targets are selected in a target picker (ability targeting, Power Word: Kill, Raise Dead), automatically confirm without needing to press Enter."
+        "hint": "When the required number of targets are selected in a target picker (ability targeting, Power Word: Kill, Raise Dead), automatically confirm without needing to press Enter. Also skips the picker entirely when the valid target count is at or below the ability's target maximum."
       },
       "rollDialogPillUI": {
         "name": "Alternative Ability Roll UI",
@@ -769,7 +781,8 @@
         "maxTargets": "You can only select up to {max} target{s}.",
         "selectAtLeastOne": "Select at least one target before confirming.",
         "couldTargetMore": "{count} more valid target{s} in range. This ability can hit up to {max} total.",
-        "allyStrikeWarning": "{names} {verb} your allies. Striking them anyway."
+        "allyStrikeWarning": "{names} {verb} your allies. Striking them anyway.",
+        "outOfRangeWarning": "{names} {verb} out of range."
       },
       "picker": {
         "chooseSource": "Click a token to select it as the source. Right-click or Escape to cancel.",

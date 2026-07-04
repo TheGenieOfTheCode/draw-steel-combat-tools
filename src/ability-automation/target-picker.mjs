@@ -113,6 +113,7 @@ async function _runTargetPicker(ability, casterToken) {
   const maxTargets  = target.value;
   const targetType  = target.type;
   const range       = getItemRange(ability);
+  const isRangeEnforced = getSetting('enforceAbilityRange');
   const needsReveal = /object/i.test(targetType);
   const isStrike    = ability.system?.keywords?.has('strike') ?? false;
   const excludeSelf = isStrike || (ability.system?.keywords?.has('weapon') ?? false);
@@ -120,7 +121,10 @@ async function _runTargetPicker(ability, casterToken) {
 
   if (needsReveal) { setRaisedDeadVisible(true); activateTokenLayer(); }
 
-  const validTokens = _getValidTargets(casterToken, targetType, range, { excludeSelf, checkLOS: true });
+  const validTokens = _getValidTargets(casterToken, targetType, isRangeEnforced ? range : 0, { excludeSelf, checkLOS: true });
+  const inRangeIds  = (!isRangeEnforced && range > 0)
+    ? new Set(_getValidTargets(casterToken, targetType, range, { excludeSelf }).map(t => t.id))
+    : null;
 
   if (!validTokens.length) {
     if (needsReveal) { setRaisedDeadVisible(false); activateTokenLayer(); }
@@ -158,16 +162,17 @@ async function _runTargetPicker(ability, casterToken) {
       }
     }
     for (const t of validTokens) {
-      const sel   = selectedTokens.has(t.id);
-      const ally  = isAllyToken(t);
-      const hover = t.id === hoveredId && !sel;
-      
-      const color  = sel   ? (ally ? 0xFF4400 : 0x44CC44)
-                   : hover ? (ally ? 0xFFAA44 : 0x66AAFF)
-                   :          (ally ? 0xFF8800 : 0x4488FF);
-      const border = sel   ? (ally ? 0xAA2200 : 0x228822)
-                   : hover ? (ally ? 0xCC6622 : 0x4477CC)
-                   :          (ally ? 0xAA4400 : 0x2244AA);
+      const sel     = selectedTokens.has(t.id);
+      const ally    = isAllyToken(t);
+      const hover   = t.id === hoveredId && !sel;
+      const inRange = !inRangeIds || inRangeIds.has(t.id);
+
+      const color  = sel   ? (ally ? 0xFF4400 : (inRange ? 0x44CC44 : 0xCC9900))
+                   : hover ? (ally ? 0xFFAA44 : (inRange ? 0x66AAFF : 0xBBAA00))
+                   :          (ally ? 0xFF8800 : (inRange ? 0x4488FF : 0x886600));
+      const border = sel   ? (ally ? 0xAA2200 : (inRange ? 0x228822 : 0x886600))
+                   : hover ? (ally ? 0xCC6622 : (inRange ? 0x4477CC : 0x887700))
+                   :          (ally ? 0xAA4400 : (inRange ? 0x2244AA : 0x554400));
       const w = Math.max(1, Math.round(t.document.width));
       const h = Math.max(1, Math.round(t.document.height));
       for (let dx = 0; dx < w; dx++) {
@@ -219,6 +224,14 @@ async function _runTargetPicker(ability, casterToken) {
           const names = allyPicked.map(t => t.name).join(', ');
           const verb  = allyPicked.length === 1 ? 'is' : 'are';
           ui.notifications.warn(game.i18n.format('DSCT.notice.targetPicker.allyStrikeWarning', { names, verb }));
+        }
+      }
+      if (inRangeIds) {
+        const outPicked = selected.filter(t => !inRangeIds.has(t.id));
+        if (outPicked.length) {
+          const names = outPicked.map(t => t.name).join(', ');
+          const verb  = outPicked.length === 1 ? 'is' : 'are';
+          ui.notifications.warn(game.i18n.format('DSCT.notice.targetPicker.outOfRangeWarning', { names, verb }));
         }
       }
       resolve(selected);
@@ -667,6 +680,7 @@ export function checkAndRunTargetPicker(dialog) {
     return null;
   }
 
+  if (!getSetting('abilityTargetingEnabled')) return null;
   if (!_isPickerEligible(ability)) return null;
 
   const casterToken = _getCasterToken(ability);
@@ -696,24 +710,27 @@ export function checkAndRunTargetPicker(dialog) {
   const validTokens = _getValidTargets(casterToken, target.type, range, { excludeSelf, checkLOS: true });
 
   if (!validTokens.length) {
-    ui.notifications.warn(game.i18n.localize('DSCT.notice.targetPicker.noValidTargets'));
-    return null;
+    if (getSetting('enforceAbilityRange') || !_getValidTargets(casterToken, target.type, 0, { excludeSelf, checkLOS: true }).length) {
+      ui.notifications.warn(game.i18n.localize('DSCT.notice.targetPicker.noValidTargets'));
+      return null;
+    }
   }
 
   let autoFire = null;
-  if (excludeSelf) {
-    const cDisp   = casterToken.document.disposition;
-    const isSelfT = (t) => t.id === casterToken.id;
-    const enemies = validTokens.filter(t => !isSelfT(t) && t.document.disposition !== cDisp);
-    const allies  = validTokens.filter(t => !isSelfT(t) && t.document.disposition === cDisp);
-    const selves  = validTokens.filter(isSelfT);
+  if (getSetting('autoConfirmSelection')) {
+    if (excludeSelf) {
+      const cDisp   = casterToken.document.disposition;
+      const isSelfT = (t) => t.id === casterToken.id;
+      const enemies = validTokens.filter(t => !isSelfT(t) && t.document.disposition !== cDisp);
+      const allies  = validTokens.filter(t => !isSelfT(t) && t.document.disposition === cDisp);
+      const selves  = validTokens.filter(isSelfT);
 
-    
-    if (enemies.length > 0 && enemies.length <= target.value)  autoFire = enemies;
-    else if (enemies.length === 0 && allies.length === 1)      autoFire = allies;
-    else if (enemies.length === 0 && allies.length === 0)      autoFire = selves;
-  } else if (validTokens.length <= target.value) {
-    autoFire = validTokens;
+      if (enemies.length > 0 && enemies.length <= target.value)  autoFire = enemies;
+      else if (enemies.length === 0 && allies.length === 1)      autoFire = allies;
+      else if (enemies.length === 0 && allies.length === 0)      autoFire = selves;
+    } else if (validTokens.length <= target.value) {
+      autoFire = validTokens;
+    }
   }
 
   if (autoFire?.length) {

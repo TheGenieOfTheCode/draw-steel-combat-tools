@@ -464,6 +464,14 @@ export const registerSettings = () => {
     name: L('abilityAutomationEnabled.name'), hint: L('abilityAutomationEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'abilityTargetingEnabled', {
+    name: L('abilityTargetingEnabled.name'), hint: L('abilityTargetingEnabled.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'groupActionsEnabled', {
+    name: L('groupActionsEnabled.name'), hint: L('groupActionsEnabled.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'judgementAutomation', {
     name: L('judgementAutomation.name'), hint: L('judgementAutomation.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

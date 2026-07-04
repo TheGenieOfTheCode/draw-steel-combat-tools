@@ -590,6 +590,7 @@ export function checkAndRunSquadTargeting(dialog) {
   }
 
   if (!getSetting('abilityAutomationEnabled')) return null;
+  if (!getSetting('groupActionsEnabled')) return null;
   if (!game.modules.get('draw-steel-target-damage')?.active) return null;
 
   const actor = ability.actor ?? ability.parent;

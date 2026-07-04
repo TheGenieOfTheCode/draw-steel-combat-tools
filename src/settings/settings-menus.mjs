@@ -449,6 +449,8 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
     return [
       'abilityAutomationEnabled',
       header('General'),
+      'abilityTargetingEnabled',
+      'groupActionsEnabled',
       'neutralizeEnrichers',
       'autoConfirmSelection',
       'rollDialogPillUI',
@@ -520,6 +522,19 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       enforceInput.addEventListener('change', sync);
       aaEnableInput?.addEventListener('change', sync);
       sync();
+    }
+
+    const targetingToggle    = this.element.querySelector('[name="abilityTargetingEnabled"]');
+    const autoConfirmGroup   = this.element.querySelector('[name="autoConfirmSelection"]')?.closest('.form-group');
+    if (targetingToggle && autoConfirmGroup) {
+      const syncTargeting = () => {
+        const on = (aaEnableInput?.checked ?? true) && targetingToggle.checked;
+        autoConfirmGroup.classList.toggle('dsct-sub-disabled', !on);
+        autoConfirmGroup.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
+      };
+      targetingToggle.addEventListener('change', syncTargeting);
+      aaEnableInput?.addEventListener('change', syncTargeting);
+      syncTargeting();
     }
 
     
