@@ -81,11 +81,6 @@ export const registerSettings = () => {
     scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
   });
 
-  game.settings.register(M, 'effectExpiryPatch', {
-    name: L('effectExpiryPatch.name'), hint: L('effectExpiryPatch.hint'),
-    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
-  });
-
   game.settings.registerMenu(M, 'homeRulesSettings', {
     name: L('homeRulesSettings.name'), label: L('homeRulesSettings.label'),
     hint: L('homeRulesSettings.hint'),

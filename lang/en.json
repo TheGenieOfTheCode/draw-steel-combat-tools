@@ -529,10 +529,6 @@
         "name": "Debug Mode",
         "hint": "For developers trying to figure out problems with the module, provides verbose debug messages into the console."
       },
-      "effectExpiryPatch": {
-        "name": "Effect Expiry Fix",
-        "hint": "Fixes a DS system bug where active effects set to expire at end of turn are never removed."
-      },
       "experimentalObstacleArrow": {
         "name": "Experimental Obstacle Arrow",
         "hint": "A discarded arrow design that seeks to display which sections of the movement overlap obstacles."

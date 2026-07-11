@@ -38,7 +38,6 @@ export function registerSystemPatches() {
   _registerFMEditorFields();
   _registerConditionSheetHooks();
   _registerAbilityHudCompat();
-  if (getSetting('effectExpiryPatch')) _patchEffectExpiryEvent();
   if (!globalThis.libWrapper) {
     console.warn('DSCT | registerSystemPatches | libWrapper not found -- constructButtons patches skipped');
     return;
@@ -618,30 +617,6 @@ function _patchToggleStatusEffect() {
       }
       return wrapped(statusId, options);
     }, 'MIXED');
-}
-
-
-
-function _patchEffectExpiryEvent() {
-  Hooks.once('ready', () => {
-    const registry = foundry.documents?.ActiveEffect?.registry;
-    if (!registry) {
-      console.warn('DSCT | _patchEffectExpiryEvent | registry not found -- DB error guard skipped');
-      return;
-    }
-    const _origRefresh = registry.refresh.bind(registry);
-    registry.refresh = async function(event, context) {
-      for (const effect of this) {
-        if (effect.parent?.isToken
-          || !(effect.parent instanceof foundry.abstract.Document)
-          || !effect.parent?.effects?.has?.(effect.id)
-          || ['squad-label', 'triggered-action'].includes(effect.getFlag?.(M, 'effectType'))) {
-          this.delete(effect);
-        }
-      }
-      return _origRefresh(event, context);
-    };
-  });
 }
 
 function _registerFMEditorFields() {
