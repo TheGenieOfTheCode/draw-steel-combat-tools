@@ -171,7 +171,7 @@ function _lerpColor(a, b, t) {
 function _drawBarGfx(barGfx, repToken, hp, maxHP, total, nativeW, nativeH) {
   if (!repToken || !barGfx || maxHP <= 0) return;
   _drawBarFromHud = true;
-  try { repToken._drawBar(0, barGfx, { attribute: 'stamina', value: hp, max: maxHP }); }
+  try { repToken._drawBar(0, barGfx, { attribute: 'stamina', value: hp, max: maxHP, min: 0, temporary: 0, winded: Math.floor(maxHP / 2) }); }
   finally { _drawBarFromHud = false; }
   
   
