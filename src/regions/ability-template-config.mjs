@@ -33,7 +33,7 @@ async function _openTemplateConfig(item) {
         name:          `[Template] ${item.name}`,
         shapes:        [],
         color:         game.user.color,
-        visibility:    CONST.REGION_VISIBILITY.OBSERVER,
+        visibility:    CONST.REGION_VISIBILITY.ALWAYS,
         highlightMode: 'coverage',
       },
       stored,
