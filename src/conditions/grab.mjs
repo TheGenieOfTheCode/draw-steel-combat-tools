@@ -713,23 +713,10 @@ function _checkAbilityRange(dialog) {
 }
 
 export function registerKnockbackGuard() {
-  if (globalThis.libWrapper) {
-    libWrapper.register(
-      M,
-      'ds.applications.apps.AbilityConfigurationDialog.prototype._canRender',
-      function(wrapped, ...args) {
-        if (getSetting('conditionsEnabled') && _isKnockbackGrabbed(this)) return false;
-        if (getSetting('abilityAutomationEnabled') && _checkAbilityRange(this) === 'block') return false;
-        if (getSetting('abilityAutomationEnabled') && checkAndRunSquadTargeting(this) === 'block') return false;
-        if (getSetting('abilityAutomationEnabled') && checkAndRunTargetPicker(this) === 'block') return false;
-        return wrapped(...args);
-      },
-      'MIXED'
-    );
-  } else {
-    Hooks.on('renderAbilityConfigurationDialog', (app) => {
-      if (getSetting('conditionsEnabled') && _isKnockbackGrabbed(app)) { app.close(); return; }
-      if (getSetting('abilityAutomationEnabled')) _checkAbilityRange(app);
-    });
-  }
+  Hooks.on('ds.canRenderAbilityConfigurationDialog', (app) => {
+    if (getSetting('conditionsEnabled') && _isKnockbackGrabbed(app)) return false;
+    if (getSetting('abilityAutomationEnabled') && _checkAbilityRange(app) === 'block') return false;
+    if (getSetting('abilityAutomationEnabled') && checkAndRunSquadTargeting(app) === 'block') return false;
+    if (getSetting('abilityAutomationEnabled') && checkAndRunTargetPicker(app) === 'block') return false;
+  });
 }
