@@ -2341,7 +2341,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         if (isVertical && stepElev !== (targetToken.document.elevation ?? 0)) {
           await safeUpdate(targetToken.document, { elevation: stepElev });
         }
-        const stepMoveData = { x: stepWorld.x, y: stepWorld.y };
+        const stepMoveData = { x: stepWorld.x, y: stepWorld.y, movementAction: 'forced' };
         if (terrainMap) {
           const te = terrainMap[`${stepGrid.x},${stepGrid.y}`] ?? 0;
           if (Math.abs(te - animTerrainElev) === 1) {
