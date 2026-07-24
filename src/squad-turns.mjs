@@ -88,6 +88,17 @@ async function activateSquadMembers(group, combat, skipMember) {
   }
 }
 
+function _syncSquadMarkerState() {
+  if (!game.combat) return;
+  const actualGroup = getSquadGroup(game.combat.combatant);
+  const actualGroupId = actualGroup?.id ?? null;
+  if (actualGroupId === window._dsctActiveSquadGroupId) return;
+  const staleGroup = game.combat.groups?.get(window._dsctActiveSquadGroupId);
+  window._dsctActiveSquadGroupId = actualGroupId;
+  if (staleGroup) refreshSquadMarkers(staleGroup, null);
+  if (actualGroup) refreshSquadMarkers(actualGroup, game.combat.combatant?.token?.object ?? null);
+}
+
 function refreshSquadMarkers(group, primaryToken) {
   if (!group) return;
   primaryToken?._refreshTurnMarker?.();
@@ -277,6 +288,7 @@ export function registerSquadTurnHooks() {
     } finally {
       window._dsctActivatingGroupId = null;
       _squadBatchInProgress = false;
+      _syncSquadMarkerState();
     }
   });
 
@@ -309,6 +321,7 @@ export function registerSquadTurnHooks() {
     } finally {
       window._dsctActivatingGroupId = null;
       _squadBatchInProgress = false;
+      _syncSquadMarkerState();
     }
   });
 
