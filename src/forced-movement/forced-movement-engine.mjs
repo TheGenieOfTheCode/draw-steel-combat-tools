@@ -2329,6 +2329,10 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
     window._dsctFMBypassFrightened ??= new Set();
     window._dsctFMBypassFrightened.add(targetToken.id);
+    const priorMovementAction = targetToken.document.movementAction ?? null;
+    if (stepsToAnimate.length > 0) {
+      await safeUpdate(targetToken.document, { movementAction: 'forced' });
+    }
     let animTerrainElev = startElev;
     try {
       for (let s = 0; s < stepsToAnimate.length; s++) {
@@ -2341,7 +2345,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         if (isVertical && stepElev !== (targetToken.document.elevation ?? 0)) {
           await safeUpdate(targetToken.document, { elevation: stepElev });
         }
-        const stepMoveData = { x: stepWorld.x, y: stepWorld.y, movementAction: 'forced' };
+        const stepMoveData = { x: stepWorld.x, y: stepWorld.y };
         if (terrainMap) {
           const te = terrainMap[`${stepGrid.x},${stepGrid.y}`] ?? 0;
           if (Math.abs(te - animTerrainElev) === 1) {
@@ -2434,7 +2438,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       console.log(`DSCT | FM | Pre-message snapshot for ${targetToken.name}: doc.x=${targetToken.document.x}, doc.y=${targetToken.document.y}, doc.elev=${targetToken.document.elevation??0} | live.x=${liveSnap?.x}, live.y=${liveSnap?.y}, live.elev=${liveSnap?.elevation??0} | finalPos will be (${landingWorld.x},${landingWorld.y},${targetElev}) | doc===live: ${targetToken.document === liveSnap}`);
     }
 
-    await safeUpdate(targetToken.document, { 'flags.draw-steel-combat-tools.lastFmMoveId': moveId });
+    await safeUpdate(targetToken.document, { 'flags.draw-steel-combat-tools.lastFmMoveId': moveId, movementAction: priorMovementAction });
 
     if (getSetting('debugMode')) {
       console.log(`DSCT | FM | Assigned moveId=${moveId} to ${targetToken.name}. Confirmed lastFmMoveId=${targetToken.document.getFlag('draw-steel-combat-tools','lastFmMoveId')}`);
