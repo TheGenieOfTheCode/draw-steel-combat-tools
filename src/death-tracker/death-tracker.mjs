@@ -1738,6 +1738,9 @@ export const _addDamagedToken = (tokenId, userId = null) => {
   }, window._dsctFMActive ? 10000 : 2000);
 };
 
+export const deathTrackerExcludedTypes = new Set();
+const _isDTExcluded = (actor) => actor.type === 'hero' || actor.type === 'retainer' || deathTrackerExcludedTypes.has(actor.type);
+
 export function registerDeathTrackerHooks() {
 
   
@@ -1823,7 +1826,7 @@ export function registerDeathTrackerHooks() {
     
     if (statuses.includes('dying') && !statuses.includes('dead')) {
       const actor = effect.parent;
-      if (actor && actor.type !== 'hero' && actor.type !== 'retainer') {
+      if (actor && !_isDTExcluded(actor)) {
         const token = actor.isToken ? actor.token.object : canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
         if (token && !window._dsctManualKillTokenIds?.has(token.id)) {
           
@@ -1839,7 +1842,7 @@ export function registerDeathTrackerHooks() {
     if (!statuses.includes('dead')) return;
 
     const actor = effect.parent;
-    if (!actor || actor.type === 'hero' || actor.type === 'retainer') return;
+    if (!actor || _isDTExcluded(actor)) return;
 
     const token = actor.isToken ? actor.token.object : canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
     if (!token) return;
@@ -2311,7 +2314,7 @@ const cleanOrphanedCombatants = async () => {
 const cleanBaseNpcActors = async () => {
   if (!game.users.activeGM?.isSelf) return;
   const actors = game.actors.filter(a =>
-    a.type !== 'hero' && a.type !== 'retainer' &&
+    !_isDTExcluded(a) &&
     !a.prototypeToken?.actorLink &&
     (a.statuses?.has('dead') || a.statuses?.has('dying'))
   );
@@ -2666,7 +2669,7 @@ export const runPowerWordKillUI = async (options = {}) => {
   const minionTokenIds = new Set(minionCombatants.map(m => m.tokenId));
   let npcs = squadGroup
     ? canvas.tokens.placeables.filter(t => minionTokenIds.has(t.id) && !t.document.hidden && !t.actor?.statuses?.has('dead') && !t.document.defeated)
-    : canvas.tokens.placeables.filter(t => t.actor && t.actor.type !== 'hero' && t.actor.type !== 'retainer' && !t.document.hidden && !t.actor.statuses?.has('dead') && (t.actor.system?.stamina?.value > 0));
+    : canvas.tokens.placeables.filter(t => t.actor && !_isDTExcluded(t.actor) && !t.document.hidden && !t.actor.statuses?.has('dead') && (t.actor.system?.stamina?.value > 0));
 
   if (!npcs.length) {
     ui.notifications.warn(game.i18n.localize('DSCT.notice.dt.noValidTargets'));

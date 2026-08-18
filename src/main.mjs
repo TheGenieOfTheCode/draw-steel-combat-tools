@@ -4,7 +4,7 @@ import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard } from './conditions/grab.mjs';
 import { applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter } from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
-import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken } from './death-tracker/death-tracker.mjs';
+import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes } from './death-tracker/death-tracker.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { registerSquadTurnHooks } from './squad-turns.mjs';
@@ -68,6 +68,7 @@ const api = {
   setRollDialogLock:         setBaneDialogLockWithOverlay,
   getStickBugged:   getStickBugged,
   isFMActive:       () => !!window._dsctFMActive,
+  deathTrackerExcludedTypes,
   socket:           null,
 };
 
