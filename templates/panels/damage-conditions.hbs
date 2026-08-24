@@ -53,6 +53,11 @@
     <div id="dc-source-note" class="dsct-source-note{{#unless requiresSource}} dsct-hidden{{/unless}}">{{localize "DSCT.panel.dc.requiresSource"}}</div>
   </div>
 
-  <button type="button" class="dsct-execute-btn sm" data-action="execute-dc">{{buttonText}}</button>
+  <div class="dsct-dc-actions">
+    <button type="button" class="dsct-execute-btn sm" data-action="execute-dc">{{buttonText}}</button>
+    <button type="button" class="dsct-dc-chat-btn" data-action="post-dc" title="Post to Chat">
+      <i class="fas fa-comment" style="margin:0;"></i>
+    </button>
+  </div>
 
 </div>

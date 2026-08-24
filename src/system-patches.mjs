@@ -286,7 +286,14 @@ function _registerButtonHooks() {
       }
     }
 
-    
+    if (getSetting('applyDamageEnabled') && !_dstdCeding && _msg.getFlag(M, 'postedAreaDamage')) {
+      for (const btn of root.querySelectorAll('.apply-damage')) {
+        btn.dataset.dsctArea = 'true';
+        btn.appendChild(document.createTextNode(' (Area)'));
+      }
+    }
+
+
     
     if (getSetting('purifyingFireEnabled') && !_dstdCeding) {
       const speakerActor = game.actors.get(_msg.speaker?.actor);

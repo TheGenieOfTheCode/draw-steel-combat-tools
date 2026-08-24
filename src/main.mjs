@@ -12,7 +12,7 @@ import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered
 import { registerModuleButtons } from './module-buttons.mjs';
 import { installMacros, distributeAbilities } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.mjs';
-import { toggleDamageConditionsPanel } from './conditions/damage-conditions.mjs';
+import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
 import { openImNoThreatPanel } from './ability-automation/ability-automation.mjs';
 import { openTransformPicker, runTransform } from './ability-automation/transformation.mjs';
@@ -84,6 +84,7 @@ Hooks.once('init', () => {
   registerGrabHooks();
   registerKnockbackGuard();
   registerConditionHooks();
+  registerDCHooks();
   registerTacticalHooks();
   registerDeathTrackerHooks();
   registerSquadLabelHooks();

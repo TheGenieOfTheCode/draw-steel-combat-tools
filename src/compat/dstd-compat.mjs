@@ -594,10 +594,37 @@ function _installSquadHoverListeners(panel, message) {
   }
 }
 
+function _installAreaDamageHook(panel, message) {
+  const areaFlag = message.getFlag(M, 'postedAreaDamage');
+  if (!areaFlag) return;
+  if (panel.dataset.dsctAreaDmgHooked) return;
+  panel.dataset.dsctAreaDmgHooked = '1';
+  const { damageType, amount } = areaFlag;
+  panel.addEventListener('click', async (e) => {
+    const applyBtn = e.target.closest('[data-dstd-action="applyDamage"]');
+    if (!applyBtn) return;
+    e.stopImmediatePropagation();
+    let token = null;
+    try {
+      const tgt = JSON.parse(applyBtn.dataset.target ?? 'null');
+      if (tgt?.tokenId) token = canvas.tokens.get(tgt.tokenId);
+      else if (tgt?.selectedToken) token = canvas.tokens.controlled[0] ?? null;
+    } catch {}
+    if (!token?.actor) return;
+    if (getSetting('deathTrackerEnabled') && getSetting('overrideMinionDefeat') && token.document?.id) {
+      if (game.users.activeGM?.isSelf) _addDamagedToken(token.document.id, null);
+      else getModuleApi(false)?.socket?.executeAsGM('dsct.reportDamagedToken', token.document.id, game.user.id);
+    }
+    const finalAmt = e.shiftKey ? Math.floor(amount / 2) : amount;
+    await applyDamage(token.actor, finalAmt, undefined, { damageType, isArea: true });
+  }, { capture: true });
+}
+
 async function _injectFmButtons(message, root) {
   const panel = root?.querySelector(DSTD_PANEL);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons msgId=${message.id} hasPanel=${!!panel}`);
   if (!panel) return;
+  _installAreaDamageHook(panel, message);
   _installUndoDeathHook(panel);
   _installSquadHoverListeners(panel, message);
 

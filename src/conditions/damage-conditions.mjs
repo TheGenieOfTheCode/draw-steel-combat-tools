@@ -128,6 +128,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     actions: {
       'execute-dc': DamageConditionsPanel._onExecuteDC,
       'set-mode':   DamageConditionsPanel._onSetMode,
+      'post-dc':    DamageConditionsPanel._onPostDC,
     },
   };
 
@@ -271,6 +272,10 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     await this._execute();
   }
 
+  static async _onPostDC() {
+    await this._postToChat();
+  }
+
   static _onSetMode(_event, target) {
     this._damageMode = target.dataset.mode;
     this.element.querySelectorAll('[data-action="set-mode"]').forEach(b => {
@@ -339,6 +344,51 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     ui.notifications.info(game.i18n.format('DSCT.notice.dc.appliedToCount', { count, s: count !== 1 ? 's' : '' }));
   }
 
+  async _postToChat() {
+    if (this._amount <= 0 && !this._condition) {
+      ui.notifications.warn(game.i18n.localize('DSCT.notice.dc.nothingToApply'));
+      return;
+    }
+
+    const speaker   = this._sourceToken
+      ? ChatMessage.getSpeaker({ token: this._sourceToken.document })
+      : ChatMessage.getSpeaker();
+    const isArea    = this._damageMode === 'area';
+    const msgParts  = [];
+    let   content   = '';
+    let   title     = '';
+
+    if (this._amount > 0) {
+      const typeLabel = this._damageType !== 'untyped'
+        ? ` ${this._damageType.charAt(0).toUpperCase() + this._damageType.slice(1)}`
+        : '';
+      title = `${this._amount}${typeLabel} Damage${isArea ? ' (Area)' : ''}`;
+      const roll = new ds.rolls.DamageRoll(String(this._amount), {}, { type: this._damageType, isArea });
+      await roll.evaluate();
+      msgParts.push({ rolls: [roll], flavor: title, type: 'roll' });
+    }
+
+    if (this._condition) {
+      const condDef = ALL_CONDITIONS.find(c => c.id === this._condition);
+      const end     = this._conditionEnd && this._conditionEnd !== 'unlimited' ? ` ${this._conditionEnd}` : '';
+      content       = `[[/apply ${this._condition}${end}]]`;
+      if (!title) title = `${condDef?.label ?? this._condition}${durAbbr(this._conditionEnd)}`;
+      msgParts.push({ type: 'content' });
+    }
+
+    await ds.documents.DrawSteelChatMessage.create({
+      title,
+      content,
+      type: 'standard',
+      speaker,
+      'system.parts': msgParts,
+      flags: {
+        ...(isArea ? { [M]: { postedAreaDamage: { damageType: this._damageType, amount: this._amount } } } : {}),
+        core: { canPopout: true },
+      },
+    });
+  }
+
   async close(options = {}) {
     if (this._hookControl)   Hooks.off('controlToken', this._hookControl);
     if (this._hookTarget)    Hooks.off('targetToken',  this._hookTarget);
@@ -346,6 +396,8 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     return super.close(options);
   }
 }
+
+export const registerDCHooks = () => {};
 
 export const toggleDamageConditionsPanel = () => {
   if (!getSetting('conditionsEnabled')) return;
