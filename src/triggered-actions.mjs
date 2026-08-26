@@ -41,13 +41,15 @@ const enableEffect = async (actor) => {
 
 const disableEffect = async (actor) => {
   const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
-  if (effect && !effect.disabled) await safeUpdate(effect, { disabled: true });
+  if (!effect || effect.disabled) return;
+  try {
+    await safeUpdate(effect, { disabled: true });
+  } catch (_) {}
 };
 
 export const applyTriggeredActions = async (mode = null, silent = false) => {
   const resolvedMode = mode ?? getSetting('autoTriggeredActionsTarget');
-  
-  
+
   if (!game.combat) {
     if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.ta.noActiveCombat'));
     return;
@@ -88,28 +90,30 @@ export const applyTriggeredActions = async (mode = null, silent = false) => {
 };
 
 export const registerTriggeredActionHooks = () => {
+  const _combatEnding = new Set();
+  Hooks.on('preDeleteCombat', (combat) => { _combatEnding.add(combat.id); });
+
   Hooks.on('combatStart', async (combat, updateData) => {
     if (!getSetting('autoTriggeredActionsEnabled')) return;
     if (!game.users.activeGM?.isSelf) return;
 
     const targetMode = getSetting('autoTriggeredActionsTarget');
-    await applyTriggeredActions(targetMode, true); 
+    await applyTriggeredActions(targetMode, true);
   });
 
   Hooks.on('updateCombat', async (combat, changes) => {
     if (!game.users.activeGM?.isSelf) return;
     if (changes.round === undefined) return;
+    if (!combat.active || _combatEnding.has(combat.id)) return;
 
-    
-    
     for (const combatant of combat.combatants.contents) {
+      if (_combatEnding.has(combat.id)) return;
       const actor = getActorFromCombatant(combatant);
       if (!actor) continue;
-      
+
       const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
-      if (effect && effect.disabled) {
-        await safeUpdate(effect, { disabled: false });
-      }
+      if (!effect?.disabled) continue;
+      try { await safeUpdate(effect, { disabled: false }); } catch (_) {}
     }
   });
 
@@ -118,10 +122,10 @@ export const registerTriggeredActionHooks = () => {
 
     const parts = message.system?.parts?.contents;
     if (!parts) return;
-    
+
     const abilityUse = parts.find(p => p.type === 'abilityUse');
     if (!abilityUse?.abilityUuid) return;
-    
+
     const item = await fromUuid(abilityUse.abilityUuid);
     if (item?.system?.type !== 'triggered') return;
 
@@ -131,14 +135,30 @@ export const registerTriggeredActionHooks = () => {
     await disableEffect(actor);
   });
 
-  Hooks.on('deleteCombat', async () => {
+  Hooks.on('updateActiveEffect', async (effect, changes) => {
     if (!game.users.activeGM?.isSelf) return;
+    if (!game.modules.get('draw-steel-companion')?.active) return;
+    if (effect.getFlag(M, 'effectType') !== 'triggered-action') return;
+    if (changes.disabled !== true) return;
+    if (!game.combat) return;
 
-    for (const token of canvas.tokens.placeables) {
-      const actor = token.actor;
-      if (!actor) continue;
-      const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
-      if (effect) await safeDelete(effect);
+    const actor = effect.parent;
+    if (!actor) return;
+
+    if (actor.type === 'hero') {
+      for (const a of game.actors) {
+        if (a.type !== 'draw-steel-companion.companion') continue;
+        if (a.system.retainer?.mentor?.id !== actor.id) continue;
+        await disableEffect(a);
+      }
+    } else if (actor.type === 'draw-steel-companion.companion') {
+      const mentor = actor.system.retainer?.mentor;
+      if (!mentor) return;
+      await disableEffect(mentor);
     }
+  });
+
+  Hooks.on('deleteCombat', (combat) => {
+    _combatEnding.delete(combat.id);
   });
 };
