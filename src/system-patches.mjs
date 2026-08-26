@@ -293,8 +293,21 @@ function _registerButtonHooks() {
       }
     }
 
+    const _dcCond = _msg.getFlag(M, 'postedDsctCondition');
+    if (_dcCond && getSetting('conditionsEnabled') && !root.querySelector('[data-dsct-posted-cond]')) {
+      const { conditionId, endStr, endLabel, sourceActorUuid } = _dcCond;
+      const _condBtn = document.createElement('button');
+      _condBtn.type = 'button';
+      _condBtn.className = 'apply-condition';
+      _condBtn.dataset.dsctPostedCond = 'true';
+      _condBtn.dataset.dsctAction     = `dsct-${conditionId}`;
+      if (sourceActorUuid) _condBtn.dataset.sourceActorUuid = sourceActorUuid;
+      if (endStr)          _condBtn.dataset.end              = endStr;
+      const _label = conditionId.charAt(0).toUpperCase() + conditionId.slice(1);
+      _condBtn.textContent = `Apply ${_label}${endLabel ?? ''}`;
+      (root.querySelector('.message-content') ?? root.querySelector('.message-part-buttons') ?? root).appendChild(_condBtn);
+    }
 
-    
     if (getSetting('purifyingFireEnabled') && !_dstdCeding) {
       const speakerActor = game.actors.get(_msg.speaker?.actor);
       const debug = getSetting('debugMode');

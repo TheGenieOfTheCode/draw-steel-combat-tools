@@ -368,13 +368,26 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       msgParts.push({ rolls: [roll], flavor: title, type: 'roll' });
     }
 
+    const condDef  = ALL_CONDITIONS.find(c => c.id === this._condition);
+    const isDsctCond = condDef?.dsct && (this._condition === 'frightened' || this._condition === 'taunted');
+
     if (this._condition) {
-      const condDef = ALL_CONDITIONS.find(c => c.id === this._condition);
-      const end     = this._conditionEnd && this._conditionEnd !== 'unlimited' ? ` ${this._conditionEnd}` : '';
-      content       = `[[/apply ${this._condition}${end}]]`;
+      if (!isDsctCond) {
+        const end = this._conditionEnd && this._conditionEnd !== 'unlimited' ? ` ${this._conditionEnd}` : '';
+        content   = `[[/apply ${this._condition}${end}]]`;
+        msgParts.push({ type: 'content' });
+      }
       if (!title) title = `${condDef?.label ?? this._condition}${durAbbr(this._conditionEnd)}`;
-      msgParts.push({ type: 'content' });
     }
+
+    const dsctCondFlag = isDsctCond ? {
+      postedDsctCondition: {
+        conditionId:     this._condition,
+        endStr:          this._conditionEnd !== 'unlimited' ? this._conditionEnd : null,
+        endLabel:        durAbbr(this._conditionEnd),
+        sourceActorUuid: this._sourceToken?.actor?.uuid ?? null,
+      },
+    } : {};
 
     await ds.documents.DrawSteelChatMessage.create({
       title,
@@ -383,7 +396,10 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       speaker,
       'system.parts': msgParts,
       flags: {
-        ...(isArea ? { [M]: { postedAreaDamage: { damageType: this._damageType, amount: this._amount } } } : {}),
+        [M]: {
+          ...(isArea ? { postedAreaDamage: { damageType: this._damageType, amount: this._amount } } : {}),
+          ...dsctCondFlag,
+        },
         core: { canPopout: true },
       },
     });
