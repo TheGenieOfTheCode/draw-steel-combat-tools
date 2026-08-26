@@ -3,6 +3,9 @@ import { getSetting } from './helpers.mjs';
 const _priorGroupInitiative = new Map();
 let _squadBatchInProgress = false;
 const _activatedGroupIds = new Set();
+const _deletingCombatIds = new Set();
+
+Hooks.on('deleteCombat', (combat) => { _deletingCombatIds.add(combat.id); setTimeout(() => _deletingCombatIds.delete(combat.id), 10000); });
 
 let _glowTicker = null;
 let _glowTime = 0;
@@ -283,7 +286,9 @@ export function registerSquadTurnHooks() {
         if (!(sibGroup.initiative > 0)) continue;
         _activatedGroupIds.add(sibGroup.id);
         await activateSquadMembers(sibGroup, combat, null);
-        await sibGroup.update({ initiative: sibGroup.initiative - 1 });
+        if (!game.combat || !combat.groups?.has(sibGroup.id)) continue;
+        try { await sibGroup.update({ initiative: sibGroup.initiative - 1 }); }
+        catch (err) { if (getSetting('debugMode')) console.warn('DSCT | updateCombatantGroup | sibGroup.update skipped:', err.message); }
       }
     } finally {
       window._dsctActivatingGroupId = null;
@@ -311,12 +316,17 @@ export function registerSquadTurnHooks() {
     _activatedGroupIds.add(group.id);
     try {
       await activateSquadMembers(group, combat, combatant);
-      await group.update({ initiative: group.initiative - 1 });
+      if (game.combat && combat.groups?.has(group.id) && !_deletingCombatIds.has(combat.id)) {
+        try { await group.update({ initiative: group.initiative - 1 }); }
+        catch (err) { if (getSetting('debugMode')) console.warn('DSCT | updateCombatant | group.update skipped:', err.message); }
+      }
       for (const sibGroup of findSiblingGroups(combat, group)) {
         if (!(sibGroup.initiative > 0)) continue;
         _activatedGroupIds.add(sibGroup.id);
         await activateSquadMembers(sibGroup, combat, null);
-        await sibGroup.update({ initiative: sibGroup.initiative - 1 });
+        if (!game.combat || !combat.groups?.has(sibGroup.id) || _deletingCombatIds.has(combat.id)) continue;
+        try { await sibGroup.update({ initiative: sibGroup.initiative - 1 }); }
+        catch (err) { if (getSetting('debugMode')) console.warn('DSCT | updateCombatant | sibGroup.update skipped:', err.message); }
       }
     } finally {
       window._dsctActivatingGroupId = null;

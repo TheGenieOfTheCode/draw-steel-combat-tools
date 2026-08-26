@@ -2132,28 +2132,35 @@ export function registerDeathTrackerHooks() {
     }
   });
 
+  const _deletingCombatIds = new Set();
+
   Hooks.on('deleteToken', async (tokenDoc) => {
     if (!game.users.activeGM?.isSelf) return;
     const dbg = getSetting('debugMode');
     if (dbg) console.log(`DSCT | deleteToken | fired for token id=${tokenDoc.id} name=${tokenDoc.name}`);
     if (getSetting('cleanOrphanedCombatants')) {
       for (const combat of game.combats.contents) {
-        const orphaned = combat.combatants.filter(c => c.tokenId === tokenDoc.id);
-        if (dbg) console.log(`DSCT | deleteToken | combat ${combat.id}: found ${orphaned.length} matching combatants`);
-        const affectedGroupIds = new Set(orphaned.map(c => c._source?.group).filter(Boolean));
-        if (orphaned.length) await combat.deleteEmbeddedDocuments('Combatant', orphaned.map(c => c.id));
-        if (affectedGroupIds.size) {
-          const emptyGroups = [...affectedGroupIds].filter(gid => !Array.from(combat.groups.get(gid)?.members ?? []).length);
-          const indivHP = tokenDoc.actor?.system?.isMinion ? (tokenDoc.actor.system.stamina?.max ?? 0) : 0;
-          if (indivHP > 0) {
-            for (const gid of affectedGroupIds) {
-              if (emptyGroups.includes(gid)) continue;
-              const group = combat.groups.get(gid);
-              if (group) await group.update({ 'system.staminaValue': Math.max(0, (group.system.staminaValue ?? 0) - indivHP) });
+        if (_deletingCombatIds.has(combat.id)) continue;
+        try {
+          const orphaned = combat.combatants.filter(c => c.tokenId === tokenDoc.id);
+          if (dbg) console.log(`DSCT | deleteToken | combat ${combat.id}: found ${orphaned.length} matching combatants`);
+          const affectedGroupIds = new Set(orphaned.map(c => c._source?.group).filter(Boolean));
+          if (orphaned.length) await combat.deleteEmbeddedDocuments('Combatant', orphaned.map(c => c.id));
+          if (affectedGroupIds.size) {
+            const emptyGroups = [...affectedGroupIds].filter(gid => !Array.from(combat.groups.get(gid)?.members ?? []).length);
+            const indivHP = tokenDoc.actor?.system?.isMinion ? (tokenDoc.actor.system.stamina?.max ?? 0) : 0;
+            if (indivHP > 0) {
+              for (const gid of affectedGroupIds) {
+                if (emptyGroups.includes(gid)) continue;
+                const group = combat.groups.get(gid);
+                if (group) await group.update({ 'system.staminaValue': Math.max(0, (group.system.staminaValue ?? 0) - indivHP) });
+              }
             }
+            if (dbg) console.log(`DSCT | deleteToken | empty groups after combatant removal: [${emptyGroups.join(', ') || 'none'}]`);
+            if (emptyGroups.length) await combat.deleteEmbeddedDocuments('CombatantGroup', emptyGroups);
           }
-          if (dbg) console.log(`DSCT | deleteToken | empty groups after combatant removal: [${emptyGroups.join(', ') || 'none'}]`);
-          if (emptyGroups.length) await combat.deleteEmbeddedDocuments('CombatantGroup', emptyGroups);
+        } catch (err) {
+          if (dbg) console.warn(`DSCT | deleteToken | skipped stale combat ${combat.id}:`, err.message);
         }
       }
     }
@@ -2172,46 +2179,55 @@ export function registerDeathTrackerHooks() {
     const dbg = getSetting('debugMode');
     if (dbg) console.log(`DSCT | deleteActor | fired for actor name=${actor.name} id=${actor.id}`);
     for (const combat of game.combats.contents) {
-      const orphaned = combat.combatants.filter(c => c.actorId === actor.id);
-      if (dbg) console.log(`DSCT | deleteActor | combat ${combat.id}: found ${orphaned.length} matching combatants`);
-      const affectedGroupIds = new Set(orphaned.map(c => c._source?.group).filter(Boolean));
-      if (orphaned.length) await combat.deleteEmbeddedDocuments('Combatant', orphaned.map(c => c.id));
-      if (affectedGroupIds.size) {
-        const emptyGroups = [...affectedGroupIds].filter(gid => !Array.from(combat.groups.get(gid)?.members ?? []).length);
-        if (actor.system?.isMinion) {
-          const indivHP = actor.system.stamina?.max ?? 0;
-          if (indivHP > 0) {
-            const hpToSubtract = indivHP * orphaned.length;
-            for (const gid of affectedGroupIds) {
-              if (emptyGroups.includes(gid)) continue;
-              const group = combat.groups.get(gid);
-              if (group) await group.update({ 'system.staminaValue': Math.max(0, (group.system.staminaValue ?? 0) - hpToSubtract) });
+      try {
+        const orphaned = combat.combatants.filter(c => c.actorId === actor.id);
+        if (dbg) console.log(`DSCT | deleteActor | combat ${combat.id}: found ${orphaned.length} matching combatants`);
+        const affectedGroupIds = new Set(orphaned.map(c => c._source?.group).filter(Boolean));
+        if (orphaned.length) await combat.deleteEmbeddedDocuments('Combatant', orphaned.map(c => c.id));
+        if (affectedGroupIds.size) {
+          const emptyGroups = [...affectedGroupIds].filter(gid => !Array.from(combat.groups.get(gid)?.members ?? []).length);
+          if (actor.system?.isMinion) {
+            const indivHP = actor.system.stamina?.max ?? 0;
+            if (indivHP > 0) {
+              const hpToSubtract = indivHP * orphaned.length;
+              for (const gid of affectedGroupIds) {
+                if (emptyGroups.includes(gid)) continue;
+                const group = combat.groups.get(gid);
+                if (group) await group.update({ 'system.staminaValue': Math.max(0, (group.system.staminaValue ?? 0) - hpToSubtract) });
+              }
             }
           }
+          if (dbg) console.log(`DSCT | deleteActor | empty groups after combatant removal: [${emptyGroups.join(', ') || 'none'}]`);
+          if (emptyGroups.length) await combat.deleteEmbeddedDocuments('CombatantGroup', emptyGroups);
         }
-        if (dbg) console.log(`DSCT | deleteActor | empty groups after combatant removal: [${emptyGroups.join(', ') || 'none'}]`);
-        if (emptyGroups.length) await combat.deleteEmbeddedDocuments('CombatantGroup', emptyGroups);
+      } catch (err) {
+        if (dbg) console.warn(`DSCT | deleteActor | skipped stale combat ${combat.id}:`, err.message);
       }
     }
   });
 
-  Hooks.on('deleteCombat', async () => {
+  Hooks.on('deleteCombat', async (combat) => {
     if (!getSetting('deathTrackerEnabled') || !getSetting('clearSkullsOnCombatEnd') || !game.users.activeGM?.isSelf) return;
 
-    const defeatedStatusId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
-    const defeatedTokens = [...(canvas.scene?.tokens?.contents ?? [])].filter(t =>
-      t.actor?.statuses?.has(defeatedStatusId) || t.flags?.[M]?.isDefeatedObject
-    );
-    const deletedIds = defeatedTokens.map(t => t.id);
-    
-    for (const tokenDoc of defeatedTokens) {
-      await tokenDoc.delete().catch(() => {});
+    _deletingCombatIds.add(combat.id);
+    try {
+      const defeatedStatusId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+      const defeatedTokens = [...(canvas.scene?.tokens?.contents ?? [])].filter(t =>
+        t.actor?.statuses?.has(defeatedStatusId) || t.flags?.[M]?.isDefeatedObject
+      );
+      const deletedIds = defeatedTokens.map(t => t.id);
+
+      for (const tokenDoc of defeatedTokens) {
+        await tokenDoc.delete().catch(() => {});
+      }
+
+      await deleteDeathMessagesFor(deletedIds);
+      await game.settings.set(M, 'deathTrackerSkullIds', []);
+
+      cleanBaseNpcActors();
+    } finally {
+      _deletingCombatIds.delete(combat.id);
     }
-
-    await deleteDeathMessagesFor(deletedIds);
-    await game.settings.set(M, 'deathTrackerSkullIds', []);
-
-    cleanBaseNpcActors();
   });
 
   Hooks.on('renderChatMessageHTML', (msg, el) => {
