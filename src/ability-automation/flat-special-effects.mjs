@@ -1,9 +1,10 @@
 import { applyDamage } from '../helpers.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 
-const { SchemaField, SetField, StringField, NumberField } = foundry.data.fields;
+const { SchemaField, SetField, StringField, NumberField, BooleanField } = foundry.data.fields;
 const ABILITY_PART_ID = "abilityUse".padEnd(16, "0");
-const FLAT_TYPES = new Set(["dsct.flatDamage", "dsct.flatForced", "dsct.flatApplied", "dsct.flatResource"]);
+const FLAT_TYPES = new Set(["dsct.flatDamage", "dsct.flatForced", "dsct.flatApplied", "dsct.flatResource", "dsct.flatHeal"]);
+const _nonDstdHealUsed = new Set();
 
 function _setField(opts = {}) {
   return new StringField({ ...opts, required: true, blank: false });
@@ -44,6 +45,24 @@ function _registerPartials() {
     {{formGroup ctx.amount.field value=ctx.amount.src name="flatResource.amount" localize=true}}
     {{formGroup ctx.type.field value=ctx.type.src name="flatResource.type" options=ctx.typeOptions localize=true}}
     {{formGroup ctx.display.field value=ctx.display.src name="flatResource.display" localize=true}}
+  `);
+
+  Handlebars.registerPartial("dsct.flat-heal", `
+    {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatHeal.displayText" localize=true}}
+    {{formGroup ctx.spendRecovery.field value=ctx.spendRecovery.src name="flatHeal.spendRecovery" localize=true}}
+    <div data-dsct-heal-recovery-source {{#unless ctx.spendRecovery.src}}hidden{{/unless}}>
+      {{formGroup ctx.recoverySource.field value=ctx.recoverySource.src name="flatHeal.recoverySource" options=ctx.sourceOptions localize=true}}
+    </div>
+    {{formGroup ctx.amountType.field value=ctx.amountType.src name="flatHeal.amountType" options=ctx.amountTypeOptions localize=true}}
+    <div data-dsct-heal-custom {{#unless ctx.isCustomAmount}}hidden{{/unless}}>
+      {{formGroup ctx.amountFormula.field value=ctx.amountFormula.src name="flatHeal.amountFormula" localize=true}}
+    </div>
+    <div data-dsct-heal-rv-source {{#unless ctx.isRecoveryValueAmount}}hidden{{/unless}}>
+      {{formGroup ctx.recoveryValueSource.field value=ctx.recoveryValueSource.src name="flatHeal.recoveryValueSource" options=ctx.sourceOptions localize=true}}
+    </div>
+    {{formGroup ctx.tempStamina.field value=ctx.tempStamina.src name="flatHeal.tempStamina" localize=true}}
+    {{formGroup ctx.repeatable.field value=ctx.repeatable.src name="flatHeal.repeatable" localize=true}}
+    {{formGroup ctx.display.field value=ctx.display.src name="flatHeal.display" localize=true}}
   `);
 }
 
@@ -282,6 +301,78 @@ class FlatResourceSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
   }
 }
 
+class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseSpecialEffect {
+  static get TYPE() { return "dsct.flatHeal"; }
+
+  static defineSchema() {
+    return Object.assign(super.defineSchema(), {
+      flatHeal: new SchemaField({
+        displayText:         new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.displayText.label",                   hint: "DSCT.FlatEffect.displayText.hint" }),
+        display:             new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",                       hint: "DSCT.FlatEffect.display.hint" }),
+        spendRecovery:       new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.spendRecovery.label",            hint: "DSCT.FlatEffect.Heal.spendRecovery.hint" }),
+        recoverySource:      new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoverySource.label" }),
+        amountType:          new StringField({ required: false, blank: false, initial: "recoveryValue", label: "DSCT.FlatEffect.Heal.amountType.label" }),
+        amountFormula:       new ds.data.fields.FormulaField({ initial: "0",                           label: "DSCT.FlatEffect.Heal.amountFormula.label" }),
+        recoveryValueSource: new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoveryValueSource.label" }),
+        tempStamina:         new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.tempStamina.label",             hint: "DSCT.FlatEffect.Heal.tempStamina.hint" }),
+        repeatable:          new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.repeatable.label",              hint: "DSCT.FlatEffect.Heal.repeatable.hint" }),
+      }),
+    });
+  }
+
+  get detailsPartial() { return "dsct.flat-heal"; }
+  showUse() { return false; }
+
+  get label() {
+    const { display, displayText, spendRecovery, amountType, amountFormula, recoveryValueSource, tempStamina } = this.flatHeal;
+    if (display) return display;
+    if (displayText) return displayText;
+    const sourceActor = this.document?.actor ?? null;
+    let amountStr;
+    if (amountType === "recoveryValue") {
+      amountStr = recoveryValueSource === "self" && sourceActor
+        ? String(sourceActor.system.recoveries?.recoveryValue ?? "?")
+        : game.i18n.localize("DSCT.FlatEffect.Heal.rvPlaceholder");
+    } else {
+      try {
+        const rd = sourceActor?.getRollData?.();
+        amountStr = rd ? ds.utils.simplifyRollFormula(amountFormula, rd) : amountFormula;
+      } catch { amountStr = amountFormula; }
+    }
+    if (tempStamina && spendRecovery) return game.i18n.format("DSCT.FlatEffect.Heal.spendTempLabel",  { amount: amountStr });
+    if (tempStamina)                  return game.i18n.format("DSCT.FlatEffect.Heal.tempLabel",        { amount: amountStr });
+    if (spendRecovery)                return game.i18n.format("DSCT.FlatEffect.Heal.spendHealLabel",   { amount: amountStr });
+    return game.i18n.format("DSCT.FlatEffect.Heal.healLabel", { amount: amountStr });
+  }
+
+  async getSheetContext() {
+    const src = this._source.flatHeal;
+    const sourceOptions = [
+      { value: "self",   label: game.i18n.localize("DSCT.FlatEffect.Heal.Source.self")   },
+      { value: "target", label: game.i18n.localize("DSCT.FlatEffect.Heal.Source.target") },
+    ];
+    const amountTypeOptions = [
+      { value: "recoveryValue", label: game.i18n.localize("DSCT.FlatEffect.Heal.AmountType.recoveryValue") },
+      { value: "custom",        label: game.i18n.localize("DSCT.FlatEffect.Heal.AmountType.custom") },
+    ];
+    return {
+      displayText:         { field: this.schema.getField("flatHeal.displayText"),         src: src.displayText },
+      display:             { field: this.schema.getField("flatHeal.display"),             src: src.display },
+      spendRecovery:       { field: this.schema.getField("flatHeal.spendRecovery"),       src: src.spendRecovery },
+      recoverySource:      { field: this.schema.getField("flatHeal.recoverySource"),      src: src.recoverySource },
+      amountType:          { field: this.schema.getField("flatHeal.amountType"),          src: src.amountType },
+      amountFormula:       { field: this.schema.getField("flatHeal.amountFormula"),       src: src.amountFormula },
+      recoveryValueSource: { field: this.schema.getField("flatHeal.recoveryValueSource"), src: src.recoveryValueSource },
+      tempStamina:         { field: this.schema.getField("flatHeal.tempStamina"),         src: src.tempStamina },
+      repeatable:          { field: this.schema.getField("flatHeal.repeatable"),          src: src.repeatable },
+      sourceOptions,
+      amountTypeOptions,
+      isCustomAmount:        src.amountType === "custom",
+      isRecoveryValueAmount: src.amountType === "recoveryValue",
+    };
+  }
+}
+
 function _buildDamageButton(effect, item) {
   const { value, types, ignoredImmunities, display } = effect.flatDamage;
   const rollData = item.actor?.getRollData?.() ?? {};
@@ -388,7 +479,45 @@ function _buildAppliedButton(effect) {
   return btn;
 }
 
-function _addFlatEffectListeners(section, item) {
+function _buildHealButton(effect, item) {
+  const { display, spendRecovery, recoverySource, amountType, amountFormula, recoveryValueSource, tempStamina, repeatable } = effect.flatHeal;
+  const sourceActor = item.actor;
+
+  let amountStr;
+  if (amountType === "recoveryValue") {
+    amountStr = recoveryValueSource === "self" && sourceActor
+      ? String(sourceActor.system.recoveries?.recoveryValue ?? "?")
+      : game.i18n.localize("DSCT.FlatEffect.Heal.rvPlaceholder");
+  } else {
+    const rd = sourceActor?.getRollData?.() ?? {};
+    try { amountStr = ds.utils.simplifyRollFormula(amountFormula, rd); }
+    catch { amountStr = amountFormula; }
+  }
+
+  let defaultLabel;
+  if (tempStamina && spendRecovery) defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.spendTempLabel",  { amount: amountStr });
+  else if (tempStamina)             defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.tempLabel",        { amount: amountStr });
+  else if (spendRecovery)           defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.spendHealLabel",   { amount: amountStr });
+  else                              defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.healLabel",        { amount: amountStr });
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "dsct-flat-heal-btn";
+  btn.dataset.effectId            = effect.id;
+  btn.dataset.spendRecovery       = String(spendRecovery);
+  btn.dataset.recoverySource      = recoverySource;
+  btn.dataset.amountType          = amountType;
+  btn.dataset.amountFormula       = amountFormula;
+  btn.dataset.recoveryValueSource = recoveryValueSource;
+  btn.dataset.tempStamina         = String(tempStamina);
+  btn.dataset.repeatable          = String(repeatable);
+  btn.dataset.actorUuid           = sourceActor?.uuid ?? "";
+  const iconClass = tempStamina ? "fa-solid fa-shield-halved" : "fa-solid fa-heart-pulse";
+  btn.innerHTML = `<i class="${iconClass}" style="color:#2ecc71"></i> ${display || defaultLabel}`;
+  return btn;
+}
+
+function _addFlatEffectListeners(section, item, message) {
   section.querySelectorAll(".dsct-flat-damage-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       const formula = btn.dataset.formula;
@@ -444,6 +573,71 @@ function _addFlatEffectListeners(section, item) {
       }
     });
   });
+
+  section.querySelectorAll(".dsct-flat-heal-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const targets = [...game.user.targets];
+      if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
+      const sourceActor         = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : null;
+      const spendRecovery       = btn.dataset.spendRecovery === "true";
+      const recoverySource      = btn.dataset.recoverySource;
+      const amountType          = btn.dataset.amountType;
+      const amountFormula       = btn.dataset.amountFormula;
+      const recoveryValueSource = btn.dataset.recoveryValueSource;
+      const tempStamina         = btn.dataset.tempStamina === "true";
+      const repeatable          = btn.dataset.repeatable === "true";
+      const effectId            = btn.dataset.effectId;
+
+      let anyApplied = false;
+      for (const target of targets) {
+        const targetActor = target.actor;
+        if (!targetActor) continue;
+
+        if (!tempStamina) {
+          const curStamina = targetActor.system.stamina?.value ?? 0;
+          const maxStamina = targetActor.system.stamina?.max ?? 0;
+          if (curStamina >= maxStamina) {
+            ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Heal.alreadyMax", { name: targetActor.name }));
+            continue;
+          }
+        }
+
+        if (spendRecovery) {
+          const recovActor = recoverySource === "target" ? targetActor : sourceActor;
+          if (!recovActor) continue;
+          const available = recovActor.system.recoveries?.value ?? 0;
+          if (available <= 0) {
+            ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Heal.noRecoveries", { name: recovActor.name }));
+            continue;
+          }
+          await recovActor.update({ "system.recoveries.value": available - 1 });
+        }
+
+        let amount;
+        if (amountType === "recoveryValue") {
+          const rvActor = recoveryValueSource === "target" ? targetActor : sourceActor;
+          amount = rvActor?.system.recoveries?.recoveryValue ?? 0;
+        } else {
+          const rd = sourceActor?.getRollData?.() ?? {};
+          const roll = new Roll(amountFormula || "0", rd);
+          await roll.evaluate();
+          amount = Math.floor(roll.total);
+        }
+
+        if (tempStamina) {
+          await targetActor.update({ "system.stamina.temporary": amount });
+        } else {
+          await targetActor.modifyTokenAttribute("stamina", amount, true);
+        }
+        anyApplied = true;
+      }
+
+      if (!repeatable && anyApplied) {
+        btn.disabled = true;
+        if (message) _nonDstdHealUsed.add(`${message.id}:${effectId}`);
+      }
+    });
+  });
 }
 
 function _installFlatEffectChatHook() {
@@ -464,7 +658,12 @@ function _installFlatEffectChatHook() {
     const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage") .map(e => _buildDamageButton(e, item));
     const fmRows      = flatEffects.filter(e => e.type === "dsct.flatForced") .map(e => _buildForcedRow(e, item));
     const condButtons = flatEffects.filter(e => e.type === "dsct.flatApplied").map(e => _buildAppliedButton(e)).filter(Boolean);
-    const buttons = [...dmgButtons, ...fmRows, ...condButtons];
+    const healButtons = flatEffects.filter(e => e.type === "dsct.flatHeal").map(e => {
+      const btn = _buildHealButton(e, item);
+      if (!e.flatHeal.repeatable && _nonDstdHealUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
+      return btn;
+    });
+    const buttons = [...dmgButtons, ...fmRows, ...condButtons, ...healButtons];
     if (!buttons.length) return;
 
     let footer = partSection.querySelector("footer.message-part-buttons");
@@ -475,7 +674,7 @@ function _installFlatEffectChatHook() {
     }
     for (const btn of buttons) footer.appendChild(btn);
 
-    _addFlatEffectListeners(partSection, item);
+    _addFlatEffectListeners(partSection, item, message);
   });
 }
 
@@ -486,6 +685,7 @@ function _installFlatEffectChatHook() {
   cfg["dsct.flatForced"]   = { label: "TYPES.SpecialEffect.dsct.flatForced",   defaultImage: "icons/svg/portal.svg",    documentClass: FlatForcedSpecialEffect };
   cfg["dsct.flatApplied"]  = { label: "TYPES.SpecialEffect.dsct.flatApplied",  defaultImage: "icons/svg/paralysis.svg", documentClass: FlatAppliedSpecialEffect };
   cfg["dsct.flatResource"] = { label: "TYPES.SpecialEffect.dsct.flatResource", defaultImage: "icons/svg/lightning.svg", documentClass: FlatResourceSpecialEffect };
+  cfg["dsct.flatHeal"]     = { label: "TYPES.SpecialEffect.dsct.flatHeal",     defaultImage: "icons/svg/heal.svg",   documentClass: FlatHealSpecialEffect };
 })();
 
 function _installDisplayTextAutofill() {
@@ -512,6 +712,33 @@ function _installDisplayTextAutofill() {
   });
 }
 
+function _installHealToggleListeners() {
+  Hooks.on('renderApplicationV2', (_app, element) => {
+    const spendToggle = element.querySelector?.('input[name="flatHeal.spendRecovery"]');
+    const amountSel   = element.querySelector?.('select[name="flatHeal.amountType"]');
+    if (!spendToggle && !amountSel) return;
+
+    const recSourceDiv = element.querySelector('[data-dsct-heal-recovery-source]');
+    const customDiv    = element.querySelector('[data-dsct-heal-custom]');
+    const rvSourceDiv  = element.querySelector('[data-dsct-heal-rv-source]');
+
+    const syncSpend = () => {
+      if (!recSourceDiv) return;
+      if (spendToggle?.checked) recSourceDiv.removeAttribute('hidden');
+      else recSourceDiv.setAttribute('hidden', '');
+    };
+    const syncAmount = () => {
+      const isCustom = amountSel?.value === 'custom';
+      const isRV     = amountSel?.value === 'recoveryValue';
+      if (customDiv)   { if (isCustom) customDiv.removeAttribute('hidden');   else customDiv.setAttribute('hidden', ''); }
+      if (rvSourceDiv) { if (isRV)     rvSourceDiv.removeAttribute('hidden'); else rvSourceDiv.setAttribute('hidden', ''); }
+    };
+
+    if (spendToggle) { spendToggle.addEventListener('change', syncSpend); syncSpend(); }
+    if (amountSel)   { amountSel.addEventListener('change', syncAmount); syncAmount(); }
+  });
+}
+
 function _installPotencyCustomToggle() {
   Hooks.on('renderApplicationV2', (_app, element) => {
     const strengthSel = element.querySelector?.('select[name="flatApplied.potency.strength"]');
@@ -532,6 +759,7 @@ export function registerFlatEffects() {
   _installFlatEffectChatHook();
   _installDisplayTextAutofill();
   _installPotencyCustomToggle();
+  _installHealToggleListeners();
 
   ds.CONFIG.SpecialEffect["dsct.flatDamage"] = {
     label: "TYPES.SpecialEffect.dsct.flatDamage",
@@ -552,5 +780,10 @@ export function registerFlatEffects() {
     label: "TYPES.SpecialEffect.dsct.flatResource",
     defaultImage: "icons/svg/lightning.svg",
     documentClass: FlatResourceSpecialEffect,
+  };
+  ds.CONFIG.SpecialEffect["dsct.flatHeal"] = {
+    label: "TYPES.SpecialEffect.dsct.flatHeal",
+    defaultImage: "icons/svg/heal.svg",
+    documentClass: FlatHealSpecialEffect,
   };
 }

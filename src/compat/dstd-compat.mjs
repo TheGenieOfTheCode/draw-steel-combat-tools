@@ -19,7 +19,7 @@ const _fmState = new Map();
 
 const _fmUndoIndex = new Map();
 
-const _flatCondState = new Map(); 
+const _flatCondState = new Map();
 
 const _DSTD_DAMAGE_ICONS = {
   acid:       'fa-solid fa-flask-vial',
@@ -193,7 +193,7 @@ export function registerDstdCompat() {
     const ability = fromUuidSync(abilityUuid);
     if (!ability) return;
     const effectsList = Array.from(ability.system?.effects?.contents ?? []);
-    const hasFlatEffects = effectsList.some(e => ['dsct.flatDamage', 'dsct.flatForced', 'dsct.flatApplied'].includes(e.type));
+    const hasFlatEffects = effectsList.some(e => ['dsct.flatDamage', 'dsct.flatForced', 'dsct.flatApplied', 'dsct.flatHeal'].includes(e.type));
     if (!hasFlatEffects) return;
 
     const targets = Array.from(game.user.targets).map(token => {
@@ -807,7 +807,8 @@ async function _injectFmButtons(message, root) {
   const flatForcedEffects   = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatForced');
   const flatAppliedEffects  = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatApplied');
   const flatResourceEffects = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatResource');
-  const doFlatEffects = flatDamageEffects.length > 0 || flatForcedEffects.length > 0 || flatAppliedEffects.length > 0;
+  const flatHealEffects     = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatHeal');
+  const doFlatEffects = flatDamageEffects.length > 0 || flatForcedEffects.length > 0 || flatAppliedEffects.length > 0 || flatHealEffects.length > 0;
 
   const dsid     = getItemDsid(ability);
   const maxGrabs = MULTI_GRAB_LIMITS[dsid] ?? 1;
@@ -917,7 +918,7 @@ async function _injectFmButtons(message, root) {
   }
 
   if (doFlatEffects) {
-    for (const btn of root.querySelectorAll('.dsct-flat-damage-btn, .dsct-flat-forced-btn, .dsct-flat-applied-btn')) {
+    for (const btn of root.querySelectorAll('.dsct-flat-damage-btn, .dsct-flat-forced-btn, .dsct-flat-applied-btn, .dsct-flat-heal-btn')) {
       const footer = btn.closest('footer.message-part-buttons');
       if (footer) footer.hidden = true;
     }
@@ -2098,6 +2099,161 @@ async function _injectFmButtons(message, root) {
       });
 
       actions.appendChild(condRow);
+    }
+
+    for (const effect of flatHealEffects) {
+      const { display, spendRecovery, recoverySource, amountType, amountFormula, recoveryValueSource, tempStamina, repeatable } = effect.flatHeal;
+      const healFlagKey = `fheal_${effect.id}_${targetKey}`;
+      if (actions.querySelector(`[data-dsct-flat-heal-key="${healFlagKey}"]`)) continue;
+
+      const cur = message.getFlag(M, healFlagKey) ?? { usedCount: 0, undoCount: 0, healed: [], recoveries: [] };
+      const netUsed = (cur.usedCount ?? 0) - (cur.undoCount ?? 0);
+      const isApplied = !repeatable && netUsed > 0;
+
+      const rvActor = recoveryValueSource === "target" ? _condTargetActor : sourceActor;
+      let amountStr;
+      if (amountType === "recoveryValue") {
+        const rv = rvActor?.system.recoveries?.recoveryValue;
+        amountStr = rv != null ? String(rv) : game.i18n.localize("DSCT.FlatEffect.Heal.rvPlaceholder");
+      } else {
+        const rd = ability.actor?.getRollData?.() ?? {};
+        try { amountStr = ds.utils.simplifyRollFormula(amountFormula, rd); }
+        catch { amountStr = amountFormula; }
+      }
+
+      let defaultLabel;
+      if (tempStamina && spendRecovery) defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.spendTempLabel",  { amount: amountStr });
+      else if (tempStamina)             defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.tempLabel",        { amount: amountStr });
+      else if (spendRecovery)           defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.spendHealLabel",   { amount: amountStr });
+      else                              defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.healLabel",        { amount: amountStr });
+
+      const applyLbl = display || defaultLabel;
+
+      const healBtn = document.createElement('button');
+      healBtn.type      = 'button';
+      healBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
+      healBtn.dataset.dsctFlatHealKey = healFlagKey;
+      healBtn.dataset.tooltip = applyLbl;
+      healBtn.disabled = isApplied;
+      const healIcon = tempStamina ? 'fa-solid fa-shield-halved' : 'fa-solid fa-heart-pulse';
+      const healIconEl = _makeIcon(healIcon);
+      healIconEl.style.color = '#2ecc71';
+      healBtn.append(healIconEl, _makeSpan(applyLbl));
+
+      const undoHealBtn = document.createElement('button');
+      undoHealBtn.type      = 'button';
+      undoHealBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
+      undoHealBtn.dataset.tooltip = `Undo ${applyLbl}${netUsed > 1 ? ` (${netUsed})` : ''}`;
+      undoHealBtn.disabled = netUsed === 0;
+      const undoIcon = _makeIcon('fa-solid fa-rotate-left');
+      if (netUsed > 0) {
+        const countEl = document.createElement('sup');
+        countEl.textContent = String(netUsed);
+        countEl.style.cssText = 'font-size:0.65em;vertical-align:super;margin-left:1px;';
+        undoHealBtn.append(undoIcon, countEl);
+      } else {
+        undoHealBtn.append(undoIcon);
+      }
+
+      const healRow = document.createElement('div');
+      healRow.className = `${DSTD}-action-row`;
+      healRow.append(healBtn, undoHealBtn);
+      if (isApplied) healRow.classList.add('is-applied');
+
+      healBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (healBtn.disabled) return;
+        const td          = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+        const targetActor = td?.actor ?? null;
+        if (!targetActor) return;
+
+        if (!tempStamina) {
+          const curStamina = targetActor.system.stamina?.value ?? 0;
+          const maxStamina = targetActor.system.stamina?.max ?? 0;
+          if (curStamina >= maxStamina) {
+            ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Heal.alreadyMax", { name: targetActor.name }));
+            return;
+          }
+        }
+
+        healBtn.disabled = true;
+
+        let recoveryActorUuid = null;
+        if (spendRecovery) {
+          const recovActor = recoverySource === "target" ? targetActor : sourceActor;
+          if (!recovActor) { healBtn.disabled = false; return; }
+          const available = recovActor.system.recoveries?.value ?? 0;
+          if (available <= 0) {
+            ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Heal.noRecoveries", { name: recovActor.name }));
+            healBtn.disabled = false;
+            return;
+          }
+          await recovActor.update({ "system.recoveries.value": available - 1 });
+          recoveryActorUuid = recovActor.uuid;
+        }
+
+        let amount;
+        if (amountType === "recoveryValue") {
+          const rvA = recoveryValueSource === "target" ? targetActor : sourceActor;
+          amount = rvA?.system.recoveries?.recoveryValue ?? 0;
+        } else {
+          const rd = ability.actor?.getRollData?.() ?? {};
+          const roll = new Roll(amountFormula || "0", rd);
+          await roll.evaluate();
+          amount = Math.floor(roll.total);
+        }
+
+        const staminaBefore = targetActor.system.stamina?.value ?? 0;
+        let healedEntry;
+        if (tempStamina) {
+          healedEntry = targetActor.system.stamina?.temporary ?? 0;
+          await targetActor.update({ "system.stamina.temporary": amount });
+        } else {
+          await targetActor.modifyTokenAttribute("stamina", amount, true);
+          healedEntry = (targetActor.system.stamina?.value ?? 0) - staminaBefore;
+        }
+
+        const freshCur = message.getFlag(M, healFlagKey) ?? { usedCount: 0, undoCount: 0, healed: [], recoveries: [] };
+        await message.setFlag(M, healFlagKey, {
+          usedCount:  (freshCur.usedCount  ?? 0) + 1,
+          undoCount:   freshCur.undoCount  ?? 0,
+          healed:     [...(freshCur.healed     ?? []), healedEntry],
+          recoveries: [...(freshCur.recoveries ?? []), recoveryActorUuid],
+        });
+      });
+
+      undoHealBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (undoHealBtn.disabled) return;
+        const td          = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+        const targetActor = td?.actor ?? null;
+        if (!targetActor) return;
+
+        undoHealBtn.disabled = true;
+
+        const freshCur  = message.getFlag(M, healFlagKey) ?? { usedCount: 0, undoCount: 0, healed: [], recoveries: [] };
+        const freshNet  = (freshCur.usedCount ?? 0) - (freshCur.undoCount ?? 0);
+        if (freshNet <= 0) return;
+
+        const healedAmount    = (freshCur.healed     ?? [])[freshNet - 1] ?? 0;
+        const recoveryActorUu = (freshCur.recoveries ?? [])[freshNet - 1] ?? null;
+
+        if (tempStamina) {
+          await targetActor.update({ "system.stamina.temporary": healedAmount });
+        } else if (healedAmount) {
+          await targetActor.modifyTokenAttribute("stamina", -healedAmount, true);
+        }
+
+        if (recoveryActorUu) {
+          const recovDoc   = await fromUuid(recoveryActorUu).catch(() => null);
+          const recovActor = recovDoc?.actor ?? recovDoc ?? null;
+          if (recovActor) await recovActor.update({ "system.recoveries.value": (recovActor.system.recoveries?.value ?? 0) + 1 });
+        }
+
+        await message.setFlag(M, healFlagKey, { ...freshCur, undoCount: (freshCur.undoCount ?? 0) + 1 });
+      });
+
+      actions.appendChild(healRow);
     }
 
     if (doSquad && squadTargetMap && tokenUuid) {

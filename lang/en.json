@@ -593,6 +593,49 @@
       "Damage": {
         "defaultLabel": "Apply {value} {types}"
       },
+      "Heal": {
+        "healLabel":      "Heal {amount} Stamina",
+        "tempLabel":      "Grant {amount} Temp. Stamina",
+        "spendHealLabel": "Heal {amount} Stamina (Spend Recovery)",
+        "spendTempLabel": "Grant {amount} Temp. Stamina (Spend Recovery)",
+        "appliedHeal":    "Healed",
+        "appliedTemp":    "Temp. Stamina Granted",
+        "rvPlaceholder":  "Recovery Value",
+        "noRecoveries":   "{name} has no recoveries remaining.",
+        "alreadyMax":     "{name} is already at maximum stamina.",
+        "spendRecovery": {
+          "label": "Spend a Recovery",
+          "hint":  "Requires the source or target to spend one recovery."
+        },
+        "recoverySource": {
+          "label": "Recovery Spent By"
+        },
+        "amountType": {
+          "label": "Amount"
+        },
+        "amountFormula": {
+          "label": "Formula"
+        },
+        "recoveryValueSource": {
+          "label": "Recovery Value Of"
+        },
+        "tempStamina": {
+          "label": "Temporary Stamina",
+          "hint":  "Grant temporary stamina instead of healing. Overrides any existing temporary stamina on the target."
+        },
+        "Source": {
+          "self":   "Self",
+          "target": "Target"
+        },
+        "AmountType": {
+          "recoveryValue": "Recovery Value",
+          "custom":        "Custom"
+        },
+        "repeatable": {
+          "label": "Repeatable",
+          "hint":  "When enabled, the heal button stays active after use. Each use is tracked separately so undo removes exactly what was healed."
+        }
+      },
       "FM": {
         "defaultLabel": "{movement} {distance}",
         "editTooltip": "Modify distance",
@@ -1282,7 +1325,8 @@
         "flatDamage": "Damage",
         "flatForced": "Forced Movement",
         "flatApplied": "Applied Effect",
-        "flatResource": "Gain Resource"
+        "flatResource": "Gain Resource",
+        "flatHeal": "Heal"
       }
     },
     "RegionBehavior": {
