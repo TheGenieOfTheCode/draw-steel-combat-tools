@@ -590,6 +590,15 @@
         "label": "Button Label",
         "hint": "Custom label for the chat button. Leave blank to use the auto-generated label."
       },
+      "Damage": {
+        "defaultLabel": "Apply {value} {types}"
+      },
+      "FM": {
+        "defaultLabel": "{movement} {distance}",
+        "editTooltip": "Modify distance",
+        "editTitle": "Modify {movement}",
+        "distanceLabel": "Distance"
+      },
       "Applied": {
         "displayText": {
           "label": "Display",

@@ -298,7 +298,7 @@ function _buildDamageButton(effect, item) {
   btn.dataset.formula = value;
   btn.dataset.types = typeList.join(",");
   btn.dataset.ignoredImmunities = Array.from(ignoredImmunities).join(",");
-  const btnLabel = display || `Apply ${simplified} ${typeLabel}`;
+  const btnLabel = display || game.i18n.format("DSCT.FlatEffect.Damage.defaultLabel", { value: simplified, types: typeLabel });
   const iconClass = firstType ? (_FLAT_DAMAGE_ICONS[firstType] ?? "fa-solid fa-burst") : "fa-solid fa-burst";
   btn.innerHTML = `<i class="${iconClass}"></i> ${btnLabel}`;
   return btn;
@@ -333,25 +333,26 @@ function _buildForcedRow(effect, item) {
   applyBtn.dataset.distance = distance;
   applyBtn.dataset.properties = propArr.join(",");
   applyBtn.dataset.actorUuid = item.actor?.uuid ?? "";
-  applyBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${display || `${movLabel} ${distLabel}`}`;
+  applyBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${display || game.i18n.format("DSCT.FlatEffect.FM.defaultLabel", { movement: movLabel, distance: distLabel })}`;
 
   const editBtn = document.createElement("button");
   editBtn.type = "button";
   editBtn.className = "dsct-flat-forced-edit-btn";
   editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
-  editBtn.title = "Modify distance";
+  editBtn.title = game.i18n.localize("DSCT.FlatEffect.FM.editTooltip");
   editBtn.style.cssText = "flex:0 0 auto;width:2.25em;padding:0;display:flex;align-items:center;justify-content:center;";
   editBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
     const cur = parseInt(applyBtn.dataset.distance) || 1;
+    const distLbl = game.i18n.localize("DSCT.FlatEffect.FM.distanceLabel");
     const result = await foundry.applications.api.DialogV2.prompt({
-      window: { title: `Modify ${movLabel}` },
-      content: `<label style="display:flex;align-items:center;gap:.5rem;">Distance <input type="number" name="dist" value="${cur}" min="1" style="width:5rem;"></label>`,
-      ok: { label: "OK", callback: (_ev, btn) => Number(btn.form.elements.dist.value) },
+      window: { title: game.i18n.format("DSCT.FlatEffect.FM.editTitle", { movement: movLabel }) },
+      content: `<label style="display:flex;align-items:center;gap:.5rem;">${distLbl} <input type="number" name="dist" value="${cur}" min="1" style="width:5rem;"></label>`,
+      ok: { label: game.i18n.localize("OK"), callback: (_ev, btn) => Number(btn.form.elements.dist.value) },
     }).catch(() => null);
     if (result != null && result >= 1) {
       applyBtn.dataset.distance = String(result);
-      applyBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${display || `${movLabel} ${result}`}`;
+      applyBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${display || game.i18n.format("DSCT.FlatEffect.FM.defaultLabel", { movement: movLabel, distance: result })}`;
     }
   });
 
