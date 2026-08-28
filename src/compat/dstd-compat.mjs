@@ -19,6 +19,49 @@ const _fmState = new Map();
 
 const _fmUndoIndex = new Map();
 
+const _flatCondState = new Map(); 
+
+const _DSTD_DAMAGE_ICONS = {
+  acid:       'fa-solid fa-flask-vial',
+  cold:       'fa-solid fa-snowflake',
+  corruption: 'fa-brands fa-galactic-republic',
+  fire:       'fa-solid fa-fire',
+  holy:       'fa-solid fa-sun',
+  lightning:  'fa-solid fa-bolt',
+  poison:     'fa-solid fa-skull-crossbones',
+  psychic:    'fa-solid fa-brain',
+  sonic:      'fa-solid fa-volume-high',
+};
+function _dmgIcon(type) { return _DSTD_DAMAGE_ICONS[type] ?? 'fa-solid fa-burst'; }
+
+function _makeStatusIcon(iconSrc) {
+  if (!iconSrc) {
+    const i = document.createElement('i');
+    i.className = 'fa-solid fa-star';
+    return i;
+  }
+  const img = document.createElement('img');
+  img.src = iconSrc;
+  img.style.cssText = 'width:1.35em;height:1.35em;object-fit:contain;vertical-align:middle;';
+  return img;
+}
+
+function _dstdHashString(value) {
+  let hash = 0;
+  const text = String(value ?? '');
+  for (let i = 0; i < text.length; i++) { hash = ((hash << 5) - hash) + text.charCodeAt(i); hash |= 0; }
+  return Math.abs(hash).toString(36);
+}
+function _dstdTargetKey(target) {
+  if (target?.selectedToken) return 'selected-token';
+  return target?.tokenUuid?.replace(/\./g, '__') ?? '';
+}
+function _dstdOperationId(kind, target, action) {
+  const hash     = _dstdHashString(_dstdTargetKey(target));
+  const actionId = action.rollIndex ?? action.effectId ?? action.characteristic ?? 'action';
+  return `${kind}-${action.partId ?? 'part'}-${actionId}-${hash}`.replace(/[^A-Za-z0-9_-]/g, '-');
+}
+
 const _squadAbilityRange = (ability) => {
   const dist = ability?.system?.distance;
   if (!dist) return null;
@@ -134,7 +177,65 @@ export function registerDstdCompat() {
     _handleAoeTargeting(region);
   });
 
-  
+  Hooks.on('preCreateChatMessage', (message, _data, _options, userId) => {
+    if (userId !== game.userId) return;
+    if (!game.modules.get(DSTD)?.active) return;
+    const parts = _getMessageParts(message);
+    const abilityUuid = parts.find(p => p.abilityUuid)?.abilityUuid;
+    if (!abilityUuid) return;
+
+    const hasRolledParts = parts.some(part => {
+      const rolls = Array.isArray(part.rolls) ? part.rolls : Array.from(part.rolls ?? []);
+      return rolls.length > 0;
+    });
+    if (hasRolledParts) return;
+
+    const ability = fromUuidSync(abilityUuid);
+    if (!ability) return;
+    const effectsList = Array.from(ability.system?.effects?.contents ?? []);
+    const hasFlatEffects = effectsList.some(e => ['dsct.flatDamage', 'dsct.flatForced', 'dsct.flatApplied'].includes(e.type));
+    if (!hasFlatEffects) return;
+
+    const targets = Array.from(game.user.targets).map(token => {
+      const doc   = token.document;
+      const actor = token.actor;
+      const img   = doc.texture?.src ?? doc.img ?? actor?.img ?? '';
+      return {
+        tokenUuid: doc.uuid,
+        tokenId:   doc.id,
+        sceneId:   doc.parent?.id ?? null,
+        actorUuid: actor?.uuid ?? null,
+        actorId:   actor?.id ?? null,
+        name:      doc.name ?? '',
+        tokenImg:  img,
+        actorImg:  actor?.img ?? '',
+        img,
+      };
+    });
+
+    const speakerTokenDoc = message.speaker?.token
+      ? canvas.tokens?.get(message.speaker.token)?.document
+      : null;
+    const speakerActor = speakerTokenDoc?.actor ?? null;
+    message.updateSource({
+      [`flags.${DSTD}.state`]: {
+        abilityUuid,
+        abilityName:        ability.name ?? '',
+        sourceActorName:    speakerActor?.name ?? ability.actor?.name ?? message.speaker?.alias ?? '',
+        sourceUserName:     game.user.name,
+        targetingUserId:    game.user.id,
+        targetingUserName:  game.user.name,
+        targets,
+        sourceTokenUuid:    speakerTokenDoc?.uuid ?? null,
+        applications:       {},
+        reactiveResults:    {},
+        tierOverrides:      {},
+        damageOverrides:    {},
+      },
+    });
+  });
+
+
   
   Hooks.on('updateChatMessage', (msg, changes) => {
     if (!game.modules.get(DSTD)?.active) return;
@@ -620,32 +721,78 @@ function _installAreaDamageHook(panel, message) {
   }, { capture: true });
 }
 
+async function _buildSyntheticFlatPanel(message, root, storedTargets) {
+  const panel = document.createElement('section');
+  panel.className = `${DSTD}-panel`;
+  panel.dataset.messageId = message.id;
+
+  const list = document.createElement('div');
+  list.className = `${DSTD}-target-list`;
+
+  for (const targetKey of storedTargets) {
+    const tokenUuid = targetKey.replace(/__/g, '.');
+    const tokenDoc = await fromUuid(tokenUuid).catch(() => null);
+    if (!tokenDoc) continue;
+
+    const row = document.createElement('div');
+    row.className = `${DSTD}-target-row`;
+    row.dataset.targetKey = targetKey;
+
+    const head = document.createElement('div');
+    head.className = `${DSTD}-target-head`;
+    const img = document.createElement('img');
+    img.className = `${DSTD}-portrait`;
+    img.src = tokenDoc.texture?.src ?? tokenDoc.img ?? 'icons/svg/mystery-man.svg';
+    img.alt = tokenDoc.name ?? '';
+    const nameDiv = document.createElement('div');
+    nameDiv.className = `${DSTD}-target-name`;
+    nameDiv.textContent = tokenDoc.name ?? '';
+    head.append(img, nameDiv);
+
+    const body = document.createElement('div');
+    body.className = `${DSTD}-target-body`;
+    const actions = document.createElement('div');
+    actions.className = `${DSTD}-target-actions`;
+    body.append(actions);
+
+    row.append(head, body);
+    list.append(row);
+  }
+
+  if (!list.children.length) return null;
+  panel.append(list);
+
+  const footer = root.querySelector('footer.message-part-buttons');
+  if (footer) footer.before(panel);
+  else root.appendChild(panel);
+
+  return panel;
+}
+
 async function _injectFmButtons(message, root) {
   const panel = root?.querySelector(DSTD_PANEL);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons msgId=${message.id} hasPanel=${!!panel}`);
-  if (!panel) return;
-  _installAreaDamageHook(panel, message);
-  _installUndoDeathHook(panel);
-  _installSquadHoverListeners(panel, message);
+  if (panel) {
+    _installAreaDamageHook(panel, message);
+    _installUndoDeathHook(panel);
+    _installSquadHoverListeners(panel, message);
 
-
-
-
-  const defeatedStatus = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
-  for (const deadRow of panel.querySelectorAll(DSTD_ROW)) {
-    const dk = deadRow.dataset.targetKey;
-    if (!dk || dk === 'selected-token') continue;
-    if (deadRow.querySelector('.is-applied')) continue;
-    const deadDoc = await fromUuid(dk.replace(/__/g, '.')).catch(() => null);
-    if (deadDoc?.actor?.statuses?.has(defeatedStatus)) {
-      if (getSetting('debugMode')) console.log(`DSCT | DSTD compat | removing dead target row ${dk}`);
-      deadRow.remove();
+    const defeatedStatus = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+    for (const deadRow of panel.querySelectorAll(DSTD_ROW)) {
+      const dk = deadRow.dataset.targetKey;
+      if (!dk || dk === 'selected-token') continue;
+      if (deadRow.querySelector('.is-applied')) continue;
+      const deadDoc = await fromUuid(dk.replace(/__/g, '.')).catch(() => null);
+      if (deadDoc?.actor?.statuses?.has(defeatedStatus)) {
+        if (getSetting('debugMode')) console.log(`DSCT | DSTD compat | removing dead target row ${dk}`);
+        deadRow.remove();
+      }
     }
-  }
 
-  _installGlobalDamageButtons(panel, message);
-  if (!game.users.activeGM?.isSelf && !getSetting('playerCanUndoDstdDeaths')) {
-    for (const btn of panel.querySelectorAll('[data-dstd-action="undoDamage"]')) btn.disabled = true;
+    _installGlobalDamageButtons(panel, message);
+    if (!game.users.activeGM?.isSelf && !getSetting('playerCanUndoDstdDeaths')) {
+      for (const btn of panel.querySelectorAll('[data-dstd-action="undoDamage"]')) btn.disabled = true;
+    }
   }
 
   const parts       = _getMessageParts(message);
@@ -655,6 +802,12 @@ async function _injectFmButtons(message, root) {
   if (!abilityUuid) return;
   const ability = await fromUuid(abilityUuid).catch(() => null);
   if (!ability) return;
+
+  const flatDamageEffects   = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatDamage');
+  const flatForcedEffects   = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatForced');
+  const flatAppliedEffects  = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatApplied');
+  const flatResourceEffects = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatResource');
+  const doFlatEffects = flatDamageEffects.length > 0 || flatForcedEffects.length > 0 || flatAppliedEffects.length > 0;
 
   const dsid     = getItemDsid(ability);
   const maxGrabs = MULTI_GRAB_LIMITS[dsid] ?? 1;
@@ -727,7 +880,7 @@ async function _injectFmButtons(message, root) {
   const doSquad = !!squadTargetMap && getSetting('squadTargetBonus');
   if (getSetting('debugMode')) console.log(`DSCT | squadMap | doSquad=${doSquad} squadTargetBonus=${getSetting('squadTargetBonus')} squadTargetMap=${!!squadTargetMap}`);
 
-  if (!tier && !doMark && !doJudgement && !descEnrichers.length && !doSquad) return;
+  if (!tier && !doMark && !doJudgement && !descEnrichers.length && !doSquad && !doFlatEffects) return;
 
   const fmEffects = tier ? Array.from(ability.system?.power?.effects ?? [])
     .filter(e => e.forced && typeof e.forced === 'object') : [];
@@ -751,11 +904,127 @@ async function _injectFmButtons(message, root) {
   const doPf         = holyRolls.length > 0;
 
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons fmEffects=${fmEffects.length} appliedEffects=${appliedEffects.length} tier=${tier} doFm=${doFm} doConditions=${doConditions} doMark=${doMark} doJudgement=${doJudgement} doPf=${doPf}`);
-  if (!doFm && !doConditions && !doPf && !doMark && !doJudgement && !descEnrichers.length && !doSquad) return;
+  if (!doFm && !doConditions && !doPf && !doMark && !doJudgement && !descEnrichers.length && !doSquad && !doFlatEffects) return;
+
+  let activePanel = panel;
+  if (!activePanel) {
+    const dstdTargets = (message.getFlag(DSTD, 'state') ?? {}).targets ?? [];
+    if (!dstdTargets.length) return;
+    const storedKeys = dstdTargets.map(t => t.tokenUuid?.replace(/\./g, '__')).filter(Boolean);
+    if (!storedKeys.length) return;
+    activePanel = await _buildSyntheticFlatPanel(message, root, storedKeys);
+    if (!activePanel) return;
+  }
+
+  if (doFlatEffects) {
+    for (const btn of root.querySelectorAll('.dsct-flat-damage-btn, .dsct-flat-forced-btn, .dsct-flat-applied-btn')) {
+      const footer = btn.closest('footer.message-part-buttons');
+      if (footer) footer.hidden = true;
+    }
+  }
 
   const savedFlagState = message.getFlag(M, 'dstdFmState') ?? {};
 
-  const targetRows = panel.querySelectorAll(DSTD_ROW);
+  const flatDamageResolved = await Promise.all(flatDamageEffects.map(async effect => {
+    const rollData = ability.actor?.getRollData?.() ?? {};
+    try {
+      const roll = new Roll(effect.flatDamage.value, rollData);
+      await roll.evaluate();
+      return { effect, amount: Math.floor(roll.total) };
+    } catch { return { effect, amount: 0 }; }
+  }));
+
+  const flatForcedResolved = flatForcedEffects.map(effect => {
+    const movArr = Array.from(effect.flatForced.movement);
+    const firstMov = movArr[0] ?? 'push';
+    const rollData = ability.actor?.getRollData?.() ?? {};
+    let dist;
+    try { dist = ds.utils.evaluateFormula(effect.flatForced.distance, rollData, { contextName: ability.uuid }); }
+    catch { dist = parseInt(effect.flatForced.distance) || 1; }
+    return { effect, firstMov, movConfig: ds.CONFIG.abilities.forcedMovement[firstMov], dist, props: new Set(Array.from(effect.flatForced.properties)) };
+  });
+
+  if (doFlatEffects && !activePanel.querySelector(DSTD_ROW)) {
+    const list = activePanel.querySelector(`.${DSTD}-target-list`) ?? (() => {
+      const l = document.createElement('div');
+      l.className = `${DSTD}-target-list`;
+      const footer = activePanel.querySelector('footer');
+      if (footer) activePanel.insertBefore(l, footer);
+      else activePanel.appendChild(l);
+      return l;
+    })();
+
+    const stRow = document.createElement('div');
+    stRow.className         = `${DSTD}-target-row`;
+    stRow.dataset.targetKey = 'selected-token';
+
+    const stHead = document.createElement('div');
+    stHead.className = `${DSTD}-target-head`;
+    const stImg = document.createElement('img');
+    stImg.className = `${DSTD}-portrait`;
+    stImg.src = 'icons/svg/target.svg';
+    stImg.alt = '';
+    const stName = document.createElement('div');
+    stName.className  = `${DSTD}-target-name`;
+    stName.textContent = game.i18n.localize('DSTD.Chat.SelectedToken') || 'Apply to Selected Token';
+    stHead.append(stImg, stName);
+
+    const stBody = document.createElement('div');
+    stBody.className = `${DSTD}-target-body`;
+    const stActions = document.createElement('div');
+    stActions.className = `${DSTD}-target-actions`;
+    stBody.append(stActions);
+
+    stRow.append(stHead, stBody);
+    list.append(stRow);
+    activePanel.classList.add(`${DSTD}-single-target`);
+  }
+
+  if (doFlatEffects && !activePanel.querySelector('.dsct-flat-preview')) {
+    const previewParts = [];
+    for (const { effect, amount } of flatDamageResolved) {
+      if (!amount) continue;
+      if (effect.flatDamage.displayText) { previewParts.push(effect.flatDamage.displayText); continue; }
+      const typeList = Array.from(effect.flatDamage.types);
+      const typeLabel = typeList.length
+        ? game.i18n.getListFormatter({ type: 'disjunction' }).format(typeList.map(t => ds.CONFIG.damageTypes[t]?.label ?? t))
+        : game.i18n.localize('DRAW_STEEL.DamageType.typeless');
+      previewParts.push(`${amount} ${typeLabel}`);
+    }
+    for (const { effect, movConfig, firstMov, dist } of flatForcedResolved) {
+      if (effect.flatForced.displayText) { previewParts.push(effect.flatForced.displayText); continue; }
+      previewParts.push(`${movConfig?.label ?? firstMov} ${dist}`);
+    }
+    for (const effect of flatAppliedEffects) {
+      const { statusId, displayText, potency } = effect.flatApplied;
+      const statusEntry = CONFIG.statusEffects.find(s => s.id === statusId);
+      let previewText = displayText || statusEntry?.name || statusId;
+      if (previewText.includes('{{potency}}') && potency?.characteristic) {
+        const abbrev = ds.CONFIG.characteristics[potency.characteristic]?.abbreviation ?? potency.characteristic;
+        const strength = potency.strength === 'custom' ? (potency.custom || 'average') : (potency.strength || 'average');
+        const enricher = `[[potency characteristic=${abbrev} strength=${strength}]]`;
+        previewText = previewText.replace(/\{\{potency\}\}/g, enricher).trim();
+      }
+      previewParts.push(previewText);
+    }
+    for (const effect of flatResourceEffects) {
+      const { amount: resAmt, type: resType } = effect.flatResource ?? {};
+      if (resAmt) previewParts.push(`${resAmt} ${resType ?? 'Surge'}${resAmt !== 1 ? 's' : ''}`);
+    }
+    if (previewParts.length) {
+      const preview = document.createElement('p');
+      preview.className = `dsct-flat-preview`;
+      preview.style.padding = '0 0.5rem 0.25rem';
+      preview.style.margin  = '0';
+      const rawText = previewParts.join('; ') + '.';
+      TextEditor.enrichHTML(rawText, { async: true }).then(html => { preview.innerHTML = html; }).catch(() => { preview.textContent = rawText; });
+      const header = activePanel.querySelector('header');
+      if (header) header.after(preview);
+      else activePanel.prepend(preview);
+    }
+  }
+
+  const targetRows = activePanel.querySelectorAll(DSTD_ROW);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons found ${targetRows.length} target rows`);
 
   for (const row of targetRows) {
@@ -1443,6 +1712,394 @@ async function _injectFmButtons(message, root) {
       actions.appendChild(enrichRow);
     }
 
+    for (const { effect, amount } of flatDamageResolved) {
+      if (!amount) continue;
+
+      const typeList   = Array.from(effect.flatDamage.types);
+      const immunities = Array.from(effect.flatDamage.ignoredImmunities);
+      const damageType = typeList[0] ?? '';
+      const typeLabel  = typeList.length
+        ? game.i18n.getListFormatter({ type: 'disjunction' }).format(typeList.map(t => ds.CONFIG.damageTypes[t]?.label ?? t))
+        : '';
+
+      const targetObj = targetKey === 'selected-token'
+        ? { selectedToken: true, name: game.i18n.localize('DSTD.Chat.SelectedToken') || 'Apply to Selected Token', img: 'icons/svg/target.svg' }
+        : (dstdState?.targets ?? []).find(t => (t.tokenUuid?.replace(/\./g, '__') ?? '') === targetKey) ?? null;
+      if (!targetObj) continue;
+
+      const flatDmgAction = { partId: effect.id };
+      const operationId   = _dstdOperationId('damage', targetObj, flatDmgAction);
+      if (actions.querySelector(`[data-operation-id="${operationId}"]`)) continue;
+
+      const appRecord  = (dstdState?.applications ?? {})[operationId];
+      const isApplied  = !targetObj.selectedToken && appRecord?.status === 'applied';
+      const isUndone   = !targetObj.selectedToken && appRecord?.status === 'undone';
+      const override   = (dstdState?.damageOverrides ?? {})[operationId];
+      const dispAmount = override?.amount != null ? Number(override.amount) : amount;
+      const surgeSfx   = override?.surges ? ` (${override.surges}s)` : '';
+      const dispType      = override?.damageType ?? damageType;
+      const dispTypeLabel = override?.typeLabel ?? typeLabel;
+      const applyLabel = effect.flatDamage.display || (dispTypeLabel
+        ? game.i18n.format('DSTD.Chat.ApplyTypedDamage', { amount: dispAmount, type: dispTypeLabel }) || `Apply ${dispAmount} ${dispTypeLabel}`
+        : game.i18n.format('DSTD.Chat.ApplyDamage', { amount: dispAmount }) || `Apply ${dispAmount} Damage`);
+      const fullLabel = `${applyLabel}${surgeSfx}`;
+
+      const synDataset = {
+        syntheticDamage:    'true',
+        amount:             String(amount),
+        formula:            String(effect.flatDamage.value ?? amount),
+        damageType:         dispType,
+        typeLabel:          dispTypeLabel,
+        isHeal:             'false',
+        ignoredImmunities:  JSON.stringify(immunities),
+        partId:             effect.id,
+        rollIndex:          '',
+      };
+
+      const targetJSON = JSON.stringify(targetObj);
+
+      const applyDmgBtn = document.createElement('button');
+      applyDmgBtn.type      = 'button';
+      applyDmgBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
+      applyDmgBtn.dataset.dstdAction  = 'applyDamage';
+      applyDmgBtn.dataset.target      = targetJSON;
+      applyDmgBtn.dataset.operationId = operationId;
+      applyDmgBtn.dataset.tooltip     = fullLabel;
+      applyDmgBtn.disabled = isApplied;
+      Object.assign(applyDmgBtn.dataset, synDataset);
+      applyDmgBtn.append(_makeIcon(_dmgIcon(dispType)), _makeSpan(isApplied ? (appRecord?.label ?? fullLabel) : fullLabel));
+      if (isApplied) applyDmgBtn.prepend(_makeIcon('fa-solid fa-check'));
+
+      const undoDmgBtn = document.createElement('button');
+      undoDmgBtn.type      = 'button';
+      undoDmgBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
+      undoDmgBtn.dataset.dstdAction  = 'undoDamage';
+      undoDmgBtn.dataset.target      = targetJSON;
+      undoDmgBtn.dataset.operationId = operationId;
+      undoDmgBtn.dataset.tooltip     = game.i18n.localize('DSTD.Chat.Undo') || 'Undo';
+      undoDmgBtn.disabled = !isApplied && !targetObj.selectedToken;
+      undoDmgBtn.append(_makeIcon('fa-solid fa-rotate-left'));
+
+      const editDmgBtn = document.createElement('button');
+      editDmgBtn.type      = 'button';
+      editDmgBtn.className = `${DSTD}-icon-button ${DSTD}-cog-button`;
+      editDmgBtn.dataset.dstdAction  = 'editDamage';
+      editDmgBtn.dataset.target      = targetJSON;
+      editDmgBtn.dataset.operationId = operationId;
+      editDmgBtn.dataset.tooltip     = game.i18n.localize('DSTD.Chat.EditDamage') || 'Edit Damage';
+      Object.assign(editDmgBtn.dataset, synDataset);
+      editDmgBtn.append(_makeIcon('fa-solid fa-gear'));
+
+      const dmgRow = document.createElement('div');
+      dmgRow.className = `${DSTD}-action-row ${DSTD}-damage-row`;
+      if (isApplied) dmgRow.classList.add('is-applied');
+      if (isUndone)  dmgRow.classList.add('is-undone');
+      dmgRow.append(applyDmgBtn, undoDmgBtn, editDmgBtn);
+      actions.appendChild(dmgRow);
+
+      const head   = row.querySelector(`.${DSTD}-target-head`);
+      const toggle = head?.querySelector(`.${DSTD}-target-toggle`);
+      if (head && toggle && targetRows.length > 1) {
+        const quickDmgBtn = document.createElement('button');
+        quickDmgBtn.type      = 'button';
+        quickDmgBtn.className = `${DSTD}-action-button ${DSTD}-quick-damage dsct-dstd-quick-dmg-btn`;
+        quickDmgBtn.disabled  = isApplied;
+        quickDmgBtn.dataset.tooltip = fullLabel;
+        quickDmgBtn.addEventListener('click', () => { if (!quickDmgBtn.disabled) applyDmgBtn.click(); });
+        quickDmgBtn.append(_makeIcon(_dmgIcon(dispType)), _makeSpan(String(dispAmount)));
+        head.insertBefore(quickDmgBtn, toggle);
+      }
+    }
+
+    for (const { effect, firstMov, dist, props } of flatForcedResolved) {
+      const stateKey = `${message.id}:${targetKey}:flatFm:${effect.id}`;
+      const subKey   = `${targetKey}:flatFm:${effect.id}`;
+
+      if (actions.querySelector(`[data-dsct-fm-key="${stateKey}"]`)) continue;
+
+      const baseState = _buildBaseState(firstMov, dist, props, 0, 0);
+
+      const _tgtDoc      = tokenUuid ? fromUuidSync(tokenUuid) : null;
+      const _tgtIsFlying = !baseState.vertical && (_tgtDoc?.actor?.statuses?.has('fly') ?? false);
+      const _flyingMod   = _tgtIsFlying ? {
+        modState: [{
+          distanceDelta: 0, movement: firstMov, vertical: true, verticalDistance: '',
+          fallReduction: 0, noFallDamage: baseState.noFallDamage,
+          noCollisionDamage: baseState.noCollisionDamage,
+          noMoverCollisionDamage: baseState.noMoverCollisionDamage,
+          noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
+          ignoreStability: baseState.ignoreStability, fastMove: baseState.fastMove,
+        }],
+        noteName: 'Flying', noteDesc: '',
+      } : null;
+
+      let quickFlatBtn = null;
+
+      let saved = _fmState.get(stateKey);
+      if (!saved) {
+        const fromFlags = savedFlagState[subKey];
+        saved = fromFlags
+          ? { applied: fromFlags.applied ?? false, undoMsgId: fromFlags.undoMsgId ?? null, modStack: (fromFlags.modStack ?? []).map(e => ({ ...e })) }
+          : { applied: false, undoMsgId: null, modStack: _flyingMod ? [_flyingMod] : [] };
+        _fmState.set(stateKey, saved);
+      }
+
+      const _flatFmDisplayOverride = effect.flatForced.display || null;
+      const _flatFmLabel = () => _flatFmDisplayOverride || _makeLabel(_effectiveState(baseState, _fmState.get(stateKey)?.modStack ?? saved.modStack));
+      const label = _flatFmLabel();
+
+      const applyFlatBtn = document.createElement('button');
+      applyFlatBtn.type      = 'button';
+      applyFlatBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
+      applyFlatBtn.dataset.tooltip = label;
+
+      const undoFlatBtn = document.createElement('button');
+      undoFlatBtn.type      = 'button';
+      undoFlatBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button dsct-dstd-undo-btn`;
+      undoFlatBtn.dataset.tooltip = 'Undo FM';
+      undoFlatBtn.append(_makeIcon('fa-solid fa-rotate-left'));
+
+      const modFlatBtn = document.createElement('button');
+      modFlatBtn.type      = 'button';
+      modFlatBtn.className = `${DSTD}-icon-button ${DSTD}-cog-button dsct-dstd-modify-btn`;
+      modFlatBtn.dataset.tooltip = 'Modify FM';
+      modFlatBtn.append(_makeIcon('fa-solid fa-gear'));
+
+      const fmRow = document.createElement('div');
+      fmRow.className         = `${DSTD}-action-row dsct-dstd-fm-row`;
+      fmRow.dataset.dsctFmKey = stateKey;
+      fmRow.append(applyFlatBtn, undoFlatBtn, modFlatBtn);
+
+      _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, saved, label);
+
+      const makePersisFlatFn = () => async (_msgEl, stack) => {
+        const cur     = _fmState.get(stateKey) ?? { applied: false, undoMsgId: null, modStack: [] };
+        const newMods = { ...cur, modStack: stack.map(e => ({ modState: e.modState, noteName: e.noteName, noteDesc: e.noteDesc })) };
+        _fmState.set(stateKey, newMods);
+        if (!newMods.applied) {
+          const effState = _effectiveState(baseState, newMods.modStack);
+          const effLabel = _flatFmDisplayOverride || _makeLabel(effState);
+          applyFlatBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right'), _makeSpan(effLabel));
+          applyFlatBtn.dataset.tooltip = effLabel;
+          if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newMods, firstMov, effState.distance);
+        }
+        await _persistDstdState(message, subKey, newMods);
+      };
+
+      applyFlatBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (applyFlatBtn.disabled) return;
+
+        let targetToken = null;
+        if (tokenUuid) {
+          const targetDoc = await fromUuid(tokenUuid).catch(() => null);
+          targetToken = targetDoc?.object ?? null;
+          if (!targetToken) { ui.notifications.warn('DSCT | Target token not found on canvas'); return; }
+        }
+
+        applyFlatBtn.disabled = true;
+
+        let capturedMsgId = null;
+        const hookId = Hooks.once('createChatMessage', (msg) => {
+          if (msg.getFlag(M, 'isFmUndo')) capturedMsgId = msg.id;
+        });
+
+        const cur        = _fmState.get(stateKey) ?? saved;
+        const clickState = _effectiveState(baseState, cur.modStack);
+        const clickProps = new Set([
+          clickState.vertical                ? 'vertical'                    : null,
+          clickState.noCollisionDamage       ? 'no-collision-damage'         : null,
+          clickState.noMoverCollisionDamage  ? 'no-mover-collision-damage'   : null,
+          clickState.noObstacleCollisionDamage ? 'no-obstacle-collision-damage' : null,
+          clickState.ignoreStability         ? 'ignore-stability'             : null,
+          clickState.fastMove                ? 'fast-auto-path'               : null,
+        ].filter(Boolean));
+        const vertDist = clickState.vertical
+          ? (clickState.verticalDistance !== '' ? Number(clickState.verticalDistance) : clickState.distance)
+          : 0;
+
+        try {
+          await runForcedMovement({
+            movement: clickState.movement, distance: String(clickState.distance),
+            properties: clickProps, verticalDistance: vertDist, fallReduction: clickState.fallReduction,
+            target: targetToken ?? undefined, source: sourceToken,
+          });
+        } catch { }
+
+        Hooks.off('createChatMessage', hookId);
+
+        if (!capturedMsgId) {
+          const prevState = _fmState.get(stateKey) ?? saved;
+          const prevEff   = _effectiveState(baseState, prevState.modStack);
+          _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, prevState, _makeLabel(prevEff));
+          if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, prevState, firstMov, prevEff.distance);
+          return;
+        }
+
+        const newState = { ...cur, applied: true, undoMsgId: capturedMsgId };
+        _fmState.set(stateKey, newState);
+        _fmUndoIndex.set(capturedMsgId, { fmRow, applyBtn: applyFlatBtn, undoBtn: undoFlatBtn, modBtn: modFlatBtn, quickBtn: quickFlatBtn, stateKey, baseState, movementType: firstMov, message, subKey });
+        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _makeLabel(clickState));
+        if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newState, firstMov, clickState.distance);
+        await _persistDstdState(message, subKey, newState);
+      });
+
+      undoFlatBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (undoFlatBtn.disabled) return;
+        const msgId = undoFlatBtn.dataset.dsctFmMsgId;
+        if (!msgId) return;
+
+        const chatLi   = document.querySelector(`[data-message-id="${msgId}"]`);
+        const dsctUndo = chatLi?.querySelector('.dsct-undo-fm');
+        if (dsctUndo) {
+          dsctUndo.click();
+          _fmUndoIndex.delete(msgId);
+        } else {
+          ui.notifications.warn('DSCT | Could not find FM undo button in chat log');
+          return;
+        }
+
+        const cur      = _fmState.get(stateKey) ?? saved;
+        const newState = { ...cur, applied: false, undoMsgId: msgId };
+        _fmState.set(stateKey, newState);
+        const undoEff  = _effectiveState(baseState, newState.modStack);
+        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _makeLabel(undoEff));
+        if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newState, firstMov, undoEff.distance);
+        await _persistDstdState(message, subKey, newState);
+      });
+
+      modFlatBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (modFlatBtn.disabled) return;
+        const cur        = _fmState.get(stateKey) ?? saved;
+        const panelBase  = { ...baseState };
+        const panelState = _effectiveState(panelBase, cur.modStack);
+        const effects    = [{ name: _makeLabel(panelBase) }];
+        const existing   = getWindowById('dsct-fm-modify');
+        if (existing) existing.close();
+        new FmModifyPanel(
+          [panelState], [panelBase], cur.modStack, effects,
+          [applyFlatBtn], _makeLabel, actions, actions, makePersisFlatFn(),
+        ).render({ force: true });
+      });
+
+      actions.appendChild(fmRow);
+
+      const head   = row.querySelector(`.${DSTD}-target-head`);
+      const toggle = head?.querySelector(`.${DSTD}-target-toggle`);
+      if (head && toggle && targetRows.length > 1 && getSetting('dstdQuickFmButton')) {
+        quickFlatBtn = document.createElement('button');
+        quickFlatBtn.type      = 'button';
+        quickFlatBtn.className = `${DSTD}-action-button ${DSTD}-quick-damage dsct-dstd-quick-fm-btn`;
+        quickFlatBtn.addEventListener('click', (e) => {
+          e.stopPropagation(); e.preventDefault();
+          if (!quickFlatBtn.disabled) applyFlatBtn.click();
+        });
+        const initEff = _effectiveState(baseState, saved.modStack);
+        _syncQuickBtn(quickFlatBtn, saved, firstMov, initEff.distance);
+        head.insertBefore(quickFlatBtn, toggle);
+
+        for (const qdBtn of head.querySelectorAll(`.${DSTD}-quick-damage:not(.dsct-dstd-quick-fm-btn):not([data-dsct-condensed])`)) {
+          const fullText = qdBtn.textContent.trim();
+          if (!qdBtn.dataset.tooltip) qdBtn.dataset.tooltip = fullText;
+          const numMatch = fullText.match(/\d+/);
+          const iconEls  = [...qdBtn.children].filter(c => c.tagName === 'I' || c.tagName === 'IMG');
+          qdBtn.replaceChildren(...iconEls);
+          if (numMatch) qdBtn.append(_makeSpan(numMatch[0]));
+          qdBtn.setAttribute('data-dsct-condensed', '1');
+        }
+      }
+
+      if (saved.modStack.length) {
+        const panelBase   = { ...baseState };
+        const panelStates = [_effectiveState(panelBase, saved.modStack)];
+        for (const entry of saved.modStack) {
+          createModifierNoteDiv(entry, saved.modStack, [panelBase], panelStates, [applyFlatBtn], _makeLabel, actions, actions, makePersisFlatFn());
+        }
+      }
+    }
+
+    const _condTargetDoc  = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+    const _condTargetActor = _condTargetDoc?.actor ?? null;
+
+    for (const effect of flatAppliedEffects) {
+      const { statusId, display, potency } = effect.flatApplied;
+      if (!statusId) continue;
+      const statusEntry  = CONFIG.statusEffects.find(s => s.id === statusId);
+      const condStateKey = `${message.id}:${targetKey}:flatCond:${effect.id}`;
+      if (actions.querySelector(`[data-dsct-flat-cond-key="${condStateKey}"]`)) continue;
+
+      let condState = _flatCondState.get(condStateKey) ?? { applied: false };
+      _flatCondState.set(condStateKey, condState);
+
+      const charKey    = potency?.characteristic || null;
+      const charAbbrev = charKey ? (ds.CONFIG.characteristics[charKey]?.abbreviation ?? charKey.slice(0, 1).toUpperCase()) : null;
+      const charVal    = charKey ? (_condTargetActor?.system?.characteristics?.[charKey]?.value ?? null) : null;
+      const potencyTag = charAbbrev && charVal != null ? ` (${charAbbrev}: ${charVal})` : '';
+
+      const baseName   = statusEntry?.name || statusId;
+      const statusIconSrc = statusEntry?.img ?? statusEntry?.icon ?? null;
+      const applyLbl   = (display || `Apply ${baseName}`) + potencyTag;
+      const appliedLbl = (display ? `${display} (Applied)` : `Applied: ${baseName}`) + potencyTag;
+      const _makeCondIcon = () => _makeStatusIcon(statusIconSrc);
+
+      const condBtn = document.createElement('button');
+      condBtn.type      = 'button';
+      condBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
+      condBtn.dataset.dsctFlatCondKey = condStateKey;
+      condBtn.dataset.tooltip = condState.applied ? appliedLbl : applyLbl;
+      condBtn.disabled = condState.applied;
+      condBtn.append(_makeCondIcon(), _makeSpan(condState.applied ? appliedLbl : applyLbl));
+
+      const undoCondBtn = document.createElement('button');
+      undoCondBtn.type      = 'button';
+      undoCondBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
+      undoCondBtn.dataset.tooltip = `Undo ${baseName}`;
+      undoCondBtn.disabled = !condState.applied;
+      undoCondBtn.append(_makeIcon('fa-solid fa-rotate-left'));
+
+      const condRow = document.createElement('div');
+      condRow.className = `${DSTD}-action-row ${DSTD}-status-row`;
+      condRow.append(condBtn, undoCondBtn);
+      if (condState.applied) condRow.classList.add('is-applied');
+
+      const _syncCondRow = () => {
+        const lbl = condState.applied ? appliedLbl : applyLbl;
+        condRow.classList.toggle('is-applied', condState.applied);
+        condBtn.disabled = condState.applied;
+        condBtn.replaceChildren(_makeCondIcon(), _makeSpan(lbl));
+        condBtn.dataset.tooltip = lbl;
+        undoCondBtn.disabled = !condState.applied;
+      };
+
+      condBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (condBtn.disabled) return;
+        const td    = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+        const actor = td?.actor ?? null;
+        if (!actor) return;
+        await actor.toggleStatusEffect(statusId, { active: true });
+        condState = { applied: true };
+        _flatCondState.set(condStateKey, condState);
+        _syncCondRow();
+      });
+
+      undoCondBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (undoCondBtn.disabled || !condState.applied) return;
+        const td    = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
+        const actor = td?.actor ?? null;
+        if (!actor) return;
+        await actor.toggleStatusEffect(statusId, { active: false });
+        condState = { applied: false };
+        _flatCondState.set(condStateKey, condState);
+        _syncCondRow();
+      });
+
+      actions.appendChild(condRow);
+    }
+
     if (doSquad && squadTargetMap && tokenUuid) {
       const sqEntry   = squadTargetMap[targetKey];
       const minionIds = sqEntry?.minionIds ?? [];
@@ -1489,18 +2146,18 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    if (body.querySelector('[data-dsct-dstd-cond], [data-dsct-fm-key], [data-dsct-mark-key], [data-dsct-enrich-key], [data-dsct-judge-key]')) {
+    if (body.querySelector('[data-dsct-dstd-cond], [data-dsct-fm-key], [data-dsct-mark-key], [data-dsct-enrich-key], [data-dsct-judge-key], [data-dsct-flat-key]')) {
       const muted = body.querySelector(`.${DSTD}-muted`);
       if (muted) muted.hidden = true;
     }
   }
 
-  _restoreCollapseState(message.id, panel);
-  if (!panel.dataset.dsctCollapseTracked) {
-    panel.dataset.dsctCollapseTracked = '1';
-    panel.addEventListener('click', (e) => {
+  _restoreCollapseState(message.id, activePanel);
+  if (!activePanel.dataset.dsctCollapseTracked) {
+    activePanel.dataset.dsctCollapseTracked = '1';
+    activePanel.addEventListener('click', (e) => {
       if (!e.target.closest('[data-dstd-action="toggleTarget"]')) return;
-      setTimeout(() => _saveCollapseState(message.id, panel), 0);
+      setTimeout(() => _saveCollapseState(message.id, activePanel), 0);
     });
   }
 

@@ -581,6 +581,60 @@
         "IgnoreSize": "Ignore Size"
       }
     },
+    "FlatEffect": {
+      "displayText": {
+        "label": "Preview Text",
+        "hint": "Text shown in the preview line above the target rows. Leave blank to use the auto-generated description."
+      },
+      "display": {
+        "label": "Button Label",
+        "hint": "Custom label for the chat button. Leave blank to use the auto-generated label."
+      },
+      "Applied": {
+        "displayText": {
+          "label": "Display",
+          "hint": "Text shown in the preview line. Use {{potency}} to insert the resolved potency value. Tab when empty to auto-fill: {{potency}} [Effect Name] ([Expiry Event])."
+        },
+        "display": {
+          "label": "Button Label",
+          "hint": "Custom label for the chat button. Leave blank to use the effect name."
+        },
+        "potency": {
+          "characteristic": {
+            "label": "Potency Characteristic",
+            "hint": "Characteristic targets roll against for a potency test. Leave blank for no potency test."
+          },
+          "strength": {
+            "label": "Potency Strength"
+          },
+          "custom": {
+            "label": "Custom Value",
+            "hint": "Enter a number or attribute reference such as @potency.average."
+          },
+          "Strength": {
+            "weak": "Weak",
+            "average": "Average",
+            "strong": "Strong",
+            "custom": "Custom"
+          }
+        },
+        "statusId": {
+          "label": "Applied Effect",
+          "hint": "Status condition or ability Active Effect to apply to targeted tokens."
+        },
+        "end": {
+          "label": "Override End",
+          "hint": "Override the effect's expiry event. Leave blank to use the effect's own setting.",
+          "default": "Default"
+        },
+        "properties": {
+          "label": "Properties"
+        },
+        "Properties": {
+          "ignoreSize": "Ignore Size"
+        }
+      }
+    },
     "panel": {
       "title": {
         "ForcedMovement": "Forced Movement",
@@ -766,6 +820,7 @@
     },
     "notice": {
       "notActive": "Draw Steel: Combat Tools not active.",
+      "noTargets": "No targets selected. Target tokens before applying.",
       "playerCannotUndoDamage": "Players lack permission to undo damage. Enable \"Players Can Undo Deaths via Target Damage\" in Compatibility settings.",
       "abilityRange": {
         "outOfRange": "{names} {verb} not within range {range} of {ability}"
@@ -1213,6 +1268,14 @@
     }
   },
   "TYPES": {
+    "SpecialEffect": {
+      "dsct": {
+        "flatDamage": "Damage",
+        "flatForced": "Forced Movement",
+        "flatApplied": "Applied Effect",
+        "flatResource": "Gain Resource"
+      }
+    },
     "RegionBehavior": {
       "draw-steel-combat-tools.statusEffect": "[DSCT] Status Effect",
       "draw-steel-combat-tools.statusEffectEvents": "[DSCT] Status Effect (Events)",

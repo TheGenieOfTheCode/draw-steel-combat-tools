@@ -27,6 +27,7 @@ import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgem
 import { registerDstdCompat, runDstdUndoRevival } from './compat/dstd-compat.mjs';
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerCombatLogHooks } from './combat-logs.mjs';
+import { registerFlatEffects } from './ability-automation/flat-special-effects.mjs';
 
 const api = {
   forcedMovement:   runForcedMovement,
@@ -102,6 +103,7 @@ Hooks.once('init', () => {
   registerRollDialogPillHooks();
   registerSquadTargetingHooks();
   registerMaliceInjectors();
+  registerFlatEffects();
   registerDstdCompat();
   registerHealthEstimateCompat();
   import('./test-features.mjs').then(m => { m.registerTestFeaturesSettings(); m.registerTestFeatureHooks(); }).catch(() => {});
