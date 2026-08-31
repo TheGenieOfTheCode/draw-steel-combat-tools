@@ -21,6 +21,9 @@ const _fmUndoIndex = new Map();
 
 const _flatCondState = new Map();
 
+const _dsctPendingRevival = new Set();
+
+
 const _DSTD_DAMAGE_ICONS = {
   acid:       'fa-solid fa-flask-vial',
   cold:       'fa-solid fa-snowflake',
@@ -319,34 +322,21 @@ function _stopDetachedObserver(id) {
 const _collapseKey = (msgId) => `dsct-dstd-collapse-${msgId}`;
 
 
-function _installUndoDeathHook(panel) {
-  if (panel.dataset.dsctDmgUndoTracked) return;
-  panel.dataset.dsctDmgUndoTracked = '1';
+function _installUndoDeathHook(root) {
+  if (root.dataset.dsctDmgUndoTracked) return;
+  root.dataset.dsctDmgUndoTracked = '1';
   const dbg = getSetting('debugMode');
-  
-  
-  panel.addEventListener('click', (e) => {
-    if (game.users.activeGM?.isSelf || getSetting('playerCanUndoDstdDeaths')) return;
-    if (!e.target.closest('[data-dstd-action="undoDamage"]')) return;
-    e.stopImmediatePropagation();
-    ui.notifications.warn(game.i18n.localize('DSCT.notice.playerCannotUndoDamage'));
-  }, { capture: true });
-  panel.addEventListener('click', (e) => {
-    
-    
-    
-    
-    
+
+  root.addEventListener('click', (e) => {
     if (getSetting('deathTrackerEnabled') && getSetting('overrideMinionDefeat')) {
       const applyBtn = e.target.closest('[data-dstd-action="applyDamage"]');
-      if (applyBtn) {
+      if (applyBtn?.closest(DSTD_PANEL)) {
         try {
           const tgt = JSON.parse(applyBtn.dataset.target ?? 'null');
           const tokenIds = [];
           if (tgt?.tokenId) {
             tokenIds.push(tgt.tokenId);
           } else if (tgt?.selectedToken) {
-            
             for (const t of Array.from(canvas.tokens?.controlled ?? [])) {
               const id = t.document?.id ?? null;
               if (id) tokenIds.push(id);
@@ -365,7 +355,7 @@ function _installUndoDeathHook(panel) {
 
     const undoBtn = e.target.closest(`.${DSTD}-undo-button:not(.dsct-dstd-undo-btn)`);
     if (dbg) console.log(`DSCT | DSTD undo-death | click, btn=${undoBtn?.className ?? 'none'}`);
-    if (!undoBtn) return;
+    if (!undoBtn?.closest(DSTD_PANEL)) return;
     const actionRow = undoBtn.closest(`.${DSTD}-action-row`);
     if (!actionRow || actionRow.classList.contains('dsct-dstd-fm-row')) return;
     const targetRow = undoBtn.closest(DSTD_ROW);
@@ -375,23 +365,24 @@ function _installUndoDeathHook(panel) {
     if (!targetKey || targetKey === 'selected-token') return;
     const tokenUuid = targetKey.replace(/__/g, '.');
 
-    if (!game.users.activeGM?.isSelf) {
-      
+    _dsctPendingRevival.add(tokenUuid);
+
+    if (game.users.activeGM?.isSelf) {
+      setTimeout(() => runDstdUndoRevival(tokenUuid), 500);
+    } else {
       if (!getSetting('playerCanUndoDstdDeaths')) return;
       const socket = getModuleApi(false)?.socket;
       if (!socket) return;
-      
       setTimeout(() => socket.executeAsGM('dsct.dstdUndoDeath', tokenUuid), 600);
-      return;
     }
+  }, { capture: true });
 
-    
-    
-    
-    
-    
-    setTimeout(() => runDstdUndoRevival(tokenUuid), 500);
-  });
+  root.addEventListener('click', (e) => {
+    if (game.users.activeGM?.isSelf || getSetting('playerCanUndoDstdDeaths')) return;
+    if (!e.target.closest('[data-dstd-action="undoDamage"]')?.closest(DSTD_PANEL)) return;
+    e.stopImmediatePropagation();
+    ui.notifications.warn(game.i18n.localize('DSCT.notice.playerCannotUndoDamage'));
+  }, { capture: true });
 }
 
 
@@ -411,6 +402,8 @@ export async function runDstdUndoRevival(tokenUuid) {
     await reviveTokens(toRevive.length ? toRevive : [token.id]);
   } catch (e) {
     console.warn('DSCT | DSTD undo-death | revival error:', e);
+  } finally {
+    _dsctPendingRevival.delete(tokenUuid);
   }
 }
 
@@ -774,7 +767,7 @@ async function _injectFmButtons(message, root) {
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons msgId=${message.id} hasPanel=${!!panel}`);
   if (panel) {
     _installAreaDamageHook(panel, message);
-    _installUndoDeathHook(panel);
+    _installUndoDeathHook(root);
     _installSquadHoverListeners(panel, message);
 
     const defeatedStatus = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
@@ -782,7 +775,9 @@ async function _injectFmButtons(message, root) {
       const dk = deadRow.dataset.targetKey;
       if (!dk || dk === 'selected-token') continue;
       if (deadRow.querySelector('.is-applied')) continue;
-      const deadDoc = await fromUuid(dk.replace(/__/g, '.')).catch(() => null);
+      const tokenUuid = dk.replace(/__/g, '.');
+      if (_dsctPendingRevival.has(tokenUuid)) continue;
+      const deadDoc = await fromUuid(tokenUuid).catch(() => null);
       if (deadDoc?.actor?.statuses?.has(defeatedStatus)) {
         if (getSetting('debugMode')) console.log(`DSCT | DSTD compat | removing dead target row ${dk}`);
         deadRow.remove();
@@ -983,7 +978,7 @@ async function _injectFmButtons(message, root) {
     activePanel.classList.add(`${DSTD}-single-target`);
   }
 
-  if (doFlatEffects && !activePanel.querySelector('.dsct-flat-preview')) {
+  if (doFlatEffects) {
     const previewParts = [];
     for (const { effect, amount } of flatDamageResolved) {
       if (!amount) continue;
@@ -1015,14 +1010,38 @@ async function _injectFmButtons(message, root) {
       if (resAmt) previewParts.push(`${resAmt} ${resType ?? 'Surge'}${resAmt !== 1 ? 's' : ''}`);
     }
     if (previewParts.length) {
-      const preview = document.createElement('p');
-      preview.className = 'dsct-flat-preview';
-      preview.style.cssText = 'padding: 0 0.5rem 0.25rem; margin: 0;';
-      const rawText = previewParts.join('; ') + '.';
-      TextEditor.enrichHTML(rawText, { async: true }).then(html => { preview.innerHTML = html; }).catch(() => { preview.textContent = rawText; });
-      const dstdPanelHeader = activePanel.querySelector(`.${DSTD}-header`);
-      if (dstdPanelHeader) dstdPanelHeader.after(preview);
-      else activePanel.prepend(preview);
+      const tierTextDds = activePanel.querySelectorAll(`dd.${DSTD}-tier-text`);
+      if (tierTextDds.length) {
+        const suffix = '; ' + previewParts.join('; ');
+        const _appendSuffix = (span) => {
+          span.textContent = span.textContent.replace(/\.\s*$/, '') + suffix;
+        };
+        for (const dd of tierTextDds) {
+          if (dd.dataset.dsctFlatPreview) continue;
+          dd.dataset.dsctFlatPreview = '1';
+          const existingSpan = dd.querySelector('span');
+          if (existingSpan?.textContent.trim()) {
+            _appendSuffix(existingSpan);
+          } else {
+            const obs = new MutationObserver((_, o) => {
+              const span = dd.querySelector('span');
+              if (!span?.textContent.trim()) return;
+              _appendSuffix(span);
+              o.disconnect();
+            });
+            obs.observe(dd, { childList: true, subtree: true });
+          }
+        }
+      } else if (!activePanel.querySelector('.dsct-flat-preview')) {
+        const preview = document.createElement('p');
+        preview.className = 'dsct-flat-preview';
+        preview.style.cssText = 'padding: 0 0.5rem 0.25rem; margin: 0;';
+        const rawText = previewParts.join('; ');
+        TextEditor.enrichHTML(rawText, { async: true }).then(html => { preview.innerHTML = html; }).catch(() => { preview.textContent = rawText; });
+        const dstdPanelHeader = activePanel.querySelector(`.${DSTD}-header`);
+        if (dstdPanelHeader) dstdPanelHeader.after(preview);
+        else activePanel.prepend(preview);
+      }
     }
   }
 
