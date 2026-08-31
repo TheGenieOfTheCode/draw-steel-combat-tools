@@ -2364,7 +2364,8 @@ async function _injectFmButtons(message, root) {
           if (existingOverride?.bonus !== bonus) {
             const baseText   = qdBtn?.textContent ?? nativeApplyBtn?.textContent ?? '';
             const base       = parseInt(baseText.match(/\d+/)?.[0] ?? '0');
-            const typeClass  = [...(qdBtn?.classList ?? [])].find(c => c.includes('-damage-type-'));
+            const typeClass  = [...(qdBtn?.classList ?? [])].find(c => c.includes('-damage-type-'))
+                             ?? [...(nativeApplyBtn?.classList ?? [])].find(c => c.includes('-damage-type-'));
             const damageType = typeClass?.split('-damage-type-')[1] ?? existingOverride?.damageType ?? '';
             const typeLabel  = existingOverride?.typeLabel || (damageType && damageType !== 'untyped' ? damageType.charAt(0).toUpperCase() + damageType.slice(1) : '');
             if (base > 0 && game.users.activeGM?.isSelf) {
