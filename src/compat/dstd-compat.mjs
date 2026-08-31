@@ -931,7 +931,9 @@ async function _injectFmButtons(message, root) {
     try {
       const roll = new Roll(effect.flatDamage.value, rollData);
       await roll.evaluate();
-      return { effect, amount: Math.floor(roll.total) };
+      const amount = Math.floor(roll.total);
+      if (getSetting('debugMode')) console.log(`DSCT | flatDamage resolve: effectId=${effect.id} value="${effect.flatDamage.value}" rollTotal=${roll.total} amount=${amount}`);
+      return { effect, amount };
     } catch { return { effect, amount: 0 }; }
   }));
 
@@ -990,7 +992,7 @@ async function _injectFmButtons(message, root) {
       const typeLabel = typeList.length
         ? game.i18n.getListFormatter({ type: 'disjunction' }).format(typeList.map(t => ds.CONFIG.damageTypes[t]?.label ?? t))
         : game.i18n.localize('DRAW_STEEL.DamageType.typeless');
-      previewParts.push(`${amount} ${typeLabel}`);
+      previewParts.push(`${amount} ${typeLabel} damage`);
     }
     for (const { effect, movConfig, firstMov, dist } of flatForcedResolved) {
       if (effect.flatForced.displayText) { previewParts.push(effect.flatForced.displayText); continue; }
@@ -1014,13 +1016,12 @@ async function _injectFmButtons(message, root) {
     }
     if (previewParts.length) {
       const preview = document.createElement('p');
-      preview.className = `dsct-flat-preview`;
-      preview.style.padding = '0 0.5rem 0.25rem';
-      preview.style.margin  = '0';
+      preview.className = 'dsct-flat-preview';
+      preview.style.cssText = 'padding: 0 0.5rem 0.25rem; margin: 0;';
       const rawText = previewParts.join('; ') + '.';
       TextEditor.enrichHTML(rawText, { async: true }).then(html => { preview.innerHTML = html; }).catch(() => { preview.textContent = rawText; });
-      const header = activePanel.querySelector('header');
-      if (header) header.after(preview);
+      const dstdPanelHeader = activePanel.querySelector(`.${DSTD}-header`);
+      if (dstdPanelHeader) dstdPanelHeader.after(preview);
       else activePanel.prepend(preview);
     }
   }
@@ -1746,22 +1747,25 @@ async function _injectFmButtons(message, root) {
       const fullLabel = `${applyLabel}${surgeSfx}`;
 
       const synDataset = {
-        syntheticDamage:    'true',
-        amount:             String(amount),
-        formula:            String(effect.flatDamage.value ?? amount),
-        damageType:         dispType,
-        typeLabel:          dispTypeLabel,
-        isHeal:             'false',
-        ignoredImmunities:  JSON.stringify(immunities),
-        partId:             effect.id,
-        rollIndex:          '',
+        syntheticDamage:   'true',
+        amount:            String(amount),
+        formula:           String(amount),
+        damageType:        dispType,
+        typeLabel:         dispTypeLabel,
+        isHeal:            'false',
+        ignoredImmunities: JSON.stringify(immunities),
+        partId:            effect.id,
+        
       };
+
+      if (getSetting('debugMode')) console.log(`DSCT | flatDamage button: target=${targetKey} amount=${amount} synDataset.amount=${synDataset.amount} formula=${synDataset.formula} operationId=${operationId} override=${JSON.stringify(override ?? null)}`);
 
       const targetJSON = JSON.stringify(targetObj);
 
       const applyDmgBtn = document.createElement('button');
       applyDmgBtn.type      = 'button';
       applyDmgBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
+      if (dispType) applyDmgBtn.classList.add(`${DSTD}-damage-type-${dispType}`);
       applyDmgBtn.dataset.dstdAction  = 'applyDamage';
       applyDmgBtn.dataset.target      = targetJSON;
       applyDmgBtn.dataset.operationId = operationId;
@@ -1771,6 +1775,13 @@ async function _injectFmButtons(message, root) {
       applyDmgBtn.append(_makeIcon(_dmgIcon(dispType)), _makeSpan(isApplied ? (appRecord?.label ?? fullLabel) : fullLabel));
       if (isApplied) applyDmgBtn.prepend(_makeIcon('fa-solid fa-check'));
 
+      
+      let stackCount = 0;
+      if (targetObj.selectedToken) {
+        if (Array.isArray(appRecord?.stack)) stackCount = appRecord.stack.filter(r => r?.status === 'applied').length;
+        else if (appRecord?.status === 'applied') stackCount = 1;
+      }
+
       const undoDmgBtn = document.createElement('button');
       undoDmgBtn.type      = 'button';
       undoDmgBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
@@ -1778,8 +1789,14 @@ async function _injectFmButtons(message, root) {
       undoDmgBtn.dataset.target      = targetJSON;
       undoDmgBtn.dataset.operationId = operationId;
       undoDmgBtn.dataset.tooltip     = game.i18n.localize('DSTD.Chat.Undo') || 'Undo';
-      undoDmgBtn.disabled = !isApplied && !targetObj.selectedToken;
+      undoDmgBtn.disabled = targetObj.selectedToken ? stackCount <= 0 : !isApplied;
       undoDmgBtn.append(_makeIcon('fa-solid fa-rotate-left'));
+      if (targetObj.selectedToken && stackCount > 0) {
+        const badge = document.createElement('span');
+        badge.className = `${DSTD}-undo-badge`;
+        badge.textContent = String(stackCount);
+        undoDmgBtn.append(badge);
+      }
 
       const editDmgBtn = document.createElement('button');
       editDmgBtn.type      = 'button';
@@ -1804,6 +1821,7 @@ async function _injectFmButtons(message, root) {
         const quickDmgBtn = document.createElement('button');
         quickDmgBtn.type      = 'button';
         quickDmgBtn.className = `${DSTD}-action-button ${DSTD}-quick-damage dsct-dstd-quick-dmg-btn`;
+        if (dispType) quickDmgBtn.classList.add(`${DSTD}-damage-type-${dispType}`);
         quickDmgBtn.disabled  = isApplied;
         quickDmgBtn.dataset.tooltip = fullLabel;
         quickDmgBtn.addEventListener('click', () => { if (!quickDmgBtn.disabled) applyDmgBtn.click(); });
@@ -1890,6 +1908,23 @@ async function _injectFmButtons(message, root) {
       applyFlatBtn.addEventListener('click', async (e) => {
         e.stopPropagation(); e.preventDefault();
         if (applyFlatBtn.disabled) return;
+
+        const _fmSpend = effect.flatForced.spend;
+        if (_fmSpend?.enabled) {
+          const _fmSpendKey = `flatSpend_${effect.id}`;
+          if (!message.getFlag(M, _fmSpendKey)) {
+            if (!sourceActor) { ui.notifications.warn('DSCT | No source actor for spend check'); return; }
+            const _heroicVal = sourceActor.system.hero?.primary?.value ?? 0;
+            const _spendCost = _fmSpend.value ?? 1;
+            if (_heroicVal < _spendCost) {
+              const _resName = sourceActor.system.hero?.primary?.label ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
+              ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
+              return;
+            }
+            await sourceActor.update({ 'system.hero.primary.value': _heroicVal - _spendCost });
+            await message.setFlag(M, _fmSpendKey, true);
+          }
+        }
 
         let targetToken = null;
         if (tokenUuid) {
@@ -2077,6 +2112,24 @@ async function _injectFmButtons(message, root) {
       condBtn.addEventListener('click', async (e) => {
         e.stopPropagation(); e.preventDefault();
         if (condBtn.disabled) return;
+
+        const _condSpend = effect.flatApplied.spend;
+        if (_condSpend?.enabled) {
+          const _condSpendKey = `flatSpend_${effect.id}`;
+          if (!message.getFlag(M, _condSpendKey)) {
+            if (!sourceActor) { ui.notifications.warn('DSCT | No source actor for spend check'); return; }
+            const _heroicVal = sourceActor.system.hero?.primary?.value ?? 0;
+            const _spendCost = _condSpend.value ?? 1;
+            if (_heroicVal < _spendCost) {
+              const _resName = sourceActor.system.hero?.primary?.label ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
+              ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
+              return;
+            }
+            await sourceActor.update({ 'system.hero.primary.value': _heroicVal - _spendCost });
+            await message.setFlag(M, _condSpendKey, true);
+          }
+        }
+
         const td    = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
         const actor = td?.actor ?? null;
         if (!actor) return;
@@ -2163,6 +2216,24 @@ async function _injectFmButtons(message, root) {
       healBtn.addEventListener('click', async (e) => {
         e.stopPropagation(); e.preventDefault();
         if (healBtn.disabled) return;
+
+        const _healSpend = effect.flatHeal.spend;
+        if (_healSpend?.enabled) {
+          const _healSpendKey = `flatSpend_${effect.id}`;
+          if (!message.getFlag(M, _healSpendKey)) {
+            if (!sourceActor) { ui.notifications.warn('DSCT | No source actor for spend check'); return; }
+            const _heroicVal = sourceActor.system.hero?.primary?.value ?? 0;
+            const _spendCost = _healSpend.value ?? 1;
+            if (_heroicVal < _spendCost) {
+              const _resName = sourceActor.system.hero?.primary?.label ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
+              ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
+              return;
+            }
+            await sourceActor.update({ 'system.hero.primary.value': _heroicVal - _spendCost });
+            await message.setFlag(M, _healSpendKey, true);
+          }
+        }
+
         const td          = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
         const targetActor = td?.actor ?? null;
         if (!targetActor) return;

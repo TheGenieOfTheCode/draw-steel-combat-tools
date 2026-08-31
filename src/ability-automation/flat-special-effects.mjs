@@ -16,6 +16,10 @@ function _registerPartials() {
     {{formGroup ctx.value.field value=ctx.value.src name="flatDamage.value" localize=true}}
     {{formGroup ctx.types.field value=ctx.types.src name="flatDamage.types" options=ctx.damageTypes localize=true}}
     {{formGroup ctx.ignoredImmunities.field value=ctx.ignoredImmunities.src name="flatDamage.ignoredImmunities" options=ctx.immunityTypes localize=true}}
+    {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatDamage.spend.enabled" localize=true}}
+    <div data-dsct-flat-spend-cost="flatDamage" {{#unless ctx.spend.enabled.src}}hidden{{/unless}}>
+      {{formGroup ctx.spend.value.field value=ctx.spend.value.src name="flatDamage.spend.value" localize=true}}
+    </div>
     {{formGroup ctx.display.field value=ctx.display.src name="flatDamage.display" localize=true}}
   `);
 
@@ -24,6 +28,10 @@ function _registerPartials() {
     {{formGroup ctx.movement.field value=ctx.movement.src name="flatForced.movement" options=ctx.movementOptions localize=true}}
     {{formGroup ctx.distance.field value=ctx.distance.src name="flatForced.distance" localize=true}}
     {{formGroup ctx.properties.field value=ctx.properties.src name="flatForced.properties" options=ctx.propertyOptions localize=true}}
+    {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatForced.spend.enabled" localize=true}}
+    <div data-dsct-flat-spend-cost="flatForced" {{#unless ctx.spend.enabled.src}}hidden{{/unless}}>
+      {{formGroup ctx.spend.value.field value=ctx.spend.value.src name="flatForced.spend.value" localize=true}}
+    </div>
     {{formGroup ctx.display.field value=ctx.display.src name="flatForced.display" localize=true}}
   `);
 
@@ -37,6 +45,10 @@ function _registerPartials() {
     {{formGroup ctx.statusId.field value=ctx.statusId.src name="flatApplied.statusId" options=ctx.effectOptions localize=true}}
     {{formGroup ctx.end.field value=ctx.end.src name="flatApplied.end" options=ctx.endOptions localize=true}}
     {{formGroup ctx.properties.field value=ctx.properties.src name="flatApplied.properties" options=ctx.propertyOptions localize=true}}
+    {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatApplied.spend.enabled" localize=true}}
+    <div data-dsct-flat-spend-cost="flatApplied" {{#unless ctx.spend.enabled.src}}hidden{{/unless}}>
+      {{formGroup ctx.spend.value.field value=ctx.spend.value.src name="flatApplied.spend.value" localize=true}}
+    </div>
     {{formGroup ctx.display.field value=ctx.display.src name="flatApplied.display" localize=true}}
   `);
 
@@ -44,6 +56,10 @@ function _registerPartials() {
     {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatResource.displayText" localize=true}}
     {{formGroup ctx.amount.field value=ctx.amount.src name="flatResource.amount" localize=true}}
     {{formGroup ctx.type.field value=ctx.type.src name="flatResource.type" options=ctx.typeOptions localize=true}}
+    {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatResource.spend.enabled" localize=true}}
+    <div data-dsct-flat-spend-cost="flatResource" {{#unless ctx.spend.enabled.src}}hidden{{/unless}}>
+      {{formGroup ctx.spend.value.field value=ctx.spend.value.src name="flatResource.spend.value" localize=true}}
+    </div>
     {{formGroup ctx.display.field value=ctx.display.src name="flatResource.display" localize=true}}
   `);
 
@@ -62,6 +78,10 @@ function _registerPartials() {
     </div>
     {{formGroup ctx.tempStamina.field value=ctx.tempStamina.src name="flatHeal.tempStamina" localize=true}}
     {{formGroup ctx.repeatable.field value=ctx.repeatable.src name="flatHeal.repeatable" localize=true}}
+    {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatHeal.spend.enabled" localize=true}}
+    <div data-dsct-flat-spend-cost="flatHeal" {{#unless ctx.spend.enabled.src}}hidden{{/unless}}>
+      {{formGroup ctx.spend.value.field value=ctx.spend.value.src name="flatHeal.spend.value" localize=true}}
+    </div>
     {{formGroup ctx.display.field value=ctx.display.src name="flatHeal.display" localize=true}}
   `);
 }
@@ -79,6 +99,10 @@ class FlatDamageSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Bas
         ignoredImmunities: new SetField(_setField(), {
           label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.ignoredImmunities.label",
           hint: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.ignoredImmunities.hint",
+        }),
+        spend: new SchemaField({
+          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
         }),
       }),
     });
@@ -113,6 +137,10 @@ class FlatDamageSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Bas
         { rule: true },
         ...Object.entries(ds.CONFIG.damageTypes).map(([k, v]) => ({ value: k, label: v.label })),
       ],
+      spend: {
+        enabled: { field: this.schema.getField("flatDamage.spend.enabled"), src: this._source.flatDamage.spend.enabled },
+        value:   { field: this.schema.getField("flatDamage.spend.value"),   src: this._source.flatDamage.spend.value },
+      },
     };
   }
 }
@@ -128,6 +156,10 @@ class FlatForcedSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Bas
         movement: new SetField(_setField(), { initial: ["push"], label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.movement.label" }),
         distance: new ds.data.fields.FormulaField({ deterministic: true, initial: "1", label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.distance.label" }),
         properties: new SetField(_setField(), { label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.properties.label" }),
+        spend: new SchemaField({
+          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+        }),
       }),
     });
   }
@@ -159,6 +191,10 @@ class FlatForcedSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Bas
       properties:  { field: this.schema.getField("flatForced.properties"), src: this._source.flatForced.properties },
       movementOptions: Object.entries(ds.CONFIG.abilities.forcedMovement).map(([value, { label }]) => ({ value, label })),
       propertyOptions: Object.entries(ds.CONFIG.PowerRollEffect.forced.properties).map(([value, { label }]) => ({ value, label })),
+      spend: {
+        enabled: { field: this.schema.getField("flatForced.spend.enabled"), src: this._source.flatForced.spend.enabled },
+        value:   { field: this.schema.getField("flatForced.spend.value"),   src: this._source.flatForced.spend.value },
+      },
     };
   }
 }
@@ -179,6 +215,10 @@ class FlatAppliedSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
         statusId:   new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.Applied.statusId.label",    hint: "DSCT.FlatEffect.Applied.statusId.hint" }),
         end:        new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.Applied.end.label",         hint: "DSCT.FlatEffect.Applied.end.hint" }),
         properties: new SetField(_setField(), { initial: [], label: "DSCT.FlatEffect.Applied.properties.label" }),
+        spend: new SchemaField({
+          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+        }),
       }),
     });
   }
@@ -254,6 +294,10 @@ class FlatAppliedSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
       endOptions,
       propertyOptions,
       isCustomStrength,
+      spend: {
+        enabled: { field: this.schema.getField("flatApplied.spend.enabled"), src: this._source.flatApplied.spend.enabled },
+        value:   { field: this.schema.getField("flatApplied.spend.value"),   src: this._source.flatApplied.spend.value },
+      },
     };
   }
 }
@@ -272,6 +316,10 @@ class FlatResourceSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
         display:     new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",     hint: "DSCT.FlatEffect.display.hint" }),
         amount: new NumberField({ integer: true, initial: 1, label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.resource.amount.label" }),
         type: new StringField({ initial: "surge", label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.resource.type.label" }),
+        spend: new SchemaField({
+          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+        }),
       }),
     });
   }
@@ -297,6 +345,10 @@ class FlatResourceSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
       amount:      { field: this.schema.getField("flatResource.amount"),      src: this._source.flatResource.amount },
       type:        { field: this.schema.getField("flatResource.type"),        src: this._source.flatResource.type },
       typeOptions: Object.entries(rt).map(([value, { label }]) => ({ value, label })),
+      spend: {
+        enabled: { field: this.schema.getField("flatResource.spend.enabled"), src: this._source.flatResource.spend.enabled },
+        value:   { field: this.schema.getField("flatResource.spend.value"),   src: this._source.flatResource.spend.value },
+      },
     };
   }
 }
@@ -316,6 +368,10 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
         recoveryValueSource: new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoveryValueSource.label" }),
         tempStamina:         new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.tempStamina.label",             hint: "DSCT.FlatEffect.Heal.tempStamina.hint" }),
         repeatable:          new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.repeatable.label",              hint: "DSCT.FlatEffect.Heal.repeatable.hint" }),
+        spend: new SchemaField({
+          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+        }),
       }),
     });
   }
@@ -369,12 +425,16 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
       amountTypeOptions,
       isCustomAmount:        src.amountType === "custom",
       isRecoveryValueAmount: src.amountType === "recoveryValue",
+      spend: {
+        enabled: { field: this.schema.getField("flatHeal.spend.enabled"), src: src.spend.enabled },
+        value:   { field: this.schema.getField("flatHeal.spend.value"),   src: src.spend.value },
+      },
     };
   }
 }
 
 function _buildDamageButton(effect, item) {
-  const { value, types, ignoredImmunities, display } = effect.flatDamage;
+  const { value, types, ignoredImmunities, display, spend } = effect.flatDamage;
   const rollData = item.actor?.getRollData?.() ?? {};
   const simplified = rollData ? ds.utils.simplifyRollFormula(value, rollData) : value;
   const typeList = Array.from(types);
@@ -389,9 +449,16 @@ function _buildDamageButton(effect, item) {
   btn.dataset.formula = value;
   btn.dataset.types = typeList.join(",");
   btn.dataset.ignoredImmunities = Array.from(ignoredImmunities).join(",");
-  const btnLabel = display || game.i18n.format("DSCT.FlatEffect.Damage.defaultLabel", { value: simplified, types: typeLabel });
+  btn.dataset.actorUuid    = item.actor?.uuid ?? "";
+  btn.dataset.spendEnabled = String(spend?.enabled ?? false);
+  btn.dataset.spendValue   = String(spend?.value ?? 1);
+  const spendSuffix = spend?.enabled ? ` ${game.i18n.format("DSCT.FlatEffect.spend.costSuffix", { cost: spend.value })}` : "";
+  const btnLabel = (display || game.i18n.format("DSCT.FlatEffect.Damage.defaultLabel", { value: simplified, types: typeLabel })) + spendSuffix;
   const iconClass = firstType ? (_FLAT_DAMAGE_ICONS[firstType] ?? "fa-solid fa-burst") : "fa-solid fa-burst";
-  btn.innerHTML = `<i class="${iconClass}"></i> ${btnLabel}`;
+  const dmgIconEl = document.createElement("i");
+  dmgIconEl.className = iconClass;
+  if (firstType && _FLAT_DAMAGE_COLORS[firstType]) dmgIconEl.style.color = _FLAT_DAMAGE_COLORS[firstType];
+  btn.append(dmgIconEl, ` ${btnLabel}`);
   return btn;
 }
 
@@ -402,9 +469,14 @@ const _FLAT_DAMAGE_ICONS = {
   poison: "fa-solid fa-skull-crossbones", psychic: "fa-solid fa-brain",
   sonic: "fa-solid fa-volume-high",
 };
+const _FLAT_DAMAGE_COLORS = {
+  acid: "#6fbf4a", cold: "#65c7f7", corruption: "#9b59b6", fire: "#e74c3c",
+  holy: "#f1c40f", lightning: "#f7dc6f", poison: "#2ecc71", psychic: "#e056fd",
+  sonic: "#00cec9",
+};
 
 function _buildForcedRow(effect, item) {
-  const { movement, distance, properties, display } = effect.flatForced;
+  const { movement, distance, properties, display, spend } = effect.flatForced;
   const rollData = item.actor?.getRollData?.() ?? {};
   let distLabel;
   try { distLabel = rollData ? ds.utils.evaluateFormula(distance, rollData, { contextName: item.uuid }) : distance; }
@@ -415,16 +487,19 @@ function _buildForcedRow(effect, item) {
   const movConfig = ds.CONFIG.abilities.forcedMovement[firstMov];
   const movLabel = movConfig?.label ?? firstMov;
   const propArr = Array.from(properties);
+  const spendSuffix = spend?.enabled ? ` ${game.i18n.format("DSCT.FlatEffect.spend.costSuffix", { cost: spend.value })}` : "";
 
   const applyBtn = document.createElement("button");
   applyBtn.type = "button";
   applyBtn.className = "dsct-flat-forced-btn";
   applyBtn.style.flex = "1 1 auto";
-  applyBtn.dataset.movement = firstMov;
-  applyBtn.dataset.distance = distance;
-  applyBtn.dataset.properties = propArr.join(",");
-  applyBtn.dataset.actorUuid = item.actor?.uuid ?? "";
-  applyBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${display || game.i18n.format("DSCT.FlatEffect.FM.defaultLabel", { movement: movLabel, distance: distLabel })}`;
+  applyBtn.dataset.movement    = firstMov;
+  applyBtn.dataset.distance    = distance;
+  applyBtn.dataset.properties  = propArr.join(",");
+  applyBtn.dataset.actorUuid   = item.actor?.uuid ?? "";
+  applyBtn.dataset.spendEnabled = String(spend?.enabled ?? false);
+  applyBtn.dataset.spendValue   = String(spend?.value ?? 1);
+  applyBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${(display || game.i18n.format("DSCT.FlatEffect.FM.defaultLabel", { movement: movLabel, distance: distLabel })) + spendSuffix}`;
 
   const editBtn = document.createElement("button");
   editBtn.type = "button";
@@ -443,7 +518,7 @@ function _buildForcedRow(effect, item) {
     }).catch(() => null);
     if (result != null && result >= 1) {
       applyBtn.dataset.distance = String(result);
-      applyBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${display || game.i18n.format("DSCT.FlatEffect.FM.defaultLabel", { movement: movLabel, distance: result })}`;
+      applyBtn.innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${(display || game.i18n.format("DSCT.FlatEffect.FM.defaultLabel", { movement: movLabel, distance: result })) + spendSuffix}`;
     }
   });
 
@@ -455,8 +530,8 @@ function _buildForcedRow(effect, item) {
   return row;
 }
 
-function _buildAppliedButton(effect) {
-  const { statusId, display } = effect.flatApplied;
+function _buildAppliedButton(effect, item) {
+  const { statusId, display, spend } = effect.flatApplied;
   const statusEntry = statusId ? CONFIG.statusEffects.find(s => s.id === statusId) : null;
   const label = display || statusEntry?.name || statusId;
   if (!label && !statusId) return null;
@@ -471,16 +546,20 @@ function _buildAppliedButton(effect) {
     iconHtml = `<i class="fa-solid fa-star"></i>`;
   }
 
+  const spendSuffix = spend?.enabled ? ` ${game.i18n.format("DSCT.FlatEffect.spend.costSuffix", { cost: spend.value })}` : "";
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "dsct-flat-applied-btn";
-  btn.dataset.statusId = statusId ?? "";
-  btn.innerHTML = `${iconHtml} ${label ?? statusId}`;
+  btn.dataset.statusId     = statusId ?? "";
+  btn.dataset.actorUuid    = item?.actor?.uuid ?? "";
+  btn.dataset.spendEnabled = String(spend?.enabled ?? false);
+  btn.dataset.spendValue   = String(spend?.value ?? 1);
+  btn.innerHTML = `${iconHtml} ${(label ?? statusId) + spendSuffix}`;
   return btn;
 }
 
 function _buildHealButton(effect, item) {
-  const { display, spendRecovery, recoverySource, amountType, amountFormula, recoveryValueSource, tempStamina, repeatable } = effect.flatHeal;
+  const { display, spendRecovery, recoverySource, amountType, amountFormula, recoveryValueSource, tempStamina, repeatable, spend } = effect.flatHeal;
   const sourceActor = item.actor;
 
   let amountStr;
@@ -512,9 +591,23 @@ function _buildHealButton(effect, item) {
   btn.dataset.tempStamina         = String(tempStamina);
   btn.dataset.repeatable          = String(repeatable);
   btn.dataset.actorUuid           = sourceActor?.uuid ?? "";
+  btn.dataset.spendEnabled        = String(spend?.enabled ?? false);
+  btn.dataset.spendValue          = String(spend?.value ?? 1);
+  const spendSuffix = spend?.enabled ? ` ${game.i18n.format("DSCT.FlatEffect.spend.costSuffix", { cost: spend.value })}` : "";
   const iconClass = tempStamina ? "fa-solid fa-shield-halved" : "fa-solid fa-heart-pulse";
-  btn.innerHTML = `<i class="${iconClass}" style="color:#2ecc71"></i> ${display || defaultLabel}`;
+  btn.innerHTML = `<i class="${iconClass}" style="color:#2ecc71"></i> ${(display || defaultLabel) + spendSuffix}`;
   return btn;
+}
+
+async function _spendHeroicResource(actor, cost) {
+  const heroicVal = actor?.system.hero?.primary?.value ?? 0;
+  if (heroicVal < cost) {
+    const resName = actor?.system.hero?.primary?.label ?? game.i18n.localize("DSCT.FlatEffect.spend.resource");
+    ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.spend.insufficient", { name: actor?.name ?? "?", cost, resource: resName }));
+    return false;
+  }
+  await actor.update({ "system.hero.primary.value": heroicVal - cost });
+  return true;
 }
 
 function _addFlatEffectListeners(section, item, message) {
@@ -525,6 +618,12 @@ function _addFlatEffectListeners(section, item, message) {
       const immunities = btn.dataset.ignoredImmunities ? btn.dataset.ignoredImmunities.split(",").filter(Boolean) : [];
       const targets = [...game.user.targets];
       if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
+
+      if (btn.dataset.spendEnabled === "true") {
+        const sourceActor = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : item.actor;
+        const ok = await _spendHeroicResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
+        if (!ok) return;
+      }
 
       const rollData = item.actor?.getRollData?.() ?? {};
       const roll = new Roll(formula, rollData);
@@ -547,6 +646,12 @@ function _addFlatEffectListeners(section, item, message) {
       const controlled = canvas.tokens.controlled;
       const actorUuid = applyBtn.dataset.actorUuid;
       const sourceActor = actorUuid ? fromUuidSync(actorUuid) : null;
+
+      if (applyBtn.dataset.spendEnabled === "true") {
+        const ok = await _spendHeroicResource(sourceActor ?? item.actor, parseInt(applyBtn.dataset.spendValue) || 1);
+        if (!ok) return;
+      }
+
       const source = (sourceActor?.isToken
         ? sourceActor.token?.object
         : canvas.tokens.placeables.find(t => t.actor?.id === sourceActor?.id)
@@ -567,6 +672,13 @@ function _addFlatEffectListeners(section, item, message) {
       if (!statusId) return;
       const targets = [...game.user.targets];
       if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
+
+      if (btn.dataset.spendEnabled === "true") {
+        const sourceActor = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : item.actor;
+        const ok = await _spendHeroicResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
+        if (!ok) return;
+      }
+
       for (const target of targets) {
         if (!target.actor) continue;
         await target.actor.toggleStatusEffect(statusId, { active: true });
@@ -587,6 +699,11 @@ function _addFlatEffectListeners(section, item, message) {
       const tempStamina         = btn.dataset.tempStamina === "true";
       const repeatable          = btn.dataset.repeatable === "true";
       const effectId            = btn.dataset.effectId;
+
+      if (btn.dataset.spendEnabled === "true") {
+        const ok = await _spendHeroicResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
+        if (!ok) return;
+      }
 
       let anyApplied = false;
       for (const target of targets) {
@@ -657,7 +774,7 @@ function _installFlatEffectChatHook() {
 
     const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage") .map(e => _buildDamageButton(e, item));
     const fmRows      = flatEffects.filter(e => e.type === "dsct.flatForced") .map(e => _buildForcedRow(e, item));
-    const condButtons = flatEffects.filter(e => e.type === "dsct.flatApplied").map(e => _buildAppliedButton(e)).filter(Boolean);
+    const condButtons = flatEffects.filter(e => e.type === "dsct.flatApplied").map(e => _buildAppliedButton(e, item)).filter(Boolean);
     const healButtons = flatEffects.filter(e => e.type === "dsct.flatHeal").map(e => {
       const btn = _buildHealButton(e, item);
       if (!e.flatHeal.repeatable && _nonDstdHealUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
@@ -739,6 +856,24 @@ function _installHealToggleListeners() {
   });
 }
 
+function _installSpendToggleListeners() {
+  const PREFIXES = ["flatDamage", "flatForced", "flatApplied", "flatResource", "flatHeal"];
+  Hooks.on('renderApplicationV2', (_app, element) => {
+    for (const prefix of PREFIXES) {
+      const toggle = element.querySelector?.(`input[name="${prefix}.spend.enabled"]`);
+      if (!toggle) continue;
+      const costDiv = element.querySelector(`[data-dsct-flat-spend-cost="${prefix}"]`);
+      if (!costDiv) continue;
+      const sync = () => {
+        if (toggle.checked) costDiv.removeAttribute('hidden');
+        else costDiv.setAttribute('hidden', '');
+      };
+      toggle.addEventListener('change', sync);
+      sync();
+    }
+  });
+}
+
 function _installPotencyCustomToggle() {
   Hooks.on('renderApplicationV2', (_app, element) => {
     const strengthSel = element.querySelector?.('select[name="flatApplied.potency.strength"]');
@@ -760,6 +895,7 @@ export function registerFlatEffects() {
   _installDisplayTextAutofill();
   _installPotencyCustomToggle();
   _installHealToggleListeners();
+  _installSpendToggleListeners();
 
   ds.CONFIG.SpecialEffect["dsct.flatDamage"] = {
     label: "TYPES.SpecialEffect.dsct.flatDamage",

@@ -636,6 +636,16 @@
           "hint":  "When enabled, the heal button stays active after use. Each use is tracked separately so undo removes exactly what was healed."
         }
       },
+      "spend": {
+        "enabled": {
+          "label": "Spend Heroic Resource",
+          "hint":  "When enabled, activating this effect costs the specified amount of heroic resource. Deducted once per message."
+        },
+        "value":        { "label": "Cost" },
+        "costSuffix":   "(Spend {cost})",
+        "insufficient": "{name} does not have enough {resource} to activate this effect (needs {cost}).",
+        "resource":     "heroic resource"
+      },
       "FM": {
         "defaultLabel": "{movement} {distance}",
         "editTooltip": "Modify distance",
