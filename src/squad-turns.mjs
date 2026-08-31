@@ -37,7 +37,7 @@ function findSiblingGroups(combat, group) {
   );
 }
 
-async function fireStartTurn(member, combat) {
+async function fireStartTurn(member, combat, { skipRegionEvents = false } = {}) {
   const idx = combat.turns.findIndex(c => c === member);
   if (idx < 0) return;
   await member.actor?.system?._onStartTurn?.(member);
@@ -46,6 +46,7 @@ async function fireStartTurn(member, combat) {
     combatant: { get: () => member, configurable: true }
   });
   await foundry.documents.ActiveEffect.registry.refresh('turnStart', { ...ctx, combat: combatProxy });
+  if (skipRegionEvents) return;
   const tok = member.token;
   if (!tok) return;
   await Promise.allSettled(
@@ -83,11 +84,11 @@ async function fireEndTurn(member, combat, round) {
   );
 }
 
-async function activateSquadMembers(group, combat, skipMember) {
+async function activateSquadMembers(group, combat, skipMember, { skipRegionEvents = false } = {}) {
   const membersToActivate = [...group.members].filter(m => m !== skipMember && m.initiative > 0);
   if (!membersToActivate.length) return;
   for (const member of membersToActivate) {
-    await fireStartTurn(member, combat);
+    await fireStartTurn(member, combat, { skipRegionEvents });
   }
 }
 
@@ -280,12 +281,12 @@ export function registerSquadTurnHooks() {
     _squadBatchInProgress = true;
     _activatedGroupIds.add(group.id);
     try {
-      await activateSquadMembers(group, combat, null);
+      await activateSquadMembers(group, combat, null, { skipRegionEvents: true });
 
       for (const sibGroup of findSiblingGroups(combat, group)) {
         if (!(sibGroup.initiative > 0)) continue;
         _activatedGroupIds.add(sibGroup.id);
-        await activateSquadMembers(sibGroup, combat, null);
+        await activateSquadMembers(sibGroup, combat, null, { skipRegionEvents: true });
         if (!game.combat || !combat.groups?.has(sibGroup.id)) continue;
         try { await sibGroup.update({ initiative: sibGroup.initiative - 1 }); }
         catch (err) { if (getSetting('debugMode')) console.warn('DSCT | updateCombatantGroup | sibGroup.update skipped:', err.message); }
@@ -315,7 +316,7 @@ export function registerSquadTurnHooks() {
     _squadBatchInProgress = true;
     _activatedGroupIds.add(group.id);
     try {
-      await activateSquadMembers(group, combat, combatant);
+      await activateSquadMembers(group, combat, combatant, { skipRegionEvents: true });
       if (game.combat && combat.groups?.has(group.id) && !_deletingCombatIds.has(combat.id)) {
         try { await group.update({ initiative: group.initiative - 1 }); }
         catch (err) { if (getSetting('debugMode')) console.warn('DSCT | updateCombatant | group.update skipped:', err.message); }
@@ -323,7 +324,7 @@ export function registerSquadTurnHooks() {
       for (const sibGroup of findSiblingGroups(combat, group)) {
         if (!(sibGroup.initiative > 0)) continue;
         _activatedGroupIds.add(sibGroup.id);
-        await activateSquadMembers(sibGroup, combat, null);
+        await activateSquadMembers(sibGroup, combat, null, { skipRegionEvents: true });
         if (!game.combat || !combat.groups?.has(sibGroup.id) || _deletingCombatIds.has(combat.id)) continue;
         try { await sibGroup.update({ initiative: sibGroup.initiative - 1 }); }
         catch (err) { if (getSetting('debugMode')) console.warn('DSCT | updateCombatant | sibGroup.update skipped:', err.message); }
@@ -352,6 +353,20 @@ export function registerSquadTurnHooks() {
       window._dsctActiveSquadGroupId = curGroup.id;
       const primaryToken = cur?.token?.object ?? canvas.tokens?.get(cur?.tokenId);
       refreshSquadMarkers(curGroup, primaryToken);
+      for (const member of curGroup.members) {
+        if (member.id === cur?.id) continue;
+        if (!(member.initiative > 0)) continue;
+        const tok = member.token;
+        if (!tok) continue;
+        const idx = combat.turns.findIndex(c => c === member);
+        if (idx < 0) continue;
+        const ctx = { round: combat.round, turn: idx, skipped: false };
+        await Promise.allSettled(
+          [...(tok.regions ?? [])].map(r =>
+            r._triggerEvent(CONST.REGION_EVENTS.TOKEN_TURN_START, { token: tok, combatant: member, combat, ...ctx })
+          )
+        );
+      }
     } else {
       window._dsctActiveSquadGroupId = null;
     }
