@@ -1747,3 +1747,58 @@ body.detached .chat-form {
 .dsct-hidden-enricher {
   display: none;
 }
+
+
+.dsct-tag-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.dsct-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dsct-tag-list:empty {
+  display: none;
+}
+
+.dsct-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px;
+  padding: 1px 4px 1px 7px;
+  border-radius: 3px;
+  border: 1px solid var(--color-border-light-tertiary, #999);
+  background: var(--color-bg-btn, rgba(0,0,0,.15));
+  font-size: var(--font-size-11, 11px);
+  line-height: 1.2;
+  white-space: nowrap;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.dsct-tag-remove {
+  all: unset;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  opacity: 0.5;
+  font-size: 9px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.dsct-tag-remove:hover {
+  opacity: 1;
+}
+
+.dsct-tag-add-select {
+  width: 100%;
+}

@@ -3,8 +3,9 @@ import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 
 const { SchemaField, SetField, StringField, NumberField, BooleanField } = foundry.data.fields;
 const ABILITY_PART_ID = "abilityUse".padEnd(16, "0");
-const FLAT_TYPES = new Set(["dsct.flatDamage", "dsct.flatForced", "dsct.flatApplied", "dsct.flatResource", "dsct.flatHeal"]);
-const _nonDstdHealUsed = new Set();
+const FLAT_TYPES = new Set(["dsct.flatDamage", "dsct.flatForced", "dsct.flatApplied", "dsct.flatResource", "dsct.flatHeal", "dsct.flatCleanse"]);
+const _nonDstdHealUsed    = new Set();
+const _nonDstdCleanseUsed = new Set();
 
 function _setField(opts = {}) {
   return new StringField({ ...opts, required: true, blank: false });
@@ -61,6 +62,52 @@ function _registerPartials() {
       {{formGroup ctx.spend.value.field value=ctx.spend.value.src name="flatResource.spend.value" localize=true}}
     </div>
     {{formGroup ctx.display.field value=ctx.display.src name="flatResource.display" localize=true}}
+  `);
+
+  Handlebars.registerPartial("dsct.flat-cleanse", `
+    {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatCleanse.displayText" localize=true}}
+    <div class="form-group">
+      <label class="form-label">{{localize "DSCT.FlatEffect.Cleanse.expiryFilter.label"}}</label>
+      <div class="form-fields">
+        <div class="dsct-tag-picker" data-dsct-tag-field="flatCleanse.expiryFilter">
+          <div class="dsct-tag-list">
+            {{#each ctx.expirySelected}}<span class="dsct-tag" data-value="{{value}}">{{label}}<button type="button" class="dsct-tag-remove"><i class="fa-solid fa-xmark"></i></button></span>{{/each}}
+          </div>
+          <select class="dsct-tag-add-select">
+            <option value="">{{localize "DSCT.FlatEffect.Cleanse.addFilter"}}</option>
+            {{#each ctx.expiryOptions}}<option value="{{value}}">{{label}}</option>{{/each}}
+          </select>
+          <select name="flatCleanse.expiryFilter" multiple style="display:none">
+            {{#each ctx.allExpiryOptions}}<option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option>{{/each}}
+          </select>
+        </div>
+      </div>
+      <p class="hint">{{localize "DSCT.FlatEffect.Cleanse.expiryFilter.hint"}}</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">{{localize "DSCT.FlatEffect.Cleanse.statusFilter.label"}}</label>
+      <div class="form-fields">
+        <div class="dsct-tag-picker" data-dsct-tag-field="flatCleanse.statusFilter">
+          <div class="dsct-tag-list">
+            {{#each ctx.statusSelected}}<span class="dsct-tag" data-value="{{value}}">{{label}}<button type="button" class="dsct-tag-remove"><i class="fa-solid fa-xmark"></i></button></span>{{/each}}
+          </div>
+          <select class="dsct-tag-add-select">
+            <option value="">{{localize "DSCT.FlatEffect.Cleanse.addFilter"}}</option>
+            {{#each ctx.statusOptions}}<option value="{{value}}">{{label}}</option>{{/each}}
+          </select>
+          <select name="flatCleanse.statusFilter" multiple style="display:none">
+            {{#each ctx.allStatusOptions}}<option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option>{{/each}}
+          </select>
+        </div>
+      </div>
+      <p class="hint">{{localize "DSCT.FlatEffect.Cleanse.statusFilter.hint"}}</p>
+    </div>
+    {{formGroup ctx.repeatable.field value=ctx.repeatable.src name="flatCleanse.repeatable" localize=true}}
+    {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatCleanse.spend.enabled" localize=true}}
+    <div data-dsct-flat-spend-cost="flatCleanse" {{#unless ctx.spend.enabled.src}}hidden{{/unless}}>
+      {{formGroup ctx.spend.value.field value=ctx.spend.value.src name="flatCleanse.spend.value" localize=true}}
+    </div>
+    {{formGroup ctx.display.field value=ctx.display.src name="flatCleanse.display" localize=true}}
   `);
 
   Handlebars.registerPartial("dsct.flat-heal", `
@@ -433,6 +480,67 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
   }
 }
 
+class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseSpecialEffect {
+  static get TYPE() { return "dsct.flatCleanse"; }
+
+  static defineSchema() {
+    return Object.assign(super.defineSchema(), {
+      flatCleanse: new SchemaField({
+        displayText:  new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.displayText.label",         hint: "DSCT.FlatEffect.displayText.hint" }),
+        display:      new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",             hint: "DSCT.FlatEffect.display.hint" }),
+        expiryFilter: new SetField(_setField(), { initial: ["turnEnd", "save"], label: "DSCT.FlatEffect.Cleanse.expiryFilter.label" }),
+        statusFilter: new SetField(_setField(), { initial: [],                  label: "DSCT.FlatEffect.Cleanse.statusFilter.label" }),
+        repeatable:   new BooleanField({ initial: false, label: "DSCT.FlatEffect.Cleanse.repeatable.label", hint: "DSCT.FlatEffect.Cleanse.repeatable.hint" }),
+        spend: new SchemaField({
+          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+        }),
+      }),
+    });
+  }
+
+  get detailsPartial() { return "dsct.flat-cleanse"; }
+  showUse() { return false; }
+
+  get label() {
+    return buildCleanseAutoLabel(this.flatCleanse);
+  }
+
+  async getSheetContext() {
+    const src = this._source.flatCleanse;
+
+    const expiryEntries = Object.values(ds.CONFIG.effectEnds ?? {})
+      .filter(cfg => cfg.expiryEvent)
+      .map(cfg => ({ value: cfg.expiryEvent, label: cfg.label ?? cfg.expiryEvent }));
+    const expirySelected    = expiryEntries.filter(o => this.flatCleanse.expiryFilter.has(o.value));
+    const expiryOptions     = expiryEntries.filter(o => !this.flatCleanse.expiryFilter.has(o.value));
+    const allExpiryOptions  = expiryEntries.map(o => ({ ...o, selected: this.flatCleanse.expiryFilter.has(o.value) }));
+
+    const statusEntries = CONFIG.statusEffects
+      .filter(s => s.hud !== false)
+      .map(s => ({ value: s.id, label: s.name ?? s.id }));
+    const statusSelected   = statusEntries.filter(o => this.flatCleanse.statusFilter.has(o.value));
+    const statusOptions    = statusEntries.filter(o => !this.flatCleanse.statusFilter.has(o.value));
+    const allStatusOptions = statusEntries.map(o => ({ ...o, selected: this.flatCleanse.statusFilter.has(o.value) }));
+
+    return {
+      displayText:    { field: this.schema.getField("flatCleanse.displayText"), src: src.displayText },
+      display:        { field: this.schema.getField("flatCleanse.display"),     src: src.display },
+      repeatable:     { field: this.schema.getField("flatCleanse.repeatable"),  src: src.repeatable },
+      expirySelected,
+      expiryOptions,
+      allExpiryOptions,
+      statusSelected,
+      statusOptions,
+      allStatusOptions,
+      spend: {
+        enabled: { field: this.schema.getField("flatCleanse.spend.enabled"), src: src.spend.enabled },
+        value:   { field: this.schema.getField("flatCleanse.spend.value"),   src: src.spend.value },
+      },
+    };
+  }
+}
+
 function _buildDamageButton(effect, item) {
   const { value, types, ignoredImmunities, display, spend } = effect.flatDamage;
   const rollData = item.actor?.getRollData?.() ?? {};
@@ -599,6 +707,46 @@ function _buildHealButton(effect, item) {
   return btn;
 }
 
+export function buildCleanseAutoLabel(flatCleanse) {
+  const { display, displayText, expiryFilter, statusFilter } = flatCleanse;
+  if (display) return display;
+  if (displayText) return displayText;
+  const parts = [];
+  const efSet = expiryFilter instanceof Set ? expiryFilter : new Set(expiryFilter ?? []);
+  for (const ev of efSet) {
+    const cfg = Object.values(ds.CONFIG.effectEnds ?? {}).find(c => c.expiryEvent === ev);
+    if (cfg?.label) parts.push(cfg.label);
+  }
+  const sfSet = statusFilter instanceof Set ? statusFilter : new Set(statusFilter ?? []);
+  for (const id of sfSet) {
+    const name = CONFIG.statusEffects.find(s => s.id === id)?.name;
+    if (name) parts.push(name);
+  }
+  if (!parts.length) return game.i18n.localize('DSCT.FlatEffect.Cleanse.defaultLabel');
+  return game.i18n.format('DSCT.FlatEffect.Cleanse.autoLabel', {
+    effects: game.i18n.getListFormatter({ type: 'disjunction' }).format(parts),
+  });
+}
+
+function _buildCleanseButton(effect, item) {
+  const { expiryFilter, statusFilter, repeatable, spend } = effect.flatCleanse;
+  const label = buildCleanseAutoLabel(effect.flatCleanse);
+  const spendSuffix = spend?.enabled ? ` ${game.i18n.format("DSCT.FlatEffect.spend.costSuffix", { cost: spend.value })}` : "";
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "dsct-flat-cleanse-btn";
+  btn.dataset.effectId     = effect.id;
+  btn.dataset.expiryFilter = [...expiryFilter].join(",");
+  btn.dataset.statusFilter = [...statusFilter].join(",");
+  btn.dataset.repeatable   = String(repeatable);
+  btn.dataset.actorUuid    = item.actor?.uuid ?? "";
+  btn.dataset.spendEnabled = String(spend?.enabled ?? false);
+  btn.dataset.spendValue   = String(spend?.value ?? 1);
+  btn.innerHTML = `<i class="fa-solid fa-broom"></i> ${label + spendSuffix}`;
+  return btn;
+}
+
 async function _spendHeroicResource(actor, cost) {
   const heroicVal = actor?.system.hero?.primary?.value ?? 0;
   if (heroicVal < cost) {
@@ -755,6 +903,75 @@ function _addFlatEffectListeners(section, item, message) {
       }
     });
   });
+
+  section.querySelectorAll(".dsct-flat-cleanse-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const targets = [...game.user.targets];
+      if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
+
+      const expiryFilter = new Set(btn.dataset.expiryFilter ? btn.dataset.expiryFilter.split(",").filter(Boolean) : []);
+      const statusFilter = new Set(btn.dataset.statusFilter ? btn.dataset.statusFilter.split(",").filter(Boolean) : []);
+      const repeatable   = btn.dataset.repeatable === "true";
+      const effectId     = btn.dataset.effectId;
+
+      if (btn.dataset.spendEnabled === "true") {
+        const sourceActor = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : item.actor;
+        const ok = await _spendHeroicResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
+        if (!ok) return;
+      }
+
+      const matchesFilter = (effect) => {
+        if (expiryFilter.size > 0 && expiryFilter.has(effect.duration?.expiry)) return true;
+        if (statusFilter.size > 0 && [...(effect.statuses ?? [])].some(s => statusFilter.has(s))) return true;
+        return false;
+      };
+
+      let anyApplied = false;
+      for (const target of targets) {
+        const actor = target.actor;
+        if (!actor) continue;
+
+        const cleansable = actor.effects.filter(matchesFilter);
+        if (!cleansable.length) {
+          ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Cleanse.noMatch", { name: actor.name }));
+          continue;
+        }
+
+        let chosen = cleansable.length === 1 ? cleansable[0] : null;
+        if (!chosen) {
+          let chosenId = null;
+          const boxes = cleansable.map(e => {
+            const expiryLabel = ds.CONFIG.effectEnds?.[e.duration?.expiry]?.label ?? "";
+            const expPart = expiryLabel ? ` (${expiryLabel})` : "";
+            return `<label style="display:block;margin:4px 0"><input type="radio" name="dsct-cleanse-pick" value="${e.id}"> ${e.name}${expPart}</label>`;
+          }).join("");
+          await foundry.applications.api.DialogV2.wait({
+            window: { title: game.i18n.format("DSCT.FlatEffect.Cleanse.pickTitle", { name: actor.name }) },
+            content: `<fieldset style="border:0;padding:8px">${boxes}</fieldset>`,
+            buttons: [
+              { label: game.i18n.localize("DSCT.FlatEffect.Cleanse.cleanseBtn"), action: "confirm", callback: (_ev, _btn, dialog) => {
+                const checked = dialog.element.querySelector("input[name=dsct-cleanse-pick]:checked");
+                if (checked) chosenId = checked.value;
+              }},
+              { label: game.i18n.localize("Cancel"), action: "cancel" },
+            ],
+            rejectClose: false,
+          });
+          if (!chosenId) continue;
+          chosen = actor.effects.get(chosenId);
+        }
+
+        if (!chosen) continue;
+        await chosen.delete();
+        anyApplied = true;
+      }
+
+      if (!repeatable && anyApplied) {
+        btn.disabled = true;
+        if (message) _nonDstdCleanseUsed.add(`${message.id}:${effectId}`);
+      }
+    });
+  });
 }
 
 function _installFlatEffectChatHook() {
@@ -780,7 +997,12 @@ function _installFlatEffectChatHook() {
       if (!e.flatHeal.repeatable && _nonDstdHealUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
       return btn;
     });
-    const buttons = [...dmgButtons, ...fmRows, ...condButtons, ...healButtons];
+    const cleanseButtons = flatEffects.filter(e => e.type === "dsct.flatCleanse").map(e => {
+      const btn = _buildCleanseButton(e, item);
+      if (!e.flatCleanse.repeatable && _nonDstdCleanseUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
+      return btn;
+    });
+    const buttons = [...dmgButtons, ...fmRows, ...condButtons, ...healButtons, ...cleanseButtons];
     if (!buttons.length) return;
 
     let footer = partSection.querySelector("footer.message-part-buttons");
@@ -802,7 +1024,8 @@ function _installFlatEffectChatHook() {
   cfg["dsct.flatForced"]   = { label: "TYPES.SpecialEffect.dsct.flatForced",   defaultImage: "icons/svg/portal.svg",    documentClass: FlatForcedSpecialEffect };
   cfg["dsct.flatApplied"]  = { label: "TYPES.SpecialEffect.dsct.flatApplied",  defaultImage: "icons/svg/paralysis.svg", documentClass: FlatAppliedSpecialEffect };
   cfg["dsct.flatResource"] = { label: "TYPES.SpecialEffect.dsct.flatResource", defaultImage: "icons/svg/lightning.svg", documentClass: FlatResourceSpecialEffect };
-  cfg["dsct.flatHeal"]     = { label: "TYPES.SpecialEffect.dsct.flatHeal",     defaultImage: "icons/svg/heal.svg",   documentClass: FlatHealSpecialEffect };
+  cfg["dsct.flatHeal"]    = { label: "TYPES.SpecialEffect.dsct.flatHeal",    defaultImage: "icons/svg/heal.svg",      documentClass: FlatHealSpecialEffect };
+  cfg["dsct.flatCleanse"] = { label: "TYPES.SpecialEffect.dsct.flatCleanse", defaultImage: "icons/svg/aura.svg",      documentClass: FlatCleanseSpecialEffect };
 })();
 
 function _installDisplayTextAutofill() {
@@ -856,8 +1079,68 @@ function _installHealToggleListeners() {
   });
 }
 
+function _installCleanseTagPickers() {
+  Hooks.on('renderApplicationV2', (_app, element) => {
+    element.querySelectorAll?.('.dsct-tag-picker').forEach(picker => {
+      const fieldName = picker.dataset.dsctTagField;
+      const tagList   = picker.querySelector('.dsct-tag-list');
+      const addSelect = picker.querySelector('.dsct-tag-add-select');
+      const hiddenSel = picker.querySelector(`select[name="${fieldName}"]`);
+      if (!tagList || !addSelect || !hiddenSel) return;
+
+      const findHiddenOpt = (value) => [...hiddenSel.options].find(o => o.value === value);
+
+      const removeTag = (value) => {
+        const hiddenOpt = findHiddenOpt(value);
+        if (hiddenOpt) {
+          hiddenOpt.selected = false;
+          const restoreOpt = document.createElement('option');
+          restoreOpt.value = value;
+          restoreOpt.textContent = hiddenOpt.text;
+          addSelect.appendChild(restoreOpt);
+        }
+        tagList.querySelector(`.dsct-tag[data-value="${value}"]`)?.remove();
+        hiddenSel.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+
+      const addTag = (value) => {
+        const hiddenOpt = findHiddenOpt(value);
+        if (!hiddenOpt || hiddenOpt.selected) return;
+        hiddenOpt.selected = true;
+        [...addSelect.options].find(o => o.value === value)?.remove();
+        const tag = document.createElement('span');
+        tag.className = 'dsct-tag';
+        tag.dataset.value = value;
+        const labelNode = document.createTextNode(hiddenOpt.text);
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'dsct-tag-remove';
+        removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        removeBtn.addEventListener('click', () => removeTag(value));
+        tag.appendChild(labelNode);
+        tag.appendChild(removeBtn);
+        tagList.appendChild(tag);
+        hiddenSel.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+
+      tagList.querySelectorAll('.dsct-tag-remove').forEach(btn => {
+        const tag = btn.closest('.dsct-tag');
+        const value = tag?.dataset.value;
+        if (value) btn.addEventListener('click', () => removeTag(value));
+      });
+
+      addSelect.addEventListener('change', () => {
+        const value = addSelect.value;
+        if (!value) return;
+        addSelect.value = '';
+        addTag(value);
+      });
+    });
+  });
+}
+
 function _installSpendToggleListeners() {
-  const PREFIXES = ["flatDamage", "flatForced", "flatApplied", "flatResource", "flatHeal"];
+  const PREFIXES = ["flatDamage", "flatForced", "flatApplied", "flatResource", "flatHeal", "flatCleanse"];
   Hooks.on('renderApplicationV2', (_app, element) => {
     for (const prefix of PREFIXES) {
       const toggle = element.querySelector?.(`input[name="${prefix}.spend.enabled"]`);
@@ -896,6 +1179,7 @@ export function registerFlatEffects() {
   _installPotencyCustomToggle();
   _installHealToggleListeners();
   _installSpendToggleListeners();
+  _installCleanseTagPickers();
 
   ds.CONFIG.SpecialEffect["dsct.flatDamage"] = {
     label: "TYPES.SpecialEffect.dsct.flatDamage",
@@ -921,5 +1205,10 @@ export function registerFlatEffects() {
     label: "TYPES.SpecialEffect.dsct.flatHeal",
     defaultImage: "icons/svg/heal.svg",
     documentClass: FlatHealSpecialEffect,
+  };
+  ds.CONFIG.SpecialEffect["dsct.flatCleanse"] = {
+    label: "TYPES.SpecialEffect.dsct.flatCleanse",
+    defaultImage: "icons/svg/aura.svg",
+    documentClass: FlatCleanseSpecialEffect,
   };
 }

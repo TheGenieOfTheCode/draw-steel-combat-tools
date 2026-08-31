@@ -636,6 +636,26 @@
           "hint":  "When enabled, the heal button stays active after use. Each use is tracked separately so undo removes exactly what was healed."
         }
       },
+      "Cleanse": {
+        "defaultLabel": "Cleanse an Effect",
+        "noMatch":      "No matching effects to cleanse on {name}.",
+        "pickTitle":    "Cleanse an Effect: {name}",
+        "cleanseBtn":   "Cleanse",
+        "addFilter":    "(Add filter...)",
+        "expiryFilter": {
+          "label": "Expiry Filter",
+          "hint":  "Remove effects matching any of these expiry events. Leave empty to ignore expiry when filtering."
+        },
+        "statusFilter": {
+          "label": "Status Filter",
+          "hint":  "Remove effects associated with any of these status conditions. Leave empty to ignore status when filtering."
+        },
+        "repeatable": {
+          "label": "Repeatable",
+          "hint":  "When enabled, the cleanse button stays active after use."
+        },
+        "autoLabel": "End one {effects} effect"
+      },
       "spend": {
         "enabled": {
           "label": "Spend Heroic Resource",
@@ -1336,7 +1356,8 @@
         "flatForced": "Forced Movement",
         "flatApplied": "Applied Effect",
         "flatResource": "Gain Resource",
-        "flatHeal": "Heal"
+        "flatHeal":    "Heal",
+        "flatCleanse": "Cleanse"
       }
     },
     "RegionBehavior": {

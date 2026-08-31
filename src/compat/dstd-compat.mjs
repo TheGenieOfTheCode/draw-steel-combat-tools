@@ -1,4 +1,5 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist } from '../helpers.mjs';
+import { buildCleanseAutoLabel } from '../ability-automation/flat-special-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced-movement/forced-movement-modify-panel.mjs';
@@ -196,7 +197,7 @@ export function registerDstdCompat() {
     const ability = fromUuidSync(abilityUuid);
     if (!ability) return;
     const effectsList = Array.from(ability.system?.effects?.contents ?? []);
-    const hasFlatEffects = effectsList.some(e => ['dsct.flatDamage', 'dsct.flatForced', 'dsct.flatApplied', 'dsct.flatHeal'].includes(e.type));
+    const hasFlatEffects = effectsList.some(e => ['dsct.flatDamage', 'dsct.flatForced', 'dsct.flatApplied', 'dsct.flatHeal', 'dsct.flatCleanse'].includes(e.type));
     if (!hasFlatEffects) return;
 
     const targets = Array.from(game.user.targets).map(token => {
@@ -803,7 +804,8 @@ async function _injectFmButtons(message, root) {
   const flatAppliedEffects  = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatApplied');
   const flatResourceEffects = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatResource');
   const flatHealEffects     = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatHeal');
-  const doFlatEffects = flatDamageEffects.length > 0 || flatForcedEffects.length > 0 || flatAppliedEffects.length > 0 || flatHealEffects.length > 0;
+  const flatCleanseEffects  = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatCleanse');
+  const doFlatEffects = flatDamageEffects.length > 0 || flatForcedEffects.length > 0 || flatAppliedEffects.length > 0 || flatHealEffects.length > 0 || flatCleanseEffects.length > 0;
 
   const dsid     = getItemDsid(ability);
   const maxGrabs = MULTI_GRAB_LIMITS[dsid] ?? 1;
@@ -913,7 +915,7 @@ async function _injectFmButtons(message, root) {
   }
 
   if (doFlatEffects) {
-    for (const btn of root.querySelectorAll('.dsct-flat-damage-btn, .dsct-flat-forced-btn, .dsct-flat-applied-btn, .dsct-flat-heal-btn')) {
+    for (const btn of root.querySelectorAll('.dsct-flat-damage-btn, .dsct-flat-forced-btn, .dsct-flat-applied-btn, .dsct-flat-heal-btn, .dsct-flat-cleanse-btn')) {
       const footer = btn.closest('footer.message-part-buttons');
       if (footer) footer.hidden = true;
     }
@@ -1008,6 +1010,9 @@ async function _injectFmButtons(message, root) {
     for (const effect of flatResourceEffects) {
       const { amount: resAmt, type: resType } = effect.flatResource ?? {};
       if (resAmt) previewParts.push(`${resAmt} ${resType ?? 'Surge'}${resAmt !== 1 ? 's' : ''}`);
+    }
+    for (const effect of flatCleanseEffects) {
+      previewParts.push(buildCleanseAutoLabel(effect.flatCleanse));
     }
     if (previewParts.length) {
       const tierTextDds = activePanel.querySelectorAll(`dd.${DSTD}-tier-text`);
@@ -2344,6 +2349,182 @@ async function _injectFmButtons(message, root) {
       });
 
       actions.appendChild(healRow);
+    }
+
+    for (const effect of flatCleanseEffects) {
+      const { display, expiryFilter, statusFilter, repeatable } = effect.flatCleanse;
+      const cleanseFlagKey = `fclns_${effect.id}_${targetKey}`;
+      if (actions.querySelector(`[data-dsct-flat-cleanse-key="${cleanseFlagKey}"]`)) continue;
+
+      const cur = message.getFlag(M, cleanseFlagKey) ?? { stack: [] };
+      const stackLen = (cur.stack ?? []).length;
+      const isApplied = !repeatable && stackLen > 0;
+
+      const applyLbl = buildCleanseAutoLabel(effect.flatCleanse);
+
+      const cleanseBtn = document.createElement('button');
+      cleanseBtn.type      = 'button';
+      cleanseBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
+      cleanseBtn.dataset.dsctFlatCleanseKey = cleanseFlagKey;
+      cleanseBtn.dataset.tooltip = applyLbl;
+      cleanseBtn.disabled = isApplied;
+      cleanseBtn.append(_makeIcon('fa-solid fa-broom'), _makeSpan(applyLbl));
+
+      const undoCleanseBtn = document.createElement('button');
+      undoCleanseBtn.type      = 'button';
+      undoCleanseBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
+      undoCleanseBtn.dataset.tooltip = `Undo ${applyLbl}`;
+      undoCleanseBtn.disabled = stackLen === 0;
+      const undoClsIcon = _makeIcon('fa-solid fa-rotate-left');
+      if (stackLen > 1) {
+        const countEl = document.createElement('sup');
+        countEl.textContent = String(stackLen);
+        countEl.style.cssText = 'font-size:0.65em;vertical-align:super;margin-left:1px;';
+        undoCleanseBtn.append(undoClsIcon, countEl);
+      } else {
+        undoCleanseBtn.append(undoClsIcon);
+      }
+
+      const cleanseRow = document.createElement('div');
+      cleanseRow.className = `${DSTD}-action-row`;
+      cleanseRow.append(cleanseBtn, undoCleanseBtn);
+      if (isApplied) cleanseRow.classList.add('is-applied');
+
+      const expiryFilterSet = new Set(Array.isArray(expiryFilter) ? expiryFilter : [...(expiryFilter ?? [])]);
+      const statusFilterSet = new Set(Array.isArray(statusFilter) ? statusFilter : [...(statusFilter ?? [])]);
+      const clsMatchesFilter = (ae) => {
+        if (expiryFilterSet.size > 0 && expiryFilterSet.has(ae.duration?.expiry)) return true;
+        if (statusFilterSet.size > 0 && [...(ae.statuses ?? [])].some(s => statusFilterSet.has(s))) return true;
+        return false;
+      };
+
+      cleanseBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (cleanseBtn.disabled) return;
+
+        const _clsSpend = effect.flatCleanse.spend;
+        if (_clsSpend?.enabled) {
+          const _clsSpendKey = `flatSpend_${effect.id}`;
+          if (!message.getFlag(M, _clsSpendKey)) {
+            if (!sourceActor) { ui.notifications.warn('DSCT | No source actor for spend check'); return; }
+            const _heroicVal = sourceActor.system.hero?.primary?.value ?? 0;
+            const _spendCost = _clsSpend.value ?? 1;
+            if (_heroicVal < _spendCost) {
+              const _resName = sourceActor.system.hero?.primary?.label ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
+              ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
+              return;
+            }
+            await sourceActor.update({ 'system.hero.primary.value': _heroicVal - _spendCost });
+            await message.setFlag(M, _clsSpendKey, true);
+          }
+        }
+
+        let targetActor;
+        if (tokenUuid) {
+          const td = await fromUuid(tokenUuid).catch(() => null);
+          targetActor = td?.actor ?? null;
+        } else {
+          targetActor = canvas.tokens.controlled[0]?.actor ?? [...game.user.targets][0]?.actor ?? null;
+        }
+        if (!targetActor) return;
+
+        const cleansable = targetActor.effects.filter(clsMatchesFilter);
+        if (!cleansable.length) {
+          ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.Cleanse.noMatch', { name: targetActor.name }));
+          return;
+        }
+
+        cleanseBtn.disabled = true;
+
+        let chosen = cleansable.length === 1 ? cleansable[0] : null;
+        if (!chosen) {
+          let chosenId = null;
+          const boxes = cleansable.map(ae => {
+            const expiryLabel = ds.CONFIG.effectEnds?.[ae.duration?.expiry]?.label ?? '';
+            const expPart = expiryLabel ? ` (${expiryLabel})` : '';
+            return `<label style="display:block;margin:4px 0"><input type="radio" name="dsct-cleanse-pick" value="${ae.id}"> ${ae.name}${expPart}</label>`;
+          }).join('');
+          await foundry.applications.api.DialogV2.wait({
+            window: { title: game.i18n.format('DSCT.FlatEffect.Cleanse.pickTitle', { name: targetActor.name }) },
+            content: `<fieldset style="border:0;padding:8px">${boxes}</fieldset>`,
+            buttons: [
+              { label: game.i18n.localize('DSCT.FlatEffect.Cleanse.cleanseBtn'), action: 'confirm', callback: (_ev, _btn, dialog) => {
+                const checked = dialog.element.querySelector('input[name=dsct-cleanse-pick]:checked');
+                if (checked) chosenId = checked.value;
+              }},
+              { label: game.i18n.localize('Cancel'), action: 'cancel' },
+            ],
+            rejectClose: false,
+          });
+          if (!chosenId) { cleanseBtn.disabled = false; return; }
+          chosen = targetActor.effects.get(chosenId);
+        }
+
+        if (!chosen) { cleanseBtn.disabled = false; return; }
+        const removedData = chosen.toObject();
+        await chosen.delete();
+
+        const freshCur = message.getFlag(M, cleanseFlagKey) ?? { stack: [] };
+        const newStack = [...(freshCur.stack ?? []), removedData];
+        await message.setFlag(M, cleanseFlagKey, { stack: newStack });
+
+        undoCleanseBtn.disabled = false;
+        if (!repeatable) {
+          cleanseRow.classList.add('is-applied');
+        } else {
+          cleanseBtn.disabled = false;
+        }
+        const existingCount = undoCleanseBtn.querySelector('sup');
+        if (newStack.length > 1) {
+          if (existingCount) existingCount.textContent = String(newStack.length);
+          else {
+            const countEl = document.createElement('sup');
+            countEl.textContent = String(newStack.length);
+            countEl.style.cssText = 'font-size:0.65em;vertical-align:super;margin-left:1px;';
+            undoCleanseBtn.appendChild(countEl);
+          }
+        }
+      });
+
+      undoCleanseBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (undoCleanseBtn.disabled) return;
+
+        let targetActor;
+        if (tokenUuid) {
+          const td = await fromUuid(tokenUuid).catch(() => null);
+          targetActor = td?.actor ?? null;
+        } else {
+          targetActor = canvas.tokens.controlled[0]?.actor ?? [...game.user.targets][0]?.actor ?? null;
+        }
+        if (!targetActor) return;
+
+        undoCleanseBtn.disabled = true;
+
+        const freshCur = message.getFlag(M, cleanseFlagKey) ?? { stack: [] };
+        const freshStack = freshCur.stack ?? [];
+        if (!freshStack.length) return;
+
+        const removedData = freshStack[freshStack.length - 1];
+        const newStack = freshStack.slice(0, -1);
+
+        if (removedData) {
+          await targetActor.createEmbeddedDocuments('ActiveEffect', [removedData]);
+        }
+
+        await message.setFlag(M, cleanseFlagKey, { stack: newStack });
+
+        if (newStack.length > 0) undoCleanseBtn.disabled = false;
+        const countEl = undoCleanseBtn.querySelector('sup');
+        if (countEl) {
+          if (newStack.length > 1) countEl.textContent = String(newStack.length);
+          else countEl.remove();
+        }
+        cleanseRow.classList.remove('is-applied');
+        if (!repeatable) cleanseBtn.disabled = newStack.length > 0;
+      });
+
+      actions.appendChild(cleanseRow);
     }
 
     if (doSquad && squadTargetMap && tokenUuid) {
