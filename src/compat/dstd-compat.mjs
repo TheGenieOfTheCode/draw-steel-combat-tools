@@ -1938,14 +1938,15 @@ async function _injectFmButtons(message, root) {
           const _fmSpendKey = `flatSpend_${effect.id}`;
           if (!message.getFlag(M, _fmSpendKey)) {
             if (!sourceActor) { ui.notifications.warn('DSCT | No source actor for spend check'); return; }
-            const _heroicVal = sourceActor.system.hero?.primary?.value ?? 0;
+            const _coreRes   = sourceActor.system.coreResource;
+            const _curVal    = _coreRes ? (foundry.utils.getProperty(_coreRes.target, _coreRes.path) ?? 0) : 0;
             const _spendCost = _fmSpend.value ?? 1;
-            if (_heroicVal < _spendCost) {
-              const _resName = sourceActor.system.hero?.primary?.label ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
+            if (_curVal < _spendCost) {
+              const _resName = _coreRes?.name ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.update({ 'system.hero.primary.value': _heroicVal - _spendCost });
+            await sourceActor.system.updateResource(-_spendCost);
             await message.setFlag(M, _fmSpendKey, true);
           }
         }
@@ -2142,14 +2143,15 @@ async function _injectFmButtons(message, root) {
           const _condSpendKey = `flatSpend_${effect.id}`;
           if (!message.getFlag(M, _condSpendKey)) {
             if (!sourceActor) { ui.notifications.warn('DSCT | No source actor for spend check'); return; }
-            const _heroicVal = sourceActor.system.hero?.primary?.value ?? 0;
+            const _coreRes   = sourceActor.system.coreResource;
+            const _curVal    = _coreRes ? (foundry.utils.getProperty(_coreRes.target, _coreRes.path) ?? 0) : 0;
             const _spendCost = _condSpend.value ?? 1;
-            if (_heroicVal < _spendCost) {
-              const _resName = sourceActor.system.hero?.primary?.label ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
+            if (_curVal < _spendCost) {
+              const _resName = _coreRes?.name ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.update({ 'system.hero.primary.value': _heroicVal - _spendCost });
+            await sourceActor.system.updateResource(-_spendCost);
             await message.setFlag(M, _condSpendKey, true);
           }
         }
@@ -2246,14 +2248,15 @@ async function _injectFmButtons(message, root) {
           const _healSpendKey = `flatSpend_${effect.id}`;
           if (!message.getFlag(M, _healSpendKey)) {
             if (!sourceActor) { ui.notifications.warn('DSCT | No source actor for spend check'); return; }
-            const _heroicVal = sourceActor.system.hero?.primary?.value ?? 0;
+            const _coreRes   = sourceActor.system.coreResource;
+            const _curVal    = _coreRes ? (foundry.utils.getProperty(_coreRes.target, _coreRes.path) ?? 0) : 0;
             const _spendCost = _healSpend.value ?? 1;
-            if (_heroicVal < _spendCost) {
-              const _resName = sourceActor.system.hero?.primary?.label ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
+            if (_curVal < _spendCost) {
+              const _resName = _coreRes?.name ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.update({ 'system.hero.primary.value': _heroicVal - _spendCost });
+            await sourceActor.system.updateResource(-_spendCost);
             await message.setFlag(M, _healSpendKey, true);
           }
         }
@@ -2407,14 +2410,15 @@ async function _injectFmButtons(message, root) {
           const _clsSpendKey = `flatSpend_${effect.id}`;
           if (!message.getFlag(M, _clsSpendKey)) {
             if (!sourceActor) { ui.notifications.warn('DSCT | No source actor for spend check'); return; }
-            const _heroicVal = sourceActor.system.hero?.primary?.value ?? 0;
+            const _coreRes   = sourceActor.system.coreResource;
+            const _curVal    = _coreRes ? (foundry.utils.getProperty(_coreRes.target, _coreRes.path) ?? 0) : 0;
             const _spendCost = _clsSpend.value ?? 1;
-            if (_heroicVal < _spendCost) {
-              const _resName = sourceActor.system.hero?.primary?.label ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
+            if (_curVal < _spendCost) {
+              const _resName = _coreRes?.name ?? game.i18n.localize('DSCT.FlatEffect.spend.resource');
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.update({ 'system.hero.primary.value': _heroicVal - _spendCost });
+            await sourceActor.system.updateResource(-_spendCost);
             await message.setFlag(M, _clsSpendKey, true);
           }
         }

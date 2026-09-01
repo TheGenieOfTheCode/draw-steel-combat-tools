@@ -658,13 +658,13 @@
       },
       "spend": {
         "enabled": {
-          "label": "Spend Heroic Resource",
-          "hint":  "When enabled, activating this effect costs the specified amount of heroic resource. Deducted once per message."
+          "label": "Spend Resource",
+          "hint":  "When enabled, activating this effect costs the specified amount of heroic resource (or malice for monster abilities). Deducted once per message."
         },
         "value":        { "label": "Cost" },
         "costSuffix":   "(Spend {cost})",
         "insufficient": "{name} does not have enough {resource} to activate this effect (needs {cost}).",
-        "resource":     "heroic resource"
+        "resource":     "resource"
       },
       "FM": {
         "defaultLabel": "{movement} {distance}",

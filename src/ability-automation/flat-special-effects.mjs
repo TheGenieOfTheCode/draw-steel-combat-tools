@@ -747,14 +747,15 @@ function _buildCleanseButton(effect, item) {
   return btn;
 }
 
-async function _spendHeroicResource(actor, cost) {
-  const heroicVal = actor?.system.hero?.primary?.value ?? 0;
-  if (heroicVal < cost) {
-    const resName = actor?.system.hero?.primary?.label ?? game.i18n.localize("DSCT.FlatEffect.spend.resource");
+async function _spendResource(actor, cost) {
+  const coreRes  = actor?.system.coreResource;
+  const curVal   = coreRes ? (foundry.utils.getProperty(coreRes.target, coreRes.path) ?? 0) : 0;
+  const resName  = coreRes?.name ?? game.i18n.localize("DSCT.FlatEffect.spend.resource");
+  if (curVal < cost) {
     ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.spend.insufficient", { name: actor?.name ?? "?", cost, resource: resName }));
     return false;
   }
-  await actor.update({ "system.hero.primary.value": heroicVal - cost });
+  await actor.system.updateResource(-cost);
   return true;
 }
 
@@ -769,7 +770,7 @@ function _addFlatEffectListeners(section, item, message) {
 
       if (btn.dataset.spendEnabled === "true") {
         const sourceActor = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : item.actor;
-        const ok = await _spendHeroicResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
+        const ok = await _spendResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
         if (!ok) return;
       }
 
@@ -796,7 +797,7 @@ function _addFlatEffectListeners(section, item, message) {
       const sourceActor = actorUuid ? fromUuidSync(actorUuid) : null;
 
       if (applyBtn.dataset.spendEnabled === "true") {
-        const ok = await _spendHeroicResource(sourceActor ?? item.actor, parseInt(applyBtn.dataset.spendValue) || 1);
+        const ok = await _spendResource(sourceActor ?? item.actor, parseInt(applyBtn.dataset.spendValue) || 1);
         if (!ok) return;
       }
 
@@ -823,7 +824,7 @@ function _addFlatEffectListeners(section, item, message) {
 
       if (btn.dataset.spendEnabled === "true") {
         const sourceActor = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : item.actor;
-        const ok = await _spendHeroicResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
+        const ok = await _spendResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
         if (!ok) return;
       }
 
@@ -849,7 +850,7 @@ function _addFlatEffectListeners(section, item, message) {
       const effectId            = btn.dataset.effectId;
 
       if (btn.dataset.spendEnabled === "true") {
-        const ok = await _spendHeroicResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
+        const ok = await _spendResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
         if (!ok) return;
       }
 
@@ -916,7 +917,7 @@ function _addFlatEffectListeners(section, item, message) {
 
       if (btn.dataset.spendEnabled === "true") {
         const sourceActor = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : item.actor;
-        const ok = await _spendHeroicResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
+        const ok = await _spendResource(sourceActor, parseInt(btn.dataset.spendValue) || 1);
         if (!ok) return;
       }
 
