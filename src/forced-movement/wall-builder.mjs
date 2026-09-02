@@ -936,7 +936,7 @@ export class WallBuilderPanel extends ds.applications.api.DSApplication {
       if (btn) btn.classList.toggle('active', this._mode === mode);
     }
     const showMat    = this._mode === 'build' || this._mode === 'transmute' || this._mode === 'convert';
-    const showHeight = this._mode === 'build' && game.modules.get('wall-height')?.active;
+    const showHeight = this._mode === 'build';
     this.element.querySelector('#wb-material-row')?.classList.toggle('dsct-hidden', !showMat);
     this.element.querySelector('#wb-height-row')?.classList.toggle('dsct-hidden', !showHeight);
     const execBtn = this.element.querySelector('[data-action="execute"]');
@@ -953,7 +953,7 @@ export class WallBuilderPanel extends ds.applications.api.DSApplication {
 
   async _prepareContext(_options) {
     const showMat    = this._mode === 'build' || this._mode === 'transmute' || this._mode === 'convert';
-    const showHeight = this._mode === 'build' && game.modules.get('wall-height')?.active;
+    const showHeight = this._mode === 'build';
     return {
       buildActive:        this._mode === 'build',
       destroyActive:      this._mode === 'destroy',

@@ -694,7 +694,6 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
 
     const autoEntries = [
       compatInfo('tagger',              'DSCT.compat.tagger.name',          'DSCT.compat.tagger.hint'),
-      compatInfo('wall-height',         'DSCT.compat.wallHeight.name',      'DSCT.compat.wallHeight.hint'),
       compatInfo('ds-token-override',   'DSCT.compat.dsTokenOverride.name', 'DSCT.compat.dsTokenOverride.hint'),
     ].filter(e => debugMode || e.isActive);
 
