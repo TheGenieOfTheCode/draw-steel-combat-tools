@@ -324,10 +324,13 @@ const splitBlockWallsAtTile = async (gx, gy, blockTag) => {
       const docs = await canvas.scene.createEmbeddedDocuments('Wall', [{
         c: [cx1, cy1, cx2, cy2],
         ...baseData,
-        flags: { ...baseData.flags, 'draw-steel-combat-tools': { tags: newTags } },
+        flags: { ...baseData.flags },
         ...(segIds.length === 0 ? { move: 0 } : {}),
       }]);
-      if (docs?.[0]) created.push(docs[0]);
+      if (docs?.[0]) {
+        created.push(docs[0]);
+        if (newTags.length) await addTags(docs[0], newTags);
+      }
     };
 
     if (t0 > EPS) await makeOutside(x1, y1, ip0.x, ip0.y);

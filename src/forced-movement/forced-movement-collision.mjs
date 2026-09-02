@@ -99,14 +99,14 @@ const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
     const newWallData = {
       c: [cx1, cy1, cx2, cy2],
       ...baseData,
-      flags: {
-        ...baseData.flags,
-        'draw-steel-combat-tools': { tags: taggerTags },
-      },
+      flags: { ...baseData.flags },
       ...(segIds.length === 0 ? { move: 0 } : {}),
     };
     const created = await safeCreateEmbedded(canvas.scene, 'Wall', [newWallData]);
-    if (created?.[0]) undoOps.push({ op: 'delete', uuid: embeddedUuid(canvas.scene, 'Wall', created[0]) });
+    if (created?.[0]) {
+      undoOps.push({ op: 'delete', uuid: embeddedUuid(canvas.scene, 'Wall', created[0]) });
+      if (taggerTags.length) await addTags(created[0], taggerTags);
+    }
   };
 
   if (t0 > EPS)     await createOutsideSegment(x1, y1, ip0.x, ip0.y);
@@ -223,17 +223,21 @@ const splitTileAtElevation = async (tile, splitElev, undoOps, collisionMsgs) => 
     alpha: splitBrokenAlpha, hidden: false, locked: false,
     occlusion: { modes: [], alpha: 0 }, restrictions: { light: false, weather: false },
     video: { loop: false, autoplay: false, volume: 0 },
-    flags: { 'draw-steel-combat-tools': { tags: topTileAllTags } },
+    flags: {},
   }]);
+  if (createdTiles?.[0]) await addTags(createdTiles[0], topTileAllTags);
 
   const createdWalls = [];
   for (const [x1, y1, x2, y2] of edges) {
     const result = await safeCreateEmbedded(canvas.scene, 'Wall', [{
       c: [x1, y1, x2, y2], move: 0, sight: 0, light: 0, sound: 0,
       dir: 0, door: 0,
-      flags: { 'wall-height': { bottom: splitElev, top: tileTop }, 'draw-steel-combat-tools': { tags: topTileAllTags } },
+      flags: { 'wall-height': { bottom: splitElev, top: tileTop } },
     }]);
-    if (result?.[0]) createdWalls.push(result[0]);
+    if (result?.[0]) {
+      createdWalls.push(result[0]);
+      await addTags(result[0], topTileAllTags);
+    }
   }
 
   collisionMsgs.push(`The ${mat} object splits at elevation ${splitElev}.`);
