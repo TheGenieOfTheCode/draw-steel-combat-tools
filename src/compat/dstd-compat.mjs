@@ -610,11 +610,12 @@ function _syncQuickBtn(btn, state, movementType, distance) {
 }
 
 function _syncRow(fmRow, applyBtn, undoBtn, modBtn, state, label) {
+  const fmLabel = state.applied ? `Applied: ${label}` : label;
+  applyBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right'), _makeSpan(fmLabel));
   if (state.applied) {
     fmRow.classList.add('is-applied');
     fmRow.classList.remove('is-undone');
     applyBtn.disabled = true;
-    applyBtn.replaceChildren(_makeIcon('fa-solid fa-check'), _makeSpan(`Applied: ${label}`));
     undoBtn.disabled = !state.undoMsgId;
     if (state.undoMsgId) undoBtn.dataset.dsctFmMsgId = state.undoMsgId;
     modBtn.disabled = true;
@@ -622,7 +623,6 @@ function _syncRow(fmRow, applyBtn, undoBtn, modBtn, state, label) {
     fmRow.classList.remove('is-applied');
     if (state.undoMsgId) fmRow.classList.add('is-undone');
     applyBtn.disabled = false;
-    applyBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right'), _makeSpan(label));
     undoBtn.disabled = true;
     modBtn.disabled = false;
   }
@@ -1796,8 +1796,8 @@ async function _injectFmButtons(message, root) {
       applyDmgBtn.dataset.tooltip     = fullLabel;
       applyDmgBtn.disabled = isApplied;
       Object.assign(applyDmgBtn.dataset, synDataset);
-      applyDmgBtn.append(_makeIcon(_dmgIcon(dispType)), _makeSpan(isApplied ? (appRecord?.label ?? fullLabel) : fullLabel));
-      if (isApplied) applyDmgBtn.prepend(_makeIcon('fa-solid fa-check'));
+      const dmgLabel = isApplied ? `Applied ${appRecord?.amount ?? dispAmount}` : fullLabel;
+      applyDmgBtn.append(_makeIcon(_dmgIcon(dispType)), _makeSpan(dmgLabel));
 
       
       let stackCount = 0;
@@ -2102,16 +2102,15 @@ async function _injectFmButtons(message, root) {
       const baseName   = statusEntry?.name || statusId;
       const statusIconSrc = statusEntry?.img ?? statusEntry?.icon ?? null;
       const applyLbl   = (display || `Apply ${baseName}`) + potencyTag;
-      const appliedLbl = (display ? `${display} (Applied)` : `Applied: ${baseName}`) + potencyTag;
       const _makeCondIcon = () => _makeStatusIcon(statusIconSrc);
 
       const condBtn = document.createElement('button');
       condBtn.type      = 'button';
       condBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
       condBtn.dataset.dsctFlatCondKey = condStateKey;
-      condBtn.dataset.tooltip = condState.applied ? appliedLbl : applyLbl;
+      condBtn.dataset.tooltip = applyLbl;
       condBtn.disabled = condState.applied;
-      condBtn.append(_makeCondIcon(), _makeSpan(condState.applied ? appliedLbl : applyLbl));
+      condBtn.append(_makeCondIcon(), _makeSpan(applyLbl));
 
       const undoCondBtn = document.createElement('button');
       undoCondBtn.type      = 'button';
@@ -2126,7 +2125,7 @@ async function _injectFmButtons(message, root) {
       if (condState.applied) condRow.classList.add('is-applied');
 
       const _syncCondRow = () => {
-        const lbl = condState.applied ? appliedLbl : applyLbl;
+        const lbl = condState.applied ? `Applied: ${baseName}${potencyTag}` : applyLbl;
         condRow.classList.toggle('is-applied', condState.applied);
         condBtn.disabled = condState.applied;
         condBtn.replaceChildren(_makeCondIcon(), _makeSpan(lbl));
@@ -2212,12 +2211,12 @@ async function _injectFmButtons(message, root) {
       healBtn.type      = 'button';
       healBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
       healBtn.dataset.dsctFlatHealKey = healFlagKey;
-      healBtn.dataset.tooltip = applyLbl;
+      const appliedHealAmt = isApplied ? (cur.healed?.[(netUsed - 1)] ?? null) : null;
+      const healLabel = appliedHealAmt != null ? `Applied ${appliedHealAmt}` : applyLbl;
+      healBtn.dataset.tooltip = healLabel;
       healBtn.disabled = isApplied;
       const healIcon = tempStamina ? 'fa-solid fa-shield-halved' : 'fa-solid fa-heart-pulse';
-      const healIconEl = _makeIcon(healIcon);
-      healIconEl.style.color = '#2ecc71';
-      healBtn.append(healIconEl, _makeSpan(applyLbl));
+      healBtn.append(_makeIcon(healIcon), _makeSpan(healLabel));
 
       const undoHealBtn = document.createElement('button');
       undoHealBtn.type      = 'button';
@@ -2225,7 +2224,7 @@ async function _injectFmButtons(message, root) {
       undoHealBtn.dataset.tooltip = `Undo ${applyLbl}${netUsed > 1 ? ` (${netUsed})` : ''}`;
       undoHealBtn.disabled = netUsed === 0;
       const undoIcon = _makeIcon('fa-solid fa-rotate-left');
-      if (netUsed > 0) {
+      if (repeatable && netUsed > 0) {
         const countEl = document.createElement('sup');
         countEl.textContent = String(netUsed);
         countEl.style.cssText = 'font-size:0.65em;vertical-align:super;margin-left:1px;';
@@ -2369,9 +2368,11 @@ async function _injectFmButtons(message, root) {
       cleanseBtn.type      = 'button';
       cleanseBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
       cleanseBtn.dataset.dsctFlatCleanseKey = cleanseFlagKey;
-      cleanseBtn.dataset.tooltip = applyLbl;
+      const appliedCleanseName = isApplied ? (cur.stack?.[0]?.name ?? applyLbl) : null;
+      const cleanseLabel = appliedCleanseName != null ? `Removed: ${appliedCleanseName}` : applyLbl;
+      cleanseBtn.dataset.tooltip = cleanseLabel;
       cleanseBtn.disabled = isApplied;
-      cleanseBtn.append(_makeIcon('fa-solid fa-broom'), _makeSpan(applyLbl));
+      cleanseBtn.append(_makeIcon('fa-solid fa-broom'), _makeSpan(cleanseLabel));
 
       const undoCleanseBtn = document.createElement('button');
       undoCleanseBtn.type      = 'button';
@@ -2475,6 +2476,9 @@ async function _injectFmButtons(message, root) {
         undoCleanseBtn.disabled = false;
         if (!repeatable) {
           cleanseRow.classList.add('is-applied');
+          const appliedName = `Removed: ${removedData?.name ?? applyLbl}`;
+          cleanseBtn.replaceChildren(_makeIcon('fa-solid fa-broom'), _makeSpan(appliedName));
+          cleanseBtn.dataset.tooltip = appliedName;
         } else {
           cleanseBtn.disabled = false;
         }
