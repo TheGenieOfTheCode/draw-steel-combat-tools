@@ -19,7 +19,14 @@ const getActorFromCombatant = (combatant) => {
 };
 
 const MALICE_ICON = 'icons/magic/unholy/silhouette-robe-evil-power.webp';
-const hasTriggeredAbility = (actor) => actor.items.some(i => i.system?.type === 'triggered' && i.img !== MALICE_ICON);
+
+const isMaliceFeature = (item) => {
+  const flag = item.flags?.['draw-steel-triggers']?.malice;
+  if (flag !== undefined) return !!flag;
+  return item.system?.category === 'maliceAncestry' || item.img === MALICE_ICON;
+};
+
+const hasTriggeredAbility = (actor) => actor.items.some(i => i.system?.type === 'triggered' && !isMaliceFeature(i));
 
 const shouldApply = (actor, mode, targetedIds = new Set()) => {
   if (!actor) return false;
@@ -128,6 +135,7 @@ export const registerTriggeredActionHooks = () => {
 
     const item = await fromUuid(abilityUse.abilityUuid);
     if (item?.system?.type !== 'triggered') return;
+    if (isMaliceFeature(item)) return;
 
     const actor = ChatMessage.getSpeakerActor(message.speaker);
     if (!actor) return;
