@@ -1,4 +1,4 @@
-import { applyDamage } from '../helpers.mjs';
+import { applyDamage, getSetting } from '../helpers.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 
 const { SchemaField, SetField, StringField, NumberField, BooleanField } = foundry.data.fields;
@@ -9,6 +9,13 @@ const _nonDstdCleanseUsed = new Set();
 
 function _setField(opts = {}) {
   return new StringField({ ...opts, required: true, blank: false });
+}
+
+function _flatDefault(key, fallback) {
+  try {
+    const v = game.settings.get('draw-steel-combat-tools', key);
+    return (v === undefined || v === null || v === "") ? fallback : v;
+  } catch { return fallback; }
 }
 
 function _registerPartials() {
@@ -141,15 +148,15 @@ class FlatDamageSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Bas
       flatDamage: new SchemaField({
         displayText: new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.displayText.label", hint: "DSCT.FlatEffect.displayText.hint" }),
         display:     new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",     hint: "DSCT.FlatEffect.display.hint" }),
-        value: new ds.data.fields.FormulaField({ initial: "2 + @chr", label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.damage.label" }),
-        types: new SetField(_setField(), { label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.types.label" }),
+        value: new ds.data.fields.FormulaField({ initial: () => _flatDefault('flatDefaultDamageFormula', '2 + @chr'), label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.damage.label" }),
+        types: new SetField(_setField(), { initial: () => { const t = _flatDefault('flatDefaultDamageType', ''); return t ? [t] : []; }, label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.types.label" }),
         ignoredImmunities: new SetField(_setField(), {
           label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.ignoredImmunities.label",
           hint: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.ignoredImmunities.hint",
         }),
         spend: new SchemaField({
-          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
-          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+          enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
         }),
       }),
     });
@@ -200,12 +207,12 @@ class FlatForcedSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Bas
       flatForced: new SchemaField({
         displayText: new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.displayText.label", hint: "DSCT.FlatEffect.displayText.hint" }),
         display:     new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",     hint: "DSCT.FlatEffect.display.hint" }),
-        movement: new SetField(_setField(), { initial: ["push"], label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.movement.label" }),
-        distance: new ds.data.fields.FormulaField({ deterministic: true, initial: "1", label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.distance.label" }),
+        movement: new SetField(_setField(), { initial: () => [_flatDefault('flatDefaultMovement', 'push')], label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.movement.label" }),
+        distance: new ds.data.fields.FormulaField({ deterministic: true, initial: () => _flatDefault('flatDefaultForcedDistance', '1'), label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.distance.label" }),
         properties: new SetField(_setField(), { label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.properties.label" }),
         spend: new SchemaField({
-          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
-          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+          enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
         }),
       }),
     });
@@ -256,15 +263,15 @@ class FlatAppliedSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
         display:     new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.Applied.display.label",     hint: "DSCT.FlatEffect.Applied.display.hint" }),
         potency: new SchemaField({
           characteristic: new StringField({ required: false, blank: true, initial: "",        label: "DSCT.FlatEffect.Applied.potency.characteristic.label", hint: "DSCT.FlatEffect.Applied.potency.characteristic.hint" }),
-          strength:       new StringField({ required: false, blank: true, initial: "average", label: "DSCT.FlatEffect.Applied.potency.strength.label" }),
+          strength:       new StringField({ required: false, blank: true, initial: () => _flatDefault('flatDefaultPotencyStrength', 'average'), label: "DSCT.FlatEffect.Applied.potency.strength.label" }),
           custom:         new StringField({ required: false, blank: true, initial: "",        label: "DSCT.FlatEffect.Applied.potency.custom.label",         hint: "DSCT.FlatEffect.Applied.potency.custom.hint" }),
         }),
         statusId:   new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.Applied.statusId.label",    hint: "DSCT.FlatEffect.Applied.statusId.hint" }),
-        end:        new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.Applied.end.label",         hint: "DSCT.FlatEffect.Applied.end.hint" }),
+        end:        new StringField({ required: false, blank: true, initial: () => _flatDefault('flatDefaultAppliedEnd', ''), label: "DSCT.FlatEffect.Applied.end.label",         hint: "DSCT.FlatEffect.Applied.end.hint" }),
         properties: new SetField(_setField(), { initial: [], label: "DSCT.FlatEffect.Applied.properties.label" }),
         spend: new SchemaField({
-          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
-          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+          enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
         }),
       }),
     });
@@ -361,11 +368,11 @@ class FlatResourceSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
       flatResource: new SchemaField({
         displayText: new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.displayText.label", hint: "DSCT.FlatEffect.displayText.hint" }),
         display:     new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",     hint: "DSCT.FlatEffect.display.hint" }),
-        amount: new NumberField({ integer: true, initial: 1, label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.resource.amount.label" }),
-        type: new StringField({ initial: "surge", label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.resource.type.label" }),
+        amount: new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultResourceAmount', 1), label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.resource.amount.label" }),
+        type: new StringField({ initial: () => _flatDefault('flatDefaultResourceType', 'surge'), label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.resource.type.label" }),
         spend: new SchemaField({
-          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
-          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+          enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
         }),
       }),
     });
@@ -410,14 +417,14 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
         display:             new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",                       hint: "DSCT.FlatEffect.display.hint" }),
         spendRecovery:       new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.spendRecovery.label",            hint: "DSCT.FlatEffect.Heal.spendRecovery.hint" }),
         recoverySource:      new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoverySource.label" }),
-        amountType:          new StringField({ required: false, blank: false, initial: "recoveryValue", label: "DSCT.FlatEffect.Heal.amountType.label" }),
+        amountType:          new StringField({ required: false, blank: false, initial: () => _flatDefault('flatDefaultHealAmountType', 'recoveryValue'), label: "DSCT.FlatEffect.Heal.amountType.label" }),
         amountFormula:       new ds.data.fields.FormulaField({ initial: "0",                           label: "DSCT.FlatEffect.Heal.amountFormula.label" }),
         recoveryValueSource: new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoveryValueSource.label" }),
-        tempStamina:         new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.tempStamina.label",             hint: "DSCT.FlatEffect.Heal.tempStamina.hint" }),
+        tempStamina:         new BooleanField({ initial: () => _flatDefault('flatDefaultHealTempStamina', false), label: "DSCT.FlatEffect.Heal.tempStamina.label",             hint: "DSCT.FlatEffect.Heal.tempStamina.hint" }),
         repeatable:          new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.repeatable.label",              hint: "DSCT.FlatEffect.Heal.repeatable.hint" }),
         spend: new SchemaField({
-          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
-          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+          enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
         }),
       }),
     });
@@ -490,10 +497,10 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
         display:      new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",             hint: "DSCT.FlatEffect.display.hint" }),
         expiryFilter: new SetField(_setField(), { initial: ["turnEnd", "save"], label: "DSCT.FlatEffect.Cleanse.expiryFilter.label" }),
         statusFilter: new SetField(_setField(), { initial: [],                  label: "DSCT.FlatEffect.Cleanse.statusFilter.label" }),
-        repeatable:   new BooleanField({ initial: false, label: "DSCT.FlatEffect.Cleanse.repeatable.label", hint: "DSCT.FlatEffect.Cleanse.repeatable.hint" }),
+        repeatable:   new BooleanField({ initial: () => _flatDefault('flatDefaultCleanseRepeatable', false), label: "DSCT.FlatEffect.Cleanse.repeatable.label", hint: "DSCT.FlatEffect.Cleanse.repeatable.hint" }),
         spend: new SchemaField({
-          enabled: new BooleanField({ initial: false, label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
-          value:   new NumberField({ integer: true, initial: 1, positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
+          enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
+          value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
         }),
       }),
     });
@@ -977,6 +984,7 @@ function _addFlatEffectListeners(section, item, message) {
 
 function _installFlatEffectChatHook() {
   Hooks.on("renderChatMessageHTML", async (message, html) => {
+    if (!getSetting('flatEffectsEnabled')) return;
     if (!message.system?.parts) return;
     const part = message.system.parts.get(ABILITY_PART_ID);
     if (!part?.abilityUuid) return;
@@ -1028,6 +1036,19 @@ function _installFlatEffectChatHook() {
   cfg["dsct.flatHeal"]    = { label: "TYPES.SpecialEffect.dsct.flatHeal",    defaultImage: "icons/svg/heal.svg",      documentClass: FlatHealSpecialEffect };
   cfg["dsct.flatCleanse"] = { label: "TYPES.SpecialEffect.dsct.flatCleanse", defaultImage: "icons/svg/aura.svg",      documentClass: FlatCleanseSpecialEffect };
 })();
+
+function _installCreateDialogFilter() {
+  Hooks.on('renderApplicationV2', (_app, element) => {
+    if (getSetting('flatEffectsEnabled')) return;
+    const select = element.querySelector?.('select[name="type"]');
+    if (!select) return;
+    let removed = false;
+    for (const opt of Array.from(select.options ?? [])) {
+      if (opt.value?.startsWith('dsct.flat')) { opt.remove(); removed = true; }
+    }
+    if (removed && select.value?.startsWith('dsct.flat')) select.value = select.options[0]?.value ?? '';
+  });
+}
 
 function _installDisplayTextAutofill() {
   Hooks.on('renderApplicationV2', (_app, element) => {
@@ -1176,6 +1197,7 @@ function _installPotencyCustomToggle() {
 export function registerFlatEffects() {
   _registerPartials();
   _installFlatEffectChatHook();
+  _installCreateDialogFilter();
   _installDisplayTextAutofill();
   _installPotencyCustomToggle();
   _installHealToggleListeners();

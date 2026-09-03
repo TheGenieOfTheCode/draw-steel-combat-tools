@@ -437,6 +437,41 @@ export class TriggeredActionsSettingsMenu extends SettingsSubmenu {
   }
 }
 
+export class FlatEffectsSettingsMenu extends SettingsSubmenu {
+  static DEFAULT_OPTIONS = {
+    id:     'dsct-flat-effects-settings',
+    window: { title: 'DSCT.panel.title.FlatEffectsSettings' },
+  };
+
+  static get enableKey()   { return 'flatEffectsEnabled'; }
+
+  static get regularKeys() {
+    return [
+      'flatEffectsEnabled',
+      header('Spend Resource Defaults'),
+      'flatDefaultSpendEnabled',
+      'flatDefaultSpendValue',
+      header('Damage Defaults'),
+      'flatDefaultDamageFormula',
+      'flatDefaultDamageType',
+      header('Forced Movement Defaults'),
+      'flatDefaultMovement',
+      'flatDefaultForcedDistance',
+      header('Applied Condition Defaults'),
+      'flatDefaultPotencyStrength',
+      'flatDefaultAppliedEnd',
+      header('Resource Gain Defaults'),
+      'flatDefaultResourceType',
+      'flatDefaultResourceAmount',
+      header('Heal Defaults'),
+      'flatDefaultHealAmountType',
+      'flatDefaultHealTempStamina',
+      header('Cleanse Defaults'),
+      'flatDefaultCleanseRepeatable',
+    ];
+  }
+}
+
 export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
   static DEFAULT_OPTIONS = {
     id:     'dsct-ability-automation-settings',

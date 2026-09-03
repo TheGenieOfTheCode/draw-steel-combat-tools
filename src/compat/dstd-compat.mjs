@@ -197,7 +197,8 @@ export function registerDstdCompat() {
     const ability = fromUuidSync(abilityUuid);
     if (!ability) return;
     const effectsList = Array.from(ability.system?.effects?.contents ?? []);
-    const hasFlatEffects = effectsList.some(e => ['dsct.flatDamage', 'dsct.flatForced', 'dsct.flatApplied', 'dsct.flatHeal', 'dsct.flatCleanse'].includes(e.type));
+    const hasFlatEffects = getSetting('flatEffectsEnabled')
+      && effectsList.some(e => ['dsct.flatDamage', 'dsct.flatForced', 'dsct.flatApplied', 'dsct.flatHeal', 'dsct.flatCleanse'].includes(e.type));
     if (!hasFlatEffects) return;
 
     const targets = Array.from(game.user.targets).map(token => {
@@ -799,12 +800,14 @@ async function _injectFmButtons(message, root) {
   const ability = await fromUuid(abilityUuid).catch(() => null);
   if (!ability) return;
 
-  const flatDamageEffects   = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatDamage');
-  const flatForcedEffects   = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatForced');
-  const flatAppliedEffects  = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatApplied');
-  const flatResourceEffects = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatResource');
-  const flatHealEffects     = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatHeal');
-  const flatCleanseEffects  = Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === 'dsct.flatCleanse');
+  const _flatOn = getSetting('flatEffectsEnabled');
+  const _flatOfType = (type) => _flatOn ? Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === type) : [];
+  const flatDamageEffects   = _flatOfType('dsct.flatDamage');
+  const flatForcedEffects   = _flatOfType('dsct.flatForced');
+  const flatAppliedEffects  = _flatOfType('dsct.flatApplied');
+  const flatResourceEffects = _flatOfType('dsct.flatResource');
+  const flatHealEffects     = _flatOfType('dsct.flatHeal');
+  const flatCleanseEffects  = _flatOfType('dsct.flatCleanse');
   const doFlatEffects = flatDamageEffects.length > 0 || flatForcedEffects.length > 0 || flatAppliedEffects.length > 0 || flatHealEffects.length > 0 || flatCleanseEffects.length > 0;
 
   const dsid     = getItemDsid(ability);

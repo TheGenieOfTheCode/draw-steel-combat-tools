@@ -365,6 +365,69 @@
         "label": "Configure Ability Automation",
         "hint": "Configure class ability automations for Censor, Tactician, and Shadow, plus ability range enforcement and malice features."
       },
+      "flatEffectsSettings": {
+        "name": "Flat Effects Settings",
+        "label": "Configure Flat Effects",
+        "hint": "Enable or disable flat special effects and set the default values new flat effects are created with."
+      },
+      "flatEffectsEnabled": {
+        "name": "Enable Flat Effects",
+        "hint": "Master switch for flat special effects. When off, no flat effect buttons or automation appear in chat and the flat types are hidden from the new effect picker. Existing flat effects on abilities are kept safe and untouched."
+      },
+      "flatDefaultSpendEnabled": {
+        "name": "Spend Resource On By Default",
+        "hint": "New flat effects of any type start with the Spend Resource toggle enabled."
+      },
+      "flatDefaultSpendValue": {
+        "name": "Default Spend Cost",
+        "hint": "The resource cost new flat effects start with when Spend Resource is enabled."
+      },
+      "flatDefaultDamageFormula": {
+        "name": "Default Damage Formula",
+        "hint": "The damage formula new flat damage effects start with."
+      },
+      "flatDefaultDamageType": {
+        "name": "Default Damage Type",
+        "hint": "The damage type new flat damage effects start with.",
+        "choice": { "untyped": "Untyped" }
+      },
+      "flatDefaultMovement": {
+        "name": "Default Movement Type",
+        "hint": "The movement type new flat forced movement effects start with.",
+        "choice": { "push": "Push", "pull": "Pull", "slide": "Slide" }
+      },
+      "flatDefaultForcedDistance": {
+        "name": "Default Distance",
+        "hint": "The distance formula new flat forced movement effects start with."
+      },
+      "flatDefaultPotencyStrength": {
+        "name": "Default Potency Strength",
+        "hint": "The potency strength new flat applied condition effects start with."
+      },
+      "flatDefaultAppliedEnd": {
+        "name": "Default End Condition",
+        "hint": "The effect end new flat applied condition effects start with."
+      },
+      "flatDefaultResourceType": {
+        "name": "Default Resource Type",
+        "hint": "The resource type key new flat resource gain effects start with, such as surge."
+      },
+      "flatDefaultResourceAmount": {
+        "name": "Default Resource Amount",
+        "hint": "The amount new flat resource gain effects start with."
+      },
+      "flatDefaultHealAmountType": {
+        "name": "Default Heal Amount Type",
+        "hint": "Whether new flat heal effects start using the recovery value or a custom formula."
+      },
+      "flatDefaultHealTempStamina": {
+        "name": "Temporary Stamina By Default",
+        "hint": "New flat heal effects start set to grant temporary Stamina instead of healing."
+      },
+      "flatDefaultCleanseRepeatable": {
+        "name": "Repeatable Cleanse By Default",
+        "hint": "New flat cleanse effects start with the Repeatable toggle enabled."
+      },
       "abilityAutomationEnabled": {
         "name": "Ability Automation",
         "hint": "Master toggle for all ability automation."
@@ -726,6 +789,7 @@
         "DeathTrackerSettings": "Death Tracker Settings",
         "TriggeredActionsSettings": "Triggered Actions Settings",
         "AbilityAutomationSettings": "Ability Automation Settings",
+        "FlatEffectsSettings": "Flat Effects Settings",
         "Grab": "Grab",
         "Teleport": "Teleport",
         "WallBuilder": "Wall Builder",

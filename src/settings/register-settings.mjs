@@ -6,6 +6,7 @@ import {
   DeathTrackerSettingsMenu,
   TriggeredActionsSettingsMenu,
   AbilityAutomationSettingsMenu,
+  FlatEffectsSettingsMenu,
   ModuleButtonsSettingsMenu,
   HomeRulesSettingsMenu,
   CompatibilitySettingsMenu,
@@ -439,6 +440,100 @@ export const registerSettings = () => {
     name: L('abilityAutomationSettings.name'), label: L('abilityAutomationSettings.label'),
     hint: L('abilityAutomationSettings.hint'),
     icon: 'fas fa-wand-magic-sparkles', type: AbilityAutomationSettingsMenu, restricted: true,
+  });
+
+  game.settings.registerMenu(M, 'flatEffectsSettings', {
+    name: L('flatEffectsSettings.name'), label: L('flatEffectsSettings.label'),
+    hint: L('flatEffectsSettings.hint'),
+    icon: 'fas fa-stamp', type: FlatEffectsSettingsMenu, restricted: true,
+  });
+  game.settings.register(M, 'flatEffectsEnabled', {
+    name: L('flatEffectsEnabled.name'), hint: L('flatEffectsEnabled.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'flatDefaultSpendEnabled', {
+    name: L('flatDefaultSpendEnabled.name'), hint: L('flatDefaultSpendEnabled.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'flatDefaultSpendValue', {
+    name: L('flatDefaultSpendValue.name'), hint: L('flatDefaultSpendValue.hint'),
+    scope: 'world', config: false, type: Number, default: 1,
+  });
+  game.settings.register(M, 'flatDefaultDamageFormula', {
+    name: L('flatDefaultDamageFormula.name'), hint: L('flatDefaultDamageFormula.hint'),
+    scope: 'world', config: false, type: String, default: '2 + @chr',
+  });
+  game.settings.register(M, 'flatDefaultDamageType', {
+    name: L('flatDefaultDamageType.name'), hint: L('flatDefaultDamageType.hint'),
+    scope: 'world', config: false, type: String, default: '',
+    choices: {
+      '':           L('flatDefaultDamageType.choice.untyped'),
+      'acid':       'DRAW_STEEL.DAMAGE_TYPE.Acid',
+      'cold':       'DRAW_STEEL.DAMAGE_TYPE.Cold',
+      'corruption': 'DRAW_STEEL.DAMAGE_TYPE.Corruption',
+      'fire':       'DRAW_STEEL.DAMAGE_TYPE.Fire',
+      'holy':       'DRAW_STEEL.DAMAGE_TYPE.Holy',
+      'lightning':  'DRAW_STEEL.DAMAGE_TYPE.Lightning',
+      'poison':     'DRAW_STEEL.DAMAGE_TYPE.Poison',
+      'psychic':    'DRAW_STEEL.DAMAGE_TYPE.Psychic',
+      'sonic':      'DRAW_STEEL.DAMAGE_TYPE.Sonic',
+    },
+  });
+  game.settings.register(M, 'flatDefaultMovement', {
+    name: L('flatDefaultMovement.name'), hint: L('flatDefaultMovement.hint'),
+    scope: 'world', config: false, type: String, default: 'push',
+    choices: {
+      'push':  L('flatDefaultMovement.choice.push'),
+      'pull':  L('flatDefaultMovement.choice.pull'),
+      'slide': L('flatDefaultMovement.choice.slide'),
+    },
+  });
+  game.settings.register(M, 'flatDefaultForcedDistance', {
+    name: L('flatDefaultForcedDistance.name'), hint: L('flatDefaultForcedDistance.hint'),
+    scope: 'world', config: false, type: String, default: '1',
+  });
+  game.settings.register(M, 'flatDefaultPotencyStrength', {
+    name: L('flatDefaultPotencyStrength.name'), hint: L('flatDefaultPotencyStrength.hint'),
+    scope: 'world', config: false, type: String, default: 'average',
+    choices: {
+      'weak':    'DSCT.FlatEffect.Applied.potency.Strength.weak',
+      'average': 'DSCT.FlatEffect.Applied.potency.Strength.average',
+      'strong':  'DSCT.FlatEffect.Applied.potency.Strength.strong',
+    },
+  });
+  game.settings.register(M, 'flatDefaultAppliedEnd', {
+    name: L('flatDefaultAppliedEnd.name'), hint: L('flatDefaultAppliedEnd.hint'),
+    scope: 'world', config: false, type: String, default: '',
+    choices: {
+      '':          'DSCT.FlatEffect.Applied.end.default',
+      'turn':      'DRAW_STEEL.ActiveEffect.Ends.Turn.Label',
+      'save':      'DRAW_STEEL.ActiveEffect.Ends.Save.Label',
+      'encounter': 'DRAW_STEEL.ActiveEffect.Ends.Encounter.Label',
+    },
+  });
+  game.settings.register(M, 'flatDefaultResourceType', {
+    name: L('flatDefaultResourceType.name'), hint: L('flatDefaultResourceType.hint'),
+    scope: 'world', config: false, type: String, default: 'surge',
+  });
+  game.settings.register(M, 'flatDefaultResourceAmount', {
+    name: L('flatDefaultResourceAmount.name'), hint: L('flatDefaultResourceAmount.hint'),
+    scope: 'world', config: false, type: Number, default: 1,
+  });
+  game.settings.register(M, 'flatDefaultHealAmountType', {
+    name: L('flatDefaultHealAmountType.name'), hint: L('flatDefaultHealAmountType.hint'),
+    scope: 'world', config: false, type: String, default: 'recoveryValue',
+    choices: {
+      'recoveryValue': 'DSCT.FlatEffect.Heal.AmountType.recoveryValue',
+      'custom':        'DSCT.FlatEffect.Heal.AmountType.custom',
+    },
+  });
+  game.settings.register(M, 'flatDefaultHealTempStamina', {
+    name: L('flatDefaultHealTempStamina.name'), hint: L('flatDefaultHealTempStamina.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'flatDefaultCleanseRepeatable', {
+    name: L('flatDefaultCleanseRepeatable.name'), hint: L('flatDefaultCleanseRepeatable.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
   });
 
   game.settings.registerMenu(M, 'combatLogsSettings', {
