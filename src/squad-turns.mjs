@@ -144,7 +144,8 @@ const _GLOW_TINTS = {
 
 function _resolveGlowColor(combatant, groupId) {
   if (!getSetting('squadGlowMarkerColored')) return 0xffffff;
-  const playerUser = game.users?.find(u => u.character?.id === combatant?.actor?.id);
+  const colorActorId = combatant?.actor?.system?.retainer?.mentor?.id ?? combatant?.actor?.id;
+  const playerUser = game.users?.find(u => u.character?.id === colorActorId);
   if (playerUser) return Number(playerUser.color.valueOf?.() ?? playerUser.color);
   const grp = game.combat?.groups?.get(groupId);
   const num = parseInt(grp?.name?.match(/^Group (\d+)/i)?.[1]) || 0;
