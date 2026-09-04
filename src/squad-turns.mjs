@@ -37,7 +37,7 @@ function findSiblingGroups(combat, group) {
   );
 }
 
-async function fireStartTurn(member, combat, { skipRegionEvents = false } = {}) {
+export async function fireStartTurn(member, combat, { skipRegionEvents = false } = {}) {
   const idx = combat.turns.findIndex(c => c === member);
   if (idx < 0) return;
   await member.actor?.system?._onStartTurn?.(member);
@@ -56,7 +56,7 @@ async function fireStartTurn(member, combat, { skipRegionEvents = false } = {}) 
   );
 }
 
-async function fireEndTurn(member, combat, round) {
+export async function fireEndTurn(member, combat, round) {
   const idx = combat.turns.findIndex(c => c === member);
   if (idx < 0) return;
   const ctx = { round, turn: idx, skipped: false };
@@ -399,8 +399,9 @@ export function registerSquadTurnHooks() {
       const activeGroupId  = window._dsctActiveSquadGroupId;
       const isNativeActive = !!myCombatant && myCombatant.id === game.combat?.combatant?.id;
       const inActiveGroup  = !!activeGroupId && myCombatant?.group?.id === activeGroupId;
+      const inActivePair   = !!myCombatant && !!window._dsctActivePairIds?.has?.(myCombatant.id);
 
-      if (getSetting('squadGlowMarker') && (isNativeActive || inActiveGroup)) {
+      if (getSetting('squadGlowMarker') && (isNativeActive || inActiveGroup || inActivePair)) {
         if (!this._dsctGlowGraphic) {
           _cleanupMarkerWrapper(this);
           const glow = _makeGlowGraphic(this, _resolveGlowColor(myCombatant, myCombatant?.group?.id ?? activeGroupId));
@@ -414,7 +415,9 @@ export function registerSquadTurnHooks() {
 
       if (this._dsctGlowGraphic) _cleanupMarkerWrapper(this);
 
-      if (!getSetting('squadSimultaneousTurns') || !inActiveGroup) {
+      const inSquadTurn = getSetting('squadSimultaneousTurns') && inActiveGroup;
+      const inPairTurn  = getSetting('pairSimultaneousTurns') && inActivePair;
+      if (!inSquadTurn && !inPairTurn) {
         _cleanupMarkerWrapper(this);
         return wrapped(...args);
       }
@@ -429,6 +432,7 @@ export function registerSquadTurnHooks() {
             [...(game.combat?.groups?.get(activeGroupId)?.members ?? [])][0]?.id
           )?.token?.object;
           const TurnMarkerCtor = globalThis.TokenTurnMarker
+            ?? game.combat?.combatant?.token?.object?.turnMarker?.constructor
             ?? activeCombatantToken?.turnMarker?.constructor
             ?? [...(canvas.tokens?.turnMarkers ?? [])].find(t => t.turnMarker)?.turnMarker?.constructor;
           if (TurnMarkerCtor) {

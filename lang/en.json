@@ -309,6 +309,10 @@
         "name": "Simultaneous Squad Turns",
         "hint": "When a squad group takes its turn, all minions in the squad activate simultaneously. Each member's initiative is decremented, start-of-turn effects fire for all of them, and the combat marker appears under every squad token."
       },
+      "pairSimultaneousTurns": {
+        "name": "Mentor Pair Turns",
+        "hint": "When a hero, their retainer, or their companion takes a turn, the whole pair activates together without needing a combatant group. The partner's initiative is decremented, start and end of turn effects fire for both, and the combat marker appears under both tokens."
+      },
       "squadHudEnabled": {
         "name": "Squad HUD",
         "hint": "Replaces individual minion token health bars with a shared floating bar for each squad. The bar shows the squad name, a segmented fill per minion, and live HP numbers. Hovering any minion or the bar fades in lines linking the bar to each squad member."

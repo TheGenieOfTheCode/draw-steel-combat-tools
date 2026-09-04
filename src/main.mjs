@@ -8,6 +8,7 @@ import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillU
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { registerSquadTurnHooks } from './squad-turns.mjs';
+import { registerPairTurnHooks } from './pair-turns.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
 import { installMacros, distributeAbilities } from './setup-macros.mjs';
@@ -91,6 +92,7 @@ Hooks.once('init', () => {
   registerSquadLabelHooks();
   registerSquadHudHooks();
   registerSquadTurnHooks();
+  registerPairTurnHooks();
   registerTriggeredActionHooks();
   registerModuleButtons();
   registerForcedMovementHooks();

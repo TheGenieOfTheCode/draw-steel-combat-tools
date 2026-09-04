@@ -806,6 +806,7 @@ export class SquadToolsSettingsMenu extends SettingsSubmenu {
       'squadLabelRenamePreference',
       header('Simultaneous Turns'),
       'squadSimultaneousTurns',
+      'pairSimultaneousTurns',
       header('Subtle Turn Markers'),
       'squadGlowMarker',
       'squadGlowMarkerColored',
