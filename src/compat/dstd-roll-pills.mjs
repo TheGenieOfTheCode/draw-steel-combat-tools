@@ -191,7 +191,7 @@ const _pendingProvenance = new Map();
 function _stashProvenance(app) {
   const ability = app.options?.ability;
   if (!ability?.uuid || !app._dsctSources) return;
-  const shrink = (p) => ({ kind: p.kind, amount: p.amount, reason: p.reason, src: p.src ?? null });
+  const shrink = (p) => ({ kind: p.kind, amount: p.amount, reason: p.reason, src: p.src ?? null, srcTokenId: p.srcTokenId ?? null });
   const global = app._dsctSources.filter(p => p.scope === 'global' && p.enabled).map(shrink);
   const targets = {};
   for (const tokenId of Object.keys(app.options.context?.targets ?? {})) {
@@ -271,6 +271,7 @@ function _chatPillHTML(p, msgId, targetKey) {
     cls += ' dsct-chat-pill-inert';
     if (p.disabled) cls += ' dsct-pill-disabled';
   }
+  if (p.srcTokenId) attrs += ` data-src-token-id="${p.srcTokenId}"`;
   return `<button type="button" class="${cls}"${attrs} title="${foundry.utils.escapeHTML(title)}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
 }
 
@@ -735,8 +736,9 @@ class RollEditorAddDialog extends DSCTAddModifierDialog {
   _submit() {
     const reason  = this._reasonInput?.value?.trim() || 'Custom';
     const srcName = this._sourceInput?.value?.trim() || null;
+    const srcToken = srcName ? canvas.tokens?.placeables.find(t => t.name === srcName) ?? null : null;
     const amount  = this._readValueAmount();
-    this._editor._session.push({ kind: this._kind, amount, reason, src: srcName });
+    this._editor._session.push({ kind: this._kind, amount, reason, src: srcName, srcTokenId: srcToken?.id ?? null });
     this._editor._refresh();
     this.close();
   }
@@ -890,14 +892,42 @@ export function registerDstdRollPills() {
   new MutationObserver(observerCallback).observe(chatLog, { childList: true, subtree: true });
 
   document.addEventListener('click', _onDocumentClick, true);
+  document.addEventListener('pointerover', _onPillHoverIn);
+  document.addEventListener('pointerout', _onPillHoverOut);
 
   Hooks.on('openDetachedWindow', (_id, win) => {
     setTimeout(() => {
       try {
         win.document.addEventListener('click', _onDocumentClick, true);
+        win.document.addEventListener('pointerover', _onPillHoverIn);
+        win.document.addEventListener('pointerout', _onPillHoverOut);
         const log = win.document.querySelector('#chat-log') ?? win.document.body;
         new MutationObserver(observerCallback).observe(log, { childList: true, subtree: true });
       } catch {}
     }, 300);
   });
+}
+
+function _hoverPillEl(e) {
+  const el = e.target?.closest?.('.dsct-source-pill[data-src-token-id]');
+  if (!el) return null;
+  if (!el.closest('li.chat-message, .dsct-roll-editor, .dsct-damage-editor')) return null;
+  return el;
+}
+
+function _onPillHoverIn(e) {
+  const el = _hoverPillEl(e);
+  if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
+  if (!canvas?.ready) return;
+  const token = canvas.tokens.placeables.find(t => t.id === el.dataset.srcTokenId);
+  if (!token || !token.visible || !token._canHover(game.user, e)) return;
+  token._onHoverIn(e, { hoverOutOthers: true });
+}
+
+function _onPillHoverOut(e) {
+  const el = _hoverPillEl(e);
+  if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
+  if (!canvas?.ready) return;
+  const token = canvas.tokens.placeables.find(t => t.id === el.dataset.srcTokenId);
+  token?._onHoverOut(e);
 }

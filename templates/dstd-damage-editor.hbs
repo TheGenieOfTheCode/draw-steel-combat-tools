@@ -1,0 +1,15 @@
+<div class="dsct-re">
+  {{#if hint}}<p class="dsct-de-hint">{{{hint}}}</p>{{/if}}
+  <div class="dsct-de-total">
+    <span class="dsct-de-base">{{base}}</span>
+    <i class="fa-solid fa-arrow-right"></i>
+    <span class="dsct-de-final">{{base}}</span>
+  </div>
+
+  <div class="dsct-mod-pills-row dsct-re-pills"></div>
+
+  <div class="dsct-re-footer">
+    <button type="button" data-action="apply"><i class="fa-solid fa-check"></i> {{localize "DSCT.panel.damagePills.apply"}}</button>
+    <button type="button" data-action="cancel"><i class="fa-solid fa-xmark"></i> {{localize "DSCT.panel.damagePills.cancel"}}</button>
+  </div>
+</div>

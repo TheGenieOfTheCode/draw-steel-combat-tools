@@ -545,6 +545,18 @@
         "name": "Pill Roll Editor",
         "hint": "Replaces the edit roll window on ability messages with a compact pill editor in the Alternative Ability Roll UI style. Modifiers added there become removable pills under the roll."
       },
+      "pillDamageEditor": {
+        "name": "Pill Damage Editor",
+        "hint": "Replaces the edit damage window on ability messages with a pill editor in the Alternative Ability Roll UI style, including surge spending, damage type changes, and named modifiers that appear as pills under the damage button."
+      },
+      "multiplierOverride": {
+        "name": "Damage Multiplier Override",
+        "hint": "Half and Double damage pills always apply after bonuses, penalties, and surges, regardless of the order they were added in."
+      },
+      "noMultiplierStacking": {
+        "name": "No Multiplier Stacking",
+        "hint": "Duplicate Half (or Double) damage pills beyond the first have no effect and render dimmed."
+      },
       "highGroundEnabled": {
         "name": "High Ground Edge",
         "hint": "Shows a High Ground edge pill in the roll dialog when the attacker is standing on terrain at a higher elevation than the target."
@@ -901,6 +913,43 @@
         "apply": "Apply",
         "modifierTitle": "Click to remove this modifier",
         "defaultName": "Forced Movement Modifier {n}"
+      },
+      "damagePills": {
+        "title": "Edit Damage",
+        "editorTitle": "Edit Damage: {name}",
+        "apply": "Apply",
+        "cancel": "Cancel",
+        "addPill": "Add modifier",
+        "addModifier": "Add Modifier",
+        "sessionPill": "Click to toggle. Right-click to remove",
+        "removeTooltip": "Click to remove",
+        "inert": "No effect",
+        "typeOverridden": "Overridden by a later damage type",
+        "half": "Half",
+        "double": "Double",
+        "bonus": "Bonus",
+        "penalty": "Penalty",
+        "surge": "Surge",
+        "type": "Damage Type",
+        "surgeAmt": "+{n} Surge",
+        "value": "Value",
+        "damageType": "Damage Type",
+        "sourceActor": "Source actor",
+        "sourcePh": "Self",
+        "targetFill": "Use currently targeted token",
+        "reason": "Reason",
+        "reasonPh": "e.g. Shriek, Cover, Winded",
+        "preview": "Preview",
+        "typeUntyped": "Untyped",
+        "effectHalf": "Damage halved",
+        "effectDouble": "Damage doubled",
+        "effectPlus": "+{n} damage",
+        "effectMinus": "-{n} damage",
+        "effectSurge": "+{n} damage (1 surge)",
+        "effectType": "Damage becomes {type}",
+        "surgeTooltip": "Spend a surge: +{damage} damage. {available} available. Spent when the damage is applied.",
+        "surgeCapWarn": "Surge limit reached for this damage roll.",
+        "noRoll": "No damage roll found for this button."
       },
       "rollEditor": {
         "title": "Edit Roll: {name}",

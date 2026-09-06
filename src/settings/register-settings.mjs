@@ -650,6 +650,18 @@ export const registerSettings = () => {
     name: L('dstdRollEditor.name'), hint: L('dstdRollEditor.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'pillDamageEditor', {
+    name: L('pillDamageEditor.name'), hint: L('pillDamageEditor.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'multiplierOverride', {
+    name: L('multiplierOverride.name'), hint: L('multiplierOverride.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'noMultiplierStacking', {
+    name: L('noMultiplierStacking.name'), hint: L('noMultiplierStacking.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
   game.settings.register(M, 'highGroundEnabled', {
     name: L('highGroundEnabled.name'), hint: L('highGroundEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

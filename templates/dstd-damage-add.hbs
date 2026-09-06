@@ -1,0 +1,59 @@
+<div class="dsct-amw">
+
+  <div class="dsct-amw-type-grid">
+    <button type="button" class="dsct-amw-type-btn bane active" data-kind="half">{{localize "DSCT.panel.damagePills.half"}}</button>
+    <button type="button" class="dsct-amw-type-btn edge"        data-kind="double">{{localize "DSCT.panel.damagePills.double"}}</button>
+    <button type="button" class="dsct-amw-type-btn bonus"       data-kind="delta">{{localize "DSCT.panel.damagePills.bonus"}}</button>
+    <button type="button" class="dsct-amw-type-btn bonus"       data-kind="delta" data-negate="1">{{localize "DSCT.panel.damagePills.penalty"}}</button>
+    {{#if hasSurge}}
+    <button type="button" class="dsct-amw-type-btn edge" data-kind="surge" {{#if surgeDisabled}}disabled{{/if}} title="{{surgeTooltip}}">{{localize "DSCT.panel.damagePills.surge"}}</button>
+    {{/if}}
+    <button type="button" class="dsct-amw-type-btn bane" data-kind="type">{{localize "DSCT.panel.damagePills.type"}}</button>
+  </div>
+
+  <div class="form-group dsct-amw-value-group" style="display:none">
+    <label>{{localize "DSCT.panel.damagePills.value"}}</label>
+    <div class="form-fields">
+      <input type="number" class="dsct-amw-value-input" min="1" value="1" step="1">
+    </div>
+  </div>
+
+  <div class="form-group dsct-dmw-type-group" style="display:none">
+    <label>{{localize "DSCT.panel.damagePills.damageType"}}</label>
+    <div class="form-fields">
+      <select class="dsct-dmw-type-select">
+        {{#each typeOptions}}<option value="{{value}}">{{label}}</option>{{/each}}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "DSCT.panel.damagePills.sourceActor"}}</label>
+    <div class="form-fields dsct-amw-source-actor">
+      <input type="text" class="dsct-amw-source-input" placeholder="{{localize "DSCT.panel.damagePills.sourcePh"}}">
+      <button type="button" class="dsct-amw-target-fill" title="{{localize "DSCT.panel.damagePills.targetFill"}}">
+        <i class="fa-solid fa-bullseye-pointer"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "DSCT.panel.damagePills.reason"}}</label>
+    <div class="form-fields">
+      <input type="text" class="dsct-amw-reason-input" placeholder="{{localize "DSCT.panel.damagePills.reasonPh"}}">
+    </div>
+  </div>
+
+  <div class="dsct-amw-preview">
+    <span class="dsct-amw-preview-label">{{localize "DSCT.panel.damagePills.preview"}}</span>
+    <button type="button" class="dsct-source-pill dsct-dpill-half dsct-pill-custom dsct-amw-preview-pill">
+      <span class="dsct-pip">Half</span>
+    </button>
+  </div>
+
+  <footer class="form-footer dsct-amw-footer">
+    <button type="button" class="dsct-amw-submit">{{localize "DSCT.panel.damagePills.addModifier"}}</button>
+    <button type="button" class="dsct-amw-cancel">{{localize "DSCT.panel.damagePills.cancel"}}</button>
+  </footer>
+
+</div>

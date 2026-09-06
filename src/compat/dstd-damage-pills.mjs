@@ -1,0 +1,674 @@
+import { getSetting, getModuleApi } from '../helpers.mjs';
+
+const M    = 'draw-steel-combat-tools';
+const DSTD = 'draw-steel-target-damage';
+
+const L = (k, data) => data
+  ? game.i18n.format(`DSCT.panel.damagePills.${k}`, data)
+  : game.i18n.localize(`DSCT.panel.damagePills.${k}`);
+
+const _isMult = (p) => p.kind === 'half' || p.kind === 'double';
+
+export function damagePillDisplayList(pills) {
+  const pairs = (pills ?? []).map((pill, idx) => ({ pill, idx, inert: false }));
+  let list = pairs;
+  try {
+    if (getSetting('multiplierOverride')) {
+      list = [...pairs.filter((x) => !_isMult(x.pill)), ...pairs.filter((x) => _isMult(x.pill))];
+    }
+    if (getSetting('noMultiplierStacking')) {
+      const seen = {};
+      for (const x of list) {
+        if (!_isMult(x.pill)) continue;
+        if (x.pill.enabled === false) continue;
+        if (seen[x.pill.kind]) x.inert = true;
+        else seen[x.pill.kind] = true;
+      }
+    }
+  } catch {}
+  let lastType = -1;
+  list.forEach((x, i) => { if (x.pill.kind === 'type' && x.pill.enabled !== false) lastType = i; });
+  list.forEach((x, i) => { if (x.pill.kind === 'type' && i !== lastType) x.inert = true; });
+  return list;
+}
+
+export function foldDamagePills(base, pills) {
+  let v = Number(base) || 0;
+  for (const x of damagePillDisplayList(pills)) {
+    if (x.inert || x.pill.enabled === false) continue;
+    const p = x.pill;
+    if (p.kind === 'half') v = Math.floor(v / 2);
+    else if (p.kind === 'double') v = v * 2;
+    else if (p.kind === 'delta' || p.kind === 'surge') v = Math.max(0, v + (Number(p.value) || 0));
+  }
+  return Math.max(0, v);
+}
+
+export function damageTypeLabel(value) {
+  if (!value) return L('typeUntyped');
+  const cfg = globalThis.ds?.CONFIG?.damageTypes?.[value];
+  return cfg?.label ? game.i18n.localize(cfg.label) : value;
+}
+
+export function damageTypeColor(value) {
+  try {
+    const c = globalThis.ds?.CONFIG?.damageTypes?.[value]?.color;
+    return c ? String(c) : null;
+  } catch { return null; }
+}
+
+export function damagePillType(pills) {
+  let found = null;
+  for (const x of damagePillDisplayList(pills)) {
+    if (x.inert || x.pill.enabled === false) continue;
+    if (x.pill.kind === 'type') found = x.pill.value ?? '';
+  }
+  return found;
+}
+
+export function damagePillEffect(p) {
+  if (p.kind === 'half') return L('effectHalf');
+  if (p.kind === 'double') return L('effectDouble');
+  if (p.kind === 'surge') return L('effectSurge', { n: Math.abs(Number(p.value) || 0) });
+  if (p.kind === 'type') return L('effectType', { type: damageTypeLabel(p.value) });
+  const v = Number(p.value) || 0;
+  return v >= 0 ? L('effectPlus', { n: v }) : L('effectMinus', { n: Math.abs(v) });
+}
+
+export function damagePillAmtStr(p) {
+  if (p.kind === 'half') return L('half');
+  if (p.kind === 'double') return L('double');
+  if (p.kind === 'surge') return L('surgeAmt', { n: Math.abs(Number(p.value) || 0) });
+  if (p.kind === 'type') return damageTypeLabel(p.value);
+  const v = Number(p.value) || 0;
+  return v >= 0 ? `+${v}` : String(v);
+}
+
+export function damagePillText(p) {
+  const label = (p.label ?? '').trim();
+  if (label) return `${damagePillAmtStr(p)} · ${label}`;
+  if (p.kind === 'half') return L('effectHalf');
+  if (p.kind === 'double') return L('effectDouble');
+  if (p.kind === 'surge') return L('surge');
+  if (p.kind === 'type') return damageTypeLabel(p.value);
+  return damagePillEffect(p);
+}
+
+function _typePillStyleAttr(p) {
+  if (p.kind !== 'type') return '';
+  const col = damageTypeColor(p.value);
+  if (!col) return '';
+  return ` style="color:${col};border-color:${col};background:color-mix(in srgb, ${col} 12%, transparent)"`;
+}
+
+export function styleTypePill(el, p) {
+  if (p.kind !== 'type') return;
+  const col = damageTypeColor(p.value);
+  if (!col) return;
+  el.style.color = col;
+  el.style.borderColor = col;
+  el.style.background = `color-mix(in srgb, ${col} 12%, transparent)`;
+}
+
+class DsctDamageEditor extends ds.applications.api.DSApplication {
+  static DEFAULT_OPTIONS = {
+    id: 'dsct-damage-editor',
+    classes: ['draw-steel', 'dsct-roll-editor', 'dsct-damage-editor'],
+    window: { minimizable: false, resizable: false },
+    position: { width: 340, height: 'auto' },
+  };
+
+  static PARTS = {
+    form: { template: `modules/${M}/templates/dstd-damage-editor.hbs` },
+  };
+
+  constructor(config, done, options = {}) {
+    super(options);
+    this._cfg = config;
+    this._done = done;
+    this._pills = (config.pills ?? []).map(p => ({ ...p }));
+  }
+
+  get title() { return this._cfg.title ?? L('title'); }
+
+  _surgeCap() {
+    const surge = this._cfg.surge;
+    return surge ? Math.min(3, Number(surge.available) || 0) : 0;
+  }
+
+  _stagedSurges() {
+    return this._pills.filter(p => p.kind === 'surge' && p.enabled !== false).length;
+  }
+
+  async _prepareContext(_options) {
+    return {
+      base: this._cfg.base,
+      hint: this._cfg.hint ?? '',
+      label: this._cfg.label ?? '',
+    };
+  }
+
+  _onRender(_context, _options) {
+    setTimeout(() => this.setPosition({ height: 'auto' }), 0);
+    this._listenerAbort?.abort();
+    this._listenerAbort = new AbortController();
+    const { signal } = this._listenerAbort;
+    const el = this.element;
+
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action="cancel"]')) { this.close(); return; }
+      if (e.target.closest('[data-action="apply"]'))  { this._apply(); return; }
+      if (e.target.closest('.dsct-add-mod-btn')) {
+        new DsctDamageAddDialog(this).render(true);
+        return;
+      }
+      const pillBtn = e.target.closest('.dsct-de-pill[data-pill-idx]');
+      if (pillBtn) {
+        const p = this._pills[Number(pillBtn.dataset.pillIdx)];
+        if (p) p.enabled = p.enabled === false;
+        this._refresh();
+      }
+    }, { signal });
+
+    el.addEventListener('contextmenu', (e) => {
+      const pillBtn = e.target.closest('.dsct-de-pill[data-pill-idx]');
+      if (!pillBtn) return;
+      e.preventDefault();
+      this._pills.splice(Number(pillBtn.dataset.pillIdx), 1);
+      this._refresh();
+    }, { signal });
+
+    this._refresh();
+  }
+
+  _refresh() {
+    const el = this.element;
+    const finalEl = el.querySelector('.dsct-de-final');
+    if (finalEl) finalEl.textContent = String(foldDamagePills(this._cfg.base, this._pills));
+
+    const rowEl = el.querySelector('.dsct-re-pills');
+    if (rowEl) {
+      const items = damagePillDisplayList(this._pills).map((x) => {
+        const p = x.pill;
+        const off = p.enabled === false;
+        const title = x.inert ? (p.kind === 'type' ? L('typeOverridden') : L('inert')) : L('sessionPill');
+        const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
+        const srcAttr = p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : '';
+        return `<button type="button" class="dsct-source-pill dsct-de-pill dsct-dpill-${p.kind}${off ? ' dsct-pill-disabled' : ''}${x.inert ? ' dsct-dpill-inert' : ''}"${_typePillStyleAttr(p)} data-pill-idx="${x.idx}"${srcAttr} title="${foundry.utils.escapeHTML(title)}"><span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${fromStr}</button>`;
+      });
+      const label = this._cfg.label
+        ? `<span class="dsct-pills-label">${foundry.utils.escapeHTML(this._cfg.label)}</span>` : '';
+      const addBtn = `<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" title="${L('addPill')}">+</button>`;
+      rowEl.innerHTML = `${label}${items.join('')}${addBtn}`;
+    }
+    setTimeout(() => this.setPosition({ height: 'auto' }), 0);
+  }
+
+  _apply() {
+    const result = { final: foldDamagePills(this._cfg.base, this._pills), pills: this._pills };
+    this._done?.(result);
+    this._done = null;
+    this.close();
+  }
+
+  close(options) {
+    this._listenerAbort?.abort();
+    this._done?.(null);
+    this._done = null;
+    return super.close(options);
+  }
+}
+
+export function openDamageEditor(config) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+    new DsctDamageEditor(config, done).render({ force: true });
+  });
+}
+
+class DsctDamageAddDialog extends ds.applications.api.DSApplication {
+  static DEFAULT_OPTIONS = {
+    classes: ['dsct-add-modifier-dialog'],
+    window: { title: 'Add Modifier', resizable: false },
+    position: { width: 360 },
+  };
+
+  static PARTS = {
+    main: { template: `modules/${M}/templates/dstd-damage-add.hbs` },
+  };
+
+  constructor(editor, options = {}) {
+    super(options);
+    this._editor = editor;
+    this._kind   = 'half';
+    this._negate = false;
+  }
+
+  async _prepareContext() {
+    const surge = this._editor._cfg.surge;
+    return {
+      hasSurge: !!surge,
+      surgeDisabled: !surge || this._editor._stagedSurges() >= this._editor._surgeCap(),
+      surgeTooltip: surge ? L('surgeTooltip', { damage: surge.damage, available: surge.available }) : '',
+      typeOptions: [
+        { value: '__untyped', label: L('typeUntyped') },
+        ...Object.entries(globalThis.ds?.CONFIG?.damageTypes ?? {})
+          .map(([value, cfg]) => ({ value, label: game.i18n.localize(cfg.label ?? value) })),
+      ],
+    };
+  }
+
+  _onRender(_context, _options) {
+    setTimeout(() => this.setPosition({ height: 'auto' }), 0);
+    const root = this.element.querySelector('.dsct-amw') ?? this.element;
+    this._amwRoot = root;
+    this._previewPill = root.querySelector('.dsct-amw-preview-pill');
+    this._reasonInput = root.querySelector('.dsct-amw-reason-input');
+    this._sourceInput = root.querySelector('.dsct-amw-source-input');
+    this._valueInput  = root.querySelector('.dsct-amw-value-input');
+    this._valueGroup  = root.querySelector('.dsct-amw-value-group');
+    this._typeGroup   = root.querySelector('.dsct-dmw-type-group');
+    this._typeSelect  = root.querySelector('.dsct-dmw-type-select');
+    this._typeButtons = [...root.querySelectorAll('.dsct-amw-type-btn')];
+
+    this._syncFields();
+
+    if (!this._dsctListenersAttached) {
+      this._dsctListenersAttached = true;
+      root.addEventListener('click', (e) => {
+        if (e.target.closest('.dsct-amw-cancel')) { this.close(); return; }
+        if (e.target.closest('.dsct-amw-submit')) { this._submit(); return; }
+        if (e.target.closest('.dsct-amw-target-fill')) {
+          const t = game.user.targets.first();
+          if (t && this._sourceInput) {
+            this._sourceInput.value = t.name;
+            this._updatePreview();
+          }
+        }
+      });
+    }
+
+    for (const btn of this._typeButtons) {
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        this._typeButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this._kind   = btn.dataset.kind;
+        this._negate = btn.dataset.negate === '1';
+        this._syncFields();
+        this._updatePreview();
+      });
+    }
+
+    this._reasonInput?.addEventListener('input', () => this._updatePreview());
+    this._sourceInput?.addEventListener('input', () => this._updatePreview());
+    this._valueInput?.addEventListener('input',  () => this._updatePreview());
+    this._typeSelect?.addEventListener('change', () => this._updatePreview());
+
+    this._updatePreview();
+  }
+
+  _syncFields() {
+    if (this._valueGroup) this._valueGroup.style.display = this._kind === 'delta' ? '' : 'none';
+    if (this._typeGroup)  this._typeGroup.style.display  = this._kind === 'type' ? '' : 'none';
+    setTimeout(() => this.setPosition({ height: 'auto' }), 0);
+  }
+
+  _buildPill() {
+    const reason  = this._reasonInput?.value?.trim() || '';
+    const srcName = this._sourceInput?.value?.trim() || null;
+    const srcToken = srcName ? canvas.tokens?.placeables.find(t => t.name === srcName) ?? null : null;
+    const pill = { kind: this._kind, value: null, label: reason, src: srcName, srcTokenId: srcToken?.id ?? null, source: 'manual' };
+    if (this._kind === 'delta') {
+      const raw = Math.abs(parseInt(this._valueInput?.value) || 1);
+      pill.value = this._negate ? -raw : raw;
+    } else if (this._kind === 'surge') {
+      pill.value = Number(this._editor._cfg.surge?.damage) || 0;
+      pill.source = 'surge';
+    } else if (this._kind === 'type') {
+      const v = this._typeSelect?.value ?? '__untyped';
+      pill.value = v === '__untyped' ? '' : v;
+    }
+    return pill;
+  }
+
+  _updatePreview() {
+    const prev = this._previewPill;
+    if (!prev) return;
+    const pill = this._buildPill();
+    const fromStr = pill.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(pill.src)}</span>` : '';
+    prev.className = `dsct-source-pill dsct-dpill-${pill.kind} dsct-pill-custom dsct-amw-preview-pill`;
+    prev.removeAttribute('style');
+    styleTypePill(prev, pill);
+    prev.innerHTML = `<span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(pill))}</span>${fromStr}`;
+  }
+
+  _submit() {
+    if (!this._editor?.rendered) { this.close(); return; }
+    const pill = this._buildPill();
+    if (pill.kind === 'surge' && this._editor._stagedSurges() >= this._editor._surgeCap()) {
+      ui.notifications.warn(L('surgeCapWarn'));
+      return;
+    }
+    this._editor._pills.push(pill);
+    this._editor._refresh();
+    this.close();
+  }
+}
+
+async function _updateMessage(message, payload) {
+  if (game.user.isGM || message.isOwner) return message.update(payload);
+  const api = getModuleApi(false);
+  if (api?.socket) return api.socket.executeAsGM('dsct.updateDocument', message.uuid, payload);
+  ui.notifications.warn(game.i18n.localize('DSCT.notice.rollPills.noPermission'));
+}
+
+async function _replaceOverride(message, opId, data) {
+  const direct = game.user.isGM || message.isOwner;
+  const FD = foundry.data?.operators?.ForcedDeletion;
+  const FR = foundry.data?.operators?.ForcedReplacement;
+  if (!data) {
+    if (direct && FD) {
+      return message.update({
+        [`flags.${DSTD}.state.damageOverrides.${opId}`]: new FD(),
+        [`flags.${DSTD}.state.updatedAt`]: Date.now(),
+      });
+    }
+    return _updateMessage(message, {
+      [`flags.${DSTD}.state.damageOverrides.-=${opId}`]: null,
+      [`flags.${DSTD}.state.updatedAt`]: Date.now(),
+    });
+  }
+  if (direct && FR) {
+    return message.update({
+      [`flags.${DSTD}.state.damageOverrides.${opId}`]: new FR(data),
+      [`flags.${DSTD}.state.updatedAt`]: Date.now(),
+    });
+  }
+  await _updateMessage(message, { [`flags.${DSTD}.state.damageOverrides.-=${opId}`]: null });
+  return _updateMessage(message, {
+    [`flags.${DSTD}.state.damageOverrides.${opId}`]: data,
+    [`flags.${DSTD}.state.updatedAt`]: Date.now(),
+  });
+}
+
+function _origDamageType(ov) {
+  if (ov?.dstOrigType !== undefined) {
+    return { damageType: ov.dstOrigType?.damageType ?? null, typeLabel: ov.dstOrigType?.typeLabel ?? null };
+  }
+  return { damageType: ov?.damageType || null, typeLabel: ov?.typeLabel || null };
+}
+
+async function _removeOverridePill(message, opId, idx) {
+  const state = message.getFlag(DSTD, 'state') ?? {};
+  const ov = state.damageOverrides?.[opId];
+  if (!Array.isArray(ov?.dstPills)) return;
+  const pills = ov.dstPills.filter((_, i) => i !== idx);
+  const base = Number(ov.baseAmount ?? 0);
+  const orig = _origDamageType(ov);
+  if (!pills.length && !ov.additional && (ov.dstOrigType !== undefined || !ov.damageType)) {
+    await _replaceOverride(message, opId, null);
+    return;
+  }
+  const typePill = damagePillType(pills);
+  const surges = pills.filter((p) => p.kind === 'surge' && p.enabled !== false).length;
+  const surgeDamage = Number(ov.surgeDamage ?? 0) || 0;
+  await _replaceOverride(message, opId, {
+    ...ov,
+    amount: foldDamagePills(base, pills),
+    damageType: typePill != null ? typePill : orig.damageType,
+    typeLabel: typePill != null ? (typePill ? damageTypeLabel(typePill) : '') : orig.typeLabel,
+    dstOrigType: orig,
+    surges,
+    surgeBonus: surges * surgeDamage,
+    dstPills: pills,
+  });
+}
+
+function _findPartRoll(message, partId, rollIndex) {
+  if (partId === 'message') return message.rolls?.[rollIndex] ?? null;
+  const parts = message.system?.parts;
+  const list = parts
+    ? (Array.isArray(parts) ? parts : Array.from(parts.contents ?? (typeof parts.values === 'function' ? parts.values() : Object.values(parts))))
+    : [];
+  const part = list.find((p) => (p.id ?? p._id) === partId);
+  return part?.rolls?.[rollIndex] ?? null;
+}
+
+async function _resolveSurgeContext(message, state) {
+  let src = null;
+  if (state.sourceActorUuid) src = await fromUuid(state.sourceActorUuid).catch(() => null);
+  if (!src && state.abilityUuid) src = (await fromUuid(state.abilityUuid).catch(() => null))?.actor ?? null;
+  if (src?.type === 'retainer') src = src.system?.retainer?.mentor ?? null;
+  if (src?.type === 'draw-steel-companion.companion') src = src.system?.retainer?.mentor ?? null;
+  if (src?.type !== 'hero') return null;
+  return {
+    actorUuid: src.uuid,
+    available: Number(src.system?.hero?.surges ?? 0) || 0,
+    damage: Number(src.getRollData?.()?.chr ?? 0) || 0,
+  };
+}
+
+function _seedPillsFromOverride(ov) {
+  if (Array.isArray(ov?.dstPills)) return ov.dstPills.map((p) => ({ ...p }));
+  const seed = [];
+  if (ov?.dstHalf) seed.push({ kind: 'half', label: ov.dstModName ?? '', source: 'trigger' });
+  const surges = Number(ov?.surges ?? 0) || 0;
+  for (let i = 0; i < surges; i++) seed.push({ kind: 'surge', value: Number(ov?.surgeDamage ?? 0) || 0, label: '', source: 'surge' });
+  const bonus = Number(ov?.bonus ?? 0) || 0;
+  if (bonus) seed.push({ kind: 'delta', value: bonus, label: '', source: 'manual' });
+  return seed;
+}
+
+async function _openPillDamageEditor(message, button) {
+  let target = {};
+  try { target = JSON.parse(button.dataset.target ?? '{}'); } catch {}
+  const opId = button.dataset.operationId;
+  if (!opId) return;
+  const state = foundry.utils.getProperty(message.flags, `${DSTD}.state`) ?? {};
+  const ov = state.damageOverrides?.[opId] ?? null;
+  const roll = _findPartRoll(message, button.dataset.partId, Number(button.dataset.rollIndex));
+  const base = Number(ov?.baseAmount ?? roll?.total ?? NaN);
+  if (!Number.isFinite(base)) {
+    ui.notifications.warn(L('noRoll'));
+    return;
+  }
+  const surge = await _resolveSurgeContext(message, state);
+  const outcome = await openDamageEditor({
+    title: L('editorTitle', { name: target.name ?? '' }),
+    label: target.name ?? '',
+    base,
+    pills: _seedPillsFromOverride(ov),
+    surge,
+  });
+  if (!outcome) return;
+
+  const pills = outcome.pills.map((p) => ({
+    kind: p.kind, value: p.value ?? null, label: p.label ?? '', src: p.src ?? null,
+    srcTokenId: p.srcTokenId ?? null, source: p.source ?? 'manual',
+    ...(p.enabled === false ? { enabled: false } : {}),
+  }));
+  const orig = _origDamageType(ov);
+  if (!pills.length && !ov?.additional && (ov?.dstOrigType !== undefined || !ov?.damageType)) {
+    if (ov) await _replaceOverride(message, opId, null);
+    return;
+  }
+  const typePill = damagePillType(pills);
+  const surges = pills.filter((p) => p.kind === 'surge' && p.enabled !== false).length;
+  const surgeDamage = surge?.damage ?? (Number(ov?.surgeDamage ?? 0) || 0);
+  await _replaceOverride(message, opId, {
+    amount: outcome.final,
+    baseAmount: base,
+    bonus: 0,
+    additional: ov?.additional ?? '',
+    damageType: typePill != null ? typePill : orig.damageType,
+    typeLabel: typePill != null ? (typePill ? damageTypeLabel(typePill) : '') : orig.typeLabel,
+    dstOrigType: orig,
+    surges,
+    surgeDamage,
+    surgeBonus: surges * surgeDamage,
+    dstPills: pills,
+  });
+}
+
+const _providers = [];
+
+export function registerDamagePillProvider(fn) {
+  _providers.push(fn);
+}
+
+function _pillRowFor(btn) {
+  const host = btn.closest('[class*="action-row"]');
+  if (!host?.parentElement) return null;
+  const next = host.nextElementSibling;
+  if (next?.classList?.contains('dsct-dmg-pills-row')) return next;
+  const rowEl = document.createElement('div');
+  rowEl.className = 'dsct-dmg-pills-row';
+  host.insertAdjacentElement('afterend', rowEl);
+  return rowEl;
+}
+
+export function injectDamagePills(message, root) {
+  if (!game.modules.get(DSTD)?.active) return;
+  const overrides = foundry.utils.getProperty(message.flags, `${DSTD}.state.damageOverrides`) ?? {};
+  const apps = foundry.utils.getProperty(message.flags, `${DSTD}.state.applications`) ?? {};
+  const canRemove = game.user.isGM || message.isOwner;
+
+  const byOp = new Map();
+  const add = (opId, pill, { removable = false, idx = null, legacyHalf = false, inert = false } = {}) => {
+    if (!byOp.has(opId)) byOp.set(opId, []);
+    byOp.get(opId).push({ pill, removable, idx, legacyHalf, inert });
+  };
+
+  for (const [opId, ov] of Object.entries(overrides)) {
+    const applied = apps[opId]?.status === 'applied';
+    if (Array.isArray(ov?.dstPills) && ov.dstPills.length) {
+      for (const x of damagePillDisplayList(ov.dstPills)) {
+        add(opId, x.pill, { removable: !applied, idx: x.idx, inert: x.inert });
+      }
+    } else if (ov?.dstHalf) {
+      add(opId, { kind: 'half', label: ov.dstModName ?? '', source: 'trigger' }, { removable: !applied, legacyHalf: true });
+    }
+  }
+
+  for (const [opId, rec] of Object.entries(apps)) {
+    if (rec?.status !== 'applied' || overrides[opId]) continue;
+    for (const p of rec.override?.dstPills ?? []) add(opId, p);
+  }
+
+  for (const fn of _providers) {
+    let extra = [];
+    try { extra = fn(message) ?? []; } catch (err) { console.error('DSCT | damage pill provider failed', err); }
+    for (const entry of extra) add(entry.opId, entry.pill);
+  }
+
+  for (const [opId, items] of byOp) {
+    for (const btn of root.querySelectorAll(`button[data-dstd-action="applyDamage"][data-operation-id="${opId}"]`)) {
+      const rowEl = _pillRowFor(btn);
+      if (!rowEl || rowEl.dataset.dsctPills === opId) continue;
+      rowEl.dataset.dsctPills = opId;
+      rowEl.innerHTML = '';
+      for (const it of items) {
+        const p = it.pill;
+        const span = document.createElement('button');
+        span.type = 'button';
+        span.className = `dsct-source-pill dsct-dmg-pill dsct-dpill-${p.kind}${it.inert ? ' dsct-dpill-inert' : ''}${p.enabled === false ? ' dsct-pill-disabled' : ''}`;
+        styleTypePill(span, p);
+        span.innerHTML = `<span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : ''}`;
+        if (p.srcTokenId) span.dataset.srcTokenId = p.srcTokenId;
+        let tooltip = it.inert
+          ? (p.kind === 'type' ? L('typeOverridden') : L('inert'))
+          : damagePillEffect(p);
+        if (it.removable && canRemove) {
+          span.classList.add('dsct-dmg-pill-removable');
+          span.dataset.dpillOp = opId;
+          span.dataset.dpillMsg = message.id;
+          if (!it.legacyHalf && it.idx != null) span.dataset.dpillIdx = String(it.idx);
+          tooltip += `<br>${L('removeTooltip')}`;
+        }
+        span.dataset.tooltip = tooltip;
+        rowEl.appendChild(span);
+      }
+    }
+  }
+}
+
+document.addEventListener('click', async (ev) => {
+  const pill = ev.target?.closest?.('.dsct-dmg-pill-removable[data-dpill-op]');
+  if (!pill) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  const msgId = pill.dataset.dpillMsg || pill.closest('li.chat-message')?.dataset?.messageId;
+  const message = msgId ? game.messages.get(msgId) : null;
+  if (!message || (!game.user.isGM && !message.isOwner)) return;
+  const opId = pill.dataset.dpillOp;
+  if (pill.dataset.dpillIdx != null) {
+    await _removeOverridePill(message, opId, Number(pill.dataset.dpillIdx));
+    return;
+  }
+  const state = message.getFlag(DSTD, 'state') ?? {};
+  if (!state.damageOverrides?.[opId]?.dstHalf) return;
+  await _replaceOverride(message, opId, null);
+}, { capture: true });
+
+document.addEventListener('click', (ev) => {
+  const btn = ev.target?.closest?.('button[data-dstd-action="editDamage"]');
+  if (!btn || !game.modules.get(DSTD)?.active || !getSetting('pillDamageEditor')) return;
+  const msgId = btn.closest('[data-message-id]')?.dataset?.messageId;
+  const message = msgId ? game.messages.get(msgId) : null;
+  if (!message) return;
+  if (!message.isOwner && !game.user.isGM) return;
+  ev.preventDefault();
+  ev.stopImmediatePropagation();
+  _openPillDamageEditor(message, btn).catch((err) => console.error('DSCT | pill damage editor:', err));
+}, { capture: true });
+
+export function registerDstdDamagePills() {
+  if (!game.modules.get(DSTD)?.active) return;
+
+  Hooks.on('renderChatMessageHTML', (message, html) => {
+    const root = html instanceof HTMLElement ? html : html?.[0];
+    if (!root) return;
+    const msgId = message.id;
+    const inject = () => {
+      const live = root.isConnected
+        ? root
+        : (root.ownerDocument.querySelector(`li.chat-message[data-message-id="${msgId}"]`) ?? root);
+      injectDamagePills(message, live);
+    };
+    setTimeout(inject, 0);
+    setTimeout(inject, 300);
+  });
+
+  const observerCallback = (mutations) => {
+    const toInject = new Set();
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+        if (node.classList?.contains('dsct-dmg-pills-row')) continue;
+        if (node.matches?.(`.${DSTD}-target-row`) || node.querySelector?.(`.${DSTD}-target-row`)
+          || node.matches?.(`.${DSTD}-panel`) || node.querySelector?.(`.${DSTD}-panel`)) {
+          const li = node.closest?.('li.chat-message[data-message-id]');
+          if (li) toInject.add(li);
+        }
+      }
+    }
+    for (const li of toInject) {
+      const message = game.messages.get(li.dataset.messageId);
+      if (message) injectDamagePills(message, li);
+    }
+  };
+
+  const chatLog = document.querySelector('#chat-log') ?? document.querySelector('#chat') ?? document.body;
+  new MutationObserver(observerCallback).observe(chatLog, { childList: true, subtree: true });
+
+  Hooks.on('openDetachedWindow', (_id, win) => {
+    setTimeout(() => {
+      try {
+        const log = win.document.querySelector('#chat-log') ?? win.document.body;
+        new MutationObserver(observerCallback).observe(log, { childList: true, subtree: true });
+      } catch {}
+    }, 300);
+  });
+}

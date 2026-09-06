@@ -27,6 +27,11 @@ import { registerSystemPatches } from './system-patches.mjs';
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, runDstdUndoRevival } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
+import {
+  registerDstdDamagePills, openDamageEditor, foldDamagePills, damagePillDisplayList,
+  damagePillText, damagePillEffect, damagePillType, damageTypeLabel, styleTypePill,
+  registerDamagePillProvider,
+} from './compat/dstd-damage-pills.mjs';
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerCombatLogHooks } from './combat-logs.mjs';
 import { registerFlatEffects } from './ability-automation/flat-special-effects.mjs';
@@ -72,6 +77,17 @@ const api = {
   getStickBugged:   getStickBugged,
   isFMActive:       () => !!window._dsctFMActive,
   deathTrackerExcludedTypes,
+  damagePills: {
+    open: openDamageEditor,
+    fold: foldDamagePills,
+    displayList: damagePillDisplayList,
+    text: damagePillText,
+    effect: damagePillEffect,
+    pillType: damagePillType,
+    typeLabel: damageTypeLabel,
+    styleTypePill,
+    registerProvider: registerDamagePillProvider,
+  },
   socket:           null,
 };
 
@@ -109,6 +125,7 @@ Hooks.once('init', () => {
   registerFlatEffects();
   registerDstdCompat();
   registerDstdRollPills();
+  registerDstdDamagePills();
   registerHealthEstimateCompat();
   import('./test-features.mjs').then(m => { m.registerTestFeaturesSettings(); m.registerTestFeatureHooks(); }).catch(() => {});
   console.log('DSCT | Initialized');
