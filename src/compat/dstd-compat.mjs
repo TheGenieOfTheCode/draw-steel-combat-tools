@@ -155,9 +155,11 @@ export function registerDstdCompat() {
     if (!root) return;
     const msgId = message.id;
     setTimeout(() => {
-      
-      
-      const live = root.ownerDocument.querySelector(`li.chat-message[data-message-id="${msgId}"]`) ?? root;
+
+
+      const live = root.isConnected
+        ? root
+        : (root.ownerDocument.querySelector(`li.chat-message[data-message-id="${msgId}"]`) ?? root);
       _injectFmButtons(message, live);
       _injectMarkReminder(message, live);
     }, 0);

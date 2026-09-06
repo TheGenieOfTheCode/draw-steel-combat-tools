@@ -642,6 +642,14 @@ export const registerSettings = () => {
     name: L('rollDialogPillUI.name'), hint: L('rollDialogPillUI.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'dstdRollPills', {
+    name: L('dstdRollPills.name'), hint: L('dstdRollPills.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'dstdRollEditor', {
+    name: L('dstdRollEditor.name'), hint: L('dstdRollEditor.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'highGroundEnabled', {
     name: L('highGroundEnabled.name'), hint: L('highGroundEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

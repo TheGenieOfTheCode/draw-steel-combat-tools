@@ -537,6 +537,14 @@
         "name": "Alternative Ability Roll UI",
         "hint": "Replaces the standard ability roll UI with an enhanced variant which displays modifiers by name, sometimes with their sources. Includes various unimplemented situational banes and edges that exist within the rules."
       },
+      "dstdRollPills": {
+        "name": "Power Roll Pills in Chat",
+        "hint": "Shows each target's power roll modifiers as named pills under the roll result in ability messages. Rolls made through the Alternative Ability Roll UI keep their modifier names and sources, and retroactive roll edits appear as removable pills."
+      },
+      "dstdRollEditor": {
+        "name": "Pill Roll Editor",
+        "hint": "Replaces the edit roll window on ability messages with a compact pill editor in the Alternative Ability Roll UI style. Modifiers added there become removable pills under the roll."
+      },
       "highGroundEnabled": {
         "name": "High Ground Edge",
         "hint": "Shows a High Ground edge pill in the roll dialog when the attacker is standing on terrain at a higher elevation than the target."
@@ -894,6 +902,21 @@
         "modifierTitle": "Click to remove this modifier",
         "defaultName": "Forced Movement Modifier {n}"
       },
+      "rollEditor": {
+        "title": "Edit Roll: {name}",
+        "natural": "Natural roll: {natural}",
+        "totalTier": "Total {total}, Tier {tier}",
+        "critical": "(Critical)",
+        "disablePill": "Click to disable this modifier",
+        "enablePill": "Disabled. Click to re-enable this modifier",
+        "sessionPill": "Click to toggle. Right-click to remove",
+        "addPill": "Add modifier",
+        "edges": "Edges",
+        "banes": "Banes",
+        "bonuses": "Bonuses/Penalties",
+        "apply": "Apply",
+        "cancel": "Cancel"
+      },
       "int": {
         "noIllusion": "No illusion active",
         "appearance": "Appearance",
@@ -1163,6 +1186,9 @@
       "chat": {
         "modifierAlreadyApplied": "A modifier named \"{name}\" is already applied. Remove the existing one first or use a different name.",
         "presetExists": "A preset named \"{name}\" already exists. Shift+click the save button to overwrite it."
+      },
+      "rollPills": {
+        "noPermission": "You do not have permission to edit this roll."
       },
       "sys": {
         "noTargetForDamage": "No tokens targeted. Target one or more tokens before applying damage.",

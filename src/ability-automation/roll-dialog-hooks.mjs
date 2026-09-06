@@ -611,7 +611,7 @@ function _updateTotalSpan(fg, scope, kind, val) {
 
 const M_ID = 'draw-steel-combat-tools';
 
-class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
+export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     classes: ['dsct-add-modifier-dialog'],
     window: { title: 'Add Modifier', resizable: false },

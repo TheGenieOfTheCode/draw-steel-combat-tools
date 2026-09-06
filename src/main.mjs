@@ -26,6 +26,7 @@ import { registerSettings, registerCompatibilityChecks } from './settings/regist
 import { registerSystemPatches } from './system-patches.mjs';
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, runDstdUndoRevival } from './compat/dstd-compat.mjs';
+import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerCombatLogHooks } from './combat-logs.mjs';
 import { registerFlatEffects } from './ability-automation/flat-special-effects.mjs';
@@ -107,6 +108,7 @@ Hooks.once('init', () => {
   registerMaliceInjectors();
   registerFlatEffects();
   registerDstdCompat();
+  registerDstdRollPills();
   registerHealthEstimateCompat();
   import('./test-features.mjs').then(m => { m.registerTestFeaturesSettings(); m.registerTestFeatureHooks(); }).catch(() => {});
   console.log('DSCT | Initialized');

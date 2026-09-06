@@ -1,0 +1,33 @@
+<div class="dsct-re">
+  <div class="dsct-re-formula">{{formula}}</div>
+  <div class="dsct-re-total"></div>
+  {{#if dice.length}}
+  <div class="dsct-re-dice" title="{{localize "DSCT.panel.rollEditor.natural" natural=natural}}">
+    {{#each dice}}<img class="dsct-re-die-img" src="modules/draw-steel-combat-tools/icons/dice/die-{{this}}.png" alt="{{this}}">{{/each}}
+  </div>
+  {{else}}
+  <p class="dsct-re-natural">{{localize "DSCT.panel.rollEditor.natural" natural=natural}}</p>
+  {{/if}}
+
+  <div class="dsct-re-cols">
+    <div class="dsct-re-col">
+      <label>{{localize "DSCT.panel.rollEditor.edges"}}</label>
+      <div class="dsct-total-display dsct-total-zero" data-dsct-kind="edge">0</div>
+    </div>
+    <div class="dsct-re-col">
+      <label>{{localize "DSCT.panel.rollEditor.banes"}}</label>
+      <div class="dsct-total-display dsct-total-zero" data-dsct-kind="bane">0</div>
+    </div>
+    <div class="dsct-re-col">
+      <label>{{localize "DSCT.panel.rollEditor.bonuses"}}</label>
+      <div class="dsct-total-display dsct-total-zero" data-dsct-kind="bonus">+0</div>
+    </div>
+  </div>
+
+  <div class="dsct-mod-pills-row dsct-re-pills"></div>
+
+  <div class="dsct-re-footer">
+    <button type="button" data-action="apply"><i class="fa-solid fa-check"></i> {{localize "DSCT.panel.rollEditor.apply"}}</button>
+    <button type="button" data-action="cancel"><i class="fa-solid fa-xmark"></i> {{localize "DSCT.panel.rollEditor.cancel"}}</button>
+  </div>
+</div>

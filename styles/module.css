@@ -1331,6 +1331,92 @@ enriched-content[enricher="dsct.teleport"] {
 .dsct-source-pills:empty { display: none; }
 
 
+.dsct-roll-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin: 4px 0 2px;
+}
+.dsct-roll-pills-row:empty { display: none; }
+.dsct-roll-pills-row .dsct-source-pill {
+  padding: 3px 7px 4px;
+  min-width: 0;
+}
+.dsct-chat-pill-inert { cursor: default; }
+.dsct-chat-pill-inert:hover { filter: none; }
+.dsct-chat-pill-removable:hover {
+  filter: none;
+  background: rgba(180, 40, 40, 0.2);
+  text-decoration: line-through;
+}
+.dsct-chat-pill-toggle:hover:not(.dsct-pill-disabled) {
+  filter: none;
+  background: rgba(180, 40, 40, 0.2);
+  text-decoration: line-through;
+}
+.dsct-chat-pill-toggle.dsct-pill-disabled:hover { filter: brightness(1.3); }
+.dsct-roll-editor .dsct-re-base:hover:not(.dsct-pill-disabled) {
+  filter: none;
+  background: rgba(180, 40, 40, 0.2);
+  text-decoration: line-through;
+}
+.dsct-roll-editor .dsct-re-base.dsct-pill-disabled:hover { filter: brightness(1.3); }
+
+
+.dsct-roll-editor .dsct-re {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+.dsct-roll-editor .dsct-re-formula {
+  text-align: center;
+  font-weight: 700;
+  font-size: 15px;
+}
+.dsct-roll-editor .dsct-re-total {
+  text-align: center;
+  font-weight: 700;
+  color: var(--draw-steel-c-laserline, #d9c186);
+}
+.dsct-roll-editor .dsct-re-natural {
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+}
+.dsct-roll-editor .dsct-re-dice {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+.dsct-roll-editor .dsct-re-die-img {
+  width: 34px;
+  height: 34px;
+  border: none;
+}
+.dsct-roll-editor .dsct-re-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr;
+  gap: 8px;
+}
+.dsct-roll-editor .dsct-re-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dsct-roll-editor .dsct-re-col label {
+  font-size: 11px;
+  font-weight: 700;
+}
+.dsct-roll-editor .dsct-re-pills { min-height: 30px; }
+.dsct-roll-editor .dsct-re-footer {
+  display: flex;
+  gap: 6px;
+}
+.dsct-roll-editor .dsct-re-footer button { flex: 1; }
+
+
 .dsct-total-display {
   height: 24px;
   background: #221d28;

@@ -489,6 +489,8 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       'neutralizeEnrichers',
       'autoConfirmSelection',
       'rollDialogPillUI',
+      'dstdRollPills',
+      'dstdRollEditor',
       'enforceAbilityRange',
       'gmBypassRangeEnforcement',
       'aidAttackAutomation',
