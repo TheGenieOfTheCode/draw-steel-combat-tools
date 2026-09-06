@@ -162,18 +162,14 @@ function _buildOverride(basis, eff, dsctPills, dsctBaseOff, dsctGlobalOff = [], 
 }
 
 function _effectiveFrom(basis, o) {
+  
+  
+  
   const sums = { edge: 0, bane: 0, bonus: 0 };
-  
-  
-  
   for (const [i, p] of (o.basePills ?? []).entries()) {
-    if (p.removed) {
-      if (p.enabled !== false) sums[p.kind] = (sums[p.kind] ?? 0) - (Number(p.amount) || 0);
-      continue;
-    }
-    if (!o.baseOff?.has(i)) continue;
-    const sign = p.enabled === false ? 1 : -1;
-    sums[p.kind] = (sums[p.kind] ?? 0) + sign * (Number(p.amount) || 0);
+    if (p.removed) continue;
+    const active = (p.enabled !== false) !== !!o.baseOff?.has(i);
+    if (active) sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
   }
   for (const p of o.session ?? []) {
     if (p.enabled === false) continue;
@@ -186,20 +182,16 @@ function _effectiveFrom(basis, o) {
       sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
     }
     for (const [i, p] of ctx.globalBase.entries()) {
-      if (p.removed) {
-        if (p.enabled !== false) sums[p.kind] = (sums[p.kind] ?? 0) - (Number(p.amount) || 0);
-        continue;
-      }
+      if (p.removed) continue;
       const flipped = ctx.globalBaseOff.has(i) !== (o.globalBaseOff?.has(i) ?? false);
-      if (!flipped) continue;
-      const sign = p.enabled === false ? 1 : -1;
-      sums[p.kind] = (sums[p.kind] ?? 0) + sign * (Number(p.amount) || 0);
+      const active = (p.enabled !== false) !== flipped;
+      if (active) sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
     }
   }
   return {
-    edges: Math.max(0, Math.min(2, basis.edges + sums.edge)),
-    banes: Math.max(0, Math.min(2, basis.banes + sums.bane)),
-    bonuses: basis.bonuses + sums.bonus,
+    edges: Math.max(0, Math.min(2, sums.edge)),
+    banes: Math.max(0, Math.min(2, sums.bane)),
+    bonuses: sums.bonus,
   };
 }
 
