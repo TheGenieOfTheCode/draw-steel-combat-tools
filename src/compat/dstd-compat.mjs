@@ -634,6 +634,8 @@ function _syncRow(fmRow, applyBtn, undoBtn, modBtn, state, label) {
 async function _persistDstdState(message, subKey, state) {
   const stackData = (state.modStack ?? []).map(e => ({
     modState: e.modState, noteName: e.noteName, noteDesc: e.noteDesc,
+    noteSrc: e.noteSrc ?? null, srcTokenId: e.srcTokenId ?? null,
+    ...(e.enabled === false ? { enabled: false } : {}),
   }));
   const allState  = foundry.utils.deepClone(message.getFlag(M, 'dstdFmState') ?? {});
   allState[subKey] = { applied: state.applied, undoMsgId: state.undoMsgId ?? null, modStack: stackData };
@@ -1160,7 +1162,7 @@ async function _injectFmButtons(message, root) {
         
         const makePersistFn = () => async (_msgEl, stack) => {
           const cur     = _fmState.get(stateKey) ?? { applied: false, undoMsgId: null, modStack: [] };
-          const newMods = { ...cur, modStack: stack.map(e => ({ modState: e.modState, noteName: e.noteName, noteDesc: e.noteDesc })) };
+          const newMods = { ...cur, modStack: stack.map(e => ({ ...e })) };
           _fmState.set(stateKey, newMods);
           if (!newMods.applied) {
             const effState = _effectiveState(baseState, newMods.modStack);
@@ -1922,7 +1924,7 @@ async function _injectFmButtons(message, root) {
 
       const makePersisFlatFn = () => async (_msgEl, stack) => {
         const cur     = _fmState.get(stateKey) ?? { applied: false, undoMsgId: null, modStack: [] };
-        const newMods = { ...cur, modStack: stack.map(e => ({ modState: e.modState, noteName: e.noteName, noteDesc: e.noteDesc })) };
+        const newMods = { ...cur, modStack: stack.map(e => ({ ...e })) };
         _fmState.set(stateKey, newMods);
         if (!newMods.applied) {
           const effState = _effectiveState(baseState, newMods.modStack);

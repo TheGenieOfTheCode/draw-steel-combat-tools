@@ -402,7 +402,11 @@ function _registerButtonHooks() {
     const fmBtns = [...root.querySelectorAll('[data-dsct-action="dsct-fm"]')];
     if (fmBtns.length) {
       const savedMods  = _msg.getFlag(M, 'fmModifiers') ?? [];
-      const modStack   = savedMods.map(s => ({ modState: s.modState, noteName: s.noteName, noteDesc: s.noteDesc }));
+      const modStack   = savedMods.map(s => ({
+        modState: s.modState, noteName: s.noteName, noteDesc: s.noteDesc,
+        noteSrc: s.noteSrc ?? null, srcTokenId: s.srcTokenId ?? null,
+        ...(s.enabled === false ? { enabled: false } : {}),
+      }));
       const baseStates = fmBtns.map(btn => _fmBaseStateFromBtn(btn));
       const states     = baseStates.map(st => ({ ...st }));
 

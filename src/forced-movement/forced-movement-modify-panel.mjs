@@ -1,4 +1,4 @@
-import { getModuleApi } from '../helpers.mjs';
+﻿import { getModuleApi } from '../helpers.mjs';
 
 export const replayModifiers = (baseStates, stack, states) => {
   for (let i = 0; i < states.length; i++) {
@@ -16,6 +16,7 @@ export const replayModifiers = (baseStates, stack, states) => {
     st.ignoreStability          = base.ignoreStability;
     st.fastMove                 = base.fastMove;
     for (const entry of stack) {
+      if (entry.enabled === false) continue;
       const m = entry.modState[i];
       if (!m) continue;
       st.distance                  += m.distanceDelta;
@@ -43,7 +44,11 @@ export const persistStack = (msgEl, stack) => {
   if (!msgId) return;
   const msg = game.messages.get(msgId);
   if (!msg) return;
-  const stackData = stack.map(e => ({ modState: e.modState, noteName: e.noteName, noteDesc: e.noteDesc }));
+  const stackData = stack.map(e => ({
+    modState: e.modState, noteName: e.noteName, noteDesc: e.noteDesc,
+    noteSrc: e.noteSrc ?? null, srcTokenId: e.srcTokenId ?? null,
+    ...(e.enabled === false ? { enabled: false } : {}),
+  }));
   const api = getModuleApi();
   if (api?.socket) api.socket.executeAsGM('dsct.updateDocument', msg.uuid, { 'flags.draw-steel-combat-tools.fmModifiers': stackData });
   else msg.setFlag('draw-steel-combat-tools', 'fmModifiers', stackData);
@@ -72,28 +77,66 @@ const _buildModTooltip = (entry, baseStates) => {
   return summary ? `${summary}\n${'_'.repeat(24)}\n${hint}` : hint;
 };
 
+const _modEffectSummary = (entry, baseStates) => {
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const m = entry.modState[0];
+  const base = baseStates[0];
+  if (!m) return '';
+  const parts = [];
+  if (m.distanceDelta !== 0)                          parts.push(`${m.distanceDelta > 0 ? '+' : ''}${m.distanceDelta} Distance`);
+  if (m.movement !== base?.movement)                  parts.push(`→ ${cap(m.movement)}`);
+  if (m.vertical && !base?.vertical)                  parts.push('Vertical');
+  if (m.fallReduction !== (base?.fallReduction ?? 0)) parts.push(`Fall -${m.fallReduction}`);
+  if (m.noFallDamage)                                 parts.push('No Fall Dmg');
+  if (m.noCollisionDamage)                            parts.push('No Collision Dmg');
+  if (m.noMoverCollisionDamage)                       parts.push('No Mover Dmg');
+  if (m.noObstacleCollisionDamage)                    parts.push('No Obstacle Dmg');
+  if (m.ignoreStability)                              parts.push('Ignore Stability');
+  if (m.fastMove)                                     parts.push('Fast Path');
+  return parts.join(', ');
+};
+
 export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, btnEls, makeLabel, noteParent, msgEl, persistFn = persistStack) => {
   const { noteName, noteDesc } = entry;
-  const noteDiv = document.createElement('div');
-  noteDiv.className = 'dsct-fm-mod-note';
-  noteDiv.dataset.modifierName = noteName;
-  noteDiv.textContent = noteDesc ? `${noteName}: ${noteDesc}` : noteName;
-  noteDiv.title = _buildModTooltip(entry, baseStates);
-  noteDiv.style.cssText = 'font-size:11px;padding:3px 6px;margin-top:4px;border-radius:3px;cursor:pointer;border:1px dashed rgba(200,80,80,0.4);color:inherit;user-select:none;';
-  noteDiv.addEventListener('mouseenter', () => { noteDiv.style.background = 'rgba(180,40,40,0.2)'; noteDiv.style.textDecoration = 'line-through'; });
-  noteDiv.addEventListener('mouseleave', () => { noteDiv.style.background = ''; noteDiv.style.textDecoration = ''; });
-  noteDiv.addEventListener('click', () => {
-    const idx = modifierStack.indexOf(entry);
-    if (idx !== -1) modifierStack.splice(idx, 1);
+  const esc = foundry.utils.escapeHTML;
+  const pillBtn = document.createElement('button');
+  pillBtn.type = 'button';
+  pillBtn.className = `dsct-source-pill dsct-fm-pill dsct-pill-custom${entry.enabled === false ? ' dsct-pill-disabled' : ''}`;
+  pillBtn.dataset.modifierName = noteName;
+  if (entry.srcTokenId) pillBtn.dataset.srcTokenId = entry.srcTokenId;
+  const effectStr = _modEffectSummary(entry, baseStates);
+  const fromStr = entry.noteSrc ? `<span class="dsct-pill-from">from ${esc(entry.noteSrc)}</span>` : '';
+  pillBtn.innerHTML = `<span class="dsct-pip">${effectStr ? `${esc(effectStr)} &middot; ${esc(noteName)}` : esc(noteName)}</span>${fromStr}`;
+  const descLine = noteDesc ? `${noteDesc}\n` : '';
+  pillBtn.title = `${descLine}${_buildModTooltip(entry, baseStates)}`;
+
+  const refresh = () => {
     replayModifiers(baseStates, modifierStack, states);
     for (let i = 0; i < states.length; i++) {
       btnEls[i].innerHTML = `<i class="fa-solid fa-person-walking-arrow-right"></i> ${makeLabel(states[i])}`;
     }
-    noteDiv.remove();
     persistFn(msgEl, modifierStack);
+  };
+  pillBtn.addEventListener('click', () => {
+    entry.enabled = entry.enabled === false;
+    pillBtn.classList.toggle('dsct-pill-disabled', entry.enabled === false);
+    refresh();
   });
-  noteParent.appendChild(noteDiv);
-  return noteDiv;
+  pillBtn.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const idx = modifierStack.indexOf(entry);
+    if (idx !== -1) modifierStack.splice(idx, 1);
+    pillBtn.remove();
+    refresh();
+  });
+  let row = noteParent.querySelector(':scope > .dsct-fm-pills-row');
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'dsct-fm-pills-row';
+    noteParent.appendChild(row);
+  }
+  row.appendChild(pillBtn);
+  return pillBtn;
 };
 
 export class FmModifyPanel extends ds.applications.api.DSApplication {
@@ -129,9 +172,10 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
     const root    = this.element;
     const rawName = root.querySelector('[data-field="note-name"]')?.value?.trim() ?? '';
     const rawDesc = root.querySelector('[data-field="note-desc"]')?.value?.trim() ?? '';
+    const rawSrc  = root.querySelector('[data-field="note-src"]')?.value?.trim() ?? '';
 
     if (rawName && this._msgEl) {
-      const existingNames = [...this._msgEl.querySelectorAll('.dsct-fm-mod-note[data-modifier-name]')]
+      const existingNames = [...this._msgEl.querySelectorAll('.dsct-fm-pill[data-modifier-name]')]
         .map(n => n.dataset.modifierName);
       if (existingNames.includes(rawName)) {
         ui.notifications.error(game.i18n.format('DSCT.notice.chat.modifierAlreadyApplied', { name: rawName }));
@@ -158,9 +202,10 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
       };
     });
 
-    const existing = this._msgEl?.querySelectorAll('.dsct-fm-mod-note').length ?? 0;
+    const existing = this._msgEl?.querySelectorAll('.dsct-fm-pill').length ?? 0;
     const noteName = rawName || game.i18n.format('DSCT.panel.modFm.defaultName', { n: existing + 1 });
-    const entry    = { modState, noteName, noteDesc: rawDesc };
+    const srcToken = rawSrc ? canvas.tokens?.placeables.find(t => t.name === rawSrc) ?? null : null;
+    const entry    = { modState, noteName, noteDesc: rawDesc, noteSrc: rawSrc || null, srcTokenId: srcToken?.id ?? null };
     this._modifierStack.push(entry);
     console.log(`DSCT | FmModifyPanel apply-mod | stack depth now=${this._modifierStack.length}`);
     replayModifiers(this._baseStates, this._modifierStack, this._states);
@@ -293,7 +338,9 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
     const fillFromPreset = (root, preset) => {
       const nameEl = root.querySelector('[data-field="note-name"]');
       const descEl = root.querySelector('[data-field="note-desc"]');
+      const srcEl  = root.querySelector('[data-field="note-src"]');
       if (nameEl) nameEl.value = preset.noteName ?? '';
+      if (srcEl)  srcEl.value  = preset.noteSrc ?? '';
       if (descEl) { descEl.value = preset.noteDesc ?? ''; descEl.style.height = 'auto'; descEl.style.height = descEl.scrollHeight + 'px'; }
       for (let i = 0; i < this._states.length; i++) {
         const m = preset.modState[i];
@@ -340,6 +387,12 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
     });
 
     this.element.addEventListener('click', e => {
+      if (e.target.closest('.dsct-amw-target-fill')) {
+        const t = game.user.targets.first();
+        const srcEl = this.element.querySelector('[data-field="note-src"]');
+        if (t && srcEl) srcEl.value = t.name;
+        return;
+      }
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
       const action = btn.dataset.action;
@@ -349,6 +402,7 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
         const presets  = loadPresets();
         const noteName = root.querySelector('[data-field="note-name"]')?.value?.trim() ?? '';
         const noteDesc = root.querySelector('[data-field="note-desc"]')?.value?.trim() ?? '';
+        const noteSrc  = root.querySelector('[data-field="note-src"]')?.value?.trim() ?? '';
         const name     = noteName || `Preset ${presets.length + 1}`;
 
         const existingIdx = presets.findIndex(pr => pr.name === name);
@@ -377,13 +431,13 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
         });
 
         if (existingIdx !== -1) {
-          presets[existingIdx] = { name, noteName, noteDesc, modState };
+          presets[existingIdx] = { name, noteName, noteDesc, noteSrc, modState };
           savePresets(presets);
           rebuildDropdown(presets, existingIdx);
           updateSaveShift(false);
           console.log(`DSCT | FM presets | overwriting "${name}" at idx=${existingIdx}`);
         } else {
-          presets.push({ name, noteName, noteDesc, modState });
+          presets.push({ name, noteName, noteDesc, noteSrc, modState });
           savePresets(presets);
           rebuildDropdown(presets, presets.length - 1);
           console.log(`DSCT | FM presets | saved "${name}" (total=${presets.length})`);

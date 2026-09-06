@@ -1322,6 +1322,26 @@ enriched-content[enricher="dsct.teleport"] {
 .dsct-source-pill:hover { filter: brightness(1.2); }
 .dsct-source-pill.dsct-pill-custom { border-style: dashed; }
 
+.dsct-fm-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin: 4px 0 0;
+}
+.dsct-fm-pills-row:empty { display: none; }
+.dsct-fm-pills-row .dsct-source-pill {
+  padding: 3px 7px 4px;
+  min-width: 0;
+}
+.dsct-fm-pill {
+  border-color: rgba(207, 106, 95, 0.6);
+  color: #cf6a5f;
+  background: rgba(207, 106, 95, 0.08);
+}
+
+.dsct-dmg-pill-live { cursor: pointer; }
+
 .dsct-source-pills {
   display: flex;
   flex-wrap: wrap;
@@ -1716,6 +1736,19 @@ enriched-content[enricher="dsct.teleport"] {
   color: var(--draw-steel-c-laserline, #d9c186);
 }
 
+
+.dsct-fm-src-wrap { position: relative; display: inline-flex; align-items: center; }
+.dsct-fm-src-wrap .dsct-fm-src-fill {
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  bottom: 1px;
+  height: auto;
+  padding: 0 4px;
+  font-size: 11px;
+  z-index: 1;
+}
+.dsct-fm-src-wrap .dsct-fm-src-input { padding-right: 22px; }
 
 .dsct-amw-source-actor { display: flex; gap: 4px; }
 .dsct-amw-source-actor input { flex: 1; }

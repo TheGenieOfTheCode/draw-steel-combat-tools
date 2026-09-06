@@ -907,12 +907,13 @@
       "modFm": {
         "logEntry": "Log Entry",
         "name": "Name",
+        "source": "Source",
         "description": "Description",
         "presets": "Presets",
         "noPreset": "(No Preset)",
         "apply": "Apply",
-        "modifierTitle": "Click to remove this modifier",
-        "defaultName": "Forced Movement Modifier {n}"
+        "modifierTitle": "Click to toggle. Right-click to remove",
+        "defaultName": "FM Modifier {n}"
       },
       "damagePills": {
         "title": "Edit Damage",
@@ -923,6 +924,7 @@
         "addModifier": "Add Modifier",
         "sessionPill": "Click to toggle. Right-click to remove",
         "removeTooltip": "Click to remove",
+        "toggleTooltip": "Click to toggle",
         "inert": "No effect",
         "suffixHalf": "half",
         "suffixDouble": "double",

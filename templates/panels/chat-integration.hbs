@@ -6,6 +6,15 @@
       <div class="dsct-section-label">{{localize "DSCT.panel.modFm.name"}}</div>
       <input type="text" data-field="note-name" placeholder="Optional" class="dsct-fm-name-input">
     </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="dsct-section-label">{{localize "DSCT.panel.modFm.source"}}</div>
+      <div class="dsct-fm-src-wrap">
+        <button type="button" class="dsct-amw-target-fill dsct-fm-src-fill" title="{{localize "DSCT.panel.damagePills.targetFill"}}">
+          <i class="fa-solid fa-bullseye-pointer"></i>
+        </button>
+        <input type="text" data-field="note-src" placeholder="Optional" class="dsct-fm-name-input dsct-fm-src-input">
+      </div>
+    </div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div class="dsct-section-label" style="padding-top:4px;">{{localize "DSCT.panel.modFm.description"}}</div>
       <textarea data-field="note-desc" placeholder="Optional" rows="2" class="dsct-fm-desc-textarea"
