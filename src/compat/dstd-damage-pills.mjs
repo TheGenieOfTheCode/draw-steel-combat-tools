@@ -529,6 +529,33 @@ function _pillRowFor(btn) {
   return rowEl;
 }
 
+function _multSuffixText(halves, doubles) {
+  const sup = (n) => n > 1 ? String(n).replace(/\d/g, (d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]) : '';
+  const parts = [];
+  if (halves) parts.push(L('suffixHalf') + sup(halves));
+  if (doubles) parts.push(L('suffixDouble') + sup(doubles));
+  return parts.length ? ` (${parts.join(' ')})` : '';
+}
+
+function _multSuffixFor(pills) {
+  let halves = 0;
+  let doubles = 0;
+  for (const x of damagePillDisplayList(pills)) {
+    if (x.inert || x.pill.enabled === false) continue;
+    if (x.pill.kind === 'half') halves++;
+    else if (x.pill.kind === 'double') doubles++;
+  }
+  return _multSuffixText(halves, doubles);
+}
+
+function _applyMultSuffix(btn, suffix) {
+  const span = btn.querySelector('span');
+  if (!span || span.dataset.dsctMultSuffix === suffix) return;
+  if (span.dataset.dsctBaseLabel == null) span.dataset.dsctBaseLabel = span.textContent;
+  span.dataset.dsctMultSuffix = suffix;
+  span.textContent = span.dataset.dsctBaseLabel + suffix;
+}
+
 export function injectDamagePills(message, root) {
   if (!game.modules.get(DSTD)?.active) return;
   const overrides = foundry.utils.getProperty(message.flags, `${DSTD}.state.damageOverrides`) ?? {};
@@ -540,6 +567,7 @@ export function injectDamagePills(message, root) {
     if (!byOp.has(opId)) byOp.set(opId, []);
     byOp.get(opId).push({ pill, removable, idx, legacyHalf, inert });
   };
+  const suffixByOp = new Map();
 
   for (const [opId, ov] of Object.entries(overrides)) {
     const applied = apps[opId]?.status === 'applied';
@@ -547,6 +575,7 @@ export function injectDamagePills(message, root) {
       for (const x of damagePillDisplayList(ov.dstPills)) {
         add(opId, x.pill, { removable: !applied, idx: x.idx, inert: x.inert });
       }
+      suffixByOp.set(opId, _multSuffixFor(ov.dstPills));
     } else if (ov?.dstHalf) {
       add(opId, { kind: 'half', label: ov.dstModName ?? '', source: 'trigger' }, { removable: !applied, legacyHalf: true });
     }
@@ -554,7 +583,9 @@ export function injectDamagePills(message, root) {
 
   for (const [opId, rec] of Object.entries(apps)) {
     if (rec?.status !== 'applied' || overrides[opId]) continue;
-    for (const p of rec.override?.dstPills ?? []) add(opId, p);
+    const recPills = rec.override?.dstPills ?? [];
+    for (const p of recPills) add(opId, p);
+    if (recPills.length) suffixByOp.set(opId, _multSuffixFor(recPills));
   }
 
   for (const fn of _providers) {
@@ -565,6 +596,7 @@ export function injectDamagePills(message, root) {
 
   for (const [opId, items] of byOp) {
     for (const btn of root.querySelectorAll(`button[data-dstd-action="applyDamage"][data-operation-id="${opId}"]`)) {
+      _applyMultSuffix(btn, suffixByOp.get(opId) ?? '');
       const rowEl = _pillRowFor(btn);
       if (!rowEl || rowEl.dataset.dsctPills === opId) continue;
       rowEl.dataset.dsctPills = opId;

@@ -924,6 +924,8 @@
         "sessionPill": "Click to toggle. Right-click to remove",
         "removeTooltip": "Click to remove",
         "inert": "No effect",
+        "suffixHalf": "half",
+        "suffixDouble": "double",
         "typeOverridden": "Overridden by a later damage type",
         "half": "Half",
         "double": "Double",
