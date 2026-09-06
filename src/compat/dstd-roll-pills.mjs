@@ -28,6 +28,63 @@ function _findTargetRoll(message, target) {
   return null;
 }
 
+function _findBaseRoll(message) {
+  const parts = Array.from(message.system?.parts?.contents ?? [])
+    .filter(p => Array.from(p.rolls ?? []).some(_isPowerRoll));
+  for (const part of parts) {
+    const roll = Array.from(part.rolls ?? []).reverse().find(r => _isPowerRoll(r) && !r?.options?.target);
+    if (roll) return roll;
+  }
+  return parts.length ? Array.from(parts[0].rolls).reverse().find(_isPowerRoll) ?? null : null;
+}
+
+function _globalPills(message) {
+  const list = message.getFlag(M, 'rollGlobalPills');
+  return Array.isArray(list) ? list.map(p => ({ ...p })) : [];
+}
+
+function _overrideGlobalOff(override) {
+  return new Set(Array.isArray(override?.dsctGlobalOff) ? override.dsctGlobalOff : []);
+}
+
+function _activeGlobals(globalPills, globalOff) {
+  return globalPills.filter(p => p.enabled !== false && !globalOff.has(p.id)).length;
+}
+
+function _msgGlobalBaseOff(message) {
+  const list = message.getFlag(M, 'rollGlobalBaseOff');
+  return new Set(Array.isArray(list) ? list : []);
+}
+
+function _overrideGlobalBaseOff(override) {
+  return new Set(Array.isArray(override?.dsctGlobalBaseOff) ? override.dsctGlobalBaseOff : []);
+}
+
+function _globalBasePills(message, prov) {
+  const baseRoll = _findBaseRoll(message);
+  if (!baseRoll) return [];
+  const pills = (prov?.global ?? []).map(p => ({ ...p }));
+  const sums = { edge: 0, bane: 0, bonus: 0 };
+  for (const p of pills) sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
+  const re  = Number(baseRoll.options?.edges ?? 0)   - sums.edge;
+  const rb  = Number(baseRoll.options?.banes ?? 0)   - sums.bane;
+  const rbo = Number(baseRoll.options?.bonuses ?? 0) - sums.bonus;
+  if (re > 0)  pills.push({ kind: 'edge',  amount: re,  reason: 'Rolled', src: null });
+  if (rb > 0)  pills.push({ kind: 'bane',  amount: rb,  reason: 'Rolled', src: null });
+  if (rbo)     pills.push({ kind: 'bonus', amount: rbo, reason: 'Rolled', src: null });
+  return pills;
+}
+
+function _rollCtx(message, state, prov) {
+  const grouped = (state?.targets?.length ?? 0) > 1;
+  return {
+    grouped,
+    globalBase: grouped ? _globalBasePills(message, prov) : [],
+    globalBaseOff: _msgGlobalBaseOff(message),
+    globalPills: _globalPills(message),
+  };
+}
+
 function _diceResults(powerRoll) {
   try {
     const die = powerRoll?.dice?.[0] ?? powerRoll?.terms?.find(t => t?.faces === 10);
@@ -80,7 +137,7 @@ function _rollBasis(powerRoll, override = null) {
   };
 }
 
-function _buildOverride(basis, eff, dsctPills, dsctBaseOff) {
+function _buildOverride(basis, eff, dsctPills, dsctBaseOff, dsctGlobalOff = [], dsctGlobalBaseOff = []) {
   const edges = Math.max(0, Math.min(2, eff.edges));
   const banes = Math.max(0, Math.min(2, eff.banes));
   const net = edges - banes;
@@ -96,17 +153,31 @@ function _buildOverride(basis, eff, dsctPills, dsctBaseOff) {
     isCritical: basis.naturalTotal >= basis.criticalThreshold,
     dsctPills,
     dsctBaseOff,
+    dsctGlobalOff,
+    dsctGlobalBaseOff,
   };
 }
 
-function _effectiveFrom(basis, basePills, baseOff, session) {
+function _effectiveFrom(basis, o) {
   const sums = { edge: 0, bane: 0, bonus: 0 };
-  for (const [i, p] of basePills.entries()) {
-    if (baseOff.has(i)) sums[p.kind] = (sums[p.kind] ?? 0) - (Number(p.amount) || 0);
+  for (const [i, p] of (o.basePills ?? []).entries()) {
+    if (o.baseOff?.has(i)) sums[p.kind] = (sums[p.kind] ?? 0) - (Number(p.amount) || 0);
   }
-  for (const p of session) {
+  for (const p of o.session ?? []) {
     if (p.enabled === false) continue;
     sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
+  }
+  const ctx = o.ctx;
+  if (ctx) {
+    for (const p of ctx.globalPills) {
+      if (p.enabled === false || o.globalOff?.has(p.id)) continue;
+      sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
+    }
+    for (const [i, p] of ctx.globalBase.entries()) {
+      if (ctx.globalBaseOff.has(i) || o.globalBaseOff?.has(i)) {
+        sums[p.kind] = (sums[p.kind] ?? 0) - (Number(p.amount) || 0);
+      }
+    }
   }
   return {
     edges: Math.max(0, Math.min(2, basis.edges + sums.edge)),
@@ -159,7 +230,34 @@ function _chatPillHTML(p, msgId, targetKey) {
   let cls = `dsct-source-pill dsct-chat-roll-pill dsct-pill-${p.kind}`;
   let attrs = '';
   let title = `${_pillAmtStr(p)} on the power roll`;
-  if (p.removable) {
+  if (p.echo) {
+    cls += ' dsct-chat-pill-echo';
+    if (p.disabled) cls += ' dsct-pill-disabled';
+    if (p.clickable) {
+      attrs = p.gbase
+        ? ` data-gbecho-idx="${p.gbaseIdx}" data-msg-id="${msgId}" data-target-key="${targetKey}"`
+        : ` data-echo-id="${p.id}" data-msg-id="${msgId}" data-target-key="${targetKey}"`;
+      title += p.disabled
+        ? `\n${game.i18n.localize('DSCT.panel.rollEditor.echoPillOff')}`
+        : `\n${game.i18n.localize('DSCT.panel.rollEditor.echoPill')}`;
+    }
+  } else if (p.gbaseGlobal) {
+    cls += ' dsct-chat-pill-gbase';
+    if (p.disabled) cls += ' dsct-pill-disabled';
+    if (p.clickable) {
+      attrs = ` data-gbase-idx="${p.gbaseIdx}" data-msg-id="${msgId}"`;
+      title += p.disabled
+        ? `\n${game.i18n.localize('DSCT.panel.rollEditor.gbasePillOff')}`
+        : `\n${game.i18n.localize('DSCT.panel.rollEditor.gbasePill')}`;
+    }
+  } else if (p.globalPill) {
+    cls += ' dsct-chat-pill-global';
+    if (p.disabled) cls += ' dsct-pill-disabled';
+    if (p.clickable) {
+      attrs = ` data-global-id="${p.id}" data-msg-id="${msgId}"`;
+      title += `\n${game.i18n.localize('DSCT.panel.rollEditor.globalChatPill')}`;
+    }
+  } else if (p.removable) {
     cls += ' dsct-chat-pill-removable';
     if (p.disabled) cls += ' dsct-pill-disabled';
     attrs = ` data-remove-idx="${p.overrideIdx}" data-msg-id="${msgId}" data-target-key="${targetKey}"`;
@@ -195,12 +293,17 @@ function _overrideBaseOff(override) {
   return new Set(Array.isArray(override?.dsctBaseOff) ? override.dsctBaseOff : []);
 }
 
-function _basePills(roll, prov, target) {
+function _basePills(roll, prov, target, ctx = null) {
   const pills = [];
-  if (prov) {
-    for (const p of [...(prov.global ?? []), ...(prov.targets?.[target?.tokenUuid] ?? [])]) pills.push({ ...p });
+  const includeGlobal = !ctx?.grouped;
+  if (prov || (ctx?.grouped && ctx.globalBase.length)) {
+    if (includeGlobal) for (const p of prov?.global ?? []) pills.push({ ...p });
+    for (const p of prov?.targets?.[target?.tokenUuid] ?? []) pills.push({ ...p });
     const sums = { edge: 0, bane: 0, bonus: 0 };
     for (const p of pills) sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
+    if (ctx?.grouped) {
+      for (const p of ctx.globalBase) sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
+    }
     const re  = Number(roll.options?.edges ?? 0)   - sums.edge;
     const rb  = Number(roll.options?.banes ?? 0)   - sums.bane;
     const rbo = Number(roll.options?.bonuses ?? 0) - sums.bonus;
@@ -225,6 +328,7 @@ export function injectRollPills(message, root) {
   if (!state) return;
   const prov = message.getFlag(M, 'rollPills') ?? null;
   const canEdit = game.user.isGM || message.isOwner;
+  const ctx = _rollCtx(message, state, prov);
 
   for (const cog of root.querySelectorAll('button[data-dstd-action="editRoll"]')) {
     const rollLine = cog.closest(`.${DSTD}-roll-line`);
@@ -239,12 +343,24 @@ export function injectRollPills(message, root) {
 
     const override = state.tierOverrides?.[targetKey] ?? null;
     const baseOff = _overrideBaseOff(override);
-    const pills = _basePills(roll, prov, target).map((p, idx) => ({
+    const pills = _basePills(roll, prov, target, ctx).map((p, idx) => ({
       ...p, toggleable: canEdit, baseIdx: idx, disabled: baseOff.has(idx),
     }));
     _overrideSessionPills(roll, override).forEach((p, idx) => {
       pills.push({ ...p, removable: canEdit, overrideIdx: idx, disabled: p.enabled === false });
     });
+    if (ctx.grouped) {
+      const gbOff = _overrideGlobalBaseOff(override);
+      ctx.globalBase.forEach((p, idx) => {
+        if (ctx.globalBaseOff.has(idx)) return;
+        pills.push({ ...p, echo: true, clickable: canEdit, toggleable: false, gbase: true, gbaseIdx: idx, disabled: gbOff.has(idx) });
+      });
+      const globalOff = _overrideGlobalOff(override);
+      for (const p of ctx.globalPills) {
+        if (p.enabled === false) continue;
+        pills.push({ ...p, echo: true, clickable: canEdit, toggleable: false, disabled: globalOff.has(p.id) });
+      }
+    }
     if (!pills.length) continue;
 
     const row = document.createElement('div');
@@ -252,6 +368,35 @@ export function injectRollPills(message, root) {
     row.dataset.msgId = message.id;
     row.innerHTML = pills.map(p => _chatPillHTML(p, message.id, targetKey)).join('');
     rollLine.after(row);
+  }
+
+  const summary = root.querySelector(`.${DSTD}-base-roll-summary`);
+  if (summary && ctx.grouped) {
+    const rollLine = summary.querySelector(`.${DSTD}-roll-line`);
+    const baseRoll = _findBaseRoll(message);
+    if (rollLine && baseRoll) {
+      summary.querySelectorAll('.dsct-roll-pills-row').forEach(e => e.remove());
+      if (canEdit && getSetting('dstdRollEditor') && !rollLine.querySelector('.dsct-global-cog')) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `${DSTD}-icon-button ${DSTD}-cog-button dsct-global-cog`;
+        btn.dataset.dsctGlobalEdit = message.id;
+        btn.dataset.tooltip = game.i18n.localize('DSCT.panel.rollEditor.globalEdit');
+        btn.innerHTML = '<i class="fa-solid fa-gear"></i>';
+        rollLine.append(btn);
+      }
+      const gp = ctx.globalBase.map((p, idx) => ({
+        ...p, gbaseGlobal: true, clickable: canEdit, gbaseIdx: idx, disabled: ctx.globalBaseOff.has(idx),
+      }));
+      gp.push(...ctx.globalPills.map(p => ({ ...p, globalPill: true, clickable: canEdit, disabled: p.enabled === false })));
+      if (gp.length) {
+        const row = document.createElement('div');
+        row.className = 'dsct-roll-pills-row dsct-global-pills-row';
+        row.dataset.msgId = message.id;
+        row.innerHTML = gp.map(p => _chatPillHTML(p, message.id, '')).join('');
+        rollLine.after(row);
+      }
+    }
   }
 }
 
@@ -282,16 +427,69 @@ async function _mutateOverride(msgId, targetKey, mutate) {
   const roll = target ? _findTargetRoll(message, target) : null;
   if (!roll) return;
   const override = state.tierOverrides?.[targetKey] ?? null;
-  const basePills = _basePills(roll, message.getFlag(M, 'rollPills') ?? null, target);
+  const prov = message.getFlag(M, 'rollPills') ?? null;
+  const ctx = _rollCtx(message, state, prov);
+  const basePills = _basePills(roll, prov, target, ctx);
   const baseOff = _overrideBaseOff(override);
   const session = _overrideSessionPills(roll, override);
-  mutate({ baseOff, session });
-  if (!baseOff.size && !session.length) return _writeOverride(message, targetKey, null);
+  const globalOff = _overrideGlobalOff(override);
+  const globalBaseOff = _overrideGlobalBaseOff(override);
+  mutate({ baseOff, session, globalOff, globalBaseOff });
+  const stillNeeded = baseOff.size || session.length || globalOff.size || globalBaseOff.size
+    || _activeGlobals(ctx.globalPills, globalOff) || ctx.globalBaseOff.size;
+  if (!stillNeeded) return _writeOverride(message, targetKey, null);
   const basis = _rollBasis(roll, override);
-  const eff = _effectiveFrom(basis, basePills, baseOff, session);
-  const data = _buildOverride(basis, eff, session, [...baseOff]);
+  const eff = _effectiveFrom(basis, { basePills, baseOff, session, ctx, globalOff, globalBaseOff });
+  const data = _buildOverride(basis, eff, session, [...baseOff], [...globalOff], [...globalBaseOff]);
   if (override?.dstModName) data.dstModName = override.dstModName;
   return _writeOverride(message, targetKey, data);
+}
+
+async function _recomputeAllTargets(message, globalPills, globalBaseOffList = null) {
+  const state = message.getFlag(DSTD, 'state');
+  if (!state) return;
+  const prov = message.getFlag(M, 'rollPills') ?? null;
+  const FD = foundry.data?.operators?.ForcedDeletion;
+  const direct = game.user.isGM || message.isOwner;
+  const validIds = new Set(globalPills.map(p => p.id));
+  const msgGlobalBaseOff = globalBaseOffList != null ? [...globalBaseOffList] : [..._msgGlobalBaseOff(message)];
+  const ctx = _rollCtx(message, state, prov);
+  ctx.globalPills = globalPills.map(p => ({ ...p }));
+  ctx.globalBaseOff = new Set(msgGlobalBaseOff.filter(i => i < ctx.globalBase.length));
+  const payload = {
+    [`flags.${M}.rollGlobalPills`]: globalPills,
+    [`flags.${M}.rollGlobalBaseOff`]: [...ctx.globalBaseOff],
+    [`flags.${DSTD}.state.updatedAt`]: Date.now(),
+  };
+  for (const t of state.targets ?? []) {
+    const targetKey = _targetKey(t);
+    const roll = _findTargetRoll(message, t);
+    if (!roll) continue;
+    const override = state.tierOverrides?.[targetKey] ?? null;
+    const baseOff = _overrideBaseOff(override);
+    const session = _overrideSessionPills(roll, override);
+    const globalOff = new Set([..._overrideGlobalOff(override)].filter(id => validIds.has(id)));
+    const globalBaseOff = new Set([..._overrideGlobalBaseOff(override)].filter(i => i < ctx.globalBase.length && !ctx.globalBaseOff.has(i)));
+    const stillNeeded = baseOff.size || session.length || globalOff.size || globalBaseOff.size
+      || _activeGlobals(ctx.globalPills, globalOff) || ctx.globalBaseOff.size;
+    if (!stillNeeded) {
+      if (override) {
+        if (direct && FD) payload[`flags.${DSTD}.state.tierOverrides.${targetKey}`] = new FD();
+        else payload[`flags.${DSTD}.state.tierOverrides.-=${targetKey}`] = null;
+      }
+      continue;
+    }
+    const basis = _rollBasis(roll, override);
+    const basePills = _basePills(roll, prov, t, ctx);
+    const eff = _effectiveFrom(basis, { basePills, baseOff, session, ctx, globalOff, globalBaseOff });
+    const data = _buildOverride(basis, eff, session, [...baseOff], [...globalOff], [...globalBaseOff]);
+    if (override?.dstModName) data.dstModName = override.dstModName;
+    payload[`flags.${DSTD}.state.tierOverrides.${targetKey}`] = data;
+  }
+  if (direct) return message.update(payload);
+  const api = getModuleApi(false);
+  if (api?.socket) return api.socket.executeAsGM('dsct.updateDocument', message.uuid, payload);
+  ui.notifications.warn(game.i18n.localize('DSCT.notice.rollPills.noPermission'));
 }
 
 function _findTargetForKey(message, state, targetKey) {
@@ -314,23 +512,45 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
   constructor(message, target, roll, options = {}) {
     super(options);
     this._message  = message;
+    this._global   = !!options.globalMode;
     this._target   = target;
     this._roll     = roll;
-    this._targetKey = _targetKey(target);
+    this._targetKey = this._global ? null : _targetKey(target);
     const state    = message.getFlag(DSTD, 'state');
-    this._override = state?.tierOverrides?.[this._targetKey] ?? null;
+    this._override = this._global ? null : (state?.tierOverrides?.[this._targetKey] ?? null);
     this._basis    = _rollBasis(roll, this._override);
-    this._session  = _overrideSessionPills(roll, this._override);
-    this._baseOff  = _overrideBaseOff(this._override);
-    this._basePills = _basePills(roll, message.getFlag(M, 'rollPills') ?? null, target);
+    const prov     = message.getFlag(M, 'rollPills') ?? null;
+    this._ctx      = _rollCtx(message, state, prov);
+    if (this._global) {
+      this._session = _globalPills(message);
+      this._baseOff = new Set(this._ctx.globalBaseOff);
+      this._globalOff = new Set();
+      this._globalBaseOffT = new Set();
+      this._basePills = this._ctx.globalBase;
+    } else {
+      this._session = _overrideSessionPills(roll, this._override);
+      this._baseOff = _overrideBaseOff(this._override);
+      this._globalOff = _overrideGlobalOff(this._override);
+      this._globalBaseOffT = _overrideGlobalBaseOff(this._override);
+      this._basePills = _basePills(roll, prov, target, this._ctx);
+    }
   }
 
   get title() {
+    if (this._global) return game.i18n.localize('DSCT.panel.rollEditor.globalTitle');
     return game.i18n.format('DSCT.panel.rollEditor.title', { name: this._target?.name ?? '' });
   }
 
   _effective() {
-    return _effectiveFrom(this._basis, this._basePills, this._baseOff, this._session);
+    if (this._global) {
+      return _effectiveFrom(this._basis, {
+        basePills: this._basePills, baseOff: this._baseOff, session: this._session,
+      });
+    }
+    return _effectiveFrom(this._basis, {
+      basePills: this._basePills, baseOff: this._baseOff, session: this._session, ctx: this._ctx,
+      globalOff: this._globalOff, globalBaseOff: this._globalBaseOffT,
+    });
   }
 
   async _prepareContext(_options) {
@@ -361,6 +581,22 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
       if (pillBtn) {
         const p = this._session[Number(pillBtn.dataset.sessionIdx)];
         if (p) p.enabled = p.enabled === false;
+        this._refresh();
+        return;
+      }
+      const gbEchoBtn = e.target.closest('.dsct-re-echo[data-gbecho-idx]');
+      if (gbEchoBtn) {
+        const idx = Number(gbEchoBtn.dataset.gbechoIdx);
+        if (this._globalBaseOffT.has(idx)) this._globalBaseOffT.delete(idx);
+        else this._globalBaseOffT.add(idx);
+        this._refresh();
+        return;
+      }
+      const echoBtn = e.target.closest('.dsct-re-echo[data-echo-id]');
+      if (echoBtn) {
+        const id = echoBtn.dataset.echoId;
+        if (this._globalOff.has(id)) this._globalOff.delete(id);
+        else this._globalOff.add(id);
         this._refresh();
         return;
       }
@@ -410,8 +646,8 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
     if (rowEl) {
       const base = this._basePills.map((p, idx) => {
         const off = this._baseOff.has(idx);
-        const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.enablePill' : 'DSCT.panel.rollEditor.disablePill');
         const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
+        const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.enablePill' : 'DSCT.panel.rollEditor.disablePill');
         return `<button type="button" class="dsct-source-pill dsct-re-base dsct-pill-${p.kind}${off ? ' dsct-pill-disabled' : ''}" data-base-idx="${idx}" title="${title}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
       });
       const session = this._session.map((p, idx) => {
@@ -419,21 +655,56 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
         const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
         return `<button type="button" class="dsct-source-pill dsct-re-pill dsct-pill-${p.kind} dsct-pill-custom${off ? ' dsct-pill-disabled' : ''}" data-session-idx="${idx}" title="${game.i18n.localize('DSCT.panel.rollEditor.sessionPill')}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
       });
-      const label = `<span class="dsct-pills-label">${foundry.utils.escapeHTML(this._target?.name ?? '')}</span>`;
+      const echoes = [];
+      if (!this._global && this._ctx.grouped) {
+        this._ctx.globalBase.forEach((p, idx) => {
+          if (this._ctx.globalBaseOff.has(idx)) return;
+          const off = this._globalBaseOffT.has(idx);
+          const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.echoPillOff' : 'DSCT.panel.rollEditor.echoPill');
+          const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
+          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${p.kind}${off ? ' dsct-pill-disabled' : ''}" data-gbecho-idx="${idx}" title="${title}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
+        });
+        for (const p of this._ctx.globalPills.filter(p => p.enabled !== false)) {
+          const off = this._globalOff.has(p.id);
+          const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.echoPillOff' : 'DSCT.panel.rollEditor.echoPill');
+          const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
+          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${p.kind}${off ? ' dsct-pill-disabled' : ''}" data-echo-id="${p.id}" title="${title}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
+        }
+      }
+      const labelText = this._global
+        ? game.i18n.localize('DSCT.panel.rollEditor.globalLabel')
+        : (this._target?.name ?? '');
+      const label = `<span class="dsct-pills-label">${foundry.utils.escapeHTML(labelText)}</span>`;
       const addBtn = `<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" title="${game.i18n.localize('DSCT.panel.rollEditor.addPill')}">+</button>`;
-      rowEl.innerHTML = `${label}${[...base, ...session].join('')}${addBtn}`;
+      rowEl.innerHTML = `${label}${[...base, ...session, ...echoes].join('')}${addBtn}`;
     }
     setTimeout(() => this.setPosition({ height: 'auto' }), 0);
   }
 
   async _apply() {
-    if (!this._session.length && !this._baseOff.size) {
+    if (this._global) {
+      const pills = this._session.map(p => ({
+        id: p.id ?? foundry.utils.randomID(),
+        kind: p.kind,
+        amount: p.amount,
+        reason: p.reason ?? '',
+        src: p.src ?? null,
+        ...(p.enabled === false ? { enabled: false } : {}),
+      }));
+      await _recomputeAllTargets(this._message, pills, [...this._baseOff]);
+      this.close();
+      return;
+    }
+    const keep = this._session.length || this._baseOff.size || this._globalOff.size
+      || this._globalBaseOffT.size || this._ctx.globalBaseOff.size
+      || _activeGlobals(this._ctx.globalPills, this._globalOff);
+    if (!keep) {
       if (this._override) await _writeOverride(this._message, this._targetKey, null);
       this.close();
       return;
     }
     const eff = this._effective();
-    const override = _buildOverride(this._basis, eff, this._session, [...this._baseOff]);
+    const override = _buildOverride(this._basis, eff, this._session, [...this._baseOff], [...this._globalOff], [...this._globalBaseOffT]);
     if (this._override?.dstModName) override.dstModName = this._override.dstModName;
     await _writeOverride(this._message, this._targetKey, override);
     this.close();
@@ -448,10 +719,13 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
 class RollEditorAddDialog extends DSCTAddModifierDialog {
   constructor(editor, options = {}) {
     const tokenId = editor._target?.tokenId ?? editor._target?.tokenUuid ?? 'target';
+    const name = editor._global
+      ? game.i18n.localize('DSCT.panel.rollEditor.globalLabel')
+      : (editor._target?.name ?? '');
     super({
       rendered: true,
       element: null,
-      options: { context: { targets: { [tokenId]: { token: { name: editor._target?.name ?? '' } } } } },
+      options: { context: { targets: { [tokenId]: { token: { name } } } } },
       _dsctSources: [],
       _dsctOrigTargets: {},
     }, tokenId, options);
@@ -469,6 +743,63 @@ class RollEditorAddDialog extends DSCTAddModifierDialog {
 }
 
 function _onDocumentClick(e) {
+  const gbEchoBtn = e.target.closest('.dsct-chat-pill-echo[data-gbecho-idx]');
+  if (gbEchoBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const idx = Number(gbEchoBtn.dataset.gbechoIdx);
+    _mutateOverride(gbEchoBtn.dataset.msgId, gbEchoBtn.dataset.targetKey, ({ globalBaseOff }) => {
+      if (globalBaseOff.has(idx)) globalBaseOff.delete(idx);
+      else globalBaseOff.add(idx);
+    }).catch(err => console.error('DSCT | roll pills | global base echo toggle failed', err));
+    return;
+  }
+  const gbaseBtn = e.target.closest('.dsct-chat-pill-gbase[data-gbase-idx]');
+  if (gbaseBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const message = game.messages.get(gbaseBtn.dataset.msgId);
+    if (!message) return;
+    const idx = Number(gbaseBtn.dataset.gbaseIdx);
+    const off = _msgGlobalBaseOff(message);
+    if (off.has(idx)) off.delete(idx);
+    else off.add(idx);
+    _recomputeAllTargets(message, _globalPills(message), [...off])
+      .catch(err => console.error('DSCT | roll pills | global base toggle failed', err));
+    return;
+  }
+  const echoBtn = e.target.closest('.dsct-chat-pill-echo[data-echo-id]');
+  if (echoBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const id = echoBtn.dataset.echoId;
+    _mutateOverride(echoBtn.dataset.msgId, echoBtn.dataset.targetKey, ({ globalOff }) => {
+      if (globalOff.has(id)) globalOff.delete(id);
+      else globalOff.add(id);
+    }).catch(err => console.error('DSCT | roll pills | echo toggle failed', err));
+    return;
+  }
+  const globalBtn = e.target.closest('.dsct-chat-pill-global[data-msg-id]');
+  if (globalBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const message = game.messages.get(globalBtn.dataset.msgId);
+    if (!message) return;
+    const remaining = _globalPills(message).filter(p => p.id !== globalBtn.dataset.globalId);
+    _recomputeAllTargets(message, remaining)
+      .catch(err => console.error('DSCT | roll pills | global remove failed', err));
+    return;
+  }
+  const gcog = e.target.closest('.dsct-global-cog[data-dsct-global-edit]');
+  if (gcog) {
+    e.preventDefault();
+    e.stopPropagation();
+    const message = game.messages.get(gcog.dataset.dsctGlobalEdit);
+    const baseRoll = message ? _findBaseRoll(message) : null;
+    if (!message || !baseRoll) return;
+    new DstdRollEditor(message, null, baseRoll, { globalMode: true }).render({ force: true });
+    return;
+  }
   const removeBtn = e.target.closest('.dsct-chat-pill-removable[data-msg-id]');
   if (removeBtn) {
     e.preventDefault();
