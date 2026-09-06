@@ -453,7 +453,7 @@ async function _resolveSurgeContext(message, state) {
 function _seedPillsFromOverride(ov) {
   if (Array.isArray(ov?.dstPills)) return ov.dstPills.map((p) => ({ ...p }));
   const seed = [];
-  if (ov?.dstHalf) seed.push({ kind: 'half', label: ov.dstModName ?? '', source: 'trigger' });
+  if (ov?.dstHalf) seed.push({ kind: 'half', label: ov.dstModName ?? '', src: ov.dstSrcName ?? null, srcTokenId: ov.dstSrcTokenId ?? null, source: 'trigger' });
   const surges = Number(ov?.surges ?? 0) || 0;
   for (let i = 0; i < surges; i++) seed.push({ kind: 'surge', value: Number(ov?.surgeDamage ?? 0) || 0, label: '', source: 'surge' });
   const bonus = Number(ov?.bonus ?? 0) || 0;
@@ -577,7 +577,7 @@ export function injectDamagePills(message, root) {
       }
       suffixByOp.set(opId, _multSuffixFor(ov.dstPills));
     } else if (ov?.dstHalf) {
-      add(opId, { kind: 'half', label: ov.dstModName ?? '', source: 'trigger' }, { removable: !applied, legacyHalf: true });
+      add(opId, { kind: 'half', label: ov.dstModName ?? '', src: ov.dstSrcName ?? null, srcTokenId: ov.dstSrcTokenId ?? null, source: 'trigger' }, { removable: !applied, legacyHalf: true });
     }
   }
 

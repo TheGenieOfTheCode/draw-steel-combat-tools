@@ -24,7 +24,7 @@ import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-sha
 import { registerDefeatedTokenVisibility } from './death-tracker/defeated-token-visibility.mjs';
 import { registerSettings, registerCompatibilityChecks } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
-import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill } from './ability-automation/roll-dialog-hooks.mjs';
+import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, runDstdUndoRevival } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
 import {
@@ -87,6 +87,9 @@ const api = {
     typeLabel: damageTypeLabel,
     styleTypePill,
     registerProvider: registerDamagePillProvider,
+  },
+  rollDialog: {
+    addPill: addExternalRollPill,
   },
   socket:           null,
 };

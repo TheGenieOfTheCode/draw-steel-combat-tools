@@ -740,6 +740,16 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
   }
 }
 
+export function addExternalRollPill(app, { kind, amount = 1, reason, src = null, srcTokenId = null, scope = 'global' } = {}) {
+  if (!app?._dsctSources || !kind || !reason) return false;
+  const p = pill(mkId('ext'), kind, amount, reason, src, scope, false);
+  p.srcTokenId = srcTokenId;
+  app._dsctSources.push(p);
+  _recomputeAndSync(app);
+  if (app.rendered) _injectPillUI(app);
+  return true;
+}
+
 function _refreshTauntedPill(app) {
   if (!getSetting('tauntedEnabled')) return;
   const ability = app.options.ability;
