@@ -6,9 +6,10 @@ import {
 } from './helpers.mjs';
 import { endGrab, applyGrab } from './conditions/grab.mjs';
 import { runSourcePicker } from './ability-automation/target-picker.mjs';
+import { beginPickerOverlay } from './ability-automation/picker-overlay.mjs';
 
 
-const chooseTeleportSquare = (sourceToken, maxDist) => new Promise((resolve) => {
+const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null) => new Promise((resolve) => {
   const GRID    = getGRID();
   const w       = sourceToken.document.width ?? 1;
   const h       = sourceToken.document.height ?? 1;
@@ -111,34 +112,37 @@ const chooseTeleportSquare = (sourceToken, maxDist) => new Promise((resolve) => 
   const graphics = new PIXI.Graphics();
   canvas.app.stage.addChild(graphics);
 
+  const hoverColor = typeof phaseColor === 'string'
+    ? parseInt(phaseColor.replace('#', ''), 16)
+    : (phaseColor ?? 0xaa33ff);
+
+  
+  
+  
   const redraw = (hoverGrid) => {
     graphics.clear();
-
-    const rangeCells  = new Map();
-    for (const g of candidates) {
-      for (let ix = 0; ix < w; ix++) {
-        for (let iy = 0; iy < h; iy++) {
-          const key = `${g.x + ix},${g.y + iy}`;
-          if (!rangeCells.has(key)) rangeCells.set(key, g.isOnTerrain);
-          else if (g.isOnTerrain) rangeCells.set(key, true);
-        }
-      }
-    }
-
-    for (const [key, onTerrain] of rangeCells) {
-      const [cx, cy] = key.split(',').map(Number);
-      graphics.beginFill(onTerrain ? 0x00d4ff : 0xaa33ff, 0.2);
-      graphics.drawRect(cx * GRID, cy * GRID, GRID, GRID);
-      graphics.endFill();
-    }
-
     if (hoverGrid) {
-      const color = hoverGrid.isOnTerrain ? 0x00d4ff : 0xaa33ff;
+      const color = hoverGrid.isOnTerrain ? 0x00d4ff : hoverColor;
       graphics.beginFill(color, 0.5);
       graphics.drawRect(hoverGrid.x * GRID, hoverGrid.y * GRID, GRID * w, GRID * h);
       graphics.endFill();
     }
   };
+
+  const holeRects = [{ x: sourceToken.x, y: sourceToken.y, w: w * GRID, h: h * GRID }];
+  {
+    const seen = new Set();
+    for (const g of candidates) {
+      for (let ix = 0; ix < w; ix++) {
+        for (let iy = 0; iy < h; iy++) {
+          const key = `${g.x + ix},${g.y + iy}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          holeRects.push({ x: (g.x + ix) * GRID, y: (g.y + iy) * GRID, w: GRID, h: GRID });
+        }
+      }
+    }
+  }
 
   const overlay = new PIXI.Container();
   overlay.interactive = true;
@@ -169,10 +173,10 @@ const chooseTeleportSquare = (sourceToken, maxDist) => new Promise((resolve) => 
     resolve(chosen);
   };
 
-  const onKeyDown = (e) => { if (e.key === 'Escape') { cleanup(); resolve(null); } };
+  const onKeyDown = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup(); resolve(null); } };
   const onContextMenu = (e) => { e.preventDefault(); };
 
-  let tpNotif = null;
+  let tpOverlay = null;
   const cleanup = () => {
     overlay.off('pointermove', onMove);
     overlay.off('pointerdown', onClick);
@@ -182,7 +186,8 @@ const chooseTeleportSquare = (sourceToken, maxDist) => new Promise((resolve) => 
     canvas.app.stage.removeChild(graphics);
     graphics.destroy();
     overlay.destroy();
-    if (tpNotif) { ui.notifications.remove(tpNotif); tpNotif = null; }
+    tpOverlay?.end();
+    tpOverlay = null;
   };
 
   overlay.on('pointermove', onMove);
@@ -190,11 +195,17 @@ const chooseTeleportSquare = (sourceToken, maxDist) => new Promise((resolve) => 
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('contextmenu', onContextMenu);
   redraw(null);
-  tpNotif = ui.notifications.info(game.i18n.format('DSCT.notice.tp.chooseDestination', { name: sourceToken.name }), { permanent: true });
+  tpOverlay = beginPickerOverlay({
+    title: `${game.i18n.localize('DSCT.picker.titleTeleport')} ${maxDist}`,
+    status: game.i18n.format('DSCT.notice.tp.chooseDestination', { name: sourceToken.name }),
+    holeRects,
+    showConfirm: false,
+    onCancel: () => { cleanup(); resolve(null); },
+  });
 });
 
 const executeTeleport = async (token, distance, animate, colorHex, animDuration = 600) => {
-   const chosenGrid = await chooseTeleportSquare(token, distance);
+   const chosenGrid = await chooseTeleportSquare(token, distance, colorHex);
    if (!chosenGrid) return; 
 
    const origWorld = { x: token.document.x, y: token.document.y, elevation: token.document.elevation ?? 0 };

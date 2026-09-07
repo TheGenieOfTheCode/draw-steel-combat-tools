@@ -25,6 +25,7 @@ import {
 import { toggleForcedMovementPanel } from './forced-movement-panel.mjs';
 import { VerticalDistancePopup } from './forced-movement-vertical-popup.mjs';
 import { runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
+import { beginPickerOverlay } from '../ability-automation/picker-overlay.mjs';
 
 let _fmGateBypass = false;
 
@@ -524,12 +525,45 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       };
       let { reachable: rangeHighlight, wallReachable } = computeRangeHighlight(startGrid, reduced);
 
+      let fmOverlay = null;
+      let updateFmHoles = null;
+
+      const fmHoleRects = () => {
+        const rects = [];
+        const cellRect = (gx, gy) => {
+          const w = toWorld({ x: gx, y: gy });
+          return { x: w.x, y: w.y, w: GRID, h: GRID };
+        };
+        for (let ix = 0; ix < tokenSize; ix++)
+          for (let iy = 0; iy < tokenSize; iy++)
+            rects.push(cellRect(startGrid.x + ix, startGrid.y + iy));
+        if (sourceToken?.document) {
+          rects.push({
+            x: sourceToken.x, y: sourceToken.y,
+            w: sourceToken.document.width * GRID, h: sourceToken.document.height * GRID,
+          });
+        }
+        for (const p of path) {
+          const cells = isLargeToken ? footprintCells(p.x, p.y, tokenSize) : [p];
+          for (const c of cells) rects.push(cellRect(c.x, c.y));
+        }
+        for (const set of [rangeHighlight, wallReachable]) {
+          for (const k of set) {
+            const [gx, gy] = k.split(',').map(Number);
+            const cells = isLargeToken ? footprintCells(gx, gy, tokenSize) : [{ x: gx, y: gy }];
+            for (const c of cells) rects.push(cellRect(c.x, c.y));
+          }
+        }
+        return rects;
+      };
+
       const recomputeRange = () => {
         const from      = path.length > 0 ? path[path.length - 1] : startGrid;
         const stepsLeft = reduced - path.length;
         const result    = computeRangeHighlight(from, stepsLeft);
         rangeHighlight  = result.reachable;
         wallReachable   = result.wallReachable;
+        updateFmHoles?.();
       };
 
       const getLineFiltered = () => {
@@ -1282,7 +1316,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           recomputeRange(); redraw(hoverGrid, true);
         } else if (activeRange.has(gk) || activeWall.has(gk)) {
           const suggestion = getSuggestedPath(prev, gpos);
-          if (!suggestion) { ui.notifications.warn(game.i18n.localize('DSCT.notice.fm.noValidPath')); return; }
+          if (!suggestion) { fmOverlay?.flashWarning(game.i18n.localize('DSCT.notice.fm.noValidPath')); return; }
           const before = path.length;
           for (const s of suggestion) path.push(s);
           if (!gridEq(path[path.length - 1], gpos)) path.push(gpos);
@@ -1296,7 +1330,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           if (path.length >= reduced) { cleanup(isVertical); resolve(path); return; }
           recomputeRange(); redraw(hoverGrid, true);
         } else {
-          ui.notifications.warn(game.i18n.format('DSCT.notice.fm.invalidStepForType', { type }));
+          fmOverlay?.flashWarning(game.i18n.format('DSCT.notice.fm.invalidStepForType', { type }));
         }
       };
 
@@ -1312,11 +1346,10 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       };
 
       const onKeyDown = (e) => {
-        if (e.key === 'Escape') { cleanup();              resolve(null); }
-        if (e.key === 'Enter')  { cleanup(isVertical);   resolve(path); }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup();            resolve(null); }
+        if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); cleanup(isVertical);  resolve(path); }
       };
 
-      let fmPathNotif = null;
       const cleanup = (deferArrow = false) => {
         overlay.off('pointermove', onMove);
         overlay.off('pointerdown', onClick);
@@ -1328,7 +1361,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         maskGraphics.destroy();
         chevronMaskGraphics.destroy();
         overlay.destroy();
-        if (fmPathNotif) { ui.notifications.remove(fmPathNotif); fmPathNotif = null; }
+        fmOverlay?.end();
+        fmOverlay = null;
         if (deferArrow) {
           
           arrowGraphics.mask   = null;
@@ -1468,7 +1502,14 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       document.addEventListener('keydown', onKeyDown);
       redraw(null);
       const vertNote = isVertical ? ` vertical ${reducedVert}` : '';
-      fmPathNotif = ui.notifications.info(game.i18n.format('DSCT.notice.fm.pathInstruction', { type, distance: reduced, vert: vertNote }), { permanent: true });
+      fmOverlay = beginPickerOverlay({
+        title: `${type} ${reduced}: ${targetToken.name}`,
+        status: game.i18n.format('DSCT.notice.fm.pathInstruction', { type, distance: reduced, vert: vertNote }),
+        holeRects: fmHoleRects(),
+        onConfirm: () => { cleanup(isVertical); resolve(path); },
+        onCancel: () => { cleanup(); resolve(null); },
+      });
+      updateFmHoles = () => fmOverlay?.setHoleRects(fmHoleRects());
     });
   }
 

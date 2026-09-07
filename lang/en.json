@@ -811,6 +811,11 @@
       "titleTargets": "Pick Targets",
       "titleDeath": "Death Picker",
       "titleRaise": "Raise Dead",
+      "titleTeleport": "Teleport",
+      "titleSquare": "Pick a Square",
+      "titleReposition": "Reposition",
+      "repositionInstruction": "Choose a square adjacent to {grabber} for {name}",
+      "toggleUi": "Toggle the rest of the UI",
       "pickCount": "Pick up to {max} target{s} · {n} selected",
       "selectedCount": "{n} selected"
     },

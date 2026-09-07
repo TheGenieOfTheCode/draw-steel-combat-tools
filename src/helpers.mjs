@@ -1,3 +1,5 @@
+import { beginPickerOverlay } from './ability-automation/picker-overlay.mjs';
+
 export const getSetting = (key) => game.settings.get('draw-steel-combat-tools', key);
 
 const PALETTE_DARK = {
@@ -483,7 +485,7 @@ const buildFallMessage = (name, fallDist, effectiveFall, dmg) => {
     : distPart + agilityNote + game.i18n.localize('DSCT.fall.agilityNotEnough');
 };
 
-export const chooseFreeSquare = (targetToken, landedOnToken = null, { forceOnCancel = false } = {}) => new Promise((resolve) => {
+export const chooseFreeSquare = (targetToken, landedOnToken = null, { forceOnCancel = false, maxRadius = 10, title = null, status = null } = {}) => new Promise((resolve) => {
   const G        = GRID();
   const refToken = landedOnToken ?? targetToken;
   const refTg    = toGrid(refToken.document);
@@ -520,7 +522,7 @@ export const chooseFreeSquare = (targetToken, landedOnToken = null, { forceOnCan
     candidates.push({ x: refTg.x, y: refTg.y });
   }
 
-  for (let r = 1; r <= 10; r++) {
+  for (let r = 1; r <= maxRadius; r++) {
     const ring = getAdjacentRing(r);
     for (const g of ring) {
       (isSquareFree(g.x, g.y) ? candidates : invalidSquares).push(g);
@@ -616,8 +618,10 @@ export const chooseFreeSquare = (targetToken, landedOnToken = null, { forceOnCan
     resolve(chosen);
   };
 
-  const onKeyDown = (e) => { if (e.key === 'Escape') { cleanupPicker(); resolve(forceOnCancel ? (candidates[0] ?? null) : null); } };
+  const doCancel = () => { cleanupPicker(); resolve(forceOnCancel ? (candidates[0] ?? null) : null); };
+  const onKeyDown = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); doCancel(); } };
 
+  let fsOverlay = null;
   const cleanupPicker = () => {
     overlay.off('pointermove', onMove);
     overlay.off('pointerdown', onClick);
@@ -626,13 +630,25 @@ export const chooseFreeSquare = (targetToken, landedOnToken = null, { forceOnCan
     canvas.app.stage.removeChild(graphics);
     graphics.destroy();
     overlay.destroy();
+    fsOverlay?.end();
+    fsOverlay = null;
   };
 
   overlay.on('pointermove', onMove);
   overlay.on('pointerdown', onClick);
   document.addEventListener('keydown', onKeyDown);
   redrawHighlight(null);
-  ui.notifications.info(game.i18n.format('DSCT.notice.fm.chooseLanding', { name: targetToken.name }));
+
+  const holeRects = [{ x: targetToken.x, y: targetToken.y, w: fallerW * G, h: fallerH * G }];
+  if (landedOnToken) holeRects.push({ x: landedOnToken.x, y: landedOnToken.y, w: (landedOnToken.document.width ?? 1) * G, h: (landedOnToken.document.height ?? 1) * G });
+  for (const g of [...candidates, ...invalidSquares]) holeRects.push({ x: g.x * G, y: g.y * G, w: G, h: G });
+  fsOverlay = beginPickerOverlay({
+    title: title ?? game.i18n.localize('DSCT.picker.titleSquare'),
+    status: status ?? game.i18n.format('DSCT.notice.fm.chooseLanding', { name: targetToken.name }),
+    holeRects,
+    showConfirm: false,
+    onCancel: doCancel,
+  });
 });
 
 export const sizeRank = (size) =>

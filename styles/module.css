@@ -1928,8 +1928,14 @@ enriched-content[enricher="dsct.teleport"] {
   margin-left: 0;
 }
 
-body.dsct-prominent-picker > *:not(#board):not(#dsct-picker-topbar) {
+body.dsct-prominent-picker > *:not(#board):not(#dsct-picker-topbar):not(.dsct-picker-exempt) {
   display: none !important;
+}
+
+#dsct-picker-topbar button.dsct-picker-uitoggle.dsct-active {
+  border-color: var(--dsct-accent, #7a50c0);
+  background: rgba(122, 80, 192, 0.25);
+  color: var(--dsct-text-active, #c0a8e8);
 }
 
 #dsct-picker-topbar {

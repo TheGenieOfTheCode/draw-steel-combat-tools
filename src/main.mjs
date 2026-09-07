@@ -36,11 +36,13 @@ import {
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerCombatLogHooks } from './combat-logs.mjs';
 import { registerFlatEffects } from './ability-automation/flat-special-effects.mjs';
+import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
 
 const api = {
   forcedMovement:   runForcedMovement,
   bypassNextFmGate: bypassNextFmGate,
   colorTokenPicker: runColoredTokenPicker,
+  pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
   grab:             runGrab,
   wallBuilder: () => { const existing = getWindowById('wall-builder-panel'); if (existing) existing.close(); else new WallBuilderPanel().render(true); },
   convertWalls: convertWalls,

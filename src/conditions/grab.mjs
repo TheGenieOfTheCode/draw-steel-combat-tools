@@ -1,4 +1,4 @@
-import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, footprintDistFromBounds, tokFootprintDist, getItemRange } from '../helpers.mjs';
+import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, footprintDistFromBounds, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunTargetPicker, runSourcePicker, runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
@@ -428,51 +428,38 @@ export class GrabPanel extends ds.applications.api.DSApplication {
     const grab = window._activeGrabs?.get(grabbedTokenId);
     if (!grab) return;
 
-    if (!window._grabRepositioning) window._grabRepositioning = new Set();
+    const grabbedTok = getTokenById(grabbedTokenId);
+    const grabberTok = getTokenById(grab.grabberTokenId);
+    if (!grabbedTok || !grabberTok) return;
 
-    if (window._grabRepositioning.has(grabbedTokenId)) {
-      window._grabRepositioning.delete(grabbedTokenId);
-      if (window._grabRepositionHook) { Hooks.off('updateToken', window._grabRepositionHook); window._grabRepositionHook = null; }
-      this._refreshPanel();
-      return;
-    }
+    if (!window._grabRepositioning) window._grabRepositioning = new Set();
+    if (window._grabRepositioning.has(grabbedTokenId)) return;
 
     window._grabRepositioning.add(grabbedTokenId);
     this._refreshPanel();
 
-    window._grabRepositionHook = Hooks.on('updateToken', async (doc, changes) => {
-      if (doc.id !== grabbedTokenId) return;
-      if (changes.x === undefined && changes.y === undefined) return;
-
-      Hooks.off('updateToken', window._grabRepositionHook);
-      window._grabRepositionHook = null;
-      window._grabRepositioning.delete(grabbedTokenId);
-
-      const grabbedTok = getTokenById(grabbedTokenId);
-      const grabberTok = getTokenById(grab.grabberTokenId);
-      if (!grabbedTok || !grabberTok) { this._refreshPanel(); return; }
-
-      const newDocX = changes.x ?? doc.x;
-      const newDocY = changes.y ?? doc.y;
-      const dist = footprintDistFromBounds(
-        grabberTok.document.x, grabberTok.document.y, grabberTok.document.width, grabberTok.document.height,
-        newDocX, newDocY, grabbedTok.document.width, grabbedTok.document.height,
-      );
-
-      if (dist >= canvas.grid.distance) {
-        window._grabFollowActive.add(grabbedTokenId);
-        await safeUpdate(grabbedTok.document, { x: grabberTok.document.x + (grab.offsetX ?? 0), y: grabberTok.document.y + (grab.offsetY ?? 0) });
-        window._grabFollowActive.delete(grabbedTokenId);
-        ui.notifications.warn(game.i18n.format('DSCT.notice.grab.mustBeAdjacent', { name: grab.grabbedName, grabber: grab.grabberName }));
-      } else {
-        grab.offsetX = (changes.x ?? doc.x) - grabberTok.document.x;
-        grab.offsetY = (changes.y ?? doc.y) - grabberTok.document.y;
-        window._activeGrabs.set(grabbedTokenId, grab);
-        ui.notifications.info(game.i18n.format('DSCT.notice.grab.repositioned', { name: grab.grabbedName }));
-      }
-
-      this._refreshPanel();
+    
+    
+    const chosen = await chooseFreeSquare(grabbedTok, grabberTok, {
+      maxRadius: 1,
+      title: game.i18n.localize('DSCT.picker.titleReposition'),
+      status: game.i18n.format('DSCT.picker.repositionInstruction', { name: grab.grabbedName, grabber: grab.grabberName }),
     });
+
+    window._grabRepositioning.delete(grabbedTokenId);
+
+    if (chosen) {
+      const dest = toWorld(chosen);
+      window._grabFollowActive.add(grabbedTokenId);
+      await safeUpdate(grabbedTok.document, { x: dest.x, y: dest.y });
+      window._grabFollowActive.delete(grabbedTokenId);
+      grab.offsetX = dest.x - grabberTok.document.x;
+      grab.offsetY = dest.y - grabberTok.document.y;
+      window._activeGrabs.set(grabbedTokenId, grab);
+      ui.notifications.info(game.i18n.format('DSCT.notice.grab.repositioned', { name: grab.grabbedName }));
+    }
+
+    this._refreshPanel();
   }
 
   _buildGrabListHTML() {

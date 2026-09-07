@@ -6,6 +6,9 @@ import {
   hasTags, getTags, getByTag, addTags, removeTags,
   toGrid, toWorld, GRID as getGRID, getSetting,
 } from '../helpers.mjs';
+import { beginPickerOverlay } from '../ability-automation/picker-overlay.mjs';
+
+let _wbHideUi = false;
 
 const BASE_MAT_COLORS = { glass: 0x88ddff, wood: 0xaa6622, stone: 0x888888, metal: 0x4488aa };
 const MATERIAL_COLORS = BASE_MAT_COLORS;
@@ -703,11 +706,11 @@ export class WallBuilderPanel extends ds.applications.api.DSApplication {
         redraw(hoverGrid);
       };
       const onKeyDown = (e) => {
-        if (e.key === 'Escape') { cleanup(); resolve(null); }
-        if (e.key === 'Enter')  { cleanup(); resolve(selected); }
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup(); resolve(null); }
+        if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); cleanup(); resolve(selected); }
       };
       const onContextMenu = (e) => { e.preventDefault(); };
-      let wbNotif = null;
+      let wbOverlay = null;
       const cleanup = () => {
         overlay.off('pointermove', onMove);
         overlay.off('pointerdown', onClick);
@@ -717,7 +720,8 @@ export class WallBuilderPanel extends ds.applications.api.DSApplication {
         canvas.app.stage.removeChild(graphics);
         graphics.destroy();
         overlay.destroy();
-        if (wbNotif) { ui.notifications.remove(wbNotif); wbNotif = null; }
+        wbOverlay?.end();
+        wbOverlay = null;
       };
 
       overlay.on('pointermove', onMove);
@@ -725,7 +729,20 @@ export class WallBuilderPanel extends ds.applications.api.DSApplication {
       document.addEventListener('keydown', onKeyDown);
       document.addEventListener('contextmenu', onContextMenu);
       redraw(null);
-      wbNotif = ui.notifications.info(game.i18n.format('DSCT.notice.wb.squareSelectMode', { mode: this._mode }), { permanent: true });
+      
+      
+      
+      document.getElementById('wall-builder-panel')?.classList.add('dsct-picker-exempt');
+      wbOverlay = beginPickerOverlay({
+        title: game.i18n.localize('DSCT.panel.title.WallBuilder'),
+        status: game.i18n.format('DSCT.notice.wb.squareSelectMode', { mode: this._mode }),
+        dim: false,
+        hideUi: _wbHideUi,
+        uiToggle: true,
+        onUiToggle: (hidden) => { _wbHideUi = hidden; },
+        onConfirm: () => { cleanup(); resolve(selected); },
+        onCancel: () => { cleanup(); resolve(null); },
+      });
     });
   }
 

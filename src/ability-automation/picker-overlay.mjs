@@ -4,8 +4,16 @@ let _ov = null;
 
 const _holePad = () => Math.max(6, canvas.grid.size * 0.12);
 
+function _tokenRects(tokens) {
+  return tokens.filter(t => t?.document).map(t => ({
+    x: t.x, y: t.y,
+    w: t.document.width * canvas.grid.size,
+    h: t.document.height * canvas.grid.size,
+  }));
+}
+
 function _redrawGrey() {
-  if (!_ov) return;
+  if (!_ov?.greyG) return;
   const d = canvas.dimensions;
   _ov.greyG.clear();
   _ov.greyG.beginFill(0x080810, 1);
@@ -14,13 +22,7 @@ function _redrawGrey() {
 
   _ov.holesG.clear();
   const pad = _holePad();
-  const rects = [];
-  for (const t of _ov.tokens) {
-    if (!t?.document) continue;
-    const w = t.document.width * canvas.grid.size;
-    const h = t.document.height * canvas.grid.size;
-    rects.push({ x: t.x - pad, y: t.y - pad, w: w + pad * 2, h: h + pad * 2 });
-  }
+  const rects = _ov.holeRects.map(r => ({ x: r.x - pad, y: r.y - pad, w: r.w + pad * 2, h: r.h + pad * 2 }));
   _ov.holesG.beginFill(0xffffff, 1);
   for (const r of rects) _ov.holesG.drawRoundedRect(r.x, r.y, r.w, r.h, pad);
   
@@ -36,10 +38,10 @@ function _redrawGrey() {
   _ov.holesG.endFill();
 }
 
-export function beginPickerOverlay({ title, status = '', tokens = [], showConfirm = true, showCancel = true, onConfirm = null, onCancel = null } = {}) {
+export function beginPickerOverlay({ title, status = '', tokens = [], holeRects = null, dim = true, hideUi = true, uiToggle = false, onUiToggle = null, showConfirm = true, showCancel = true, onConfirm = null, onCancel = null } = {}) {
   endPickerOverlay();
 
-  document.body.classList.add('dsct-prominent-picker');
+  if (hideUi) document.body.classList.add('dsct-prominent-picker');
 
   const bar = document.createElement('div');
   bar.id = 'dsct-picker-topbar';
@@ -49,6 +51,7 @@ export function beginPickerOverlay({ title, status = '', tokens = [], showConfir
     <span class="dsct-picker-title"></span>
     <span class="dsct-picker-status"></span>
     <span class="dsct-picker-btns">
+      <button type="button" class="dsct-picker-uitoggle${hideUi ? ' dsct-active' : ''}" ${uiToggle ? '' : 'hidden'} data-tooltip="${game.i18n.localize('DSCT.picker.toggleUi')}"><i class="fa-solid fa-eye-slash"></i></button>
       <button type="button" class="dsct-picker-confirm" ${showConfirm ? '' : 'hidden'}><i class="fa-solid fa-check"></i> ${confirmLabel} <kbd>Enter</kbd></button>
       <button type="button" class="dsct-picker-cancel" ${showCancel ? '' : 'hidden'}><i class="fa-solid fa-xmark"></i> ${cancelLabel} <kbd>Esc</kbd></button>
     </span>`;
@@ -56,24 +59,33 @@ export function beginPickerOverlay({ title, status = '', tokens = [], showConfir
   bar.querySelector('.dsct-picker-status').textContent = status ?? '';
   bar.querySelector('.dsct-picker-confirm').addEventListener('click', (e) => { e.preventDefault(); _ov?.onConfirm?.(); });
   bar.querySelector('.dsct-picker-cancel').addEventListener('click', (e) => { e.preventDefault(); _ov?.onCancel?.(); });
+  bar.querySelector('.dsct-picker-uitoggle').addEventListener('click', (e) => {
+    e.preventDefault();
+    const hidden = document.body.classList.toggle('dsct-prominent-picker');
+    e.currentTarget.classList.toggle('dsct-active', hidden);
+    _ov?.onUiToggle?.(hidden);
+  });
   document.body.appendChild(bar);
 
-  const container = new PIXI.Container();
-  const greyG = new PIXI.Graphics();
-  const holesG = new PIXI.Graphics();
-  holesG.blendMode = PIXI.BLEND_MODES.ERASE;
-  container.addChild(greyG, holesG);
-  container.alpha = 0.7;
-  container.filters = [new PIXI.AlphaFilter()];
-  canvas.controls.addChild(container);
+  let container = null, greyG = null, holesG = null;
+  if (dim) {
+    container = new PIXI.Container();
+    greyG = new PIXI.Graphics();
+    holesG = new PIXI.Graphics();
+    holesG.blendMode = PIXI.BLEND_MODES.ERASE;
+    container.addChild(greyG, holesG);
+    container.alpha = 0.7;
+    container.filters = [new PIXI.AlphaFilter()];
+    canvas.controls.addChild(container);
+  }
 
   _ov = {
     bar, container, greyG, holesG,
     statusEl: bar.querySelector('.dsct-picker-status'),
-    tokens: [...tokens],
+    holeRects: holeRects ?? _tokenRects(tokens),
     lastStatus: status ?? '',
     warnTimer: null,
-    onConfirm, onCancel,
+    onConfirm, onCancel, onUiToggle,
   };
   _redrawGrey();
 
@@ -100,7 +112,12 @@ export function beginPickerOverlay({ title, status = '', tokens = [], showConfir
     },
     setTokens(list) {
       if (!_ov) return;
-      _ov.tokens = [...list];
+      _ov.holeRects = _tokenRects(list);
+      _redrawGrey();
+    },
+    setHoleRects(rects) {
+      if (!_ov) return;
+      _ov.holeRects = [...rects];
       _redrawGrey();
     },
     end() { endPickerOverlay(); },
@@ -112,8 +129,10 @@ export function endPickerOverlay() {
   clearTimeout(_ov.warnTimer);
   document.body.classList.remove('dsct-prominent-picker');
   _ov.bar.remove();
-  _ov.container.parent?.removeChild(_ov.container);
-  _ov.container.destroy({ children: true });
+  if (_ov.container) {
+    _ov.container.parent?.removeChild(_ov.container);
+    _ov.container.destroy({ children: true });
+  }
   _ov = null;
 }
 
