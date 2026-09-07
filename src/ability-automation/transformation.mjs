@@ -1,3 +1,5 @@
+import { beginPickerOverlay } from './picker-overlay.mjs';
+
 const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
   const GS     = canvas.grid.size;
   const hlName = 'dsct-transform-hl';
@@ -11,9 +13,15 @@ const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
     for (let dx = 0; dx < w; dx++) for (let dy = 0; dy < h; dy++)
       canvas.interface.grid.highlightPosition(hlName, { x: (gx + dx) * GS, y: (gy + dy) * GS, color, border: 0xffffff });
   }
-  const notif   = ui.notifications.info(hint, { permanent: true });
+  const overlay = beginPickerOverlay({
+    title: game.i18n.localize('DSCT.panel.title.Transform'),
+    status: hint ?? '',
+    tokens: candidates,
+    showConfirm: false,
+    onCancel: () => { cleanup(); resolve(null); },
+  });
   const cleanup = () => {
-    ui.notifications.remove(notif);
+    overlay.end();
     canvas.interface.grid.destroyHighlightLayer(hlName);
     canvas.stage.off('mousedown', onClick);
     document.removeEventListener('keydown', onKey);
@@ -31,7 +39,7 @@ const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
     cleanup();
     resolve(hit);
   };
-  const onKey    = (ev) => { if (ev.key === 'Escape') { cleanup(); resolve(null); } };
+  const onKey    = (ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); cleanup(); resolve(null); } };
   const onCancel = (ev) => { ev.preventDefault(); cleanup(); resolve(null); };
   canvas.stage.on('mousedown', onClick);
   document.addEventListener('keydown', onKey);

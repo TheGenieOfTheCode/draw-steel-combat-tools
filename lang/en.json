@@ -804,6 +804,16 @@
         }
       }
     },
+    "picker": {
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "titleSource": "Pick a Token",
+      "titleTargets": "Pick Targets",
+      "titleDeath": "Death Picker",
+      "titleRaise": "Raise Dead",
+      "pickCount": "Pick up to {max} target{s} · {n} selected",
+      "selectedCount": "{n} selected"
+    },
     "panel": {
       "title": {
         "ForcedMovement": "Forced Movement",

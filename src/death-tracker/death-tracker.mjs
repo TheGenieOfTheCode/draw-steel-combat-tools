@@ -1,6 +1,7 @@
 import { getSetting, getModuleApi, safeToggleStatusEffect, safeUpdate, getSquadGroup, MATERIAL_ICONS, safeCreateEmbedded, safeDelete, tokenAt, toGrid, chooseFreeSquare } from '../helpers.mjs';
 import { setRaisedDeadVisible, addPreviewToken, removePreviewToken, activateTokenLayer, clearPreviewTokens } from './defeated-token-visibility.mjs';
 import { applySquadLabels } from '../squad-labels.mjs';
+import { beginPickerOverlay, endPickerOverlay, setPickerArrow, removePickerArrow, clearPickerArrows } from '../ability-automation/picker-overlay.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -1316,45 +1317,14 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
   dimXContainer.alpha = 0.1;
   canvas.controls.addChild(dimXContainer);
 
-  const _dpReticles = new Map();
-  let _dpHoveredId = null;
-
-  const _addDpReticle = (token, color, alphaMult = 1) => {
-    const existing = _dpReticles.get(token.id);
-    if (existing) { existing.color = color; existing.alphaMult = alphaMult; return; }
-    const was = token.targeted.has(game.user);
-    if (!was) token.targeted.add(game.user);
-    _dpReticles.set(token.id, { token, color, alphaMult, was });
-  };
-
-  const _clearDpReticles = () => {
-    for (const [, { token, was }] of _dpReticles) {
-      if (!was) { token.targeted.delete(game.user); token.targetArrows?.clear(); }
-      else token._drawTargetArrows?.();
-    }
-    _dpReticles.clear();
-  };
-
   let _dpT = 0;
   const _dpTicker = () => {
     _dpT += canvas.app.ticker.elapsedMS;
     const dur = 2000, pause = dur * 0.6;
     const cycle = _dpT % dur;
     xContainer.alpha = cycle < pause
-      ? 0.4
-      : 0.4 + 0.15 * Math.sin(((cycle - pause) / (dur - pause)) * Math.PI);
-
-    if (_dpReticles.size > 0) {
-      const rFade = (dur - pause) * 0.25;
-      let dt = Math.max(0, cycle - pause) / (dur - pause);
-      dt = Math.sqrt(1 - Math.pow(Math.min(dt, 1) - 1, 2));
-      const m = cycle < pause ? 0.5 : 0.5 + 0.5 * dt;
-      const ta = Math.max(0, cycle - dur + rFade);
-      const a = 1 - ta / rFade;
-      const bw = 2 * canvas.dimensions.uiScale;
-      for (const [, e] of _dpReticles)
-        e.token._drawTargetArrows({ margin: m, alpha: a * e.alphaMult, color: e.color, border: { width: bw } });
-    }
+      ? 0.75
+      : 0.75 + 0.15 * Math.sin(((cycle - pause) / (dur - pause)) * Math.PI);
   };
   canvas.app.ticker.add(_dpTicker);
 
@@ -1384,7 +1354,7 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
         canvas.app.renderer.render(gfx, { renderTexture: rt, clear: true });
         gfx.destroy();
         const sprite = new PIXI.Sprite(rt);
-        sprite.x = t.x; sprite.y = t.y; sprite.alpha = isLocked ? 0.85 : 0.5;
+        sprite.x = t.x; sprite.y = t.y; sprite.alpha = isLocked ? 0.9 : 0.8;
         xContainer.addChild(sprite);
       }
     }
@@ -1418,29 +1388,6 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
     }
   };
 
-  const onPointerMove = (event) => {
-    if (!getSetting('deathPickerDimAll')) return;
-    const pos = event.data.getLocalPosition(canvas.app.stage);
-    const allPool = squads.flatMap(s => s.pool);
-    const hit = allPool.find(t => {
-      const w = t.document.width * canvas.grid.size;
-      const h = t.document.height * canvas.grid.size;
-      return pos.x >= t.x && pos.x < t.x + w && pos.y >= t.y && pos.y < t.y + h;
-    });
-    const newId = hit?.id ?? null;
-    if (newId === _dpHoveredId) return;
-    if (_dpHoveredId) {
-      const prev = canvas.tokens.get(_dpHoveredId);
-      const prevSquad = squads.find(s => s.pool.some(t => t.id === _dpHoveredId));
-      if (prev && prevSquad) _addDpReticle(prev, prevSquad.color, 0.5);
-    }
-    _dpHoveredId = newId;
-    if (hit) {
-      const squad = squads.find(s => s.pool.some(t => t.id === hit.id));
-      if (squad) _addDpReticle(hit, squad.color, 1.0);
-    }
-  };
-
   const drawHighlights = () => {
     canvas.interface.grid.clearHighlightLayer(hlName);
     for (const squad of squads) {
@@ -1466,24 +1413,35 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
     drawDimXMarks();
   };
 
-  let notif = null;
+  const overlay = beginPickerOverlay({
+    title: game.i18n.localize('DSCT.picker.titleDeath'),
+    tokens: squads.flatMap(s => s.pool),
+    onConfirm: () => tryConfirm(),
+    onCancel: () => { finish(); resolve(null); },
+  });
   const refreshNotif = () => {
-    if (notif !== null) ui.notifications.remove(notif);
     const summary = squads.map(s => `${s.groupName}: ${s.selected.size}/${s.numToKill}`).join(', ');
-    notif = ui.notifications.info(
-      game.i18n.format('DSCT.notice.dt.pickDeathsInstruction', { summary }),
-      { permanent: true },
-    );
+    overlay.setStatus(game.i18n.format('DSCT.notice.dt.pickDeathsInstruction', { summary }));
   };
   refreshNotif();
+
+  const tryConfirm = () => {
+    const wrong = squads.filter(s => s.selected.size !== s.numToKill);
+    if (wrong.length) {
+      overlay.flashWarning(game.i18n.format('DSCT.notice.dt.pickerWrongCount', { summary: wrong.map(s => `${s.groupName}: ${s.selected.size}/${s.numToKill}`).join(', ') }));
+      return;
+    }
+    finish();
+    const result = new Set();
+    for (const squad of squads) for (const id of squad.selected) result.add(id);
+    resolve(result);
+  };
 
   let _staleCheckTimer = null;
   const finish = () => {
     clearTimeout(_staleCheckTimer);
-    ui.notifications.remove(notif);
+    overlay.end();
     canvas.app.ticker.remove(_dpTicker);
-    canvas.stage.off('pointermove', onPointerMove);
-    _clearDpReticles();
     if (canvas.interface.grid.highlightLayers?.[hlName]) canvas.interface.grid.destroyHighlightLayer(hlName);
     xContainer.parent?.removeChild(xContainer);
     xContainer.destroy({ children: true });
@@ -1507,14 +1465,14 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
       if (!t) continue;
       _lastEmptyClickTime = 0;
       if (squad.locked.has(t.id)) {
-        ui.notifications.warn(game.i18n.format('DSCT.notice.dt.pickerMustDie', { name: t.actor?.name ?? 'That token' }));
+        overlay.flashWarning(game.i18n.format('DSCT.notice.dt.pickerMustDie', { name: t.actor?.name ?? 'That token' }));
         return;
       }
       if (squad.selected.has(t.id)) {
         squad.selected.delete(t.id);
       } else {
         if (squad.selected.size >= squad.numToKill) {
-          ui.notifications.warn(game.i18n.format('DSCT.notice.dt.pickerAtLimit', { group: squad.groupName, count: squad.numToKill }));
+          overlay.flashWarning(game.i18n.format('DSCT.notice.dt.pickerAtLimit', { group: squad.groupName, count: squad.numToKill }));
           return;
         }
         squad.selected.add(t.id);
@@ -1523,19 +1481,11 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
       refreshNotif();
       return;
     }
-    
+
     const now = Date.now();
     if (now - _lastEmptyClickTime < 400) {
       _lastEmptyClickTime = 0;
-      const wrong = squads.filter(s => s.selected.size !== s.numToKill);
-      if (wrong.length) {
-        ui.notifications.warn(game.i18n.format('DSCT.notice.dt.pickerWrongCount', { summary: wrong.map(s => `${s.groupName}: ${s.selected.size}/${s.numToKill}`).join(', ') }));
-        return;
-      }
-      finish();
-      const result = new Set();
-      for (const squad of squads) for (const id of squad.selected) result.add(id);
-      resolve(result);
+      tryConfirm();
       return;
     }
     _lastEmptyClickTime = now;
@@ -1544,16 +1494,11 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
   const onKey = (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      const wrong = squads.filter(s => s.selected.size !== s.numToKill);
-      if (wrong.length) {
-        ui.notifications.warn(game.i18n.format('DSCT.notice.dt.pickerWrongCount', { summary: wrong.map(s => `${s.groupName}: ${s.selected.size}/${s.numToKill}`).join(', ') }));
-        return;
-      }
-      finish();
-      const result = new Set();
-      for (const squad of squads) for (const id of squad.selected) result.add(id);
-      resolve(result);
+      event.stopPropagation();
+      tryConfirm();
     } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
       finish();
       resolve(null);
     }
@@ -1565,13 +1510,9 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
   };
 
   canvas.stage.on('mousedown', onClick);
-  canvas.stage.on('pointermove', onPointerMove);
   document.addEventListener('keydown', onKey);
   document.addEventListener('contextmenu', onContextMenu);
   drawHighlights();
-  if (getSetting('deathPickerDimAll')) {
-    for (const squad of squads) for (const t of squad.pool) _addDpReticle(t, squad.color, 0.5);
-  }
 
   
   
@@ -1580,8 +1521,8 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
   _staleCheckTimer = setTimeout(() => {
     const anyDead = [...tokenToSquad.keys()].some(id => canvas.tokens.get(id)?.actor?.statuses?.has(defeatedStatus));
     if (!anyDead) return;
-    ui.notifications.error(game.i18n.localize('DSCT.notice.dt.pickerTokensAlreadyDead'));
     finish();
+    ui.notifications.error(game.i18n.localize('DSCT.notice.dt.pickerTokensAlreadyDead'));
     resolve(null);
   }, 3000);
 });
@@ -2466,19 +2407,30 @@ export const runRaiseDeadUI = () => {
           });
         }
       }
+      if (isSelected) setPickerArrow(t, 0x00CCFF, 1.0);
+      else removePickerArrow(t);
     }
   };
 
+  const overlay = beginPickerOverlay({
+    title: game.i18n.localize('DSCT.picker.titleRaise'),
+    tokens: defeated,
+    onConfirm: () => doRevive(),
+    onCancel: () => {
+      finish();
+      ui.notifications.info(game.i18n.localize('DSCT.notice.dt.raiseDeadCancelled'));
+    },
+  });
+  const syncStatus = () => overlay.setStatus(game.i18n.format('DSCT.picker.selectedCount', { n: selected.size }));
+  syncStatus();
   drawHighlights();
-  const rdNotif = ui.notifications.info(game.i18n.localize('DSCT.notice.dt.raiseDeadInstruction'), { permanent: true });
-  window._dsctRaiseDeadNotif = rdNotif;
 
   const finish = () => {
     window._raiseDeadActive = false;
     setRaisedDeadVisible(false);
     activateTokenLayer();
-    ui.notifications.remove(rdNotif);
-    window._dsctRaiseDeadNotif = null;
+    overlay.end();
+    clearPickerArrows();
     canvas.interface.grid.destroyHighlightLayer(hlName);
     canvas.stage.off('mousedown', onClick);
     document.removeEventListener('keydown', onKey);
@@ -2526,13 +2478,17 @@ export const runRaiseDeadUI = () => {
       else { selected.add(t.id); added = true; }
     }
     drawHighlights();
+    syncStatus();
   };
 
   const onKey = async (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
+      event.stopPropagation();
       doRevive();
     } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
       finish();
       ui.notifications.info(game.i18n.localize('DSCT.notice.dt.raiseDeadCancelled'));
     }
@@ -2654,6 +2610,8 @@ export const cleanupPixi = () => {
 
   if (window._dsctPwkNotif) { ui.notifications.remove(window._dsctPwkNotif); window._dsctPwkNotif = null; }
   if (window._dsctRaiseDeadNotif) { ui.notifications.remove(window._dsctRaiseDeadNotif); window._dsctRaiseDeadNotif = null; }
+  endPickerOverlay();
+  clearPickerArrows();
 
   window._pwkActive = false;
   window._pwkQueue = [];
@@ -2709,46 +2667,16 @@ export const runPowerWordKillUI = async (options = {}) => {
   dimXContainerPwk.alpha = 0.1;
   canvas.controls.addChild(dimXContainerPwk);
 
-  const _pwkReticles = new Map();
-
-  const _addPwkReticle = (token, alphaMult = 1) => {
-    const existing = _pwkReticles.get(token.id);
-    if (existing) { existing.alphaMult = alphaMult; return; }
-    const was = token.targeted.has(game.user);
-    if (!was) token.targeted.add(game.user);
-    _pwkReticles.set(token.id, { token, alphaMult, was });
-  };
-
-  const _clearPwkReticles = () => {
-    for (const [, { token, was }] of _pwkReticles) {
-      if (!was) { token.targeted.delete(game.user); token.targetArrows?.clear(); }
-      else token._drawTargetArrows?.();
-    }
-    _pwkReticles.clear();
-  };
-
   let _pwkT = 0;
   const _pwkTicker = () => {
     _pwkT += canvas.app.ticker.elapsedMS;
     const _pwkDur = 2000, _pwkPause = _pwkDur * 0.6;
     const _pwkCycle = _pwkT % _pwkDur;
     const _pwkAlpha = _pwkCycle < _pwkPause
-      ? 0.4
-      : 0.4 + 0.15 * Math.sin(((_pwkCycle - _pwkPause) / (_pwkDur - _pwkPause)) * Math.PI);
+      ? 0.75
+      : 0.75 + 0.15 * Math.sin(((_pwkCycle - _pwkPause) / (_pwkDur - _pwkPause)) * Math.PI);
     xContainer.alpha = _pwkAlpha;
-    hoverContainer.alpha = _pwkAlpha * 0.45;
-
-    if (_pwkReticles.size > 0) {
-      const _pwkFade = (_pwkDur - _pwkPause) * 0.25;
-      let dt = Math.max(0, _pwkCycle - _pwkPause) / (_pwkDur - _pwkPause);
-      dt = Math.sqrt(1 - Math.pow(Math.min(dt, 1) - 1, 2));
-      const m = _pwkCycle < _pwkPause ? 0.5 : 0.5 + 0.5 * dt;
-      const ta = Math.max(0, _pwkCycle - _pwkDur + _pwkFade);
-      const a = 1 - ta / _pwkFade;
-      const bw = 2 * canvas.dimensions.uiScale;
-      for (const [, e] of _pwkReticles)
-        e.token._drawTargetArrows({ margin: m, alpha: a * e.alphaMult, color: e.token._getBorderColor(), border: { width: bw } });
-    }
+    hoverContainer.alpha = _pwkAlpha * 0.35;
   };
   canvas.app.ticker.add(_pwkTicker);
 
@@ -2885,19 +2813,24 @@ export const runPowerWordKillUI = async (options = {}) => {
     drawHoverX(hoveredToken && !selectedTokens.has(hoveredToken.id) ? hoveredToken : null);
   };
 
+  const overlay = beginPickerOverlay({
+    title: game.i18n.localize('DSCT.picker.titleDeath'),
+    tokens: npcs,
+    onConfirm: () => doKill(),
+    onCancel: () => doCancel(),
+  });
+  const syncStatus = () => overlay.setStatus(
+    Number.isFinite(maxTargets)
+      ? game.i18n.format('DSCT.picker.pickCount', { max: maxTargets, s: maxTargets !== 1 ? 's' : '', n: selectedTokens.size })
+      : game.i18n.format('DSCT.picker.selectedCount', { n: selectedTokens.size }),
+  );
+  syncStatus();
   drawHighlights();
-  if (getSetting('deathPickerDimAll')) {
-    for (const npc of npcs) _addPwkReticle(npc, 0.5);
-  }
-  const pwkNotif = ui.notifications.info(game.i18n.localize('DSCT.notice.dt.pwkInstruction'), { permanent: true });
-  window._dsctPwkNotif = pwkNotif;
 
   const finish = () => {
     window._pwkActive = false;
-    ui.notifications.remove(pwkNotif);
-    window._dsctPwkNotif = null;
+    overlay.end();
     canvas.app.ticker.remove(_pwkTicker);
-    _clearPwkReticles();
     canvas.interface.grid.destroyHighlightLayer(hlName);
     xContainer.parent?.removeChild(xContainer);
     xContainer.destroy({ children: true });
@@ -2932,13 +2865,15 @@ export const runPowerWordKillUI = async (options = {}) => {
     processQueue();
   };
 
+  const doCancel = () => {
+    finish();
+    ui.notifications.info(game.i18n.localize('DSCT.notice.dt.pwkCancelled'));
+    processQueue();
+  };
+
   const onClick = (event) => {
     if (event.data.originalEvent.button === 2) {
-      if (getSetting('cancelOnRightClick')) {
-        finish();
-        ui.notifications.info(game.i18n.localize('DSCT.notice.dt.pwkCancelled'));
-        processQueue();
-      }
+      if (getSetting('cancelOnRightClick')) doCancel();
       return;
     }
 
@@ -2962,33 +2897,31 @@ export const runPowerWordKillUI = async (options = {}) => {
     const targetId = clicked[0].id;
     if (selectedTokens.has(targetId)) {
         if (lockedTokens.has(targetId)) {
-            if (!onClick._warnCooldown) {
-                ui.notifications.warn(game.i18n.format('DSCT.notice.dt.pwkCannotDeselect', { name: clicked[0].name }));
-                onClick._warnCooldown = setTimeout(() => { delete onClick._warnCooldown; }, 3000);
-            }
+            overlay.flashWarning(game.i18n.format('DSCT.notice.dt.pwkCannotDeselect', { name: clicked[0].name }));
             return;
         }
         selectedTokens.delete(targetId);
     } else {
         if (selectedTokens.size >= maxTargets) {
-            if (!onClick._warnCooldown) {
-                ui.notifications.warn(game.i18n.format('DSCT.notice.dt.pwkSelectExactly', { max: maxTargets, s: maxTargets !== 1 ? 's' : '' }));
-                onClick._warnCooldown = setTimeout(() => { delete onClick._warnCooldown; }, 3000);
-            }
+            overlay.flashWarning(game.i18n.format('DSCT.notice.dt.pwkSelectExactly', { max: maxTargets, s: maxTargets !== 1 ? 's' : '' }));
             return;
         }
         selectedTokens.add(targetId);
     }
 
     drawHighlights();
+    syncStatus();
     if (getSetting('autoConfirmSelection') && selectedTokens.size >= maxTargets) doKill();
   };
 
   const onKey = async (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
+      event.stopPropagation();
       doKill();
     } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
       finish();
       ui.notifications.info(game.i18n.localize('DSCT.notice.dt.selectionCancelled'));
       processQueue();
@@ -2997,11 +2930,7 @@ export const runPowerWordKillUI = async (options = {}) => {
 
   const onContextMenu = (e) => {
     e.preventDefault();
-    if (getSetting('cancelOnRightClick')) {
-      finish();
-      ui.notifications.info(game.i18n.localize('DSCT.notice.dt.pwkCancelled'));
-      processQueue();
-    }
+    if (getSetting('cancelOnRightClick')) doCancel();
   };
 
   const onMove = (event) => {
@@ -3013,10 +2942,6 @@ export const runPowerWordKillUI = async (options = {}) => {
     });
     const newId = hit?.id ?? null;
     if (newId === hoveredNpcId) return;
-    if (getSetting('deathPickerDimAll')) {
-      if (hoveredNpcId) { const prev = canvas.tokens.get(hoveredNpcId); if (prev) _addPwkReticle(prev, 0.5); }
-      if (hit) _addPwkReticle(hit, 1.0);
-    }
     hoveredNpcId = newId;
     drawHighlights();
   };

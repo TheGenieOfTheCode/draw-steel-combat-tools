@@ -1928,6 +1928,94 @@ enriched-content[enricher="dsct.teleport"] {
   margin-left: 0;
 }
 
+body.dsct-prominent-picker > *:not(#board):not(#dsct-picker-topbar) {
+  display: none !important;
+}
+
+#dsct-picker-topbar {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--dsct-bg, #0e0c14);
+  color: var(--dsct-text-active, #c0a8e8);
+  padding: 8px 18px 10px;
+  border-radius: 0 0 10px 10px;
+  border: 1px solid var(--dsct-border-outer, #4a3870);
+  border-top: none;
+  box-shadow: 0 4px 12px #0006;
+  font-size: 14px;
+  pointer-events: auto;
+}
+
+#dsct-picker-topbar .dsct-picker-title {
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--dsct-accent, #a98ae0);
+  white-space: nowrap;
+}
+
+#dsct-picker-topbar .dsct-picker-status {
+  min-width: 180px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#dsct-picker-topbar .dsct-picker-status.dsct-warn {
+  color: #ffaa44;
+  font-weight: bold;
+}
+
+#dsct-picker-topbar .dsct-picker-btns {
+  display: flex;
+  gap: 6px;
+}
+
+#dsct-picker-topbar button {
+  width: auto;
+  padding: 3px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 5px;
+  border: 1px solid var(--dsct-border-outer, #4a3870);
+  background: var(--dsct-border, #2a2040);
+  color: var(--dsct-text-active, #c0a8e8);
+  cursor: pointer;
+}
+
+#dsct-picker-topbar button:hover {
+  filter: brightness(1.25);
+  box-shadow: none;
+}
+
+#dsct-picker-topbar button.dsct-picker-confirm {
+  border-color: #3f7a4a;
+  background: rgba(70, 160, 90, 0.22);
+  color: #8fdca0;
+}
+
+#dsct-picker-topbar button.dsct-picker-cancel {
+  border-color: #7a3f3f;
+  background: rgba(180, 80, 80, 0.18);
+  color: #dc9a8f;
+}
+
+#dsct-picker-topbar button kbd {
+  font-size: 10px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  background: transparent;
+  opacity: 0.7;
+}
+
 .draw-steel-target-damage-action-row.is-redirected .draw-steel-target-damage-stretch-button,
 .draw-steel-target-damage-action-row.is-redirected .draw-steel-target-damage-stretch-button:disabled {
   background: rgba(155, 109, 214, 0.2);

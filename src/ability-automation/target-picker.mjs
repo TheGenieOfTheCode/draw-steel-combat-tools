@@ -5,6 +5,7 @@ import {
   removePreviewToken,
   activateTokenLayer,
 } from '../death-tracker/defeated-token-visibility.mjs';
+import { beginPickerOverlay, setPickerArrow, removePickerArrow, clearPickerArrows } from './picker-overlay.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -188,15 +189,21 @@ async function _runTargetPicker(ability, casterToken) {
   drawHighlights();
 
   return new Promise(resolve => {
-    const notif = ui.notifications.info(
-      game.i18n.format('DSCT.notice.targetPicker.instruction', { max: maxTargets, s: maxS }),
-      { permanent: true },
+    const overlay = beginPickerOverlay({
+      title: ability.name,
+      tokens: validTokens,
+      onConfirm: () => tryConfirm(),
+      onCancel: () => doCancel(),
+    });
+    const syncStatus = () => overlay.setStatus(
+      game.i18n.format('DSCT.picker.pickCount', { max: maxTargets, s: maxS, n: selectedTokens.size }),
     );
+    syncStatus();
 
     if (getSetting('deathPickerDimAll')) _syncReticles(validTokens, selectedTokens, null);
 
     const cleanup = () => {
-      ui.notifications.remove(notif);
+      overlay.end();
       canvas.interface.grid.destroyHighlightLayer(hlName);
       _clearPickerReticles();
       canvas.stage.off('mousedown', onClick);
@@ -204,6 +211,20 @@ async function _runTargetPicker(ability, casterToken) {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('contextmenu', onContextMenu);
       if (needsReveal) { setRaisedDeadVisible(false); activateTokenLayer(); }
+    };
+
+    const doCancel = () => {
+      cleanup();
+      ui.notifications.info(game.i18n.localize('DSCT.notice.targetPicker.cancelled'));
+      resolve(null);
+    };
+
+    const tryConfirm = () => {
+      if (selectedTokens.size === 0) {
+        overlay.flashWarning(game.i18n.localize('DSCT.notice.targetPicker.selectAtLeastOne'));
+        return;
+      }
+      doConfirm();
     };
 
     const doConfirm = () => {
@@ -249,11 +270,7 @@ async function _runTargetPicker(ability, casterToken) {
 
     const onClick = (event) => {
       if (event.data.originalEvent.button === 2) {
-        if (getSetting('cancelOnRightClick')) {
-          cleanup();
-          ui.notifications.info(game.i18n.localize('DSCT.notice.targetPicker.cancelled'));
-          resolve(null);
-        }
+        if (getSetting('cancelOnRightClick')) doCancel();
         return;
       }
       if (event.data.originalEvent.button !== 0) return;
@@ -271,15 +288,13 @@ async function _runTargetPicker(ability, casterToken) {
         selectedTokens.delete(clicked.id);
       } else {
         if (selectedTokens.size >= maxTargets) {
-          if (!onClick._warnCooldown) {
-            ui.notifications.warn(game.i18n.format('DSCT.notice.targetPicker.maxTargets', { max: maxTargets, s: maxS }));
-            onClick._warnCooldown = setTimeout(() => { delete onClick._warnCooldown; }, 3000);
-          }
+          overlay.flashWarning(game.i18n.format('DSCT.notice.targetPicker.maxTargets', { max: maxTargets, s: maxS }));
           return;
         }
         selectedTokens.add(clicked.id);
       }
       drawHighlights();
+      syncStatus();
       _syncReticles(validTokens, selectedTokens, hoveredId);
       if (getSetting('autoConfirmSelection') && selectedTokens.size >= maxTargets) doConfirm();
     };
@@ -287,25 +302,18 @@ async function _runTargetPicker(ability, casterToken) {
     const onKey = (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
-        if (selectedTokens.size === 0) {
-          ui.notifications.warn(game.i18n.localize('DSCT.notice.targetPicker.selectAtLeastOne'));
-          return;
-        }
-        doConfirm();
+        event.stopPropagation();
+        tryConfirm();
       } else if (event.key === 'Escape') {
-        cleanup();
-        ui.notifications.info(game.i18n.localize('DSCT.notice.targetPicker.cancelled'));
-        resolve(null);
+        event.preventDefault();
+        event.stopPropagation();
+        doCancel();
       }
     };
 
     const onContextMenu = (e) => {
       e.preventDefault();
-      if (getSetting('cancelOnRightClick')) {
-        cleanup();
-        ui.notifications.info(game.i18n.localize('DSCT.notice.targetPicker.cancelled'));
-        resolve(null);
-      }
+      if (getSetting('cancelOnRightClick')) doCancel();
     };
 
     canvas.stage.on('mousedown', onClick);
@@ -364,16 +372,20 @@ export async function runSourcePicker() {
   _drawTokenHighlights(hlName, candidates, new Set(), hoverIds);
 
   return new Promise(resolve => {
-    const notif = ui.notifications.info(
-      game.i18n.localize('DSCT.notice.picker.chooseSource'), { permanent: true },
-    );
+    const overlay = beginPickerOverlay({
+      title: game.i18n.localize('DSCT.picker.titleSource'),
+      status: game.i18n.localize('DSCT.notice.picker.chooseSource'),
+      tokens: candidates,
+      showConfirm: false,
+      onCancel: () => { cleanup(); resolve(null); },
+    });
 
     if (getSetting('deathPickerDimAll')) {
       for (const c of candidates) _addPickerReticle(c, c._getBorderColor(), 0.5);
     }
 
     const cleanup = () => {
-      ui.notifications.remove(notif);
+      overlay.end();
       canvas.interface.grid.destroyHighlightLayer(hlName);
       _clearPickerReticles();
       canvas.stage.off('mousedown', onClick);
@@ -414,7 +426,7 @@ export async function runSourcePicker() {
       resolve(hit);
     };
 
-    const onKey   = (e) => { if (e.key === 'Escape') { cleanup(); resolve(null); } };
+    const onKey   = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup(); resolve(null); } };
     const onContextMenu = (e) => { e.preventDefault(); if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } };
 
     canvas.stage.on('mousedown', onClick);
@@ -438,16 +450,24 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
   _drawTokenHighlights(hlName, tokens, selectedIds);
 
   return new Promise(resolve => {
-    const notif = ui.notifications.info(
-      hint ?? game.i18n.localize('DSCT.notice.picker.chooseTargets'), { permanent: true },
-    );
+    const overlay = beginPickerOverlay({
+      title: game.i18n.localize('DSCT.picker.titleTargets'),
+      tokens,
+      onConfirm: () => doConfirm(),
+      onCancel: () => { cleanup(); resolve(null); },
+    });
+    const syncStatus = () => {
+      const count = game.i18n.format('DSCT.picker.selectedCount', { n: selectedIds.size });
+      overlay.setStatus(hint ? `${hint} · ${count}` : count);
+    };
+    syncStatus();
 
     if (getSetting('deathPickerDimAll')) {
       for (const t of tokens) _addPickerReticle(t, t._getBorderColor(), 0.5);
     }
 
     const cleanup = () => {
-      ui.notifications.remove(notif);
+      overlay.end();
       canvas.interface.grid.destroyHighlightLayer(hlName);
       _clearPickerReticles();
       canvas.stage.off('mousedown', onClick);
@@ -484,6 +504,7 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
         selectedIds.add(hit.id);
       }
       _drawTokenHighlights(hlName, tokens, selectedIds, hoveredId ? new Set([hoveredId]) : new Set());
+      syncStatus();
       _syncReticles(tokens, selectedIds, hoveredId);
       if (selectedIds.size >= maxTargets) doConfirm();
     };
@@ -491,8 +512,11 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
     const onKey = (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
+        event.stopPropagation();
         doConfirm();
       } else if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
         cleanup();
         resolve(null);
       }
@@ -509,59 +533,17 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
 
 
 
-const _pickerReticles = new Map(); 
-let   _pickerTickerFn = null;
-let   _pickerTime     = 0;
 
 export function _addPickerReticle(token, color, alphaMult = 1) {
-  color ??= token._getBorderColor();
-  const existing = _pickerReticles.get(token.id);
-  if (existing) { existing.color = color; existing.alphaMult = alphaMult; return; }
-  const was = token.targeted.has(game.user);
-  if (!was) token.targeted.add(game.user);
-  _pickerReticles.set(token.id, { token, color, alphaMult, was });
-  if (!_pickerTickerFn) {
-    _pickerTime     = 0;
-    _pickerTickerFn = () => {
-      _pickerTime += canvas.app.ticker.elapsedMS;
-      const duration = 2000, pause = duration * 0.6, fade = (duration - pause) * 0.25;
-      const t  = _pickerTime % duration;
-      let   dt = Math.max(0, t - pause) / (duration - pause);
-      dt = Math.sqrt(1 - Math.pow(Math.min(dt, 1) - 1, 2));
-      const m  = t < pause ? 0.5 : 0.5 + 0.5 * dt;
-      const ta = Math.max(0, t - duration + fade);
-      const a  = 1 - ta / fade;
-      const bw = 2 * canvas.dimensions.uiScale;
-      for (const [, e] of _pickerReticles)
-        e.token._drawTargetArrows({ margin: m, alpha: a * (e.alphaMult ?? 1), color: e.color, border: { width: bw } });
-    };
-    canvas.app.ticker.add(_pickerTickerFn);
-  }
+  setPickerArrow(token, color, alphaMult);
 }
 
 export function _removePickerReticle(token) {
-  const entry = _pickerReticles.get(token.id);
-  if (!entry) return;
-  _pickerReticles.delete(token.id);
-  if (!entry.was) {
-    token.targeted.delete(game.user);
-    token.targetArrows.clear();
-  } else {
-    token._drawTargetArrows();
-  }
-  if (_pickerReticles.size === 0 && _pickerTickerFn) {
-    canvas.app.ticker.remove(_pickerTickerFn);
-    _pickerTickerFn = null;
-  }
+  removePickerArrow(token);
 }
 
 export function _clearPickerReticles() {
-  for (const [, { token, was }] of _pickerReticles) {
-    if (!was) { token.targeted.delete(game.user); token.targetArrows.clear(); }
-    else token._drawTargetArrows();
-  }
-  _pickerReticles.clear();
-  if (_pickerTickerFn) { canvas.app.ticker.remove(_pickerTickerFn); _pickerTickerFn = null; }
+  clearPickerArrows();
 }
 
 
@@ -624,10 +606,16 @@ export async function runColoredTokenPicker({ tokens, colorMap, hint }) {
   drawHighlights();
 
   return new Promise(resolve => {
-    const notif = ui.notifications.info(hint, { permanent: true });
+    const overlay = beginPickerOverlay({
+      title: game.i18n.localize('DSCT.picker.titleSource'),
+      status: hint ?? '',
+      tokens,
+      showConfirm: false,
+      onCancel: () => { cleanup(); resolve(null); },
+    });
 
     const cleanup = () => {
-      ui.notifications.remove(notif);
+      overlay.end();
       canvas.interface.grid.destroyHighlightLayer(hlName);
       _clearPickerReticles();
       canvas.stage.off('mousedown', onClick);
@@ -661,7 +649,7 @@ export async function runColoredTokenPicker({ tokens, colorMap, hint }) {
       resolve(hit);
     };
 
-    const onKey           = (e) => { if (e.key === 'Escape') { cleanup(); resolve(null); } };
+    const onKey           = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup(); resolve(null); } };
     const onContextMenu   = (e) => { e.preventDefault(); if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } };
 
     canvas.stage.on('mousedown', onClick);

@@ -1,5 +1,6 @@
 import { getSetting, tokFootprintDist } from '../helpers.mjs';
 import { _getValidTargets, setFoundryTargets, _addPickerReticle, _removePickerReticle, _clearPickerReticles } from './target-picker.mjs';
+import { beginPickerOverlay } from './picker-overlay.mjs';
 import { getStrikeType } from './class-shadow/crossfade.mjs';
 import { _recomputeAndSync, _injectPillUI } from './roll-dialog-hooks.mjs';
 
@@ -294,24 +295,21 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
   const hlName = 'dsct-squad-targeting-hl';
   if (!canvas.interface.grid.highlightLayers[hlName]) canvas.interface.grid.addHighlightLayer(hlName);
 
-  let notif = null;
+  let _sqConfirm = () => {};
+  let _sqCancel  = () => {};
+  const overlay = beginPickerOverlay({
+    title: 'Squad Action',
+    tokens: [...eligibleMinions, ...allTargets],
+    onConfirm: () => _sqConfirm(),
+    onCancel: () => _sqCancel(),
+  });
 
   const refreshNotif = () => {
-    if (notif) ui.notifications.remove(notif);
     if (activeMinionId) {
       const mTok = eligibleMinions.find(t => t.id === activeMinionId);
-      notif = ui.notifications.info(
-        `Squad Action | Selecting target for ${mTok?.name ?? 'minion'}. Right-click to deselect. Escape to cancel.`,
-        { permanent: true },
-      );
+      overlay.setStatus(`Selecting target for ${mTok?.name ?? 'minion'}. Right-click to deselect.`);
     } else {
-      const done     = assignments.size;
-      const total    = eligibleMinions.length;
-      const rcCancel = getSetting('cancelOnRightClick') ? ' Right-click: cancel.' : '';
-      notif = ui.notifications.info(
-        `Squad Action | Click a minion icon to assign its target (${done}/${total} assigned). Double-click empty space: auto-assign and confirm. Enter: confirm. Escape: cancel.${rcCancel}`,
-        { permanent: true },
-      );
+      overlay.setStatus(`Click a minion icon to assign its target · ${assignments.size}/${eligibleMinions.length} assigned`);
     }
   };
 
@@ -412,7 +410,7 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
     syncReticles();
 
     const cleanup = () => {
-      if (notif) { ui.notifications.remove(notif); notif = null; }
+      overlay.end();
       canvas.interface.grid.clearHighlightLayer(hlName);
       if (canvas.interface.grid.highlightLayers[hlName]) canvas.interface.grid.destroyHighlightLayer(hlName);
       _clearPickerReticles();
@@ -436,13 +434,13 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
       const maxDist      = effectiveCap === 0 ? initialRange * CGD : range * CGD;
 
       if (tokFootprintDist(mTok, tTok) >= maxDist) {
-        ui.notifications.warn(effectiveCap === 0
+        overlay.flashWarning(effectiveCap === 0
           ? `${tTok.name} is out of initial strike range.`
           : `${mTok.name} is too far to reinforce ${tTok.name}.`);
         return;
       }
       if (effectiveCap >= 3) {
-        ui.notifications.warn('Maximum 3 minions can target the same creature.');
+        overlay.flashWarning('Maximum 3 minions can target the same creature.');
         return;
       }
 
@@ -476,7 +474,7 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
               assignments.set(m, t);
               targetCap.set(t, (targetCap.get(t) ?? 0) + 1);
             }
-            if (!assignments.size) { ui.notifications.warn('No enemy targets in range to auto-assign.'); return; }
+            if (!assignments.size) { overlay.flashWarning('No enemy targets in range to auto-assign.'); return; }
             cleanup();
             resolve(new Map(assignments));
           } else {
@@ -506,15 +504,22 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
       syncReticles();
     };
 
+    _sqConfirm = () => {
+      if (!assignments.size) { overlay.flashWarning('Assign at least one minion before confirming.'); return; }
+      cleanup();
+      resolve(new Map(assignments));
+    };
+    _sqCancel = () => { cleanup(); resolve(null); };
+
     const onKey = (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
-        if (!assignments.size) { ui.notifications.warn('Assign at least one minion before confirming.'); return; }
-        cleanup();
-        resolve(new Map(assignments));
+        event.stopPropagation();
+        _sqConfirm();
       } else if (event.key === 'Escape') {
-        cleanup();
-        resolve(null);
+        event.preventDefault();
+        event.stopPropagation();
+        _sqCancel();
       }
     };
 
