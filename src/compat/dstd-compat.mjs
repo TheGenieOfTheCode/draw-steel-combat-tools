@@ -245,19 +245,28 @@ export function registerDstdCompat() {
 
   
   Hooks.on('updateChatMessage', (msg, changes) => {
+    if (!foundry.utils.hasProperty(changes, `flags.${M}.dstdFmState`)) return;
+    for (const key of [..._fmState.keys()]) if (key.startsWith(`${msg.id}:`)) _fmState.delete(key);
+  });
+
+  Hooks.on('updateChatMessage', (msg, changes) => {
     if (!game.modules.get(DSTD)?.active) return;
     if (!foundry.utils.getProperty(changes, `flags.${M}.isUndone`)) return;
     const entry = _fmUndoIndex.get(msg.id);
     if (!entry) return;
     const { fmRow, applyBtn, undoBtn, modBtn, quickBtn, stateKey, baseState, movementType, message, subKey } = entry;
     _fmUndoIndex.delete(msg.id);
-    const cur = _fmState.get(stateKey) ?? { applied: false, undoMsgId: msg.id, modStack: [] };
+    const flagEntry = (message.getFlag(M, 'dstdFmState') ?? {})[subKey];
+    const cur = _fmState.get(stateKey)
+      ?? (flagEntry
+        ? { applied: flagEntry.applied ?? false, undoMsgId: flagEntry.undoMsgId ?? null, modStack: (flagEntry.modStack ?? []).map(e => ({ ...e })) }
+        : { applied: false, undoMsgId: msg.id, modStack: [] });
     const newState = { ...cur, applied: false };
     _fmState.set(stateKey, newState);
     const eff = _effectiveState(baseState, newState.modStack);
     _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, _makeLabel(eff));
     if (quickBtn) _syncQuickBtn(quickBtn, newState, movementType, eff.distance);
-    _persistDstdState(message, subKey, newState);
+    if (flagEntry?.applied) _persistDstdState(message, subKey, newState);
   });
 
   if (dbg) console.log(`DSCT | DSTD compat | registerDstdCompat called, starting panel observer`);
@@ -633,6 +642,19 @@ function _syncQuickBtn(btn, state, movementType, distance) {
 }
 
 function _syncRow(fmRow, applyBtn, undoBtn, modBtn, state, label) {
+  if (state.redirected) {
+    applyBtn.replaceChildren(_makeIcon('fa-solid fa-shuffle'), _makeSpan(`Redirected: ${state.redirected.newTargetName || state.redirected.newTargetKey}`));
+    applyBtn.dataset.tooltip = state.redirected.modName || label;
+    fmRow.classList.add('is-redirected');
+    fmRow.classList.remove('is-applied', 'is-undone');
+    applyBtn.disabled = true;
+    undoBtn.disabled = false;
+    undoBtn.dataset.tooltip = 'Undo Redirect';
+    modBtn.disabled = true;
+    return;
+  }
+  fmRow.classList.remove('is-redirected');
+  undoBtn.dataset.tooltip = 'Undo FM';
   const fmLabel = state.applied ? `Applied: ${label}` : label;
   applyBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right'), _makeSpan(fmLabel));
   if (state.applied) {
@@ -656,12 +678,62 @@ async function _persistDstdState(message, subKey, state) {
     modState: e.modState, noteName: e.noteName, noteDesc: e.noteDesc,
     noteSrc: e.noteSrc ?? null, srcTokenId: e.srcTokenId ?? null,
     ...(e.enabled === false ? { enabled: false } : {}),
+    ...(e.dstRedirect ? { dstRedirect: true } : {}),
+    ...(e.dstTrigger ? { dstTrigger: true } : {}),
   }));
   const allState  = foundry.utils.deepClone(message.getFlag(M, 'dstdFmState') ?? {});
-  allState[subKey] = { applied: state.applied, undoMsgId: state.undoMsgId ?? null, modStack: stackData };
+  allState[subKey] = {
+    applied: state.applied, undoMsgId: state.undoMsgId ?? null, modStack: stackData,
+    ...(state.redirected ? { redirected: state.redirected } : {}),
+  };
   const api = getModuleApi();
   if (api?.socket) api.socket.executeAsGM('dsct.updateDocument', message.uuid, { [`flags.${M}.dstdFmState`]: allState });
   else await message.setFlag(M, 'dstdFmState', allState);
+}
+
+async function _undoFmRedirect(message, origSubKey, origStateKey, movementType, cur) {
+  const red = cur.redirected;
+  const newSubKey   = `${red.newTargetKey}:${movementType}`;
+  const newStateKey = `${message.id}:${red.newTargetKey}:${movementType}`;
+  const allState    = foundry.utils.deepClone(message.getFlag(M, 'dstdFmState') ?? {});
+  const liveNew     = _fmState.get(newStateKey) ?? allState[newSubKey];
+
+  if (liveNew?.applied && liveNew.undoMsgId) {
+    const chatLi   = document.querySelector(`[data-message-id="${liveNew.undoMsgId}"]`);
+    const dsctUndo = chatLi?.querySelector('.dsct-undo-fm');
+    if (dsctUndo) { dsctUndo.click(); _fmUndoIndex.delete(liveNew.undoMsgId); }
+    else ui.notifications.warn('DSCT | Could not find the redirected FM undo button in the chat log');
+  }
+
+  const upd = { [`flags.${DSTD}.state.updatedAt`]: Date.now() };
+  const origEntry = allState[origSubKey];
+  const origKept  = (origEntry?.modStack ?? []).filter(e => !(e.dstTrigger && e.noteName === red.modName));
+  const origBare  = origEntry && !origEntry.applied && !origEntry.undoMsgId && !origKept.length;
+  if (origBare) {
+    upd[`flags.${M}.dstdFmState.-=${origSubKey}`] = null;
+  } else {
+    upd[`flags.${M}.dstdFmState.${origSubKey}.-=redirected`] = null;
+    upd[`flags.${M}.dstdFmState.${origSubKey}.modStack`] = origKept;
+  }
+
+  if (red.newWasTarget) {
+    upd[`flags.${M}.dstdFmState.${newSubKey}.applied`] = false;
+    upd[`flags.${M}.dstdFmState.${newSubKey}.modStack`] =
+      (allState[newSubKey]?.modStack ?? []).filter(e => !e.dstRedirect);
+  } else {
+    upd[`flags.${M}.dstdFmState.-=${newSubKey}`] = null;
+    const st = foundry.utils.getProperty(message.flags, `${DSTD}.state`) ?? {};
+    upd[`flags.${DSTD}.state.targets`] = (st.targets ?? []).filter(t =>
+      t.tokenUuid !== red.newTargetUuid
+      && String(t.tokenUuid ?? '').replace(/\./g, '__') !== red.newTargetKey);
+  }
+
+  _fmState.delete(origStateKey);
+  _fmState.delete(newStateKey);
+
+  const api = getModuleApi();
+  if (api?.socket) api.socket.executeAsGM('dsct.updateDocument', message.uuid, upd);
+  else await message.update(upd);
 }
 
 function _hoverMinions(minionIds) {
@@ -1150,6 +1222,7 @@ async function _injectFmButtons(message, root) {
             : { applied: false, undoMsgId: null, modStack: _flyingMod ? [_flyingMod] : [] };
           _fmState.set(stateKey, saved);
         }
+        saved.redirected = savedFlagState[subKey]?.redirected ?? null;
 
         const label          = _makeLabel(_effectiveState(baseState, saved.modStack));
         const fmSquadMinions = squadTargetMap?.[targetKey]?.minionIds ?? [];
@@ -1282,6 +1355,11 @@ async function _injectFmButtons(message, root) {
         undoBtn.addEventListener('click', async (e) => {
           e.stopPropagation(); e.preventDefault();
           if (undoBtn.disabled) return;
+          const redirCur = _fmState.get(stateKey) ?? saved;
+          if (redirCur.redirected) {
+            await _undoFmRedirect(message, subKey, stateKey, movementType, redirCur);
+            return;
+          }
           const msgId = undoBtn.dataset.dsctFmMsgId;
           if (!msgId) return;
 

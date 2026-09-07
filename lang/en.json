@@ -913,6 +913,7 @@
         "noPreset": "(No Preset)",
         "apply": "Apply",
         "modifierTitle": "Click to toggle. Right-click to remove",
+        "modifierTitleAbility": "Click to toggle",
         "defaultName": "FM Modifier {n}"
       },
       "damagePills": {

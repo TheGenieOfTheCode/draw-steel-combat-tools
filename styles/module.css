@@ -1928,6 +1928,16 @@ enriched-content[enricher="dsct.teleport"] {
   margin-left: 0;
 }
 
+.draw-steel-target-damage-action-row.is-redirected .draw-steel-target-damage-stretch-button,
+.draw-steel-target-damage-action-row.is-redirected .draw-steel-target-damage-stretch-button:disabled {
+  background: rgba(155, 109, 214, 0.2);
+  opacity: 0.95;
+}
+
+.draw-steel-target-damage-action-row.is-redirected .draw-steel-target-damage-stretch-button > i {
+  color: #9b6dd6;
+}
+
 
 body.detached .application {
   position: fixed !important;

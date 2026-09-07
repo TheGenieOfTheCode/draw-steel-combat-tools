@@ -76,7 +76,8 @@ const _buildModTooltip = (entry, baseStates) => {
     return parts.join(', ');
   }).filter(Boolean);
   const summary = lines.join('\n');
-  const hint    = game.i18n.localize('DSCT.panel.modFm.modifierTitle');
+  const hint    = game.i18n.localize((entry.dstRedirect || entry.dstTrigger)
+    ? 'DSCT.panel.modFm.modifierTitleAbility' : 'DSCT.panel.modFm.modifierTitle');
   return summary ? `${summary}\n${'_'.repeat(24)}\n${hint}` : hint;
 };
 
@@ -103,9 +104,10 @@ const _modEffectSummary = (entry, baseStates) => {
 export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, btnEls, makeLabel, noteParent, msgEl, persistFn = persistStack) => {
   const { noteName, noteDesc } = entry;
   const esc = foundry.utils.escapeHTML;
+  const isAbilityPill = !!(entry.dstRedirect || entry.dstTrigger);
   const pillBtn = document.createElement('button');
   pillBtn.type = 'button';
-  pillBtn.className = `dsct-source-pill dsct-fm-pill dsct-pill-custom${entry.enabled === false ? ' dsct-pill-disabled' : ''}`;
+  pillBtn.className = `dsct-source-pill dsct-fm-pill${isAbilityPill ? '' : ' dsct-pill-custom'}${entry.enabled === false ? ' dsct-pill-disabled' : ''}`;
   pillBtn.dataset.modifierName = noteName;
   if (entry.srcTokenId) pillBtn.dataset.srcTokenId = entry.srcTokenId;
   const effectStr = _modEffectSummary(entry, baseStates);
@@ -128,6 +130,7 @@ export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, 
   });
   pillBtn.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    if (entry.dstRedirect || entry.dstTrigger) return;
     const idx = modifierStack.indexOf(entry);
     if (idx !== -1) modifierStack.splice(idx, 1);
     pillBtn.remove();
