@@ -366,17 +366,25 @@ async function _updateMessage(message, payload) {
   ui.notifications.warn(game.i18n.localize('DSCT.notice.rollPills.noPermission'));
 }
 
-async function _toggleOverridePill(message, opId, idx) {
-  const state = message.getFlag(DSTD, 'state') ?? {};
-  const ov = state.damageOverrides?.[opId];
-  if (!Array.isArray(ov?.dstPills) || !ov.dstPills[idx]) return;
-  const pills = ov.dstPills.map((p, i) => i === idx ? { ...p, enabled: p.enabled === false } : p);
+function _pillFamily(state, opId) {
+  const clicked = state.damageOverrides?.[opId];
+  if (!clicked) return [];
+  const all = Object.entries(state.damageOverrides ?? {});
+  if (clicked.dstFam) return all.filter(([, ov]) => ov?.dstFam === clicked.dstFam);
+  if (clicked.dstHalf) {
+    const suffix = opId.slice(opId.lastIndexOf('-'));
+    return all.filter(([id, ov]) => ov?.dstHalf && ov.dstModName === clicked.dstModName && id.endsWith(suffix));
+  }
+  return [[opId, clicked]];
+}
+
+function _pillOpData(ov, pills) {
   const base = Number(ov.baseAmount ?? 0);
   const orig = _origDamageType(ov);
   const typePill = damagePillType(pills);
   const surges = pills.filter((p) => p.kind === 'surge' && p.enabled !== false).length;
   const surgeDamage = Number(ov.surgeDamage ?? 0) || 0;
-  await _replaceOverride(message, opId, {
+  return {
     ...ov,
     amount: foldDamagePills(base, pills),
     damageType: typePill != null ? typePill : orig.damageType,
@@ -385,7 +393,94 @@ async function _toggleOverridePill(message, opId, idx) {
     surges,
     surgeBonus: surges * surgeDamage,
     dstPills: pills,
-  });
+  };
+}
+
+async function _writePillsToOps(message, entries, pills) {
+  if (!entries.length) return;
+  const direct = game.user.isGM || message.isOwner;
+  const FD = foundry.data?.operators?.ForcedDeletion;
+  const FR = foundry.data?.operators?.ForcedReplacement;
+  const payload = { [`flags.${DSTD}.state.updatedAt`]: Date.now() };
+  const removeAll = !pills.length;
+  for (const [id, ov] of entries) {
+    if (removeAll && !ov.additional && (ov.dstOrigType !== undefined || !ov.damageType)) {
+      if (direct && FD) payload[`flags.${DSTD}.state.damageOverrides.${id}`] = new FD();
+      else payload[`flags.${DSTD}.state.damageOverrides.-=${id}`] = null;
+      continue;
+    }
+    const data = _pillOpData(ov, pills);
+    payload[`flags.${DSTD}.state.damageOverrides.${id}`] = direct && FR ? new FR(data) : data;
+  }
+  if (direct) return message.update(payload);
+  return _updateMessage(message, payload);
+}
+
+function _dsctHashKey(value) {
+  let hash = 0;
+  const text = String(value ?? '');
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function _targetOpId(target, partId, rollIndex) {
+  const key = String(target?.tokenUuid ?? target?.actorUuid ?? '').replace(/\./g, '__');
+  return `damage-${partId ?? 'part'}-${rollIndex}-${_dsctHashKey(key)}`.replace(/[^A-Za-z0-9_-]/g, '-');
+}
+
+async function _siblingDamageOps(message, target) {
+  if (!target || target.selectedToken) return [];
+  const out = [];
+  const DamageRoll = globalThis.ds?.rolls?.DamageRoll;
+  const parts = Array.from(message.system?.parts?.contents ?? []);
+  for (const part of parts) {
+    const partId = part.id ?? part._id;
+    const rolls = part.rolls ?? [];
+    for (let i = 0; i < rolls.length; i++) {
+      const roll = rolls[i];
+      const isDamage = DamageRoll ? roll instanceof DamageRoll : roll?.constructor?.name === 'DamageRoll';
+      if (!isDamage || roll?.isHeal) continue;
+      out.push({
+        opId: _targetOpId(target, partId, i), base: Number(roll.total ?? 0),
+        damageType: roll.type ?? roll.options?.type ?? '', typeLabel: roll.typeLabel ?? '',
+      });
+    }
+  }
+  const abilityUuid = parts.find((p) => p.type === 'abilityUse')?.abilityUuid;
+  const ability = abilityUuid ? await fromUuid(abilityUuid).catch(() => null) : null;
+  let dmgIndex = 0;
+  for (const powerEffect of ability?.system?.power?.effects ?? []) {
+    if (powerEffect.type !== 'damage') continue;
+    const effKey = powerEffect.id ?? powerEffect._id ?? `damage-${dmgIndex}`;
+    for (const tier of [1, 2, 3]) {
+      const tierData = powerEffect.damage?.[`tier${tier}`];
+      if (!tierData || Number(tierData.value) === 0) continue;
+      let amount = NaN;
+      try {
+        amount = Number(globalThis.ds?.utils?.simplifyRollFormula?.(String(tierData.value ?? '0'), ability.getRollData?.() ?? {}));
+      } catch {  }
+      if (!Number.isFinite(amount)) amount = Number(tierData.value);
+      if (!Number.isFinite(amount)) continue;
+      const type = tierData.types?.size === 1 ? tierData.types.first() : '';
+      out.push({
+        opId: _targetOpId(target, `tier${tier}-synthetic`, effKey), base: amount,
+        damageType: type, typeLabel: type ? damageTypeLabel(type) : '',
+      });
+    }
+    dmgIndex++;
+  }
+  return out;
+}
+
+async function _toggleOverridePill(message, opId, idx) {
+  const state = message.getFlag(DSTD, 'state') ?? {};
+  const ov = state.damageOverrides?.[opId];
+  if (!Array.isArray(ov?.dstPills) || !ov.dstPills[idx]) return;
+  const pills = ov.dstPills.map((p, i) => i === idx ? { ...p, enabled: p.enabled === false } : p);
+  await _writePillsToOps(message, _pillFamily(state, opId), pills);
 }
 
 async function _toggleHalfFamily(message, opId) {
@@ -407,35 +502,6 @@ async function _toggleHalfFamily(message, opId) {
   return _updateMessage(message, payload);
 }
 
-async function _replaceOverride(message, opId, data) {
-  const direct = game.user.isGM || message.isOwner;
-  const FD = foundry.data?.operators?.ForcedDeletion;
-  const FR = foundry.data?.operators?.ForcedReplacement;
-  if (!data) {
-    if (direct && FD) {
-      return message.update({
-        [`flags.${DSTD}.state.damageOverrides.${opId}`]: new FD(),
-        [`flags.${DSTD}.state.updatedAt`]: Date.now(),
-      });
-    }
-    return _updateMessage(message, {
-      [`flags.${DSTD}.state.damageOverrides.-=${opId}`]: null,
-      [`flags.${DSTD}.state.updatedAt`]: Date.now(),
-    });
-  }
-  if (direct && FR) {
-    return message.update({
-      [`flags.${DSTD}.state.damageOverrides.${opId}`]: new FR(data),
-      [`flags.${DSTD}.state.updatedAt`]: Date.now(),
-    });
-  }
-  await _updateMessage(message, { [`flags.${DSTD}.state.damageOverrides.-=${opId}`]: null });
-  return _updateMessage(message, {
-    [`flags.${DSTD}.state.damageOverrides.${opId}`]: data,
-    [`flags.${DSTD}.state.updatedAt`]: Date.now(),
-  });
-}
-
 function _origDamageType(ov) {
   if (ov?.dstOrigType !== undefined) {
     return { damageType: ov.dstOrigType?.damageType ?? null, typeLabel: ov.dstOrigType?.typeLabel ?? null };
@@ -448,25 +514,7 @@ async function _removeOverridePill(message, opId, idx) {
   const ov = state.damageOverrides?.[opId];
   if (!Array.isArray(ov?.dstPills)) return;
   const pills = ov.dstPills.filter((_, i) => i !== idx);
-  const base = Number(ov.baseAmount ?? 0);
-  const orig = _origDamageType(ov);
-  if (!pills.length && !ov.additional && (ov.dstOrigType !== undefined || !ov.damageType)) {
-    await _replaceOverride(message, opId, null);
-    return;
-  }
-  const typePill = damagePillType(pills);
-  const surges = pills.filter((p) => p.kind === 'surge' && p.enabled !== false).length;
-  const surgeDamage = Number(ov.surgeDamage ?? 0) || 0;
-  await _replaceOverride(message, opId, {
-    ...ov,
-    amount: foldDamagePills(base, pills),
-    damageType: typePill != null ? typePill : orig.damageType,
-    typeLabel: typePill != null ? (typePill ? damageTypeLabel(typePill) : '') : orig.typeLabel,
-    dstOrigType: orig,
-    surges,
-    surgeBonus: surges * surgeDamage,
-    dstPills: pills,
-  });
+  await _writePillsToOps(message, _pillFamily(state, opId), pills);
 }
 
 function _findPartRoll(message, partId, rollIndex) {
@@ -496,7 +544,7 @@ async function _resolveSurgeContext(message, state) {
 function _seedPillsFromOverride(ov) {
   if (Array.isArray(ov?.dstPills)) return ov.dstPills.map((p) => ({ ...p }));
   const seed = [];
-  if (ov?.dstHalf) seed.push({ kind: 'half', label: ov.dstModName ?? '', src: ov.dstSrcName ?? null, srcTokenId: ov.dstSrcTokenId ?? null, source: 'trigger' });
+  if (ov?.dstHalf) seed.push({ kind: 'half', label: ov.dstModName ?? '', src: ov.dstSrcName ?? null, srcTokenId: ov.dstSrcTokenId ?? null, source: 'trigger', ...(ov.dstHalfOff ? { enabled: false } : {}) });
   const surges = Number(ov?.surges ?? 0) || 0;
   for (let i = 0; i < surges; i++) seed.push({ kind: 'surge', value: Number(ov?.surgeDamage ?? 0) || 0, label: '', source: 'surge' });
   const bonus = Number(ov?.bonus ?? 0) || 0;
@@ -532,27 +580,32 @@ async function _openPillDamageEditor(message, button) {
     srcTokenId: p.srcTokenId ?? null, source: p.source ?? 'manual',
     ...(p.enabled === false ? { enabled: false } : {}),
   }));
-  const orig = _origDamageType(ov);
-  if (!pills.length && !ov?.additional && (ov?.dstOrigType !== undefined || !ov?.damageType)) {
-    if (ov) await _replaceOverride(message, opId, null);
-    return;
-  }
-  const typePill = damagePillType(pills);
-  const surges = pills.filter((p) => p.kind === 'surge' && p.enabled !== false).length;
+  if (!pills.length && !ov) return;
+  const fam = ov?.dstFam ?? foundry.utils.randomID();
   const surgeDamage = surge?.damage ?? (Number(ov?.surgeDamage ?? 0) || 0);
-  await _replaceOverride(message, opId, {
-    amount: outcome.final,
-    baseAmount: base,
+  const cleanEntry = (o) => ({
+    baseAmount: Number(o.baseAmount ?? 0),
     bonus: 0,
-    additional: ov?.additional ?? '',
-    damageType: typePill != null ? typePill : orig.damageType,
-    typeLabel: typePill != null ? (typePill ? damageTypeLabel(typePill) : '') : orig.typeLabel,
-    dstOrigType: orig,
-    surges,
+    additional: o.additional ?? '',
+    damageType: o.damageType ?? '',
+    typeLabel: o.typeLabel ?? '',
+    ...(o.dstOrigType !== undefined ? { dstOrigType: o.dstOrigType } : {}),
     surgeDamage,
-    surgeBonus: surges * surgeDamage,
-    dstPills: pills,
+    dstFam: fam,
   });
+  const known = new Map((ov ? _pillFamily(state, opId) : []).map(([id, o]) => [id, cleanEntry(o)]));
+  if (!known.has(opId)) {
+    known.set(opId, cleanEntry({
+      baseAmount: base, damageType: roll?.type ?? roll?.options?.type ?? '', typeLabel: roll?.typeLabel ?? '',
+    }));
+  }
+  if (pills.length) {
+    for (const sib of await _siblingDamageOps(message, target)) {
+      if (known.has(sib.opId) || state.damageOverrides?.[sib.opId]) continue;
+      known.set(sib.opId, cleanEntry({ baseAmount: sib.base, damageType: sib.damageType, typeLabel: sib.typeLabel }));
+    }
+  }
+  await _writePillsToOps(message, [...known.entries()], pills);
 }
 
 const _providers = [];
