@@ -15,6 +15,7 @@ export const replayModifiers = (baseStates, stack, states) => {
     st.noObstacleCollisionDamage = base.noObstacleCollisionDamage;
     st.ignoreStability          = base.ignoreStability;
     st.fastMove                 = base.fastMove;
+    st.sourceTokenId            = base.sourceTokenId ?? null;
     for (const entry of stack) {
       if (entry.enabled === false) continue;
       const m = entry.modState[i];
@@ -30,6 +31,7 @@ export const replayModifiers = (baseStates, stack, states) => {
       st.noObstacleCollisionDamage   = m.noObstacleCollisionDamage;
       st.ignoreStability            = m.ignoreStability;
       st.fastMove                   = m.fastMove;
+      st.sourceTokenId              = m.sourceTokenId ?? st.sourceTokenId;
     }
   }
   console.log(`DSCT | replayModifiers | stack depth=${stack.length} states=${JSON.stringify(states.map(st => ({ movement: st.movement, distance: st.distance })))}`);
@@ -70,6 +72,7 @@ const _buildModTooltip = (entry, baseStates) => {
     if (m.noObstacleCollisionDamage)                        parts.push('No obstacle damage');
     if (m.ignoreStability)                                  parts.push('Ignore stability');
     if (m.fastMove)                                         parts.push('Fast path');
+    if (m.sourceTokenId)                                    parts.push(`Source: ${canvas.tokens?.get(m.sourceTokenId)?.name ?? '?'}`);
     return parts.join(', ');
   }).filter(Boolean);
   const summary = lines.join('\n');
@@ -93,6 +96,7 @@ const _modEffectSummary = (entry, baseStates) => {
   if (m.noObstacleCollisionDamage)                    parts.push('No Obstacle Dmg');
   if (m.ignoreStability)                              parts.push('Ignore Stability');
   if (m.fastMove)                                     parts.push('Fast Path');
+  if (m.sourceTokenId)                                parts.push(`Source → ${canvas.tokens?.get(m.sourceTokenId)?.name ?? '?'}`);
   return parts.join(', ');
 };
 
@@ -199,6 +203,7 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
         noObstacleCollisionDamage:  tmp.noObstacleCollisionDamage,
         ignoreStability:           tmp.ignoreStability,
         fastMove:                  tmp.fastMove,
+        sourceTokenId:             tmp.sourceTokenId ?? null,
       };
     });
 
@@ -251,6 +256,8 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
     st.noObstacleCollisionDamage = colDmgVal === 'no-obstacle';
     st.ignoreStability          = root.querySelector(`[data-field="ignoreStab-${i}"]`)?.checked  ?? st.ignoreStability;
     st.fastMove          = root.querySelector(`[data-field="fast-${i}"]`)?.checked     ?? st.fastMove;
+    const fmSrcRaw       = root.querySelector(`[data-field="fmSrc-${i}"]`)?.value?.trim() ?? '';
+    st.sourceTokenId     = fmSrcRaw ? (canvas.tokens?.placeables.find(t => t.name === fmSrcRaw)?.id ?? null) : null;
   }
 
   _buildEffectSections() {
@@ -281,6 +288,17 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
             </label>
             <input type="number" data-field="vertDist-${i}" placeholder="${state.distance}" step="1"
               style="width:48px;text-align:center;" title="Leave blank to match distance">
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="dsct-section-label" title="The token the movement originates from. Push moves away from it, pull toward it. Blank keeps the default source.">FM Source</div>
+            <div class="dsct-fm-src-wrap">
+              <button type="button" class="dsct-amw-target-fill dsct-fm-src-fill" data-fill-target="fmSrc-${i}" title="Use currently targeted token">
+                <i class="fa-solid fa-bullseye-pointer"></i>
+              </button>
+              <input type="text" data-field="fmSrc-${i}" placeholder="Default" class="dsct-fm-name-input dsct-fm-src-input"
+                value="${foundry.utils.escapeHTML(state.sourceTokenId ? (canvas.tokens?.get(state.sourceTokenId)?.name ?? '') : '')}">
+            </div>
           </div>
 
           <div class="dsct-divider"></div>
@@ -387,10 +405,11 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
     });
 
     this.element.addEventListener('click', e => {
-      if (e.target.closest('.dsct-amw-target-fill')) {
+      const fillBtn = e.target.closest('.dsct-amw-target-fill');
+      if (fillBtn) {
         const t = game.user.targets.first();
-        const srcEl = this.element.querySelector('[data-field="note-src"]');
-        if (t && srcEl) srcEl.value = t.name;
+        const el = this.element.querySelector(`[data-field="${fillBtn.dataset.fillTarget ?? 'note-src'}"]`);
+        if (t && el) el.value = t.name;
         return;
       }
       const btn = e.target.closest('[data-action]');

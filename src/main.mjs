@@ -1,4 +1,5 @@
-import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHooks } from './forced-movement/forced-movement.mjs';
+import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHooks, bypassNextFmGate } from './forced-movement/forced-movement.mjs';
+import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard } from './conditions/grab.mjs';
@@ -38,6 +39,8 @@ import { registerFlatEffects } from './ability-automation/flat-special-effects.m
 
 const api = {
   forcedMovement:   runForcedMovement,
+  bypassNextFmGate: bypassNextFmGate,
+  colorTokenPicker: runColoredTokenPicker,
   grab:             runGrab,
   wallBuilder: () => { const existing = getWindowById('wall-builder-panel'); if (existing) existing.close(); else new WallBuilderPanel().render(true); },
   convertWalls: convertWalls,

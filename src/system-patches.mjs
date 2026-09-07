@@ -432,6 +432,8 @@ function _registerButtonHooks() {
           await runForcedMovement({
             movement: st.movement, distance: String(st.distance),
             properties: props, verticalDistance: vertDist, fallReduction: st.fallReduction,
+            source: (st.sourceTokenId ? canvas.tokens.get(st.sourceTokenId) : null) ?? undefined,
+            contextMessageId: _msg.id,
           });
         });
       });

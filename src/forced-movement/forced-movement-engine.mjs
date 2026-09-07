@@ -26,7 +26,38 @@ import { toggleForcedMovementPanel } from './forced-movement-panel.mjs';
 import { VerticalDistancePopup } from './forced-movement-vertical-popup.mjs';
 import { runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 
-const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false, juggernaut = false, noMoverCollisionDamage = false, noObstacleCollisionDamage = false) => {
+let _fmGateBypass = false;
+
+
+export function bypassNextFmGate() {
+  _fmGateBypass = true;
+}
+
+const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false, juggernaut = false, noMoverCollisionDamage = false, noObstacleCollisionDamage = false, contextMessageId = null) => {
+  if (_fmGateBypass) {
+    _fmGateBypass = false;
+  } else {
+    
+    
+    
+    const gate = Hooks.call('dsct.preForcedMovement', {
+      type, distance, target: targetToken, source: sourceToken,
+      messageId: contextMessageId,
+      verticalHeight, fallReduction, noFallDamage, ignoreStability,
+      noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, fastMove,
+      resume: (mods = {}) => {
+        _fmGateBypass = true;
+        try {
+          return _runForcedMovement(mods.type ?? type, mods.distance ?? distance, mods.target ?? targetToken, mods.source ?? sourceToken,
+            bonusCreatureDmg, bonusObjectDmg, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove,
+            false, juggernaut, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
+        } finally {
+          _fmGateBypass = false;
+        }
+      },
+    });
+    if (gate === false) return;
+  }
   const noMoverDmg    = noCollisionDamage || noMoverCollisionDamage;
   const noObstacleDmg = noCollisionDamage || noObstacleCollisionDamage;
   const grabState = window._activeGrabs?.get(targetToken.id);
@@ -2624,7 +2655,7 @@ export async function runForcedMovement(macroArgs = []) {
   } 
   else if (typeof macroArgs === 'object' && !Array.isArray(macroArgs) && 'movement' in macroArgs) {
     
-    const { movement, distance: distRaw, properties, verticalDistance = 0, fallReduction = 0, target: explicitTarget, source: explicitSource } = macroArgs;
+    const { movement, distance: distRaw, properties, verticalDistance = 0, fallReduction = 0, target: explicitTarget, source: explicitSource, contextMessageId = null } = macroArgs;
     const type     = parseType(movement);
     const distance = parseInt(distRaw) || 0;
     const propSet  = properties instanceof Set ? properties : new Set(properties ?? []);
@@ -2660,12 +2691,12 @@ export async function runForcedMovement(macroArgs = []) {
     if (type === 'Pull' && verticalHeight > 0) verticalHeight = -verticalHeight;
 
     if (targetsToProcess.length === 1) {
-      await _runForcedMovement(type, distance, targetsToProcess[0], source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, [], fastMove, false, false, noMoverCollisionDamage, noObstacleCollisionDamage);
+      await _runForcedMovement(type, distance, targetsToProcess[0], source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, [], fastMove, false, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
     } else {
       const results = [];
       if (fastMove) {
         for (const t of targetsToProcess) {
-          const result = await _runForcedMovement(type, distance, t, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, [], fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage);
+          const result = await _runForcedMovement(type, distance, t, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, [], fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
           if (result) results.push(result);
         }
       } else {
@@ -2674,7 +2705,7 @@ export async function runForcedMovement(macroArgs = []) {
           const picked = await pickTarget(remaining);
           if (!picked) break;
           remaining = remaining.filter(t => t.id !== picked.id);
-          const result = await _runForcedMovement(type, distance, picked, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, [], fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage);
+          const result = await _runForcedMovement(type, distance, picked, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, [], fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
           if (result) results.push(result);
         }
       }

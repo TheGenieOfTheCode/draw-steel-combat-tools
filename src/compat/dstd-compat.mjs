@@ -519,6 +519,25 @@ function _getMessageParts(message) {
   return Object.values(parts);
 }
 
+
+function _effectiveRowTier(message, targetKey, tokenUuid, fallbackTier) {
+  const ov = foundry.utils.getProperty(message.flags, `${DSTD}.state.tierOverrides.${targetKey}`);
+  const ovTier = Number(ov?.tier);
+  if (ovTier >= 1 && ovTier <= 3) return ovTier;
+  const actorUuid = tokenUuid ? fromUuidSync(tokenUuid)?.actor?.uuid : null;
+  if (actorUuid) {
+    for (const part of _getMessageParts(message)) {
+      if (part.type !== 'abilityResult') continue;
+      const roll = Array.from(part.rolls ?? []).reverse().find(r => r?.options?.target === actorUuid);
+      if (roll) {
+        const t = Number(part.tier);
+        if (t >= 1 && t <= 3) return t;
+      }
+    }
+  }
+  return fallbackTier;
+}
+
 function _getMessageTier(message) {
   for (const part of _getMessageParts(message)) {
     if (part.type !== 'abilityResult') continue;
@@ -563,6 +582,7 @@ function _buildBaseState(movementType, distance, properties, verticalDistance, f
     noObstacleCollisionDamage:  properties.has('no-obstacle-collision-damage'),
     ignoreStability:           properties.has('ignore-stability'),
     fastMove:          properties.has('fast-auto-path'),
+    sourceTokenId:     null,
   };
 }
 
@@ -1065,6 +1085,7 @@ async function _injectFmButtons(message, root) {
     if (!targetKey) continue;
     
     const tokenUuid = targetKey === 'selected-token' ? null : targetKey.replace(/__/g, '.');
+    const rowTier = _effectiveRowTier(message, targetKey, tokenUuid, tier);
 
     const body = row.querySelector(`.${DSTD}-target-body`);
     if (!body) continue;
@@ -1072,7 +1093,7 @@ async function _injectFmButtons(message, root) {
 
     for (const effect of fmEffects) {
       if (!doFm) break;
-      const tierData = effect.forced?.[`tier${tier}`];
+      const tierData = effect.forced?.[`tier${rowTier}`];
       if (!tierData) continue;
       const movementSet = tierData.movement instanceof Set ? tierData.movement : new Set(tierData.movement ?? []);
       const properties  = tierData.properties instanceof Set ? tierData.properties : new Set(tierData.properties ?? []);
@@ -1085,9 +1106,9 @@ async function _injectFmButtons(message, root) {
           : Roll.safeEval(Roll.replaceFormulaData(distanceRaw, rollData));
       } catch { baseDistance = parseInt(distanceRaw) || 0; }
 
-      const verticalDistance = ability.getFlag(M, `fmVerticalDistance${tier}`) ?? 0;
+      const verticalDistance = ability.getFlag(M, `fmVerticalDistance${rowTier}`) ?? 0;
       const fallRed1         = ability.getFlag(M, 'fmFallReduction1') ?? 0;
-      const fallRedN         = ability.getFlag(M, `fmFallReduction${tier}`);
+      const fallRedN         = ability.getFlag(M, `fmFallReduction${rowTier}`);
       const fallReduction    = fallRedN != null ? fallRedN : fallRed1;
 
       for (const movementType of movementSet) {
@@ -1233,7 +1254,9 @@ async function _injectFmButtons(message, root) {
             await runForcedMovement({
               movement: clickState.movement, distance: String(clickState.distance),
               properties: props, verticalDistance: vertDist, fallReduction: clickState.fallReduction,
-              target: targetToken, source: fmSource,
+              target: targetToken,
+              source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null) ?? fmSource,
+              contextMessageId: message.id,
             });
           } catch {  }
 
@@ -1349,7 +1372,7 @@ async function _injectFmButtons(message, root) {
 
     if (doConditions) {
       for (const effect of appliedEffects) {
-        const tierData = effect.applied?.[`tier${tier}`];
+        const tierData = effect.applied?.[`tier${rowTier}`];
         if (!tierData?.effects) continue;
         const effectEntries = tierData.effects instanceof Map
           ? [...tierData.effects.entries()]
@@ -1990,7 +2013,9 @@ async function _injectFmButtons(message, root) {
           await runForcedMovement({
             movement: clickState.movement, distance: String(clickState.distance),
             properties: clickProps, verticalDistance: vertDist, fallReduction: clickState.fallReduction,
-            target: targetToken ?? undefined, source: sourceToken,
+            target: targetToken ?? undefined,
+            source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null) ?? sourceToken,
+            contextMessageId: message.id,
           });
         } catch { }
 
