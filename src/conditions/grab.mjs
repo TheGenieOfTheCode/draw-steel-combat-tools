@@ -639,9 +639,51 @@ function _checkAbilityRange(dialog) {
   return getSetting('enforceAbilityRange') ? 'block' : null;
 }
 
+const _mrChosen = new Map();
+
+function _checkMeleeRangedChoice(dialog) {
+  const ability = dialog.options?.ability;
+  if (!ability) return null;
+  if (ability.system?.distance?.type !== 'meleeRanged') return null;
+  if (ability.system?.type === 'triggered') return null;
+
+  const stamp = _mrChosen.get(ability.uuid);
+  if (stamp && Date.now() - stamp < 300000) return null;
+  _mrChosen.delete(ability.uuid);
+
+  const p = parseInt(ability.system.distance.primary)   || 0;
+  const s = parseInt(ability.system.distance.secondary) || 0;
+  if (!p || !s) return null;
+
+  (async () => {
+    const current = ability.system?.damageDisplay ?? 'melee';
+    const choice = await foundry.applications.api.DialogV2.wait({
+      window: { title: ability.name },
+      content: `<p>${game.i18n.localize('DSCT.dialog.mr.prompt')}</p>`,
+      buttons: [
+        { label: game.i18n.format('DSCT.dialog.mr.melee',  { range: p }), action: 'melee',  icon: 'fa-solid fa-hand-fist', default: current === 'melee' },
+        { label: game.i18n.format('DSCT.dialog.mr.ranged', { range: s }), action: 'ranged', icon: 'fa-solid fa-bullseye',  default: current === 'ranged' },
+      ],
+      rejectClose: false,
+    });
+    if (choice !== 'melee' && choice !== 'ranged') return;
+    if (choice !== current) await ability.update({ 'system.damageDisplay': choice });
+    _mrChosen.set(ability.uuid, Date.now());
+    ability.system.use();
+  })();
+
+  return 'block';
+}
+
 export function registerKnockbackGuard() {
+  Hooks.on('closeAbilityConfigurationDialog', (app) => {
+    const uuid = app.options?.ability?.uuid;
+    if (uuid) _mrChosen.delete(uuid);
+  });
+
   Hooks.on('ds.canRenderAbilityConfigurationDialog', (app) => {
     if (getSetting('conditionsEnabled') && _isKnockbackGrabbed(app)) return false;
+    if (getSetting('abilityAutomationEnabled') && _checkMeleeRangedChoice(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && _checkAbilityRange(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && checkAndRunSquadTargeting(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && checkAndRunTargetPicker(app) === 'block') return false;

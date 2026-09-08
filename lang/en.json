@@ -1093,6 +1093,11 @@
       "shiftStartCombat": "Shift-Click to Override Saved Squad Labels Rename Preference"
     },
     "dialog": {
+      "mr": {
+        "prompt": "This ability can be used as a melee or a ranged attack. Which one is it this time?",
+        "melee": "Melee {range}",
+        "ranged": "Ranged {range}"
+      },
       "autoRenameSquads": {
         "title": "Auto-Rename Squads?",
         "content": "Do you want to rename all NPC combat groups to <strong>Group 1</strong>, <strong>Group 2</strong>, etc. before applying the labels?",
