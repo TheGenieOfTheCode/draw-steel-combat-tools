@@ -3,6 +3,7 @@ import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmC
 import { checkAndRunTargetPicker, runSourcePicker, runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore, isNullSpeedExemptActive } from '../ability-automation/class-null/psionic-martial-arts.mjs';
+import { _effectiveRowTier } from '../compat/dstd-compat.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -327,6 +328,7 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
     hookId = Hooks.on('createChatMessage', async (msg) => {
       const parts = msg.system?.parts?.contents; if (!parts) return;
       const ar = parts.find(p => p.type === 'abilityResult'); if (!ar) return;
+      msg.setFlag(M, 'grabRoll', { grabberTokenId: grabberToken.id, targetTokenId: targetToken.id, appliedTier: ar.tier }).catch(() => {});
       await cleanup(ar.tier);
     });
     timeoutId = setTimeout(async () => { ui.notifications.warn(game.i18n.localize('DSCT.notice.grab.rollNotDetected')); await cleanup(null); }, TIMEOUT_MS);
@@ -335,6 +337,27 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
 
   if (resolvedTier === null) return;
   await runGrab(grabberToken, targetToken, { tier: resolvedTier });
+};
+
+export const registerGrabTierSync = () => {
+  Hooks.on('updateChatMessage', async (message, changes) => {
+    if (!game.users.activeGM?.isSelf) return;
+    if (!foundry.utils.hasProperty(changes, 'flags.draw-steel-target-damage')) return;
+    const gr = message.getFlag(M, 'grabRoll');
+    if (!gr) return;
+    const grabberTok = getTokenById(gr.grabberTokenId);
+    const targetTok  = getTokenById(gr.targetTokenId);
+    if (!grabberTok || !targetTok) return;
+    const targetKey = targetTok.document.uuid.replace(/\./g, '__');
+    const newTier = _effectiveRowTier(message, targetKey, targetTok.document.uuid, gr.appliedTier);
+    if (newTier === gr.appliedTier) return;
+    await message.setFlag(M, 'grabRoll', { ...gr, appliedTier: newTier });
+    if (getSetting('debugMode')) console.log(`DSCT | grab | roll tier ${gr.appliedTier} -> ${newTier} via pill edit, reconciling`);
+    const active = window._activeGrabs?.get(gr.targetTokenId);
+    const wasApplied = !!(active && active.grabberTokenId === gr.grabberTokenId);
+    if (wasApplied) await endGrab(gr.targetTokenId, { silent: true });
+    await runGrab(grabberTok, targetTok, { tier: newTier });
+  });
 };
 
 export class GrabPanel extends ds.applications.api.DSApplication {

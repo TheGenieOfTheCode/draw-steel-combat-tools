@@ -2,7 +2,7 @@ import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHoo
 import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs';
-import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard } from './conditions/grab.mjs';
+import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
 import { applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter } from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes } from './death-tracker/death-tracker.mjs';
@@ -111,6 +111,7 @@ Hooks.once('init', () => {
   registerChatHooks();
   registerGrabHooks();
   registerKnockbackGuard();
+  registerGrabTierSync();
   registerConditionHooks();
   registerDCHooks();
   registerTacticalHooks();

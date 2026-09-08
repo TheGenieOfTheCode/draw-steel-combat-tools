@@ -529,7 +529,7 @@ function _getMessageParts(message) {
 }
 
 
-function _effectiveRowTier(message, targetKey, tokenUuid, fallbackTier) {
+export function _effectiveRowTier(message, targetKey, tokenUuid, fallbackTier) {
   const ov = foundry.utils.getProperty(message.flags, `${DSTD}.state.tierOverrides.${targetKey}`);
   const ovTier = Number(ov?.tier);
   if (ovTier >= 1 && ovTier <= 3) return ovTier;
@@ -1516,7 +1516,7 @@ async function _injectFmButtons(message, root) {
                   return;
                 }
               }
-              if (dsid === 'grab') await runGrab(sourceToken, targetToken, { tier, maxGrabs, ignoreSizeCheck: shiftBypass });
+              if (dsid === 'grab') await runGrab(sourceToken, targetToken, { tier: rowTier, maxGrabs, ignoreSizeCheck: shiftBypass });
               else {
                 await applyGrab(sourceToken, targetToken, { maxGrabs });
                 ChatMessage.create({ content: `<strong>Grab:</strong> ${sourceToken.name} grabs ${targetToken.name}!` });
