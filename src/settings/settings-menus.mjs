@@ -738,8 +738,12 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
     }
 
     const autoEntries = [
-      compatInfo('tagger',              'DSCT.compat.tagger.name',          'DSCT.compat.tagger.hint'),
-      compatInfo('ds-token-override',   'DSCT.compat.dsTokenOverride.name', 'DSCT.compat.dsTokenOverride.hint'),
+      compatInfo('tagger',                    'DSCT.compat.tagger.name',          'DSCT.compat.tagger.hint'),
+      compatInfo('ds-token-override',         'DSCT.compat.dsTokenOverride.name', 'DSCT.compat.dsTokenOverride.hint'),
+      compatInfo('draw-steel-combat-tracker', 'DSCT.compat.dsCombatTracker.name', 'DSCT.compat.dsCombatTracker.hint'),
+      compatInfo('ds-movement-lab',           'DSCT.compat.dsMovementLab.name',   'DSCT.compat.dsMovementLab.hint'),
+      compatInfo('draw-steel-companion',      'DSCT.compat.dsCompanion.name',     'DSCT.compat.dsCompanion.hint'),
+      compatInfo('draw-steel-plus',           'DSCT.compat.dsPlus.name',          'DSCT.compat.dsPlus.hint'),
     ].filter(e => debugMode || e.isActive);
 
     if (autoEntries.length) {
