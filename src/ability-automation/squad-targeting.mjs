@@ -1,5 +1,5 @@
 import { getSetting, tokFootprintDist } from '../helpers.mjs';
-import { _getValidTargets, setFoundryTargets, _addPickerReticle, _removePickerReticle, _clearPickerReticles } from './target-picker.mjs';
+import { _getValidTargets, setFoundryTargets, _addPickerReticle, _removePickerReticle, _addPickerTarget, _removePickerTarget, _clearPickerReticles } from './target-picker.mjs';
 import { beginPickerOverlay } from './picker-overlay.mjs';
 import { getStrikeType } from './class-shadow/crossfade.mjs';
 import { _recomputeAndSync, _injectPillUI } from './roll-dialog-hooks.mjs';
@@ -396,9 +396,9 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
     for (const t of allTargets) {
       const assigned = (targetCap.get(t.id) ?? 0) > 0;
       const hovered  = t.id === hoveredTargetId;
-      if (assigned) _addPickerReticle(t, 0x44CC44, 1.0);
-      else if (hovered) _addPickerReticle(t, 0x66AAFF, 1.0);
-      else _removePickerReticle(t);
+      if (assigned) { _addPickerTarget(t); _removePickerReticle(t); }
+      else if (hovered) { _addPickerReticle(t, 0x66AAFF, 1.0); _removePickerTarget(t); }
+      else { _removePickerReticle(t); _removePickerTarget(t); }
     }
   };
 

@@ -1,7 +1,7 @@
 import { getSetting, getModuleApi, safeToggleStatusEffect, safeUpdate, getSquadGroup, MATERIAL_ICONS, safeCreateEmbedded, safeDelete, tokenAt, toGrid, chooseFreeSquare } from '../helpers.mjs';
 import { setRaisedDeadVisible, addPreviewToken, removePreviewToken, activateTokenLayer, clearPreviewTokens } from './defeated-token-visibility.mjs';
 import { applySquadLabels } from '../squad-labels.mjs';
-import { beginPickerOverlay, endPickerOverlay, setPickerArrow, removePickerArrow, clearPickerArrows } from '../ability-automation/picker-overlay.mjs';
+import { beginPickerOverlay, endPickerOverlay, setPickerTarget, removePickerTarget, clearPickerArrows } from '../ability-automation/picker-overlay.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -1422,6 +1422,7 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
   const refreshNotif = () => {
     const summary = squads.map(s => `${s.groupName}: ${s.selected.size}/${s.numToKill}`).join(', ');
     overlay.setStatus(game.i18n.format('DSCT.notice.dt.pickDeathsInstruction', { summary }));
+    overlay.setReady(squads.every(s => s.selected.size === s.numToKill));
   };
   refreshNotif();
 
@@ -2407,8 +2408,8 @@ export const runRaiseDeadUI = () => {
           });
         }
       }
-      if (isSelected) setPickerArrow(t, 0x00CCFF, 1.0);
-      else removePickerArrow(t);
+      if (isSelected) setPickerTarget(t, 0x00CCFF, 1.0);
+      else removePickerTarget(t);
     }
   };
 
@@ -2421,7 +2422,10 @@ export const runRaiseDeadUI = () => {
       ui.notifications.info(game.i18n.localize('DSCT.notice.dt.raiseDeadCancelled'));
     },
   });
-  const syncStatus = () => overlay.setStatus(game.i18n.format('DSCT.picker.selectedCount', { n: selected.size }));
+  const syncStatus = () => {
+    overlay.setStatus(game.i18n.format('DSCT.picker.selectedCount', { n: selected.size }));
+    overlay.setReady(selected.size > 0);
+  };
   syncStatus();
   drawHighlights();
 
@@ -2819,11 +2823,14 @@ export const runPowerWordKillUI = async (options = {}) => {
     onConfirm: () => doKill(),
     onCancel: () => doCancel(),
   });
-  const syncStatus = () => overlay.setStatus(
-    Number.isFinite(maxTargets)
-      ? game.i18n.format('DSCT.picker.pickCount', { max: maxTargets, s: maxTargets !== 1 ? 's' : '', n: selectedTokens.size })
-      : game.i18n.format('DSCT.picker.selectedCount', { n: selectedTokens.size }),
-  );
+  const syncStatus = () => {
+    overlay.setStatus(
+      Number.isFinite(maxTargets)
+        ? game.i18n.format('DSCT.picker.pickCount', { max: maxTargets, s: maxTargets !== 1 ? 's' : '', n: selectedTokens.size })
+        : game.i18n.format('DSCT.picker.selectedCount', { n: selectedTokens.size }),
+    );
+    overlay.setReady(Number.isFinite(maxTargets) ? selectedTokens.size >= maxTargets : selectedTokens.size > 0);
+  };
   syncStatus();
   drawHighlights();
 

@@ -2006,6 +2006,36 @@ body.dsct-prominent-picker > *:not(#board):not(#dsct-picker-topbar):not(.dsct-pi
   color: #8fdca0;
 }
 
+#dsct-picker-topbar.dsct-ready {
+  border-color: #35d06a;
+  box-shadow: 0 4px 12px #0006, 0 0 14px rgba(53, 208, 106, 0.45);
+}
+
+#dsct-picker-topbar.dsct-ready button.dsct-picker-confirm {
+  border-color: #35d06a;
+  background: rgba(70, 190, 100, 0.4);
+  color: #c8ffd6;
+  animation: dsct-picker-ready-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes dsct-picker-ready-pulse {
+  0%, 100% { box-shadow: 0 0 4px 1px rgba(53, 208, 106, 0.45); }
+  50%      { box-shadow: 0 0 14px 5px rgba(53, 208, 106, 0.85); }
+}
+
+#dsct-picker-topbar.dsct-shake {
+  animation: dsct-picker-shake 0.35s linear;
+}
+
+@keyframes dsct-picker-shake {
+  0%, 100% { transform: translateX(-50%); }
+  15%      { transform: translateX(calc(-50% - 8px)); }
+  35%      { transform: translateX(calc(-50% + 8px)); }
+  55%      { transform: translateX(calc(-50% - 5px)); }
+  75%      { transform: translateX(calc(-50% + 5px)); }
+  90%      { transform: translateX(calc(-50% - 2px)); }
+}
+
 #dsct-picker-topbar button.dsct-picker-cancel {
   border-color: #7a3f3f;
   background: rgba(180, 80, 80, 0.18);

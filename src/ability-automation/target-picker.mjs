@@ -5,7 +5,7 @@ import {
   removePreviewToken,
   activateTokenLayer,
 } from '../death-tracker/defeated-token-visibility.mjs';
-import { beginPickerOverlay, setPickerArrow, removePickerArrow, clearPickerArrows } from './picker-overlay.mjs';
+import { beginPickerOverlay, setPickerArrow, setPickerTarget, removePickerArrow, removePickerTarget, clearPickerArrows } from './picker-overlay.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -195,12 +195,11 @@ async function _runTargetPicker(ability, casterToken) {
       onConfirm: () => tryConfirm(),
       onCancel: () => doCancel(),
     });
-    const syncStatus = () => overlay.setStatus(
-      game.i18n.format('DSCT.picker.pickCount', { max: maxTargets, s: maxS, n: selectedTokens.size }),
-    );
+    const syncStatus = () => {
+      overlay.setStatus(game.i18n.format('DSCT.picker.pickCount', { max: maxTargets, s: maxS, n: selectedTokens.size }));
+      overlay.setReady(selectedTokens.size > 0);
+    };
     syncStatus();
-
-    if (getSetting('deathPickerDimAll')) _syncReticles(validTokens, selectedTokens, null);
 
     const cleanup = () => {
       overlay.end();
@@ -380,10 +379,6 @@ export async function runSourcePicker() {
       onCancel: () => { cleanup(); resolve(null); },
     });
 
-    if (getSetting('deathPickerDimAll')) {
-      for (const c of candidates) _addPickerReticle(c, c._getBorderColor(), 0.5);
-    }
-
     const cleanup = () => {
       overlay.end();
       canvas.interface.grid.destroyHighlightLayer(hlName);
@@ -404,10 +399,7 @@ export async function runSourcePicker() {
       if (hit) { hoverIds.add(hit.id); _addPickerReticle(hit, hit._getBorderColor(), 1.0); }
       if (prevId && prevId !== newId) {
         const prev = canvas.tokens.get(prevId);
-        if (prev) {
-          if (getSetting('deathPickerDimAll')) _addPickerReticle(prev, prev._getBorderColor(), 0.5);
-          else _removePickerReticle(prev);
-        }
+        if (prev) _removePickerReticle(prev);
       }
       _drawTokenHighlights(hlName, candidates, new Set(), hoverIds);
     };
@@ -459,12 +451,9 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
     const syncStatus = () => {
       const count = game.i18n.format('DSCT.picker.selectedCount', { n: selectedIds.size });
       overlay.setStatus(hint ? `${hint} · ${count}` : count);
+      overlay.setReady(selectedIds.size > 0);
     };
     syncStatus();
-
-    if (getSetting('deathPickerDimAll')) {
-      for (const t of tokens) _addPickerReticle(t, t._getBorderColor(), 0.5);
-    }
 
     const cleanup = () => {
       overlay.end();
@@ -542,17 +531,25 @@ export function _removePickerReticle(token) {
   removePickerArrow(token);
 }
 
+export function _addPickerTarget(token, color, alphaMult = 1) {
+  setPickerTarget(token, color, alphaMult);
+}
+
+export function _removePickerTarget(token) {
+  removePickerTarget(token);
+}
+
 export function _clearPickerReticles() {
   clearPickerArrows();
 }
 
 
-function _syncReticles(tokens, selectedIds, hoveredId, colorFn = (t) => t._getBorderColor()) {
+
+function _syncReticles(tokens, selectedIds, hoveredId) {
   for (const t of tokens) {
-    const active = selectedIds.has(t.id) || t.id === hoveredId;
-    if (active) _addPickerReticle(t, colorFn(t), 1.0);
-    else if (getSetting('deathPickerDimAll')) _addPickerReticle(t, colorFn(t), 0.5);
-    else _removePickerReticle(t);
+    if (selectedIds?.has(t.id)) { setPickerTarget(t); removePickerArrow(t); }
+    else if (t.id === hoveredId) { setPickerArrow(t); removePickerTarget(t); }
+    else { removePickerArrow(t); removePickerTarget(t); }
   }
 }
 

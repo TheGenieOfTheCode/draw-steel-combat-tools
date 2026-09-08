@@ -38,7 +38,21 @@ function _redrawGrey() {
   _ov.holesG.endFill();
 }
 
-export function beginPickerOverlay({ title, status = '', tokens = [], holeRects = null, dim = true, hideUi = true, uiToggle = false, onUiToggle = null, showConfirm = true, showCancel = true, onConfirm = null, onCancel = null } = {}) {
+function _frameView(rects) {
+  if (!rects?.length) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const r of rects) {
+    x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y);
+    x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h);
+  }
+  const pad = canvas.grid.size * 2;
+  x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+  const screen = canvas.app.renderer.screen;
+  const scale = Math.min(screen.width / (x1 - x0), screen.height / (y1 - y0), 1);
+  canvas.animatePan({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, scale, duration: 450 });
+}
+
+export function beginPickerOverlay({ title, status = '', tokens = [], holeRects = null, dim = true, hideUi = true, uiToggle = false, onUiToggle = null, showConfirm = true, showCancel = true, onConfirm = null, onCancel = null, frame = null } = {}) {
   endPickerOverlay();
 
   if (hideUi) document.body.classList.add('dsct-prominent-picker');
@@ -77,6 +91,7 @@ export function beginPickerOverlay({ title, status = '', tokens = [], holeRects 
     container.alpha = 0.7;
     container.filters = [new PIXI.AlphaFilter()];
     canvas.controls.addChild(container);
+    if (_arrowC && !_arrowC.destroyed) canvas.controls.addChild(_arrowC);
   }
 
   _ov = {
@@ -88,6 +103,10 @@ export function beginPickerOverlay({ title, status = '', tokens = [], holeRects 
     onConfirm, onCancel, onUiToggle,
   };
   _redrawGrey();
+  if (frame ?? dim) {
+    _ov.prevView = { x: canvas.stage.pivot.x, y: canvas.stage.pivot.y, scale: canvas.stage.scale.x };
+    _frameView(_ov.holeRects);
+  }
 
   return {
     setStatus(text) {
@@ -103,12 +122,19 @@ export function beginPickerOverlay({ title, status = '', tokens = [], holeRects 
       clearTimeout(_ov.warnTimer);
       _ov.statusEl.textContent = text;
       _ov.statusEl.classList.add('dsct-warn');
+      _ov.bar.classList.remove('dsct-shake');
+      void _ov.bar.offsetWidth;
+      _ov.bar.classList.add('dsct-shake');
       _ov.warnTimer = setTimeout(() => {
         if (!_ov) return;
         _ov.statusEl.textContent = _ov.lastStatus;
         _ov.statusEl.classList.remove('dsct-warn');
+        _ov.bar.classList.remove('dsct-shake');
         _ov.warnTimer = null;
       }, 2500);
+    },
+    setReady(on) {
+      _ov?.bar.classList.toggle('dsct-ready', !!on);
     },
     setTokens(list) {
       if (!_ov) return;
@@ -133,10 +159,12 @@ export function endPickerOverlay() {
     _ov.container.parent?.removeChild(_ov.container);
     _ov.container.destroy({ children: true });
   }
+  if (_ov.prevView) canvas.animatePan({ ..._ov.prevView, duration: 450 });
   _ov = null;
 }
 
-const _arrows = new Map();
+const _arrows  = new Map();
+const _targets = new Map();
 let _arrowC = null;
 let _arrowG = null;
 let _arrowTickerFn = null;
@@ -147,7 +175,14 @@ function _ensureArrowLayer() {
   _arrowC = new PIXI.Container();
   _arrowG = new PIXI.Graphics();
   _arrowC.addChild(_arrowG);
-  canvas.interface.addChild(_arrowC);
+  canvas.controls.addChild(_arrowC);
+}
+
+function _ensureArrowTicker() {
+  if (_arrowTickerFn) return;
+  _arrowTime = 0;
+  _arrowTickerFn = _arrowTick;
+  canvas.app.ticker.add(_arrowTickerFn);
 }
 
 function _dispositionColor(token) {
@@ -189,6 +224,24 @@ function _drawArrowSet(g, token, color, alpha, m) {
   g.lineStyle(0);
 }
 
+function _drawTargetSet(g, token, color, alpha) {
+  const GS = canvas.grid.size;
+  const w = token.document.width * GS;
+  const h = token.document.height * GS;
+  const x = token.x, y = token.y;
+  const l = Math.min(w, h) * (CONFIG.Canvas?.targeting?.size ?? 0.15);
+  const lw = 2 * (canvas.dimensions?.uiScale ?? 1);
+
+  g.lineStyle(lw, 0x000000, alpha);
+  g.beginFill(color, alpha);
+  g.drawPolygon([x, y, x + l, y, x, y + l]);
+  g.drawPolygon([x + w, y, x + w - l, y, x + w, y + l]);
+  g.drawPolygon([x, y + h, x + l, y + h, x, y + h - l]);
+  g.drawPolygon([x + w, y + h, x + w - l, y + h, x + w, y + h - l]);
+  g.endFill();
+  g.lineStyle(0);
+}
+
 function _arrowTick() {
   _arrowTime += canvas.app.ticker.elapsedMS;
   const duration = 1400, pause = duration * 0.55, fade = (duration - pause) * 0.25;
@@ -200,6 +253,10 @@ function _arrowTick() {
   const a  = 1 - ta / fade;
   if (!_arrowG || _arrowG.destroyed) return;
   _arrowG.clear();
+  for (const [, e] of _targets) {
+    if (!e.token?.document || e.token.destroyed) continue;
+    _drawTargetSet(_arrowG, e.token, _dispositionColor(e.token), e.alphaMult ?? 1);
+  }
   for (const [, e] of _arrows) {
     if (!e.token?.document || e.token.destroyed) continue;
     _drawArrowSet(_arrowG, e.token, _dispositionColor(e.token), Math.max(0, a) * (e.alphaMult ?? 1), m);
@@ -212,21 +269,33 @@ export function setPickerArrow(token, color, alphaMult = 1) {
   const existing = _arrows.get(token.id);
   if (existing) { existing.color = color; existing.alphaMult = alphaMult; existing.token = token; return; }
   _arrows.set(token.id, { token, color, alphaMult });
-  if (!_arrowTickerFn) {
-    _arrowTime = 0;
-    _arrowTickerFn = _arrowTick;
-    canvas.app.ticker.add(_arrowTickerFn);
-  }
+  _ensureArrowTicker();
+}
+
+export function setPickerTarget(token, color, alphaMult = 1) {
+  color ??= token._getBorderColor?.() ?? 0xffffff;
+  _ensureArrowLayer();
+  const existing = _targets.get(token.id);
+  if (existing) { existing.color = color; existing.alphaMult = alphaMult; existing.token = token; return; }
+  _targets.set(token.id, { token, color, alphaMult });
+  _ensureArrowTicker();
 }
 
 export function removePickerArrow(token) {
-  if (!token || !_arrows.has(token.id)) return;
+  if (!token) return;
   _arrows.delete(token.id);
-  if (_arrows.size === 0) clearPickerArrows();
+  if (_arrows.size + _targets.size === 0) clearPickerArrows();
+}
+
+export function removePickerTarget(token) {
+  if (!token) return;
+  _targets.delete(token.id);
+  if (_arrows.size + _targets.size === 0) clearPickerArrows();
 }
 
 export function clearPickerArrows() {
   _arrows.clear();
+  _targets.clear();
   if (_arrowTickerFn) { canvas.app.ticker.remove(_arrowTickerFn); _arrowTickerFn = null; }
   if (_arrowC) {
     _arrowC.parent?.removeChild(_arrowC);
