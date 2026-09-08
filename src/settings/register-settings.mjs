@@ -173,6 +173,10 @@ export const registerSettings = () => {
     name: L('targetDistanceLines.name'), hint: L('targetDistanceLines.hint'),
     scope: 'client', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'collisionOnUnitStep', {
+    name: L('collisionOnUnitStep.name'), hint: L('collisionOnUnitStep.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
   game.settings.register(M, 'experimentalObstacleArrow', {
     name: L('experimentalObstacleArrow.name'), hint: L('experimentalObstacleArrow.hint'),
     scope: 'world', config: false, type: Boolean, default: false,

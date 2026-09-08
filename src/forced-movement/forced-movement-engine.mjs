@@ -1773,7 +1773,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       
       if (terrainMap) {
         const toTE = terrainMap[`${step.x},${step.y}`] ?? 0;
-        if (toTE > terrainRunningElev + 1) {
+        const freeStepUp = getSetting('collisionOnUnitStep') ? 0 : 1;
+        if (toTE > terrainRunningElev + freeStepUp) {
           landingIndex = i - 1;
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
