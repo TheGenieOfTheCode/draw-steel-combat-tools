@@ -1513,6 +1513,10 @@
       "healthEstimate": {
         "name": "Health Estimate",
         "hint": "DSCT patches Health Estimate's break conditions and estimation logic for minion tokens in active combat squads, based on the Minion Health Estimate Display setting."
+      },
+      "abilityHud": {
+        "name": "Draw Steel: Ability HUD",
+        "hint": "The Triggered Action button mirrors DSCT's Unspent Triggered Action effect whenever the viewed actor carries one: enabled shows available, disabled shows spent, on every client, overriding the HUD's own per-client Combat Action Tracking. Tracked actors also get the lightning bolt icon tinted green to show DSCT is driving the state. Actors without the effect keep the HUD's native behavior."
       }
     },
     "healthEstimate": {

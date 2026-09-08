@@ -37,21 +37,22 @@ const shouldApply = (actor, mode, targetedIds = new Set()) => {
   return true;
 };
 
+const _triggerEffects = (actor) => actor.effects.filter(e => e.getFlag(M, 'effectType') === 'triggered-action');
+
 const enableEffect = async (actor) => {
-  const existing = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
-  if (existing) {
-    if (existing.disabled) await safeUpdate(existing, { disabled: false });
+  const existing = _triggerEffects(actor);
+  if (existing.length) {
+    for (const e of existing) if (e.disabled) await safeUpdate(e, { disabled: false });
     return;
   }
   await safeCreateEmbedded(actor, 'ActiveEffect', [foundry.utils.deepClone(TRIGGER_EFFECT)]);
 };
 
 const disableEffect = async (actor) => {
-  const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
-  if (!effect || effect.disabled) return;
-  try {
-    await safeUpdate(effect, { disabled: true });
-  } catch (_) {}
+  for (const e of _triggerEffects(actor)) {
+    if (e.disabled) continue;
+    try { await safeUpdate(e, { disabled: true }); } catch (_) {}
+  }
 };
 
 export const applyTriggeredActions = async (mode = null, silent = false) => {
@@ -71,11 +72,11 @@ export const applyTriggeredActions = async (mode = null, silent = false) => {
   for (const token of canvas.tokens.placeables) {
     const actor = token.actor;
     if (!actor) continue;
-    const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
-    if (!effect) continue;
+    const effects = _triggerEffects(actor);
+    if (!effects.length) continue;
 
     if (!shouldApply(actor, resolvedMode, targetedIds)) {
-      await safeDelete(effect);
+      for (const effect of effects) await safeDelete(effect);
     }
   }
 
@@ -118,9 +119,10 @@ export const registerTriggeredActionHooks = () => {
       const actor = getActorFromCombatant(combatant);
       if (!actor) continue;
 
-      const effect = actor.effects.find(e => e.getFlag(M, 'effectType') === 'triggered-action');
-      if (!effect?.disabled) continue;
-      try { await safeUpdate(effect, { disabled: false }); } catch (_) {}
+      for (const effect of actor.effects.filter(e => e.getFlag(M, 'effectType') === 'triggered-action')) {
+        if (!effect.disabled) continue;
+        try { await safeUpdate(effect, { disabled: false }); } catch (_) {}
+      }
     }
   });
 

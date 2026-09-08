@@ -1932,6 +1932,15 @@ body.dsct-prominent-picker > *:not(#board):not(#dsct-picker-topbar):not(.dsct-pi
   display: none !important;
 }
 
+
+.dsahud-button.dsct-ta-tracked > .dsahud-button-icon {
+  color: rgb(70, 210, 120);
+}
+
+.dsahud-button.dsct-ta-tracked.dsahud-tracking-spent > .dsahud-button-icon {
+  color: rgb(235, 145, 55);
+}
+
 #dsct-picker-topbar button.dsct-picker-uitoggle.dsct-active {
   border-color: var(--dsct-accent, #7a50c0);
   background: rgba(122, 80, 192, 0.25);

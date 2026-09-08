@@ -732,6 +732,11 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
       keys.push(compatInfo('healthEstimate', 'DSCT.compat.healthEstimate.name', 'DSCT.compat.healthEstimate.hint'));
     }
 
+    if (debugMode || isActive('draw-steel-ability-hud')) {
+      keys.push(header('Draw Steel: Ability HUD'));
+      keys.push(compatInfo('draw-steel-ability-hud', 'DSCT.compat.abilityHud.name', 'DSCT.compat.abilityHud.hint'));
+    }
+
     const autoEntries = [
       compatInfo('tagger',              'DSCT.compat.tagger.name',          'DSCT.compat.tagger.hint'),
       compatInfo('ds-token-override',   'DSCT.compat.dsTokenOverride.name', 'DSCT.compat.dsTokenOverride.hint'),
