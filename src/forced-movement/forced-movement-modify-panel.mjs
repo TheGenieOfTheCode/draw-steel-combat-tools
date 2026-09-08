@@ -102,13 +102,38 @@ const _modEffectSummary = (entry, baseStates) => {
   return parts.join(', ');
 };
 
+const _PILL_COLORS = {
+  up:    '111, 191, 115',
+  down:  '215, 118, 118',
+  type:  '217, 166, 63',
+  vert:  '122, 160, 220',
+  guard: '155, 109, 214',
+  tweak: '86, 179, 167',
+};
+
+const _pillCategories = (entry, baseStates) => {
+  const m    = entry.modState?.[0];
+  const base = baseStates?.[0];
+  if (!m) return [];
+  const cats = [];
+  if (m.distanceDelta > 0) cats.push('up');
+  else if (m.distanceDelta < 0) cats.push('down');
+  if (m.movement !== base?.movement) cats.push('type');
+  if ((m.vertical && !base?.vertical) || (m.verticalDistance !== '' && m.verticalDistance !== base?.verticalDistance)) cats.push('vert');
+  if (m.noFallDamage || m.noCollisionDamage || m.noMoverCollisionDamage || m.noObstacleCollisionDamage
+    || m.fallReduction !== (base?.fallReduction ?? 0)) cats.push('guard');
+  if (m.ignoreStability || m.fastMove || m.sourceTokenId) cats.push('tweak');
+  return cats;
+};
+
 export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, btnEls, makeLabel, noteParent, msgEl, persistFn = persistStack) => {
   const { noteName, noteDesc } = entry;
   const esc = foundry.utils.escapeHTML;
   const isAbilityPill = !!(entry.dstRedirect || entry.dstTrigger || entry.dsctSeeded);
+  const categories = _pillCategories(entry, baseStates);
   const pillBtn = document.createElement('button');
   pillBtn.type = 'button';
-  pillBtn.className = `dsct-source-pill dsct-fm-pill${isAbilityPill ? '' : ' dsct-pill-custom'}${entry.enabled === false ? ' dsct-pill-disabled' : ''}`;
+  pillBtn.className = `dsct-source-pill dsct-fm-pill${categories.length === 1 ? ` dsct-fmpill-${categories[0]}` : ''}${isAbilityPill ? '' : ' dsct-pill-custom'}${entry.enabled === false ? ' dsct-pill-disabled' : ''}`;
   pillBtn.dataset.modifierName = noteName;
   if (entry.srcTokenId) pillBtn.dataset.srcTokenId = entry.srcTokenId;
   const effectStr = _modEffectSummary(entry, baseStates);
@@ -117,6 +142,26 @@ export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, 
   const descLine = noteDesc ? `${noteDesc}\n` : '';
   pillBtn.title = `${descLine}${_buildModTooltip(entry, baseStates)}`;
 
+  if (categories.length > 1) {
+    const rgb   = categories.map(c => _PILL_COLORS[c]);
+    const stops = (alpha) => rgb.map((c, i) => `rgba(${c}, ${alpha}) ${Math.round(i * 100 / (rgb.length - 1))}%`).join(', ');
+    pillBtn.style.color = `rgb(${rgb[0]})`;
+    if (isAbilityPill) {
+      pillBtn.style.border = '1px solid transparent';
+      pillBtn.style.background = `linear-gradient(90deg, ${stops(0.08)}) padding-box, linear-gradient(90deg, ${stops(0.6)}) border-box`;
+    } else {
+      pillBtn.style.borderColor = `rgba(${rgb[0]}, 0.6)`;
+      pillBtn.style.background = `linear-gradient(90deg, ${stops(0.08)})`;
+    }
+    const pip = pillBtn.querySelector('.dsct-pip');
+    if (pip) {
+      pip.style.background = `linear-gradient(90deg, ${rgb.map(c => `rgb(${c})`).join(', ')})`;
+      pip.style.webkitBackgroundClip = 'text';
+      pip.style.backgroundClip = 'text';
+      pip.style.color = 'transparent';
+    }
+  }
+
   const refresh = () => {
     replayModifiers(baseStates, modifierStack, states);
     for (let i = 0; i < states.length; i++) {
@@ -124,13 +169,17 @@ export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, 
     }
     persistFn(msgEl, modifierStack);
   };
+  const pillLocked = () => btnEls.some(b => b?.disabled);
+  pillBtn.addEventListener('pointerenter', () => pillBtn.classList.toggle('dsct-chat-pill-inert', pillLocked()));
   pillBtn.addEventListener('click', () => {
+    if (pillLocked()) return;
     entry.enabled = entry.enabled === false;
     pillBtn.classList.toggle('dsct-pill-disabled', entry.enabled === false);
     refresh();
   });
   pillBtn.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    if (pillLocked()) return;
     if (entry.dstRedirect || entry.dstTrigger || entry.dsctSeeded) return;
     const idx = modifierStack.indexOf(entry);
     if (idx !== -1) modifierStack.splice(idx, 1);

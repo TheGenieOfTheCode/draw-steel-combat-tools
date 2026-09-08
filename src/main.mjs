@@ -26,7 +26,7 @@ import { registerDefeatedTokenVisibility } from './death-tracker/defeated-token-
 import { registerSettings, registerCompatibilityChecks } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill } from './ability-automation/roll-dialog-hooks.mjs';
-import { registerDstdCompat, runDstdUndoRevival } from './compat/dstd-compat.mjs';
+import { registerDstdCompat, runDstdUndoRevival, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
 import {
   registerDstdDamagePills, openDamageEditor, foldDamagePills, damagePillDisplayList,
@@ -361,6 +361,7 @@ Hooks.once('socketlib.ready', () => {
     _addDamagedToken(tokenId, userId);
   });
   socket.register('dsct.dstdUndoDeath', async (tokenUuid) => { await runDstdUndoRevival(tokenUuid); });
+  socket.register('dsct.fmRowExecuting', (stateKey, executing) => setFmRowRemoteExecuting(stateKey, executing));
 
   socket.register('dsct.injectJudgementBane', ({ actorId, tokenId }) => {
     for (const app of foundry.applications.instances.values()) {

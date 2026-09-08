@@ -19,6 +19,7 @@ const M          = 'draw-steel-combat-tools';
 const _fmState = new Map();
 
 const _fmUndoIndex = new Map();
+const _fmExecutingKeys = new Set();
 
 const _flatCondState = new Map();
 
@@ -254,7 +255,7 @@ export function registerDstdCompat() {
     if (!foundry.utils.getProperty(changes, `flags.${M}.isUndone`)) return;
     const entry = _fmUndoIndex.get(msg.id);
     if (!entry) return;
-    const { fmRow, applyBtn, undoBtn, modBtn, quickBtn, stateKey, baseState, movementType, message, subKey } = entry;
+    const { fmRow, applyBtn, undoBtn, modBtn, quickBtn, stateKey, baseState, movementType, message, subKey, tokenUuid, flatDisplayOverride } = entry;
     _fmUndoIndex.delete(msg.id);
     const flagEntry = (message.getFlag(M, 'dstdFmState') ?? {})[subKey];
     const cur = _fmState.get(stateKey)
@@ -264,7 +265,7 @@ export function registerDstdCompat() {
     const newState = { ...cur, applied: false };
     _fmState.set(stateKey, newState);
     const eff = _effectiveState(baseState, newState.modStack);
-    _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, _makeLabel(eff));
+    _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, flatDisplayOverride || _makeLabel(eff), _stabInfo(tokenUuid, eff), !!flatDisplayOverride);
     if (quickBtn) _syncQuickBtn(quickBtn, newState, movementType, eff.distance);
     if (flagEntry?.applied) _persistDstdState(message, subKey, newState);
   });
@@ -641,7 +642,49 @@ function _syncQuickBtn(btn, state, movementType, distance) {
   }
 }
 
-function _syncRow(fmRow, applyBtn, undoBtn, modBtn, state, label) {
+function _stabInfo(tokenUuid, effState) {
+  const stab = tokenUuid ? (fromUuidSync(tokenUuid)?.actor?.system?.combat?.stability ?? 0) : 0;
+  return { stab, ignores: !!effState?.ignoreStability };
+}
+
+function _stabSuffix(stabInfo, applied) {
+  if (!(stabInfo?.stab > 0)) return '';
+  if (stabInfo.ignores) return ' (Ignores Stability)';
+  return applied ? ` (Stability ${stabInfo.stab})` : ` (vs Stability ${stabInfo.stab})`;
+}
+
+function _setRowExecuting(fmRow, applyBtn, undoBtn, modBtn, quickBtn) {
+  fmRow.classList.add('is-executing');
+  fmRow.classList.remove('is-applied', 'is-undone');
+  applyBtn.disabled = true;
+  applyBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right fa-fade'), _makeSpan('Forced Movement in Progress'));
+  applyBtn.dataset.tooltip = 'Forced Movement in Progress';
+  undoBtn.disabled = true;
+  modBtn.disabled  = true;
+  if (quickBtn) quickBtn.disabled = true;
+}
+
+export function setFmRowRemoteExecuting(stateKey, executing) {
+  if (executing) {
+    _fmExecutingKeys.add(stateKey);
+    const fmRow = document.querySelector(`[data-dsct-fm-key="${stateKey}"]`);
+    const btns  = fmRow ? fmRow.querySelectorAll('button') : [];
+    if (btns.length >= 3) _setRowExecuting(fmRow, btns[0], btns[1], btns[2], null);
+    setTimeout(() => {
+      if (_fmExecutingKeys.delete(stateKey)) {
+        const msg = game.messages.get(stateKey.split(':')[0]);
+        if (msg) ui.chat.updateMessage(msg);
+      }
+    }, 120000);
+  } else {
+    if (!_fmExecutingKeys.delete(stateKey)) return;
+    const msg = game.messages.get(stateKey.split(':')[0]);
+    if (msg) ui.chat.updateMessage(msg);
+  }
+}
+
+function _syncRow(fmRow, applyBtn, undoBtn, modBtn, state, label, stabInfo = null, verbatim = false) {
+  fmRow.classList.remove('is-executing');
   if (state.redirected) {
     applyBtn.replaceChildren(_makeIcon('fa-solid fa-shuffle'), _makeSpan(`Redirected: ${state.redirected.newTargetName || state.redirected.newTargetKey}`));
     applyBtn.dataset.tooltip = state.redirected.modName || label;
@@ -655,8 +698,12 @@ function _syncRow(fmRow, applyBtn, undoBtn, modBtn, state, label) {
   }
   fmRow.classList.remove('is-redirected');
   undoBtn.dataset.tooltip = 'Undo FM';
-  const fmLabel = state.applied ? `Applied: ${label}` : label;
+  const suffix  = _stabSuffix(stabInfo, state.applied);
+  const fmLabel = verbatim
+    ? (state.applied ? `Applied: ${label}` : label) + suffix
+    : (state.applied ? `Applied ${label}` : `Apply ${label}`) + suffix;
   applyBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right'), _makeSpan(fmLabel));
+  applyBtn.dataset.tooltip = fmLabel;
   if (state.applied) {
     fmRow.classList.add('is-applied');
     fmRow.classList.remove('is-undone');
@@ -1250,7 +1297,9 @@ async function _injectFmButtons(message, root) {
         }
         saved.redirected = savedFlagState[subKey]?.redirected ?? null;
 
-        const label          = _makeLabel(_effectiveState(baseState, saved.modStack));
+        const effInit        = _effectiveState(baseState, saved.modStack);
+        const label          = _makeLabel(effInit);
+        const rowLabelFn     = (st) => `Apply ${_makeLabel(st)}${_stabSuffix(_stabInfo(tokenUuid, st), false)}`;
         const fmSquadMinions = squadTargetMap?.[targetKey]?.minionIds ?? [];
 
         const applyBtn = document.createElement('button');
@@ -1275,7 +1324,7 @@ async function _injectFmButtons(message, root) {
         fmRow.dataset.dsctFmKey = stateKey;
         fmRow.append(applyBtn, undoBtn, modBtn);
 
-        _syncRow(fmRow, applyBtn, undoBtn, modBtn, saved, label);
+        _syncRow(fmRow, applyBtn, undoBtn, modBtn, saved, label, _stabInfo(tokenUuid, effInit));
 
         
         
@@ -1286,9 +1335,7 @@ async function _injectFmButtons(message, root) {
           _fmState.set(stateKey, newMods);
           if (!newMods.applied) {
             const effState = _effectiveState(baseState, newMods.modStack);
-            const effLabel = _makeLabel(effState);
-            applyBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right'), _makeSpan(effLabel));
-            applyBtn.dataset.tooltip = effLabel;
+            _syncRow(fmRow, applyBtn, undoBtn, modBtn, newMods, _makeLabel(effState), _stabInfo(tokenUuid, effState));
             if (quickBtn) _syncQuickBtn(quickBtn, newMods, movementType, effState.distance);
           }
           await _persistDstdState(message, subKey, newMods);
@@ -1305,7 +1352,9 @@ async function _injectFmButtons(message, root) {
             if (!targetToken) { ui.notifications.warn('DSCT | Target token not found on canvas'); return; }
           }
 
-          applyBtn.disabled = true;
+          _setRowExecuting(fmRow, applyBtn, undoBtn, modBtn, quickBtn);
+          _fmExecutingKeys.add(stateKey);
+          getModuleApi(false)?.socket?.executeForOthers('dsct.fmRowExecuting', stateKey, true);
 
           let capturedMsgId = null;
           const hookId = Hooks.once('createChatMessage', (msg) => {
@@ -1360,20 +1409,22 @@ async function _injectFmButtons(message, root) {
           } catch {  }
 
           Hooks.off('createChatMessage', hookId);
+          _fmExecutingKeys.delete(stateKey);
+          getModuleApi(false)?.socket?.executeForOthers('dsct.fmRowExecuting', stateKey, false);
 
           if (!capturedMsgId) {
             
             const prevState = _fmState.get(stateKey) ?? saved;
             const prevEff   = _effectiveState(baseState, prevState.modStack);
-            _syncRow(fmRow, applyBtn, undoBtn, modBtn, prevState, _makeLabel(prevEff));
+            _syncRow(fmRow, applyBtn, undoBtn, modBtn, prevState, _makeLabel(prevEff), _stabInfo(tokenUuid, prevEff));
             if (quickBtn) _syncQuickBtn(quickBtn, prevState, movementType, prevEff.distance);
             return;
           }
 
           const newState = { ...cur, applied: true, undoMsgId: capturedMsgId };
           _fmState.set(stateKey, newState);
-          _fmUndoIndex.set(capturedMsgId, { fmRow, applyBtn, undoBtn, modBtn, quickBtn, stateKey, baseState, movementType, message, subKey });
-          _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, _makeLabel(clickState));
+          _fmUndoIndex.set(capturedMsgId, { fmRow, applyBtn, undoBtn, modBtn, quickBtn, stateKey, baseState, movementType, message, subKey, tokenUuid });
+          _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, _makeLabel(clickState), _stabInfo(tokenUuid, clickState));
           if (quickBtn) _syncQuickBtn(quickBtn, newState, movementType, clickState.distance);
           await _persistDstdState(message, subKey, newState);
         });
@@ -1403,7 +1454,7 @@ async function _injectFmButtons(message, root) {
           const newState = { ...cur, applied: false, undoMsgId: msgId };
           _fmState.set(stateKey, newState);
           const undoEff  = _effectiveState(baseState, newState.modStack);
-          _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, _makeLabel(undoEff));
+          _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, _makeLabel(undoEff), _stabInfo(tokenUuid, undoEff));
           if (quickBtn) _syncQuickBtn(quickBtn, newState, movementType, undoEff.distance);
           await _persistDstdState(message, subKey, newState);
         });
@@ -1422,7 +1473,7 @@ async function _injectFmButtons(message, root) {
 
           new FmModifyPanel(
             [panelState], [panelBase], cur.modStack, effects,
-            [applyBtn], _makeLabel, actions, actions, makePersistFn(),
+            [applyBtn], rowLabelFn, actions, actions, makePersistFn(),
           ).render({ force: true });
         });
 
@@ -1468,9 +1519,11 @@ async function _injectFmButtons(message, root) {
           const panelBase   = { ...baseState };
           const panelStates = [_effectiveState(panelBase, saved.modStack)];
           for (const entry of saved.modStack) {
-            createModifierNoteDiv(entry, saved.modStack, [panelBase], panelStates, [applyBtn], _makeLabel, actions, actions, makePersistFn());
+            createModifierNoteDiv(entry, saved.modStack, [panelBase], panelStates, [applyBtn], rowLabelFn, actions, actions, makePersistFn());
           }
         }
+
+        if (_fmExecutingKeys.has(stateKey)) _setRowExecuting(fmRow, applyBtn, undoBtn, modBtn, quickBtn);
       }
     }
 
@@ -2022,8 +2075,9 @@ async function _injectFmButtons(message, root) {
       }
 
       const _flatFmDisplayOverride = effect.flatForced.display || null;
-      const _flatFmLabel = () => _flatFmDisplayOverride || _makeLabel(_effectiveState(baseState, _fmState.get(stateKey)?.modStack ?? saved.modStack));
-      const label = _flatFmLabel();
+      const effInitF       = _effectiveState(baseState, saved.modStack);
+      const label          = _flatFmDisplayOverride || _makeLabel(effInitF);
+      const rowLabelFlatFn = (st) => (_flatFmDisplayOverride || `Apply ${_makeLabel(st)}`) + _stabSuffix(_stabInfo(tokenUuid, st), false);
 
       const applyFlatBtn = document.createElement('button');
       applyFlatBtn.type      = 'button';
@@ -2047,7 +2101,7 @@ async function _injectFmButtons(message, root) {
       fmRow.dataset.dsctFmKey = stateKey;
       fmRow.append(applyFlatBtn, undoFlatBtn, modFlatBtn);
 
-      _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, saved, label);
+      _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, saved, label, _stabInfo(tokenUuid, effInitF), !!_flatFmDisplayOverride);
 
       const makePersisFlatFn = () => async (_msgEl, stack) => {
         const cur     = _fmState.get(stateKey) ?? { applied: false, undoMsgId: null, modStack: [] };
@@ -2056,8 +2110,7 @@ async function _injectFmButtons(message, root) {
         if (!newMods.applied) {
           const effState = _effectiveState(baseState, newMods.modStack);
           const effLabel = _flatFmDisplayOverride || _makeLabel(effState);
-          applyFlatBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right'), _makeSpan(effLabel));
-          applyFlatBtn.dataset.tooltip = effLabel;
+          _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newMods, effLabel, _stabInfo(tokenUuid, effState), !!_flatFmDisplayOverride);
           if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newMods, firstMov, effState.distance);
         }
         await _persistDstdState(message, subKey, newMods);
@@ -2092,7 +2145,9 @@ async function _injectFmButtons(message, root) {
           if (!targetToken) { ui.notifications.warn('DSCT | Target token not found on canvas'); return; }
         }
 
-        applyFlatBtn.disabled = true;
+        _setRowExecuting(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, quickFlatBtn);
+        _fmExecutingKeys.add(stateKey);
+        getModuleApi(false)?.socket?.executeForOthers('dsct.fmRowExecuting', stateKey, true);
 
         let capturedMsgId = null;
         const hookId = Hooks.once('createChatMessage', (msg) => {
@@ -2124,19 +2179,21 @@ async function _injectFmButtons(message, root) {
         } catch { }
 
         Hooks.off('createChatMessage', hookId);
+        _fmExecutingKeys.delete(stateKey);
+        getModuleApi(false)?.socket?.executeForOthers('dsct.fmRowExecuting', stateKey, false);
 
         if (!capturedMsgId) {
           const prevState = _fmState.get(stateKey) ?? saved;
           const prevEff   = _effectiveState(baseState, prevState.modStack);
-          _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, prevState, _makeLabel(prevEff));
+          _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, prevState, _flatFmDisplayOverride || _makeLabel(prevEff), _stabInfo(tokenUuid, prevEff), !!_flatFmDisplayOverride);
           if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, prevState, firstMov, prevEff.distance);
           return;
         }
 
         const newState = { ...cur, applied: true, undoMsgId: capturedMsgId };
         _fmState.set(stateKey, newState);
-        _fmUndoIndex.set(capturedMsgId, { fmRow, applyBtn: applyFlatBtn, undoBtn: undoFlatBtn, modBtn: modFlatBtn, quickBtn: quickFlatBtn, stateKey, baseState, movementType: firstMov, message, subKey });
-        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _makeLabel(clickState));
+        _fmUndoIndex.set(capturedMsgId, { fmRow, applyBtn: applyFlatBtn, undoBtn: undoFlatBtn, modBtn: modFlatBtn, quickBtn: quickFlatBtn, stateKey, baseState, movementType: firstMov, message, subKey, tokenUuid, flatDisplayOverride: _flatFmDisplayOverride });
+        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _flatFmDisplayOverride || _makeLabel(clickState), _stabInfo(tokenUuid, clickState), !!_flatFmDisplayOverride);
         if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newState, firstMov, clickState.distance);
         await _persistDstdState(message, subKey, newState);
       });
@@ -2161,7 +2218,7 @@ async function _injectFmButtons(message, root) {
         const newState = { ...cur, applied: false, undoMsgId: msgId };
         _fmState.set(stateKey, newState);
         const undoEff  = _effectiveState(baseState, newState.modStack);
-        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _makeLabel(undoEff));
+        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _flatFmDisplayOverride || _makeLabel(undoEff), _stabInfo(tokenUuid, undoEff), !!_flatFmDisplayOverride);
         if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newState, firstMov, undoEff.distance);
         await _persistDstdState(message, subKey, newState);
       });
@@ -2177,7 +2234,7 @@ async function _injectFmButtons(message, root) {
         if (existing) existing.close();
         new FmModifyPanel(
           [panelState], [panelBase], cur.modStack, effects,
-          [applyFlatBtn], _makeLabel, actions, actions, makePersisFlatFn(),
+          [applyFlatBtn], rowLabelFlatFn, actions, actions, makePersisFlatFn(),
         ).render({ force: true });
       });
 
@@ -2212,9 +2269,11 @@ async function _injectFmButtons(message, root) {
         const panelBase   = { ...baseState };
         const panelStates = [_effectiveState(panelBase, saved.modStack)];
         for (const entry of saved.modStack) {
-          createModifierNoteDiv(entry, saved.modStack, [panelBase], panelStates, [applyFlatBtn], _makeLabel, actions, actions, makePersisFlatFn());
+          createModifierNoteDiv(entry, saved.modStack, [panelBase], panelStates, [applyFlatBtn], rowLabelFlatFn, actions, actions, makePersisFlatFn());
         }
       }
+
+      if (_fmExecutingKeys.has(stateKey)) _setRowExecuting(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, quickFlatBtn);
     }
 
     const _condTargetDoc  = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;

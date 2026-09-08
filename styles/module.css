@@ -1414,6 +1414,36 @@ enriched-content[enricher="dsct.teleport"] {
   color: #cf6a5f;
   background: rgba(207, 106, 95, 0.08);
 }
+.dsct-fm-pill.dsct-fmpill-up {
+  border-color: rgba(111, 191, 115, 0.6);
+  color: #6fbf73;
+  background: rgba(111, 191, 115, 0.08);
+}
+.dsct-fm-pill.dsct-fmpill-down {
+  border-color: rgba(215, 118, 118, 0.6);
+  color: #d77676;
+  background: rgba(215, 118, 118, 0.08);
+}
+.dsct-fm-pill.dsct-fmpill-type {
+  border-color: rgba(217, 166, 63, 0.6);
+  color: #d9a63f;
+  background: rgba(217, 166, 63, 0.08);
+}
+.dsct-fm-pill.dsct-fmpill-vert {
+  border-color: rgba(122, 160, 220, 0.6);
+  color: #7aa0dc;
+  background: rgba(122, 160, 220, 0.08);
+}
+.dsct-fm-pill.dsct-fmpill-guard {
+  border-color: rgba(155, 109, 214, 0.6);
+  color: #9b6dd6;
+  background: rgba(155, 109, 214, 0.08);
+}
+.dsct-fm-pill.dsct-fmpill-tweak {
+  border-color: rgba(86, 179, 167, 0.6);
+  color: #56b3a7;
+  background: rgba(86, 179, 167, 0.08);
+}
 
 .dsct-dmg-pill-live { cursor: pointer; }
 
@@ -2144,6 +2174,16 @@ body.dsct-prominent-picker > *:not(#board):not(#dsct-picker-topbar):not(.dsct-pi
 
 .draw-steel-target-damage-action-row.is-redirected .draw-steel-target-damage-stretch-button > i {
   color: #9b6dd6;
+}
+
+.draw-steel-target-damage-action-row.is-executing .draw-steel-target-damage-stretch-button,
+.draw-steel-target-damage-action-row.is-executing .draw-steel-target-damage-stretch-button:disabled {
+  background: rgba(110, 170, 230, 0.22);
+  opacity: 0.95;
+}
+
+.draw-steel-target-damage-action-row.is-executing .draw-steel-target-damage-stretch-button > i {
+  color: #6eaae6;
 }
 
 
