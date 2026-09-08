@@ -54,6 +54,11 @@
             {{#each conditions}}
             <option value="{{this.value}}"{{#if this.selected}} selected{{/if}}>{{this.label}}</option>
             {{/each}}
+            <optgroup label="Requires Source">
+              {{#each sourceConditions}}
+              <option value="{{this.value}}"{{#if this.selected}} selected{{/if}}>{{this.label}}</option>
+              {{/each}}
+            </optgroup>
           </select>
           <select id="dc-condition-end" class="dsct-select-md"{{#if conditionDisabled}} disabled{{/if}}>
             {{#each durOptions}}
