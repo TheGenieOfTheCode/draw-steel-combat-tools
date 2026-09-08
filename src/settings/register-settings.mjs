@@ -169,6 +169,10 @@ export const registerSettings = () => {
     name: L('cancelOnRightClick.name'), hint: L('cancelOnRightClick.hint'),
     scope: 'client', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'targetDistanceLines', {
+    name: L('targetDistanceLines.name'), hint: L('targetDistanceLines.hint'),
+    scope: 'client', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'experimentalObstacleArrow', {
     name: L('experimentalObstacleArrow.name'), hint: L('experimentalObstacleArrow.hint'),
     scope: 'world', config: false, type: Boolean, default: false,

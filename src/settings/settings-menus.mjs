@@ -686,6 +686,7 @@ export class HomeRulesSettingsMenu extends SettingsSubmenu {
       'homebrewOptions',
       header('Pickers'),
       'cancelOnRightClick',
+      'targetDistanceLines',
       header('Forced Movement'),
       'fallDamageCap',
       'cornerCutMode',
