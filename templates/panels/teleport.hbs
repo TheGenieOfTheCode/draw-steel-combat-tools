@@ -1,8 +1,22 @@
 <div class="dsct-panel">
 
-  <div class="dsct-section dsct-col-gap dsct-center-items">
-    <img id="tp-source-img" src="{{sourceSrc}}" class="dsct-token-img dsct-token-img-lg">
-    <div id="tp-source-name" class="dsct-token-name{{#unless sourceSelected}} dim{{/unless}}">{{sourceLabel}}</div>
+  <div class="dsct-section dsct-col-gap">
+    <div class="dsct-fm-actors">
+      <div id="tp-source-col" class="dsct-token-col">
+        <img id="tp-source-img" src="{{sourceSrc}}" class="dsct-token-img dsct-token-img-lg">
+        <div id="tp-source-name" class="dsct-token-name{{#unless sourceSelected}} dim{{/unless}}">{{sourceLabel}}</div>
+      </div>
+      <div class="dsct-arrow">→</div>
+      <div id="tp-target-col" class="dsct-token-col">
+        <img id="tp-target-img" src="{{targetSrc}}" class="dsct-token-img dsct-token-img-lg">
+        <div id="tp-target-name" class="dsct-token-name{{#unless targetSelected}} dim{{/unless}}">{{targetLabel}}</div>
+      </div>
+    </div>
+    <div class="dsct-flex-row">
+      <button type="button" data-action="set-tp-mode" data-mode="normal"   class="dsct-mode-btn{{#if modeNormal}} active{{/if}}">{{localize "DSCT.panel.tp.modeNormal"}}</button>
+      <button type="button" data-action="set-tp-mode" data-mode="swap"     class="dsct-mode-btn{{#if modeSwap}} active{{/if}}">{{localize "DSCT.panel.tp.modeSwap"}}</button>
+      <button type="button" data-action="set-tp-mode" data-mode="adjacent" class="dsct-mode-btn{{#if modeAdjacent}} active{{/if}}">{{localize "DSCT.panel.tp.modeAdjacent"}}</button>
+    </div>
   </div>
 
   <div class="dsct-section-label">{{localize "DSCT.panel.tp.parameters"}}</div>
@@ -35,8 +49,8 @@
   </div>
 
   <button type="button" class="dsct-execute-btn sm" data-action="execute-tp"
-    title="{{localize "DSCT.panel.tp.shiftHint"}}">
-    <i class="fas fa-magic"></i> {{localize "DSCT.panel.tp.executeTeleport"}}
+    title="{{#if modeNormal}}{{localize "DSCT.panel.tp.shiftHint"}}{{/if}}">
+    <i class="fas fa-magic"></i> {{executeLabel}}
   </button>
 
 </div>

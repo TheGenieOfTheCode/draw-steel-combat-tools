@@ -9,12 +9,21 @@ import { runSourcePicker } from './ability-automation/target-picker.mjs';
 import { beginPickerOverlay } from './ability-automation/picker-overlay.mjs';
 
 
-const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null) => new Promise((resolve) => {
+const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}) => new Promise((resolve) => {
   const GRID    = getGRID();
   const w       = sourceToken.document.width ?? 1;
   const h       = sourceToken.document.height ?? 1;
   const tg      = toGrid(sourceToken.document);
   const srcElev = sourceToken.document.elevation ?? 0;
+
+  const adjOk = (x, y) => {
+    if (!opts.adjacentTo) return true;
+    const d   = opts.adjacentTo.document;
+    const at  = toGrid(d);
+    const atW = d.width ?? 1;
+    const atH = d.height ?? 1;
+    return x < at.x + atW + 1 && x + w > at.x - 1 && y < at.y + atH + 1 && y + h > at.y - 1;
+  };
 
   const checkArea = (startX, startY) => {
      let landedOnObject = null;
@@ -96,6 +105,7 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null) => new Pr
       if (dist > maxDist) continue;
       const x = tg.x + dx;
       const y = tg.y + dy;
+      if (!adjOk(x, y)) continue;
       const area = checkArea(x, y);
       if (area.free) {
         candidates.push({ x, y, isOnTerrain: area.isOnTerrain, targetElev: area.targetElev, willFall: area.willFall, arrivalElev: area.arrivalElev });
@@ -197,46 +207,53 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null) => new Pr
   redraw(null);
   tpOverlay = beginPickerOverlay({
     title: `${game.i18n.localize('DSCT.picker.titleTeleport')} ${maxDist}`,
-    status: game.i18n.format('DSCT.notice.tp.chooseDestination', { name: sourceToken.name }),
+    status: opts.adjacentTo
+      ? game.i18n.format('DSCT.notice.tp.chooseAdjacent', { name: sourceToken.name, target: opts.adjacentTo.name })
+      : game.i18n.format('DSCT.notice.tp.chooseDestination', { name: sourceToken.name }),
     holeRects,
     showConfirm: false,
     onCancel: () => { cleanup(); resolve(null); },
   });
 });
 
-const executeTeleport = async (token, distance, animate, colorHex, animDuration = 600) => {
-   const chosenGrid = await chooseTeleportSquare(token, distance, colorHex);
-   if (!chosenGrid) return; 
+const _clearTravelState = async (token) => {
+  const actor = token.actor;
+  const removedGrabs    = [];
+  const removedStatuses = [];
+  if (actor) {
+    if (window._activeGrabs) {
+      for (const [grabbedId, grab] of [...window._activeGrabs.entries()]) {
+        if (grabbedId === token.id || grab.grabberTokenId === token.id) {
+          removedGrabs.push({ grabberTokenId: grab.grabberTokenId, grabbedTokenId: grab.grabbedTokenId });
+          await endGrab(grabbedId, { silent: false });
+        }
+      }
+    }
+    for (const status of ['grabbed', 'restrained', 'prone']) {
+      if (actor.statuses?.has(status)) {
+        removedStatuses.push(status);
+        await safeToggleStatusEffect(actor, status, { active: false });
+      }
+    }
+  }
+  return { removedGrabs, removedStatuses };
+};
+
+export const executeTeleport = async (token, distance, animate, colorHex, animDuration = 600, opts = {}) => {
+   const chosenGrid = await chooseTeleportSquare(token, distance, colorHex, opts);
+   if (!chosenGrid) return;
 
    const origWorld = { x: token.document.x, y: token.document.y, elevation: token.document.elevation ?? 0 };
    const origAlpha = token.document.alpha;
    const origTint  = token.document.texture.tint || null;
-   
-   
+
+
    const destElev = chosenGrid.targetElev !== null ? chosenGrid.targetElev : 0;
    const targetWorld = { ...toWorld(chosenGrid), elevation: destElev };
    const actualDist = gridDist(toGrid(origWorld), chosenGrid);
 
    const actor = token.actor;
-   const removedGrabs    = [];
-   const removedStatuses = [];
-
-   if (actor) {
-     if (window._activeGrabs) {
-       for (const [grabbedId, grab] of [...window._activeGrabs.entries()]) {
-         if (grabbedId === token.id || grab.grabberTokenId === token.id) {
-           removedGrabs.push({ grabberTokenId: grab.grabberTokenId, grabbedTokenId: grab.grabbedTokenId });
-           await endGrab(grabbedId, { silent: false });
-         }
-       }
-     }
-     for (const status of ['grabbed', 'restrained', 'prone']) {
-       if (actor.statuses?.has(status)) {
-         removedStatuses.push(status);
-         await safeToggleStatusEffect(actor, status, { active: false });
-       }
-     }
-   }
+   const { removedGrabs, removedStatuses } = await _clearTravelState(token);
 
    if (animate) {
        await safeUpdate(token.document, { alpha: 0.2, 'texture.tint': colorHex }, { animation: { duration: animDuration } });
@@ -302,6 +319,7 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
      undoLog.push({ op: 'status', uuid: actor.uuid, effectId: status, active: true });
    }
 
+   const adjNote  = opts.adjacentTo ? `, arriving next to <strong>${opts.adjacentTo.name}</strong>` : '';
    const elevNote = chosenGrid.isOnTerrain ? ` (Elevation ${destElev})` : (destElev === 0 && origWorld.elevation !== 0 ? ` (Returned to Ground)` : '');
    let fallNote = '';
    if (chosenGrid.willFall && !fallCancelled) {
@@ -312,7 +330,7 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
    }
 
    await ChatMessage.create({
-       content: game.i18n.format('DSCT.chat.tp.teleported', { name: token.name, dist: actualDist, s: actualDist !== 1 ? 's' : '' }) + `${elevNote}.${fallNote}`,
+       content: game.i18n.format('DSCT.chat.tp.teleported', { name: token.name, dist: actualDist, s: actualDist !== 1 ? 's' : '' }) + `${adjNote}${elevNote}.${fallNote}`,
        flags: {
            'draw-steel-combat-tools': {
                isTpUndo: true, isUndone: false, undoLog, moveId,
@@ -323,11 +341,121 @@ const executeTeleport = async (token, distance, animate, colorHex, animDuration 
    });
 };
 
+export const executeTeleswap = async (tokenA, tokenB, maxDist, animate, colorHex, animDuration = 600) => {
+  if (!tokenA || !tokenB || tokenA.id === tokenB.id) {
+    ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sameToken'));
+    return;
+  }
+
+  const ga = toGrid(tokenA.document);
+  const gb = toGrid(tokenB.document);
+  const distApart = gridDist(ga, gb);
+  if (maxDist && distApart > maxDist) {
+    ui.notifications.warn(game.i18n.format('DSCT.notice.tp.swapTooFar', { a: tokenA.name, b: tokenB.name, dist: distApart, max: maxDist }));
+    return;
+  }
+
+  const fits = (tok, gx, gy) => {
+    const w = tok.document.width ?? 1;
+    const h = tok.document.height ?? 1;
+    for (const t of canvas.tokens.placeables) {
+      if (t.id === tokenA.id || t.id === tokenB.id) continue;
+      if (t.actor?.statuses?.has('dead')) continue;
+      const tg = toGrid(t.document);
+      const tw = t.document.width ?? 1;
+      const th = t.document.height ?? 1;
+      if (gx < tg.x + tw && gx + w > tg.x && gy < tg.y + th && gy + h > tg.y) return false;
+    }
+    return true;
+  };
+  if (!fits(tokenA, gb.x, gb.y) || !fits(tokenB, ga.x, ga.y)) {
+    ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.swapBlocked'));
+    return;
+  }
+
+  const snap = (tok) => ({
+    x: tok.document.x, y: tok.document.y, elevation: tok.document.elevation ?? 0,
+    alpha: tok.document.alpha, tint: tok.document.texture.tint || null,
+  });
+  const snapA = snap(tokenA);
+  const snapB = snap(tokenB);
+
+  const stateA = await _clearTravelState(tokenA);
+  const stateB = await _clearTravelState(tokenB);
+
+  if (animate) {
+    await Promise.all([
+      safeUpdate(tokenA.document, { alpha: 0.2, 'texture.tint': colorHex }, { animation: { duration: animDuration } }),
+      safeUpdate(tokenB.document, { alpha: 0.2, 'texture.tint': colorHex }, { animation: { duration: animDuration } }),
+    ]);
+    await new Promise(r => setTimeout(r, animDuration));
+  }
+
+  await safeUpdate(tokenA.document, { x: snapB.x, y: snapB.y, elevation: snapB.elevation }, { isUndo: true });
+  await safeUpdate(tokenB.document, { x: snapA.x, y: snapA.y, elevation: snapA.elevation }, { isUndo: true });
+
+  if (animate) {
+    await Promise.all([
+      safeUpdate(tokenA.document, { alpha: snapA.alpha, 'texture.tint': snapA.tint }, { animation: { duration: animDuration } }),
+      safeUpdate(tokenB.document, { alpha: snapB.alpha, 'texture.tint': snapB.tint }, { animation: { duration: animDuration } }),
+    ]);
+    await new Promise(r => setTimeout(r, animDuration));
+  }
+
+  const moveId = foundry.utils.randomID();
+  for (const tok of [tokenA, tokenB]) {
+    const oldMoveId = tok.document.getFlag('draw-steel-combat-tools', 'lastTpMoveId');
+    if (oldMoveId) {
+      const oldMsg = game.messages.contents.find(m => m.getFlag('draw-steel-combat-tools', 'moveId') === oldMoveId);
+      if (oldMsg) await safeUpdate(oldMsg, { 'flags.draw-steel-combat-tools.isExpired': true });
+    }
+    await safeUpdate(tok.document, { 'flags.draw-steel-combat-tools.lastTpMoveId': moveId });
+  }
+
+  const undoLog = [
+    { op: 'update', uuid: tokenA.document.uuid,
+      data: { x: snapA.x, y: snapA.y, elevation: snapA.elevation, alpha: snapA.alpha, 'texture.tint': snapA.tint },
+      options: { isUndo: true } },
+    { op: 'update', uuid: tokenB.document.uuid,
+      data: { x: snapB.x, y: snapB.y, elevation: snapB.elevation, alpha: snapB.alpha, 'texture.tint': snapB.tint },
+      options: { isUndo: true } },
+  ];
+  const allGrabs = [...stateA.removedGrabs, ...stateB.removedGrabs];
+  const grabbedTokenIds = new Set(allGrabs.map(g => g.grabbedTokenId));
+  for (const [tok, state] of [[tokenA, stateA], [tokenB, stateB]]) {
+    if (!tok.actor) continue;
+    for (const status of state.removedStatuses) {
+      if (status === 'grabbed' && grabbedTokenIds.has(tok.id)) continue;
+      undoLog.push({ op: 'status', uuid: tok.actor.uuid, effectId: status, active: true });
+    }
+  }
+
+  await ChatMessage.create({
+    content: game.i18n.format('DSCT.chat.tp.teleswapped', { a: tokenA.name, b: tokenB.name, dist: distApart, s: distApart !== 1 ? 's' : '' }),
+    flags: {
+      'draw-steel-combat-tools': {
+        isTpUndo: true, isUndone: false, undoLog, moveId,
+        targetTokenId: tokenA.id, targetSceneId: canvas.scene.id,
+        finalPos: { x: snapB.x, y: snapB.y, elevation: snapB.elevation },
+        grabsToRestore: allGrabs,
+      }
+    }
+  });
+};
+
 export async function runTeleport(macroArgs = []) {
   if (typeof macroArgs === 'object' && !Array.isArray(macroArgs) && Object.keys(macroArgs).length > 0) {
-    const { distance, sourceId, animate = true, colorHex = "#a030ff", duration = 600 } = macroArgs;
+    const { distance, sourceId, targetId, mode = 'normal', animate = true, colorHex = "#a030ff", duration = 600 } = macroArgs;
     const source = (sourceId ? getTokenById(sourceId) : null) ?? (canvas.tokens.controlled.length === 1 ? canvas.tokens.controlled[0] : null);
     if (!source) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sourceNotFound')); return; }
+    if (mode === 'swap' || mode === 'adjacent') {
+      const targets = [...game.user.targets].filter(t => t.id !== source.id);
+      const partner = (targetId ? getTokenById(targetId) : null) ?? (targets.length === 1 ? targets[0] : null);
+      if (!partner) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.needTarget')); return; }
+      if (mode === 'swap') { await executeTeleswap(source, partner, distance || 5, animate, colorHex, duration); return; }
+      await executeTeleport(source, distance || 5, animate, colorHex, duration, { adjacentTo: partner });
+      return;
+    }
     await executeTeleport(source, distance || 5, animate, colorHex, duration);
   } else {
     toggleTeleportPanel();
@@ -342,6 +470,7 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
     this._pinnedSource = null;
     this._targetToken  = null;
     this._shiftHeld    = false;
+    this._mode         = 'normal';
     this._updatePreview();
   }
 
@@ -351,7 +480,8 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
     window: { title: 'DSCT.panel.title.Teleport', minimizable: false, resizable: true },
     position: { width: 264, height: 'auto' },
     actions: {
-      'execute-tp': TeleportPanel._onExecuteTp,
+      'execute-tp':  TeleportPanel._onExecuteTp,
+      'set-tp-mode': TeleportPanel._onSetMode,
     },
   };
 
@@ -374,32 +504,68 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
     this._targetToken = targets.length === 1 ? targets[0] : null;
   }
 
+  _executeLabel() {
+    if (this._mode === 'swap')     return game.i18n.localize('DSCT.panel.tp.executeTeleswap');
+    if (this._mode === 'adjacent') return game.i18n.localize('DSCT.panel.tp.executeAdjacent');
+    return game.i18n.localize('DSCT.panel.tp.executeTeleport');
+  }
+
   _refreshPanel() {
     if (!this.rendered) return;
     this._updatePreview();
 
-    const token   = (this._shiftHeld && this._targetToken) ? this._targetToken : this._sourceToken;
-    const noLabel = this._shiftHeld ? game.i18n.localize('DSCT.panel.tp.noTarget') : 'Select exactly 1 token';
-    const img  = this.element.querySelector('#tp-source-img');
-    const name = this.element.querySelector('#tp-source-name');
-    if (img)  img.src = token?.document.texture.src ?? 'icons/svg/mystery-man.svg';
-    if (name) { name.textContent = token?.name ?? noLabel; name.classList.toggle('dim', !token); }
+    const sImg  = this.element.querySelector('#tp-source-img');
+    const sName = this.element.querySelector('#tp-source-name');
+    if (sImg)  sImg.src = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
+    if (sName) { sName.textContent = this._sourceToken?.name ?? game.i18n.localize('DSCT.panel.tp.noSourceLabel'); sName.classList.toggle('dim', !this._sourceToken); }
+
+    const tImg  = this.element.querySelector('#tp-target-img');
+    const tName = this.element.querySelector('#tp-target-name');
+    if (tImg)  tImg.src = this._targetToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
+    if (tName) { tName.textContent = this._targetToken?.name ?? game.i18n.localize('DSCT.panel.tp.noTargetLabel'); tName.classList.toggle('dim', !this._targetToken); }
+
+    const shiftMove = this._mode === 'normal' && this._shiftHeld && !!this._targetToken;
+    const sCol = this.element.querySelector('#tp-source-col');
+    const tCol = this.element.querySelector('#tp-target-col');
+    sCol?.classList.toggle('dsct-tp-moving', this._mode !== 'normal' || !shiftMove);
+    tCol?.classList.toggle('dsct-tp-moving', this._mode === 'swap' || shiftMove);
+
+    this.element.querySelectorAll('[data-action="set-tp-mode"]').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === this._mode));
+
+    const execBtn = this.element.querySelector('[data-action="execute-tp"]');
+    if (execBtn) {
+      execBtn.innerHTML = `<i class="fas fa-magic"></i> ${this._executeLabel()}`;
+      execBtn.title = this._mode === 'normal' ? game.i18n.localize('DSCT.panel.tp.shiftHint') : '';
+    }
   }
 
   async _prepareContext(_options) {
     this._updatePreview();
-    const sourceSrc   = this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
-    const sourceLabel = this._sourceToken?.name ?? 'Select exactly 1 token';
     const saved = game.user.getFlag('draw-steel-combat-tools', 'tpSettings') ?? { dist: 5, anim: true, color: '#a030ff', duration: 600 };
     return {
-      sourceSrc,
-      sourceLabel,
+      sourceSrc:      this._sourceToken?.document.texture.src ?? 'icons/svg/mystery-man.svg',
+      sourceLabel:    this._sourceToken?.name ?? game.i18n.localize('DSCT.panel.tp.noSourceLabel'),
       sourceSelected: !!this._sourceToken,
+      targetSrc:      this._targetToken?.document.texture.src ?? 'icons/svg/mystery-man.svg',
+      targetLabel:    this._targetToken?.name ?? game.i18n.localize('DSCT.panel.tp.noTargetLabel'),
+      targetSelected: !!this._targetToken,
+      modeNormal:     this._mode === 'normal',
+      modeSwap:       this._mode === 'swap',
+      modeAdjacent:   this._mode === 'adjacent',
+      executeLabel:   this._executeLabel(),
       dist: saved.dist,
       anim: saved.anim,
       color: saved.color,
       duration: saved.duration,
     };
+  }
+
+  static _onSetMode(event) {
+    const mode = event.target.closest('[data-mode]')?.dataset.mode;
+    if (!mode || mode === this._mode) return;
+    this._mode = mode;
+    this._refreshPanel();
   }
 
   async _saveSettings() {
@@ -411,6 +577,39 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
   }
 
   static async _onExecuteTp(event) {
+    const dist     = parseInt(this.element.querySelector('#tp-dist')?.value) || 5;
+    const animate  = this.element.querySelector('#tp-anim')?.checked;
+    const color    = this.element.querySelector('#tp-color')?.value || '#a030ff';
+    const duration = parseInt(this.element.querySelector('#tp-duration')?.value) || 600;
+    await this._saveSettings();
+
+    if (this._mode === 'swap' || this._mode === 'adjacent') {
+      let source = this._sourceToken;
+      if (!source) {
+        if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.mustSelectOne')); return; }
+        const picked = await runSourcePicker();
+        if (!picked) return;
+        this._pinnedSource = picked;
+        this._sourceToken  = picked;
+        source = picked;
+        this._refreshPanel();
+      }
+
+      let partner = this._targetToken?.id === source.id ? null : this._targetToken;
+      if (!partner) {
+        if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.needTarget')); return; }
+        partner = await runSourcePicker();
+        if (!partner) return;
+        if (partner.id === source.id) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sameToken')); return; }
+        this._targetToken = partner;
+        this._refreshPanel();
+      }
+
+      if (this._mode === 'swap') { await executeTeleswap(source, partner, dist, animate, color, duration); return; }
+      await executeTeleport(source, dist, animate, color, duration, { adjacentTo: partner });
+      return;
+    }
+
     if (event?.shiftKey && !this._targetToken) {
       if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.noShiftTarget')); return; }
       const picked = await runSourcePicker();
@@ -434,11 +633,6 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
       token = this._sourceToken;
     }
 
-    const dist     = parseInt(this.element.querySelector('#tp-dist')?.value) || 5;
-    const animate  = this.element.querySelector('#tp-anim')?.checked;
-    const color    = this.element.querySelector('#tp-color')?.value || '#a030ff';
-    const duration = parseInt(this.element.querySelector('#tp-duration')?.value) || 600;
-    await this._saveSettings();
     await executeTeleport(token, dist, animate, color, duration);
   }
 
@@ -478,6 +672,7 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
     });
 
     this.element.querySelectorAll('input').forEach(el => el.addEventListener('change', () => this._saveSettings()));
+    this._refreshPanel();
   }
 
   async close(options = {}) {
@@ -664,6 +859,15 @@ export const registerTeleportHooks = () => {
     });
   };
 
+  const tpIcon = (mode) => mode === 'swap' ? 'fa-solid fa-people-arrows' : 'fa-solid fa-person-through-window';
+
+  const defaultTpLabel = (mode, name, total) => {
+    const s = total !== 1 ? 's' : '';
+    if (mode === 'swap')     return `Teleswap ${total} square${s}`;
+    if (mode === 'adjacent') return `Teleport ${name ? `${name} ` : ''}${total} square${s} adjacent`;
+    return `Teleport ${name ? `${name} ` : ''}${total} square${s}`;
+  };
+
   CONFIG.TextEditor.enrichers.push({
     id:      'dsct.teleport',
     pattern: /\[\[\/teleport(?<args>[^\]]*?)?\]\](?:\{(?<label>[^}]+)\})?/gi,
@@ -683,10 +887,10 @@ export const registerTeleportHooks = () => {
         }
         const total = parseInt(a.dataset.dist);
         if (a.dataset.labelTemplate) {
-          a.innerHTML = `<i class="fa-solid fa-person-through-window"></i> ${resolveLabel(a.dataset.labelTemplate, spent)}`;
+          a.innerHTML = `<i class="${tpIcon(a.dataset.mode)}"></i> ${resolveLabel(a.dataset.labelTemplate, spent)}`;
         } else if (total !== base) {
           const name = a.dataset.fixedName ?? null;
-          a.innerHTML = `<i class="fa-solid fa-person-through-window"></i> Teleport ${name ? `${name} ` : ''}${total} square${total !== 1 ? 's' : ''}`;
+          a.innerHTML = `<i class="${tpIcon(a.dataset.mode)}"></i> ${defaultTpLabel(a.dataset.mode, name, total)}`;
         }
       }
 
@@ -698,6 +902,7 @@ export const registerTeleportHooks = () => {
         const fColor = a.dataset.color    ?? saved.color   ?? '#a030ff';
         const fDur   = a.dataset.duration !== undefined ? (parseInt(a.dataset.duration) || 600) : (saved.duration ?? 600);
         const fSrcId = a.dataset.sourceId;
+        const fMode  = a.dataset.mode;
 
         let token;
         if (fSrcId) {
@@ -708,7 +913,7 @@ export const registerTeleportHooks = () => {
             token = getTokenById(fSrcId);
           }
           if (!token) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sourceNotFound')); return; }
-        } else if (e.shiftKey) {
+        } else if (e.shiftKey && !fMode) {
           const targets = [...game.user.targets];
           if (targets.length > 1) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.noShiftTarget')); return; }
           token = targets[0] ?? null;
@@ -723,6 +928,20 @@ export const registerTeleportHooks = () => {
           token = controlled[0];
         }
 
+        if (fMode === 'swap' || fMode === 'adjacent') {
+          const targets = [...game.user.targets].filter(t => t.id !== token.id);
+          let partner = targets.length === 1 ? targets[0] : null;
+          if (!partner) {
+            if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.needTarget')); return; }
+            partner = await runSourcePicker();
+            if (!partner) return;
+            if (partner.id === token.id) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sameToken')); return; }
+          }
+          if (fMode === 'swap') { await executeTeleswap(token, partner, fDist, fAnim, fColor, fDur); return; }
+          await executeTeleport(token, fDist, fAnim, fColor, fDur, { adjacentTo: partner });
+          return;
+        }
+
         await executeTeleport(token, fDist, fAnim, fColor, fDur);
       });
     },
@@ -730,13 +949,16 @@ export const registerTeleportHooks = () => {
       const raw = (match.groups?.args ?? '').trim().split(/\s+/).filter(Boolean);
 
       const CHAR_MAP = { '@r': 'reason', '@m': 'might', '@a': 'agility', '@i': 'intuition', '@p': 'presence', '@v': 'vitality' };
-      let dist = null, animate = undefined, colorHex = undefined, duration = undefined, sourceId = undefined;
+      let dist = null, animate = undefined, colorHex = undefined, duration = undefined, sourceId = undefined, mode = undefined;
       let distFormula = null;
 
       for (const val of raw) {
         if (/@/.test(val)) { distFormula = val; continue; }
         if (val === 'true' || val === 'false') { animate = val === 'true'; continue; }
         if (val.startsWith('#'))               { colorHex = val;           continue; }
+        const lower = val.toLowerCase();
+        if (lower === 'swap' || lower === 'teleswap') { mode = 'swap';     continue; }
+        if (lower === 'adjacent')                     { mode = 'adjacent'; continue; }
         const num = parseInt(val);
         if (!isNaN(num)) { if (dist === null) { dist = num; } else { duration = num; } continue; }
         sourceId = val;
@@ -777,6 +999,7 @@ export const registerTeleportHooks = () => {
       if (duration !== undefined) a.dataset.duration  = duration;
       if (sourceId !== undefined) a.dataset.sourceId  = sourceId;
       if (fixedName)              a.dataset.fixedName = fixedName;
+      if (mode !== undefined)     a.dataset.mode      = mode;
       if (resolvedFormula && /@spend/i.test(resolvedFormula)) a.dataset.formula = resolvedFormula;
 
       const customLabel = match.groups?.label?.trim() ?? null;
@@ -790,8 +1013,9 @@ export const registerTeleportHooks = () => {
         a.dataset.labelTemplate = labelTemplate;
       }
       const displayLabel = labelTemplate != null ? resolveLabel(labelTemplate, 0) : null;
-      a.innerHTML = `<i class="fa-solid fa-person-through-window"></i> ${displayLabel ?? `Teleport ${fixedName ? `${fixedName} ` : ''}${dist} square${dist !== 1 ? 's' : ''}`}`;
-      if (!fixedName) a.title = game.i18n.localize('DSCT.panel.tp.enricherHint');
+      a.innerHTML = `<i class="${tpIcon(mode)}"></i> ${displayLabel ?? defaultTpLabel(mode, fixedName, dist)}`;
+      if (mode) a.title = game.i18n.localize('DSCT.panel.tp.enricherHintPair');
+      else if (!fixedName) a.title = game.i18n.localize('DSCT.panel.tp.enricherHint');
 
       return a;
     },

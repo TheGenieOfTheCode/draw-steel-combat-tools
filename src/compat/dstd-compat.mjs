@@ -953,6 +953,7 @@ async function _injectFmButtons(message, root) {
   const flatResourceEffects = _flatOfType('dsct.flatResource');
   const flatHealEffects     = _flatOfType('dsct.flatHeal');
   const flatCleanseEffects  = _flatOfType('dsct.flatCleanse');
+  const flatTeleportEffects = _flatOfType('dsct.flatTeleport');
   const doFlatEffects = flatDamageEffects.length > 0 || flatForcedEffects.length > 0 || flatAppliedEffects.length > 0 || flatHealEffects.length > 0 || flatCleanseEffects.length > 0;
 
   const dsid     = getItemDsid(ability);
@@ -1163,6 +1164,11 @@ async function _injectFmButtons(message, root) {
     }
     for (const effect of flatCleanseEffects) {
       previewParts.push(buildCleanseAutoLabel(effect.flatCleanse));
+    }
+    for (const effect of flatTeleportEffects) {
+      const tv = effect.flatTeleport ?? {};
+      if (tv.displayText) { previewParts.push(tv.displayText); continue; }
+      previewParts.push(effect.label);
     }
     if (previewParts.length) {
       const tierTextDds = activePanel.querySelectorAll(`dd.${DSTD}-tier-text`);

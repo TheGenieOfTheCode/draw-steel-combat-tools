@@ -685,6 +685,32 @@
         "defaultLabel": "Apply {value} {types}",
         "typeSelect": "{name} Type"
       },
+      "Teleport": {
+        "defaultLabel": "Teleport {distance}",
+        "swapLabel": "Teleswap {distance}",
+        "adjacentLabel": "Teleport {distance} (Adjacent)",
+        "mode": {
+          "label": "Mode",
+          "hint": "Teleport moves the token to a free square in range. Teleswap swaps places with the targeted token. Adjacent teleports next to the targeted token."
+        },
+        "distance": {
+          "label": "Distance"
+        },
+        "animate": {
+          "label": "Animate Phase"
+        },
+        "color": {
+          "label": "Phase Color"
+        },
+        "duration": {
+          "label": "Duration (ms)"
+        },
+        "Mode": {
+          "normal": "Teleport",
+          "swap": "Teleswap",
+          "adjacent": "Teleport Adjacent to Target"
+        }
+      },
       "Heal": {
         "healLabel":      "Heal {amount} Stamina",
         "tempLabel":      "Grant {amount} Temp. Stamina",
@@ -887,9 +913,17 @@
         "phaseColor": "Phase Color",
         "duration": "Duration (ms)",
         "executeTeleport": "Execute Teleport",
+        "executeTeleswap": "Execute Teleswap",
+        "executeAdjacent": "Teleport Adjacent",
         "noTarget": "Target exactly 1 token",
+        "noSourceLabel": "Select 1 Token",
+        "noTargetLabel": "No Target",
+        "modeNormal": "Teleport",
+        "modeSwap": "Teleswap",
+        "modeAdjacent": "Adjacent",
         "shiftHint": "Hold Shift to teleport the targeted token instead",
         "enricherHint": "Apply to selected token. Hold Shift to apply to targeted token.",
+        "enricherHintPair": "Applies to the selected token, using your targeted token as the other end. Target exactly 1 token first.",
         "pickSource": "Pick Token"
       },
       "wb": {
@@ -1250,6 +1284,11 @@
       "tp": {
         "noValidDestinations": "DSCT | No valid teleport destinations within range.",
         "chooseDestination": "Choose where {name} teleports. Right-Click to cancel.",
+        "chooseAdjacent": "Choose where {name} teleports next to {target}. Right-Click to cancel.",
+        "needTarget": "DSCT | Target exactly 1 other token to serve as the other end of the teleport.",
+        "sameToken": "DSCT | The teleporting token and the target must be different tokens.",
+        "swapTooFar": "DSCT | {a} and {b} are {dist} squares apart, beyond the teleswap range of {max}.",
+        "swapBlocked": "DSCT | Teleswap blocked: one of the two destinations is occupied.",
         "sourceNotFound": "DSCT | Source token not found.",
         "mustSelectOne": "DSCT | You must select exactly 1 token to teleport.",
         "noShiftTarget": "DSCT | No targeted token to teleport. Target a token first, then Shift+click.",
@@ -1376,7 +1415,8 @@
         "newCaptain": "<strong>I Am The Captain Now:</strong> {name} is now the captain of {group}."
       },
       "tp": {
-        "teleported": "<strong>{name}</strong> teleported {dist} square{s}"
+        "teleported": "<strong>{name}</strong> teleported {dist} square{s}",
+        "teleswapped": "<strong>{a}</strong> and <strong>{b}</strong> teleported {dist} square{s}, swapping places."
       },
       "int": {
         "animalDisguise": "<strong>I'm No Threat</strong> <em>{name} takes on the appearance of a <strong>{disguise}</strong>.</em><br><br>Strikes gain an edge, and Disengage gains +1 distance.",
@@ -1568,7 +1608,8 @@
         "flatApplied": "Applied Effect",
         "flatResource": "Gain Resource",
         "flatHeal":    "Heal",
-        "flatCleanse": "Cleanse"
+        "flatCleanse": "Cleanse",
+        "flatTeleport": "Teleport"
       }
     },
     "RegionBehavior": {

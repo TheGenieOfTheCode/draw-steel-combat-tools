@@ -238,6 +238,12 @@
   gap: 7px;
 }
 
+#dsct-tp-panel .dsct-token-col .dsct-token-img { opacity: 0.55; transition: opacity 0.15s, box-shadow 0.15s; }
+#dsct-tp-panel .dsct-token-col.dsct-tp-moving .dsct-token-img {
+  opacity: 1;
+  box-shadow: 0 0 6px 1px rgba(160, 48, 255, 0.55);
+}
+
 .dsct-fm-moves-label {
   font-size: 14px;
   color: var(--dsct-text-dim);
