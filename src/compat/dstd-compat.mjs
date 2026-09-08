@@ -957,7 +957,8 @@ async function _injectFmButtons(message, root) {
   const doFlatEffects = flatDamageEffects.length > 0 || flatForcedEffects.length > 0 || flatAppliedEffects.length > 0 || flatHealEffects.length > 0 || flatCleanseEffects.length > 0;
 
   const dsid     = getItemDsid(ability);
-  const maxGrabs = MULTI_GRAB_LIMITS[dsid] ?? 1;
+  const _grabTargetCount = (message.flags?.[DSTD]?.state?.targets ?? []).length;
+  const maxGrabs = Math.max(MULTI_GRAB_LIMITS[dsid] ?? 1, _grabTargetCount);
 
   const doMark      = getSetting('markAutomation') && (dsid in MARK_ABILITY_CONFIG);
   const doJudgement = getSetting('judgementAutomation') && dsid === 'judgement';

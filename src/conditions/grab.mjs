@@ -187,16 +187,51 @@ export const registerGrabHooks = () => {
   });
 };
 
+const GRAB_TRAIT_CAPS = {
+  'four-armed martial arts': 2,
+  'choking grasp': 2,
+  'claw and blade': 2,
+  'conditioning spear': 2,
+  'several arms': 4,
+  'ribcage chomp': 4,
+  'four-way grasp': 4,
+  'multiple tongues': 3,
+};
+
+const _traitGrabCap = (actor) => {
+  if (!actor) return 1;
+  let cap = 1;
+  let multilimb = 0;
+  let hasGrowingFerocity = false;
+  let hasBoren = false;
+  for (const item of actor.items) {
+    const n = item.name?.toLowerCase().trim();
+    if (!n) continue;
+    if (GRAB_TRAIT_CAPS[n]) cap = Math.max(cap, GRAB_TRAIT_CAPS[n]);
+    if (n === 'multilimb') multilimb++;
+    if (n === 'growing ferocity') hasGrowingFerocity = true;
+    if (n === 'boren') hasBoren = true;
+  }
+  if (multilimb) cap = Math.max(cap, 1 + multilimb);
+  if (hasGrowingFerocity && hasBoren) {
+    const ferocity = actor.system?.hero?.primary?.value ?? 0;
+    if (ferocity >= 2) cap = Math.max(cap, 2);
+  }
+  return cap;
+};
+
 export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) => {
   if (!window._activeGrabs) window._activeGrabs = new Map();
   if (window._activeGrabs.has(grabbedTok.id)) await endGrab(grabbedTok.id, { silent: true });
 
+  const flagMax = Number(grabberTok.actor?.getFlag('draw-steel-combat-tools', 'maxGrabs')) || 0;
+  const effMax  = Math.max(maxGrabs, flagMax, _traitGrabCap(grabberTok.actor));
   const currentGrabs = [...window._activeGrabs.values()].filter(g => g.grabberTokenId === grabberTok.id);
-  if (currentGrabs.length >= maxGrabs) {
-    if (maxGrabs === 1) {
+  if (currentGrabs.length >= effMax) {
+    if (effMax === 1) {
       await endGrab(currentGrabs[0].grabbedTokenId, { silent: false, customMsg: `${grabberTok.name} releases ${currentGrabs[0].grabbedName} to grab a new target.` });
     } else {
-      ui.notifications.warn(game.i18n.format('DSCT.notice.grab.alreadyGrabbing', { name: grabberTok.name, max: maxGrabs, s: maxGrabs !== 1 ? 's' : '' }));
+      ui.notifications.warn(game.i18n.format('DSCT.notice.grab.alreadyGrabbing', { name: grabberTok.name, max: effMax, s: effMax !== 1 ? 's' : '' }));
       return;
     }
   }
