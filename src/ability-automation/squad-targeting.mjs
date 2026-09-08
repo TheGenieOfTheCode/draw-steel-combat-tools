@@ -6,7 +6,7 @@ import { _recomputeAndSync, _injectPillUI } from './roll-dialog-hooks.mjs';
 
 const M = 'draw-steel-combat-tools';
 
-const _squadTargeted = new Set();
+const _squadTargeted = new Map();
 
 export let _pendingSquadMap = null;
 
@@ -173,7 +173,7 @@ function _autoAssign(minionTokens, candidates, isRanged = false, range = 5, init
   return assignments;
 }
 
-function _drawCheckerLine(g, x1, y1, x2, y2, alpha = 0.9) {
+function _drawCheckerLine(g, x1, y1, x2, y2, alpha = 0.9, { width = 3, colorA = 0xFF8800, colorB = 0xFFFFFF } = {}) {
   const SEG = 18;
   const dx = x2 - x1, dy = y2 - y1;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -182,7 +182,7 @@ function _drawCheckerLine(g, x1, y1, x2, y2, alpha = 0.9) {
   let d = 0, flip = false;
   while (d < len) {
     const end = Math.min(d + SEG, len);
-    g.lineStyle(3, flip ? 0xFFFFFF : 0xFF8800, alpha);
+    g.lineStyle(width, flip ? colorB : colorA, alpha);
     g.moveTo(x1 + ux * d,   y1 + uy * d);
     g.lineTo(x1 + ux * end, y1 + uy * end);
     d    = end;
@@ -245,7 +245,7 @@ function _buildTargetMap(assignments, minionTokens, ability) {
   return result;
 }
 
-async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged = false, initialRange = range) {
+async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged = false, initialRange = range, ability = null) {
   const GS  = canvas.grid.size;
   const CGD = canvas.grid.distance;
 
@@ -295,13 +295,39 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
   const hlName = 'dsct-squad-targeting-hl';
   if (!canvas.interface.grid.highlightLayers[hlName]) canvas.interface.grid.addHighlightLayer(hlName);
 
-  let _sqConfirm = () => {};
-  let _sqCancel  = () => {};
+  let _sqConfirm    = () => {};
+  let _sqCancel     = () => {};
+  let _sqAutoAssign = () => {};
+  let _sqUnselect   = () => {};
+  const fsDamage  = eligibleMinions[0]?.actor?.system?.monster?.freeStrike ?? 0;
+  const rangeNote = range !== initialRange ? ` · Free strikes can join from range ${range}` : '';
+  const dist = ability?.system?.distance;
+  const distP = parseInt(dist?.primary) || 0;
+  const distS = parseInt(dist?.secondary) || 0;
+  const distLabel = dist?.type === 'melee'       ? `Melee ${distP}`
+                  : dist?.type === 'ranged'      ? `Ranged ${distP}`
+                  : dist?.type === 'meleeRanged' ? `Melee ${distP} Ranged ${distS}`
+                  : `Range ${initialRange}`;
   const overlay = beginPickerOverlay({
-    title: 'Squad Action',
+    title: 'Group Action',
+    detail: `${distLabel}${rangeNote} · ${eligibleMinions.length} minions · Each extra minion on a target adds +${fsDamage} free strike damage`,
     tokens: [...eligibleMinions, ...allTargets],
     onConfirm: () => _sqConfirm(),
     onCancel: () => _sqCancel(),
+    buttonGrid: true,
+    extraButtons: [{
+      className: 'dsct-picker-suggest',
+      icon: 'fa-solid fa-wand-magic-sparkles',
+      label: 'Suggestions',
+      kbd: 'Double-click',
+      tooltip: 'Auto-assign every minion to a suggested target. You can still rearrange before confirming.',
+      onClick: () => _sqAutoAssign(),
+    }, {
+      icon: 'fa-solid fa-eraser',
+      label: 'Unselect All',
+      tooltip: 'Clear every assignment and start over.',
+      onClick: () => _sqUnselect(),
+    }],
   });
 
   const refreshNotif = () => {
@@ -315,13 +341,36 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
 
   const redrawLines = () => {
     lines.clear();
+    const primaryByTarget = new Map();
+    if (ability) {
+      const grouped = new Map();
+      for (const [minionId, targetId] of assignments) {
+        if (!grouped.has(targetId)) grouped.set(targetId, []);
+        grouped.get(targetId).push(minionId);
+      }
+      for (const [targetId, minionIds] of grouped) {
+        let primaryId = minionIds[0];
+        let bestNet   = -Infinity;
+        for (const minionId of minionIds) {
+          const tok = eligibleMinions.find(t => t.id === minionId);
+          const net = tok ? _getMinionNetEdges(tok, ability, isRanged) : 0;
+          if (net > bestNet) { bestNet = net; primaryId = minionId; }
+        }
+        primaryByTarget.set(targetId, primaryId);
+      }
+    }
+    const primaryLines = [];
     for (const [minionId, targetId] of assignments) {
       const m = eligibleMinions.find(t => t.id === minionId);
       const t = allTargets.find(t => t.id === targetId);
       if (!m || !t) continue;
       const mc = _tokenCenter(m);
       const tc = _tokenCenter(t);
+      if (primaryByTarget.get(targetId) === minionId) { primaryLines.push([mc, tc]); continue; }
       _drawCheckerLine(lines, mc.x, mc.y, tc.x, tc.y);
+    }
+    for (const [mc, tc] of primaryLines) {
+      _drawCheckerLine(lines, mc.x, mc.y, tc.x, tc.y, 0.95, { width: 5, colorA: 0x1A1A1A, colorB: 0xFFD700 });
     }
     if (activeMinionId && hoveredTargetId && hoveredTargetId !== assignments.get(activeMinionId)) {
       const m = eligibleMinions.find(t => t.id === activeMinionId);
@@ -458,6 +507,32 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
       return pos.x >= t.x && pos.x <= t.x + tw && pos.y >= t.y && pos.y <= t.y + th;
     }) ?? null;
 
+    const runAutoAssign = () => {
+      assignments.clear();
+      targetCap.clear();
+      for (const [m, t] of _autoAssign(eligibleMinions, allTargets, isRanged, range, initialRange)) {
+        assignments.set(m, t);
+        targetCap.set(t, (targetCap.get(t) ?? 0) + 1);
+      }
+      if (!assignments.size) { overlay.flashWarning('No enemy targets in range to auto-assign.'); return; }
+      activeMinionId  = null;
+      hoveredTargetId = null;
+      redraw();
+      syncReticles();
+      overlay.setStatus(`Auto-assigned ${assignments.size}/${eligibleMinions.length} minions · rearrange freely, Enter to confirm`);
+    };
+    _sqAutoAssign = runAutoAssign;
+
+    _sqUnselect = () => {
+      assignments.clear();
+      targetCap.clear();
+      activeMinionId  = null;
+      hoveredTargetId = null;
+      redraw();
+      syncReticles();
+      refreshNotif();
+    };
+
     const onClick = (event) => {
       if (event.data.originalEvent.button !== 0) return;
       const pos = event.data.getLocalPosition(canvas.app.stage);
@@ -468,15 +543,7 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
           const now = Date.now();
           if (now - (onClick._lastEmptyClick ?? 0) < 400) {
             onClick._lastEmptyClick = 0;
-            assignments.clear();
-            targetCap.clear();
-            for (const [m, t] of _autoAssign(eligibleMinions, allTargets, isRanged, range, initialRange)) {
-              assignments.set(m, t);
-              targetCap.set(t, (targetCap.get(t) ?? 0) + 1);
-            }
-            if (!assignments.size) { overlay.flashWarning('No enemy targets in range to auto-assign.'); return; }
-            cleanup();
-            resolve(new Map(assignments));
+            runAutoAssign();
           } else {
             onClick._lastEmptyClick = now;
           }
@@ -485,6 +552,10 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
       }
 
       if (!hit) return;
+      const mTok = eligibleMinions.find(t => t.id === activeMinionId);
+      if (mTok && tokFootprintDist(mTok, hit) >= range * canvas.grid.distance) {
+        overlay.flashWarning(`${mTok.name} is out of range of ${hit.name} and cannot reach them from here.`);
+      }
       assignTarget(activeMinionId, hit.id);
       activeMinionId  = null;
       hoveredTargetId = null;
@@ -545,6 +616,11 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
 }
 
 export function registerSquadTargetingHooks() {
+  Hooks.on('closeAbilityConfigurationDialog', (app) => {
+    const uuid = app.options?.ability?.uuid;
+    if (uuid) _squadTargeted.delete(uuid);
+  });
+
   Hooks.on('renderAbilityConfigurationDialog', (app) => {
     const pendingMap = _pendingSquadMap;
     if (!pendingMap) return;
@@ -589,10 +665,11 @@ export function checkAndRunSquadTargeting(dialog) {
   const ability = dialog.options?.ability;
   if (!ability) return null;
 
-  if (_squadTargeted.has(ability.uuid)) {
-    _squadTargeted.delete(ability.uuid);
+  const _sqStamp = _squadTargeted.get(ability.uuid);
+  if (_sqStamp && Date.now() - _sqStamp < 300000) {
     return null;
   }
+  _squadTargeted.delete(ability.uuid);
 
   if (!getSetting('abilityAutomationEnabled')) return null;
   if (!getSetting('groupActionsEnabled')) return null;
@@ -629,14 +706,14 @@ export function checkAndRunSquadTargeting(dialog) {
   if (!eligibleMinions.length || !allTargets.length) return null;
 
   const isRanged = getStrikeType(ability) === 'ranged';
-  _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged, initialRange).then(assignments => {
+  _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged, initialRange, ability).then(assignments => {
     if (!assignments?.size) return;
     const targetMap    = _buildTargetMap(assignments, eligibleMinions, ability);
     const targetTokens = [...new Set(assignments.values())]
       .map(id => canvas.tokens.get(id))
       .filter(Boolean);
     setFoundryTargets(targetTokens);
-    _squadTargeted.add(ability.uuid);
+    _squadTargeted.set(ability.uuid, Date.now());
     _pendingSquadMap = targetMap;
     ability.system.use();
   });

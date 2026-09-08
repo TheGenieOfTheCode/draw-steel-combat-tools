@@ -20,7 +20,7 @@ import { openImNoThreatPanel } from './ability-automation/ability-automation.mjs
 import { openTransformPicker, runTransform } from './ability-automation/transformation.mjs';
 import { triggerAbyssalEvolution, registerMaliceInjectors } from './ability-automation/malice/malice-features.mjs';
 import { registerCrossfadeHooks } from './ability-automation/class-shadow/crossfade.mjs';
-import { registerSquadTargetingHooks } from './ability-automation/squad-targeting.mjs';
+import { registerSquadTargetingHooks, _pendingSquadMap } from './ability-automation/squad-targeting.mjs';
 import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-shadow/hesitation.mjs';
 import { registerDefeatedTokenVisibility } from './death-tracker/defeated-token-visibility.mjs';
 import { registerSettings, registerCompatibilityChecks } from './settings/register-settings.mjs';
@@ -82,6 +82,7 @@ const api = {
   setRollDialogLock:         setBaneDialogLockWithOverlay,
   getStickBugged:   getStickBugged,
   isFMActive:       () => !!window._dsctFMActive,
+  pendingSquadMap:  () => _pendingSquadMap,
   deathTrackerExcludedTypes,
   damagePills: {
     open: openDamageEditor,

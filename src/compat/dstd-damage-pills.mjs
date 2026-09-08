@@ -67,6 +67,7 @@ export function damagePillType(pills) {
 }
 
 export function damagePillEffect(p) {
+  if (p.kind === 'note') return (p.label ?? '').trim();
   if (p.kind === 'half') return L('effectHalf');
   if (p.kind === 'double') return L('effectDouble');
   if (p.kind === 'surge') return L('effectSurge', { n: Math.abs(Number(p.value) || 0) });
@@ -86,6 +87,7 @@ export function damagePillAmtStr(p) {
 
 export function damagePillText(p) {
   const label = (p.label ?? '').trim();
+  if (p.kind === 'note') return label;
   if (label) return `${damagePillAmtStr(p)} · ${label}`;
   if (p.kind === 'half') return L('effectHalf');
   if (p.kind === 'double') return L('effectDouble');
@@ -165,7 +167,7 @@ class DsctDamageEditor extends ds.applications.api.DSApplication {
       const pillBtn = e.target.closest('.dsct-de-pill[data-pill-idx]');
       if (pillBtn) {
         const p = this._pills[Number(pillBtn.dataset.pillIdx)];
-        if (p) p.enabled = p.enabled === false;
+        if (p && p.kind !== 'note') p.enabled = p.enabled === false;
         this._refresh();
       }
     }, { signal });
@@ -739,7 +741,8 @@ export function injectDamagePills(message, root) {
     const applied = apps[opId]?.status === 'applied';
     if (Array.isArray(ov?.dstPills) && ov.dstPills.length) {
       for (const x of damagePillDisplayList(ov.dstPills)) {
-        add(opId, x.pill, { toggleable: !applied, custom: !applied && x.pill.source !== 'trigger', idx: x.idx, inert: x.inert });
+        const toggleable = !applied && x.pill.kind !== 'note';
+        add(opId, x.pill, { toggleable, custom: toggleable && x.pill.source !== 'trigger', idx: x.idx, inert: x.inert });
       }
       suffixByOp.set(opId, _multSuffixFor(ov.dstPills));
     } else if (ov?.dstHalf) {

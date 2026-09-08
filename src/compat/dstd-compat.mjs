@@ -8,7 +8,7 @@ import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automa
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { _addDamagedToken, reviveTokens } from '../death-tracker/death-tracker.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
-import { injectDamagePills } from './dstd-damage-pills.mjs';
+import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
 const DSTD       = 'draw-steel-target-damage';
@@ -994,7 +994,7 @@ async function _injectFmButtons(message, root) {
       window._dsctSquadTargetCache.set(message.id, stored);
       squadTargetMap = stored;
       if (getSetting('debugMode')) console.log(`DSCT | squadMap | loaded from DB flag, keys=`, Object.keys(stored));
-    } else if (_pendingSquadMap) {
+    } else if (_pendingSquadMap && (ability.actor ?? ability.parent)?.system?.isMinion && ability.system?.category === 'signature') {
       if (getSetting('debugMode')) console.log(`DSCT | squadMap | building from _pendingSquadMap, entries=${_pendingSquadMap.size}`);
       const uuidMap = {};
       for (const [tokenId, entry] of _pendingSquadMap) {
@@ -1005,7 +1005,7 @@ async function _injectFmButtons(message, root) {
         const fs = entry.extraMinions > 0
           ? (canvas.tokens.get(entry.primaryMinionId)?.actor?.system?.monster?.freeStrike ?? 0)
           : 0;
-        uuidMap[tok.document.uuid.replace(/\./g, '__')] = { extraMinions: entry.extraMinions, freeStrike: fs, minionIds };
+        uuidMap[tok.document.uuid.replace(/\./g, '__')] = { extraMinions: entry.extraMinions, freeStrike: fs, minionIds, primaryMinionId: entry.primaryMinionId ?? null };
       }
       if (getSetting('debugMode')) console.log(`DSCT | squadMap | uuidMap built, keys=`, Object.keys(uuidMap));
       if (Object.keys(uuidMap).length) {
@@ -2736,7 +2736,17 @@ async function _injectFmButtons(message, root) {
     }
 
     if (doSquad && squadTargetMap && tokenUuid) {
-      const sqEntry   = squadTargetMap[targetKey];
+      let sqEntry = squadTargetMap[targetKey];
+      if (!sqEntry) {
+        const liveKeys = new Set((message.flags?.[DSTD]?.state?.targets ?? []).map(t => String(t.tokenUuid ?? '').replace(/\./g, '__')));
+        const orphanKey = Object.keys(squadTargetMap).find(k => k !== targetKey && !liveKeys.has(k));
+        if (orphanKey) {
+          sqEntry = squadTargetMap[orphanKey];
+          squadTargetMap[targetKey] = sqEntry;
+          delete squadTargetMap[orphanKey];
+          if (getSetting('debugMode')) console.log(`DSCT | squad Phase3 | remapped orphaned squad entry ${orphanKey} -> ${targetKey} (redirect)`);
+        }
+      }
       const minionIds = sqEntry?.minionIds ?? [];
       if (getSetting('debugMode')) console.log(`DSCT | squad Phase3 | row tokenUuid=${tokenUuid} sqEntry=`, sqEntry);
 
@@ -2750,7 +2760,20 @@ async function _injectFmButtons(message, root) {
         if (getSetting('debugMode')) console.log(`DSCT | squad Phase3 | bonus=${bonus} operationId=${operationId} hasState=${!!dstdMsgState}`);
         if (operationId && dstdMsgState) {
           const existingOverride = dstdMsgState.damageOverrides?.[operationId];
-          if (existingOverride?.bonus !== bonus) {
+          const primaryId  = sqEntry.primaryMinionId ?? sqEntry.minionIds?.[0] ?? null;
+          const primaryTok = primaryId ? canvas.tokens.get(primaryId) : null;
+          const squadPills = [];
+          if (primaryTok) {
+            squadPills.push({ kind: 'note', value: null, label: 'Primary Attacker', src: primaryTok.name, srcTokenId: primaryTok.id, source: 'trigger', dstSquad: true });
+          }
+          for (const mid of sqEntry.minionIds ?? []) {
+            if (mid === primaryId) continue;
+            const tok = canvas.tokens.get(mid);
+            squadPills.push({ kind: 'delta', value: sqEntry.freeStrike, label: 'Free Strike', src: tok?.name ?? null, srcTokenId: mid, source: 'trigger', dstSquad: true });
+          }
+          const wantKey = JSON.stringify(squadPills.map(p => [p.kind, p.value ?? null, p.srcTokenId ?? null]));
+          const haveKey = JSON.stringify((existingOverride?.dstPills ?? []).filter(p => p.dstSquad).map(p => [p.kind, p.value ?? null, p.srcTokenId ?? null]));
+          if (wantKey !== haveKey) {
             const baseText   = qdBtn?.textContent ?? nativeApplyBtn?.textContent ?? '';
             const base       = parseInt(baseText.match(/\d+/)?.[0] ?? '0');
             const typeClass  = [...(qdBtn?.classList ?? [])].find(c => c.includes('-damage-type-'))
@@ -2758,26 +2781,29 @@ async function _injectFmButtons(message, root) {
             const damageType = typeClass?.split('-damage-type-')[1] ?? existingOverride?.damageType ?? '';
             const typeLabel  = existingOverride?.typeLabel || (damageType && damageType !== 'untyped' ? damageType.charAt(0).toUpperCase() + damageType.slice(1) : '');
             if (base > 0 && game.users.activeGM?.isSelf) {
+              const baseAmount = Number(existingOverride?.baseAmount ?? base);
+              const pills = [
+                ...(existingOverride?.dstPills ?? []).filter(p => !p.dstSquad),
+                ...squadPills,
+              ];
               message.update({
                 [`flags.${DSTD}.state.damageOverrides.${operationId}`]: {
-                  amount: base + bonus, baseAmount: base, bonus,
-                  additional: String(bonus), damageType, typeLabel,
-                  surges: 0, surgeDamage: 0, surgeBonus: 0,
+                  ...(existingOverride ?? {}),
+                  amount: foldDamagePills(baseAmount, pills),
+                  baseAmount,
+                  bonus: 0,
+                  additional: existingOverride?.additional ?? '',
+                  damageType: existingOverride?.damageType ?? damageType,
+                  typeLabel: existingOverride?.typeLabel ?? typeLabel,
+                  surges: existingOverride?.surges ?? 0,
+                  surgeDamage: existingOverride?.surgeDamage ?? 0,
+                  surgeBonus: existingOverride?.surgeBonus ?? 0,
+                  dstPills: pills,
                 },
                 [`flags.${M}.squadTargetMap`]: squadTargetMap,
               }).catch(() => {});
             }
           }
-          const strikesLabel = sqEntry.extraMinions === 1
-            ? `+${bonus} from 1 extra free strike`
-            : `+${bonus} from ${sqEntry.extraMinions} extra free strikes`;
-          const squadTooltip = `${strikesLabel}<hr>Hold Shift to deal half damage`;
-          if (getSetting('debugMode')) console.log(`DSCT | squadTooltip | setting tooltip="${squadTooltip}" on operationId=${operationId}`);
-          for (const btn of row.querySelectorAll('[data-dstd-action="applyDamage"]')) {
-            if (btn.dataset.operationId !== operationId) continue;
-            btn.dataset.tooltip = squadTooltip;
-          }
-          if (qdBtn) qdBtn.dataset.tooltip = squadTooltip;
         }
       }
     }

@@ -52,7 +52,7 @@ function _frameView(rects) {
   canvas.animatePan({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, scale, duration: 450 });
 }
 
-export function beginPickerOverlay({ title, status = '', tokens = [], holeRects = null, dim = true, hideUi = true, uiToggle = false, onUiToggle = null, showConfirm = true, showCancel = true, onConfirm = null, onCancel = null, frame = null } = {}) {
+export function beginPickerOverlay({ title, status = '', detail = '', tokens = [], holeRects = null, dim = true, hideUi = true, uiToggle = false, onUiToggle = null, showConfirm = true, showCancel = true, onConfirm = null, onCancel = null, frame = null, extraButtons = [], buttonGrid = false } = {}) {
   endPickerOverlay();
 
   if (hideUi) document.body.classList.add('dsct-prominent-picker');
@@ -68,9 +68,26 @@ export function beginPickerOverlay({ title, status = '', tokens = [], holeRects 
       <button type="button" class="dsct-picker-uitoggle${hideUi ? ' dsct-active' : ''}" ${uiToggle ? '' : 'hidden'} data-tooltip="${game.i18n.localize('DSCT.picker.toggleUi')}"><i class="fa-solid fa-eye-slash"></i></button>
       <button type="button" class="dsct-picker-confirm" ${showConfirm ? '' : 'hidden'}><i class="fa-solid fa-check"></i> ${confirmLabel} <kbd>Enter</kbd></button>
       <button type="button" class="dsct-picker-cancel" ${showCancel ? '' : 'hidden'}><i class="fa-solid fa-xmark"></i> ${cancelLabel} <kbd>Esc</kbd></button>
-    </span>`;
+    </span>
+    <span class="dsct-picker-detail" hidden></span>`;
   bar.querySelector('.dsct-picker-title').textContent = title ?? '';
   bar.querySelector('.dsct-picker-status').textContent = status ?? '';
+  if (detail) {
+    const detailEl = bar.querySelector('.dsct-picker-detail');
+    detailEl.hidden = false;
+    detailEl.textContent = detail;
+  }
+  const btnsEl = bar.querySelector('.dsct-picker-btns');
+  if (buttonGrid) btnsEl.classList.add('dsct-btns-grid');
+  for (const eb of extraButtons) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `dsct-picker-extra${eb.className ? ` ${eb.className}` : ''}`;
+    b.innerHTML = `${eb.icon ? `<i class="${eb.icon}"></i> ` : ''}${foundry.utils.escapeHTML(eb.label ?? '')}${eb.kbd ? ` <kbd>${foundry.utils.escapeHTML(eb.kbd)}</kbd>` : ''}`;
+    if (eb.tooltip) b.dataset.tooltip = eb.tooltip;
+    b.addEventListener('click', (ev) => { ev.preventDefault(); eb.onClick?.(); });
+    btnsEl.insertBefore(b, btnsEl.querySelector('.dsct-picker-confirm'));
+  }
   bar.querySelector('.dsct-picker-confirm').addEventListener('click', (e) => { e.preventDefault(); _ov?.onConfirm?.(); });
   bar.querySelector('.dsct-picker-cancel').addEventListener('click', (e) => { e.preventDefault(); _ov?.onCancel?.(); });
   bar.querySelector('.dsct-picker-uitoggle').addEventListener('click', (e) => {
@@ -111,9 +128,8 @@ export function beginPickerOverlay({ title, status = '', tokens = [], holeRects 
   return {
     setStatus(text) {
       if (!_ov) return;
-      clearTimeout(_ov.warnTimer);
-      _ov.warnTimer = null;
       _ov.lastStatus = text ?? '';
+      if (_ov.warnTimer) return;
       _ov.statusEl.textContent = _ov.lastStatus;
       _ov.statusEl.classList.remove('dsct-warn');
     },
