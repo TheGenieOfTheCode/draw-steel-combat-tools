@@ -169,7 +169,7 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null) => new Pr
          gpos.y >= g.y && gpos.y < g.y + h
     );
     if (!chosen) return;
-    cleanup();
+    cleanup({ x: (chosen.x + w / 2) * GRID, y: (chosen.y + h / 2) * GRID });
     resolve(chosen);
   };
 
@@ -177,7 +177,7 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null) => new Pr
   const onContextMenu = (e) => { e.preventDefault(); };
 
   let tpOverlay = null;
-  const cleanup = () => {
+  const cleanup = (focus = null) => {
     overlay.off('pointermove', onMove);
     overlay.off('pointerdown', onClick);
     document.removeEventListener('keydown', onKeyDown);
@@ -186,7 +186,7 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null) => new Pr
     canvas.app.stage.removeChild(graphics);
     graphics.destroy();
     overlay.destroy();
-    tpOverlay?.end();
+    tpOverlay?.end(focus);
     tpOverlay = null;
   };
 
@@ -412,8 +412,11 @@ export class TeleportPanel extends ds.applications.api.DSApplication {
 
   static async _onExecuteTp(event) {
     if (event?.shiftKey && !this._targetToken) {
-      ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.noShiftTarget'));
-      return;
+      if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.noShiftTarget')); return; }
+      const picked = await runSourcePicker();
+      if (!picked) return;
+      this._targetToken = picked;
+      this._refreshPanel();
     }
 
     let token;
@@ -707,8 +710,13 @@ export const registerTeleportHooks = () => {
           if (!token) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sourceNotFound')); return; }
         } else if (e.shiftKey) {
           const targets = [...game.user.targets];
-          if (targets.length !== 1) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.noShiftTarget')); return; }
-          token = targets[0];
+          if (targets.length > 1) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.noShiftTarget')); return; }
+          token = targets[0] ?? null;
+          if (!token) {
+            if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.noShiftTarget')); return; }
+            token = await runSourcePicker();
+            if (!token) return;
+          }
         } else {
           const controlled = canvas.tokens.controlled;
           if (controlled.length !== 1) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.mustSelectOne')); return; }

@@ -146,11 +146,11 @@ export function beginPickerOverlay({ title, status = '', tokens = [], holeRects 
       _ov.holeRects = [...rects];
       _redrawGrey();
     },
-    end() { endPickerOverlay(); },
+    end(focus = null) { endPickerOverlay(focus); },
   };
 }
 
-export function endPickerOverlay() {
+export function endPickerOverlay(focus = null) {
   if (!_ov) return;
   clearTimeout(_ov.warnTimer);
   document.body.classList.remove('dsct-prominent-picker');
@@ -159,7 +159,10 @@ export function endPickerOverlay() {
     _ov.container.parent?.removeChild(_ov.container);
     _ov.container.destroy({ children: true });
   }
-  if (_ov.prevView) canvas.animatePan({ ..._ov.prevView, duration: 450 });
+  if (_ov.prevView) {
+    const view = focus ? { x: focus.x, y: focus.y, scale: _ov.prevView.scale } : _ov.prevView;
+    canvas.animatePan({ ...view, duration: 450 });
+  }
   _ov = null;
 }
 
