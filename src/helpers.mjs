@@ -151,6 +151,8 @@ export const wallBetween = (fromGrid, toGrid_) => {
   const to   = toCenter(toGrid_);
   let fallback = null;
   for (const w of canvas.walls.placeables) {
+    if (w.document.move === CONST.WALL_MOVEMENT_TYPES.NONE) continue;
+    if ((w.document.door ?? 0) > 0 && w.document.ds === CONST.WALL_DOOR_STATES.OPEN) continue;
     const c = w.document.c;
     if (!segmentsIntersect(from.x, from.y, to.x, to.y, c[0], c[1], c[2], c[3])) continue;
     if (hasTags(w.document, 'obstacle')) return w.document;
