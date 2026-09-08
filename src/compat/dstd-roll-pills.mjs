@@ -359,7 +359,7 @@ export function injectRollPills(message, root) {
   const state = message.getFlag(DSTD, 'state');
   if (!state) return;
   const prov = message.getFlag(M, 'rollPills') ?? null;
-  const canEdit = game.user.isGM || message.isOwner;
+  const canEdit = game.user.isGM || message.isOwner || !!getModuleApi(false)?.socket;
   const ctx = _rollCtx(message, state, prov);
 
   for (const cog of root.querySelectorAll('button[data-dstd-action="editRoll"]')) {
@@ -753,6 +753,17 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
   }
 }
 
+function _openRollEditorOrAdd(message, target, roll, opts = {}, fullEditor = false) {
+  if (!fullEditor && getSetting('skipPillEditor')) {
+    const editor = new DstdRollEditor(message, target, roll, opts);
+    editor._refresh = () => { editor._apply().catch(err => console.error('DSCT | quick add modifier failed:', err)); };
+    editor.close = async () => {};
+    new RollEditorAddDialog(editor).render(true);
+    return;
+  }
+  new DstdRollEditor(message, target, roll, opts).render({ force: true });
+}
+
 class RollEditorAddDialog extends DSCTAddModifierDialog {
   constructor(editor, options = {}) {
     const tokenId = editor._target?.tokenId ?? editor._target?.tokenUuid ?? 'target';
@@ -900,7 +911,7 @@ function _onDocumentClick(e) {
     const message = game.messages.get(gcog.dataset.dsctGlobalEdit);
     const baseRoll = message ? _findBaseRoll(message) : null;
     if (!message || !baseRoll) return;
-    new DstdRollEditor(message, null, baseRoll, { globalMode: true }).render({ force: true });
+    _openRollEditorOrAdd(message, null, baseRoll, { globalMode: true }, e.shiftKey);
     return;
   }
   const removeBtn = e.target.closest('.dsct-chat-pill-removable[data-msg-id]');
@@ -940,7 +951,7 @@ function _onDocumentClick(e) {
   if (!game.user.isGM && !message.isOwner && !api?.socket) return;
   e.preventDefault();
   e.stopPropagation();
-  new DstdRollEditor(message, target, roll).render({ force: true });
+  _openRollEditorOrAdd(message, target, roll, {}, e.shiftKey);
 }
 
 export function registerDstdRollPills() {

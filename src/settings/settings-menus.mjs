@@ -492,6 +492,7 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       'dstdRollPills',
       'dstdRollEditor',
       'pillDamageEditor',
+      'skipPillEditor',
       'multiplierOverride',
       'noMultiplierStacking',
       'enforceAbilityRange',

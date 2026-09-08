@@ -1,7 +1,8 @@
-import { applyDamage, getSetting } from '../helpers.mjs';
+import { applyDamage, getSetting, getModuleApi } from '../helpers.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 
 const { SchemaField, SetField, StringField, NumberField, BooleanField } = foundry.data.fields;
+const MODULE_ID = "draw-steel-combat-tools";
 const ABILITY_PART_ID = "abilityUse".padEnd(16, "0");
 const FLAT_TYPES = new Set(["dsct.flatDamage", "dsct.flatForced", "dsct.flatApplied", "dsct.flatResource", "dsct.flatHeal", "dsct.flatCleanse"]);
 const _nonDstdHealUsed    = new Set();
@@ -548,11 +549,12 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
   }
 }
 
-function _buildDamageButton(effect, item) {
+function _buildDamageButton(effect, item, chosenType = null) {
   const { value, types, ignoredImmunities, display, spend } = effect.flatDamage;
   const rollData = item.actor?.getRollData?.() ?? {};
   const simplified = rollData ? ds.utils.simplifyRollFormula(value, rollData) : value;
-  const typeList = Array.from(types);
+  const allTypes = Array.from(types);
+  const typeList = chosenType && allTypes.includes(chosenType) ? [chosenType] : allTypes;
   const typeLabel = typeList.length
     ? game.i18n.getListFormatter({ type: "disjunction" }).format(typeList.map(t => ds.CONFIG.damageTypes[t]?.label ?? t))
     : game.i18n.localize("DRAW_STEEL.DamageType.typeless");
@@ -999,7 +1001,8 @@ function _installFlatEffectChatHook() {
     const partSection = html.querySelector(`section[data-message-part="${ABILITY_PART_ID}"]`);
     if (!partSection) return;
 
-    const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage") .map(e => _buildDamageButton(e, item));
+    const chosenTypes = message.getFlag(MODULE_ID, "flatDmgTypes") ?? {};
+    const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage") .map(e => _buildDamageButton(e, item, chosenTypes[e.id] ?? null));
     const fmRows      = flatEffects.filter(e => e.type === "dsct.flatForced") .map(e => _buildForcedRow(e, item));
     const condButtons = flatEffects.filter(e => e.type === "dsct.flatApplied").map(e => _buildAppliedButton(e, item)).filter(Boolean);
     const healButtons = flatEffects.filter(e => e.type === "dsct.flatHeal").map(e => {
@@ -1195,9 +1198,75 @@ function _installPotencyCustomToggle() {
   });
 }
 
+let _pendingFlatTypes = null;
+
+function _installFlatTypeSelection() {
+  Hooks.on('renderAbilityConfigurationDialog', (app) => {
+    if (!getSetting('flatEffectsEnabled')) return;
+    const ability = app.options?.ability;
+    const multi = Array.from(ability?.system?.effects?.contents ?? [])
+      .filter(e => e.type === 'dsct.flatDamage' && e.flatDamage.types.size > 1);
+    if (!multi.length) return;
+    const form = app.element?.querySelector('form') ?? app.element;
+    if (!form || form.querySelector('.dsct-flat-type-group')) return;
+    app._dsctFlatTypeChoices ??= {};
+
+    const container = document.createElement('div');
+    container.className = 'dsct-flat-type-group';
+    for (const eff of multi) {
+      const typeList = Array.from(eff.flatDamage.types);
+      app._dsctFlatTypeChoices[eff.id] ??= typeList[0];
+      const wrap = document.createElement('div');
+      wrap.className = 'form-group';
+      const label = document.createElement('label');
+      label.textContent = game.i18n.format('DSCT.FlatEffect.Damage.typeSelect', { name: eff.name || game.i18n.localize('TYPES.SpecialEffect.dsct.flatDamage') });
+      const fields = document.createElement('div');
+      fields.className = 'form-fields';
+      const select = document.createElement('select');
+      select.dataset.dsctFlatEffect = eff.id;
+      for (const t of typeList) {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = ds.CONFIG.damageTypes[t]?.label ?? t;
+        select.append(opt);
+      }
+      select.value = app._dsctFlatTypeChoices[eff.id];
+      select.addEventListener('change', () => { app._dsctFlatTypeChoices[eff.id] = select.value; });
+      fields.append(select);
+      wrap.append(label, fields);
+      container.append(wrap);
+    }
+
+    const dsDamage = form.querySelector('select[name="damage"]')?.closest('.form-group');
+    const footer = form.querySelector('footer, .form-footer');
+    if (dsDamage) dsDamage.insertAdjacentElement('afterend', container);
+    else if (footer) footer.insertAdjacentElement('beforebegin', container);
+    else form.append(container);
+  });
+
+  Hooks.on('closeAbilityConfigurationDialog', (app) => {
+    if (app.config == null) return;
+    const choices = app._dsctFlatTypeChoices;
+    if (!choices || !Object.keys(choices).length) return;
+    _pendingFlatTypes = { abilityUuid: app.options?.ability?.uuid ?? null, choices: { ...choices }, ts: Date.now() };
+  });
+
+  Hooks.on('createChatMessage', (message, _options, userId) => {
+    if (userId !== game.user.id || !_pendingFlatTypes) return;
+    if (Date.now() - _pendingFlatTypes.ts > 30000) { _pendingFlatTypes = null; return; }
+    const part = message.system?.parts?.get?.(ABILITY_PART_ID);
+    if (!part?.abilityUuid || part.abilityUuid !== _pendingFlatTypes.abilityUuid) return;
+    const { choices } = _pendingFlatTypes;
+    _pendingFlatTypes = null;
+    if (game.user.isGM || message.isOwner) message.setFlag(MODULE_ID, 'flatDmgTypes', choices);
+    else getModuleApi(false)?.socket?.executeAsGM('dsct.updateDocument', message.uuid, { [`flags.${MODULE_ID}.flatDmgTypes`]: choices });
+  });
+}
+
 export function registerFlatEffects() {
   _registerPartials();
   _installFlatEffectChatHook();
+  _installFlatTypeSelection();
   _installCreateDialogFilter();
   _installDisplayTextAutofill();
   _installPotencyCustomToggle();

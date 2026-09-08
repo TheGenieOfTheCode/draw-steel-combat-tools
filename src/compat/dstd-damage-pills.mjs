@@ -229,6 +229,28 @@ export function openDamageEditor(config) {
   });
 }
 
+function _openDamageAddDirect(config) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const shim = {
+      rendered: true,
+      _cfg: config,
+      _pills: (config.pills ?? []).map(p => ({ ...p })),
+      _surgeCap: DsctDamageEditor.prototype._surgeCap,
+      _stagedSurges: DsctDamageEditor.prototype._stagedSurges,
+      _refresh() {
+        if (settled) return;
+        settled = true;
+        resolve({ final: foldDamagePills(config.base, this._pills), pills: this._pills });
+      },
+    };
+    const dlg = new DsctDamageAddDialog(shim);
+    const origClose = dlg.close.bind(dlg);
+    dlg.close = (o) => { if (!settled) { settled = true; resolve(null); } return origClose(o); };
+    dlg.render(true);
+  });
+}
+
 class DsctDamageAddDialog extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     classes: ['dsct-add-modifier-dialog'],
@@ -472,6 +494,25 @@ async function _siblingDamageOps(message, target) {
     }
     dmgIndex++;
   }
+  if (getSetting('flatEffectsEnabled')) {
+    const chosen = foundry.utils.getProperty(message.flags, `${M}.flatDmgTypes`) ?? {};
+    const targetHash = _dsctHashKey(String(target?.tokenUuid ?? '').replace(/\./g, '__'));
+    for (const eff of Array.from(ability?.system?.effects?.contents ?? [])) {
+      if (eff.type !== 'dsct.flatDamage') continue;
+      let amount = NaN;
+      try {
+        amount = Number(globalThis.ds?.utils?.simplifyRollFormula?.(String(eff.flatDamage.value ?? '0'), ability.getRollData?.() ?? {}));
+      } catch {  }
+      if (!Number.isFinite(amount)) amount = Number(eff.flatDamage.value);
+      if (!Number.isFinite(amount) || !amount) continue;
+      const allTypes = Array.from(eff.flatDamage.types);
+      const pick = chosen[eff.id] && allTypes.includes(chosen[eff.id]) ? chosen[eff.id] : (allTypes[0] ?? '');
+      out.push({
+        opId: `damage-${eff.id}-action-${targetHash}`.replace(/[^A-Za-z0-9_-]/g, '-'),
+        base: amount, damageType: pick, typeLabel: pick ? damageTypeLabel(pick) : '',
+      });
+    }
+  }
   return out;
 }
 
@@ -552,7 +593,7 @@ function _seedPillsFromOverride(ov) {
   return seed;
 }
 
-async function _openPillDamageEditor(message, button) {
+async function _openPillDamageEditor(message, button, fullEditor = false) {
   let target = {};
   try { target = JSON.parse(button.dataset.target ?? '{}'); } catch {}
   const opId = button.dataset.operationId;
@@ -560,19 +601,23 @@ async function _openPillDamageEditor(message, button) {
   const state = foundry.utils.getProperty(message.flags, `${DSTD}.state`) ?? {};
   const ov = state.damageOverrides?.[opId] ?? null;
   const roll = _findPartRoll(message, button.dataset.partId, Number(button.dataset.rollIndex));
-  const base = Number(ov?.baseAmount ?? roll?.total ?? NaN);
+  const synthetic = button.dataset.syntheticDamage === 'true';
+  const base = Number(ov?.baseAmount ?? roll?.total ?? (synthetic ? button.dataset.amount : NaN));
   if (!Number.isFinite(base)) {
     ui.notifications.warn(L('noRoll'));
     return;
   }
   const surge = await _resolveSurgeContext(message, state);
-  const outcome = await openDamageEditor({
+  const editorCfg = {
     title: L('editorTitle', { name: target.name ?? '' }),
     label: target.name ?? '',
     base,
     pills: _seedPillsFromOverride(ov),
     surge,
-  });
+  };
+  const outcome = (!fullEditor && getSetting('skipPillEditor'))
+    ? await _openDamageAddDirect(editorCfg)
+    : await openDamageEditor(editorCfg);
   if (!outcome) return;
 
   const pills = outcome.pills.map((p) => ({
@@ -596,7 +641,9 @@ async function _openPillDamageEditor(message, button) {
   const known = new Map((ov ? _pillFamily(state, opId) : []).map(([id, o]) => [id, cleanEntry(o)]));
   if (!known.has(opId)) {
     known.set(opId, cleanEntry({
-      baseAmount: base, damageType: roll?.type ?? roll?.options?.type ?? '', typeLabel: roll?.typeLabel ?? '',
+      baseAmount: base,
+      damageType: roll?.type ?? roll?.options?.type ?? button.dataset.damageType ?? '',
+      typeLabel: roll?.typeLabel ?? button.dataset.typeLabel ?? '',
     }));
   }
   if (pills.length) {
@@ -656,7 +703,7 @@ export function injectDamagePills(message, root) {
   if (!game.modules.get(DSTD)?.active) return;
   const overrides = foundry.utils.getProperty(message.flags, `${DSTD}.state.damageOverrides`) ?? {};
   const apps = foundry.utils.getProperty(message.flags, `${DSTD}.state.applications`) ?? {};
-  const canRemove = game.user.isGM || message.isOwner;
+  const canRemove = game.user.isGM || message.isOwner || !!getModuleApi(false)?.socket;
 
   const byOp = new Map();
   const add = (opId, pill, { toggleable = false, custom = false, idx = null, legacyHalf = false, inert = false } = {}) => {
@@ -664,6 +711,29 @@ export function injectDamagePills(message, root) {
     byOp.get(opId).push({ pill, toggleable, custom, idx, legacyHalf, inert });
   };
   const suffixByOp = new Map();
+
+  const wildcards = [];
+  const providerEntries = [];
+  for (const fn of _providers) {
+    let extra = [];
+    try { extra = fn(message) ?? []; } catch (err) { console.error('DSCT | damage pill provider failed', err); }
+    for (const entry of extra) {
+      if (entry.opId === '*') wildcards.push(entry.pill);
+      else providerEntries.push(entry);
+    }
+  }
+  if (wildcards.length) {
+    const seen = new Set();
+    for (const btn of root.querySelectorAll('button[data-dstd-action="applyDamage"][data-operation-id]')) {
+      const id = btn.dataset.operationId;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const opPills = overrides[id]?.dstPills ?? apps[id]?.override?.dstPills;
+      const typeOverridden = Array.isArray(opPills) && damagePillType(opPills) != null;
+      for (const p of wildcards) add(id, p, { inert: p.kind === 'type' && typeOverridden });
+    }
+    if (getSetting('debugMode')) console.log(`DSCT | damage pills | wildcard pills=${wildcards.length} matched ops=${seen.size} msg=${message.id}`);
+  }
 
   for (const [opId, ov] of Object.entries(overrides)) {
     const applied = apps[opId]?.status === 'applied';
@@ -687,10 +757,10 @@ export function injectDamagePills(message, root) {
     if (recPills.length) suffixByOp.set(opId, _multSuffixFor(recPills));
   }
 
-  for (const fn of _providers) {
-    let extra = [];
-    try { extra = fn(message) ?? []; } catch (err) { console.error('DSCT | damage pill provider failed', err); }
-    for (const entry of extra) add(entry.opId, entry.pill);
+  for (const entry of providerEntries) add(entry.opId, entry.pill);
+
+  for (const btn of root.querySelectorAll('button[data-dstd-action="editDamage"][data-operation-id]')) {
+    btn.disabled = apps[btn.dataset.operationId]?.status === 'applied';
   }
 
   for (const [opId, items] of byOp) {
@@ -738,7 +808,7 @@ document.addEventListener('click', async (ev) => {
   ev.stopPropagation();
   const msgId = pill.dataset.dpillMsg || pill.closest('li.chat-message')?.dataset?.messageId;
   const message = msgId ? game.messages.get(msgId) : null;
-  if (!message || (!game.user.isGM && !message.isOwner)) return;
+  if (!message || (!game.user.isGM && !message.isOwner && !getModuleApi(false)?.socket)) return;
   const opId = pill.dataset.dpillOp;
   if (pill.dataset.dpillIdx != null) {
     await _toggleOverridePill(message, opId, Number(pill.dataset.dpillIdx));
@@ -756,7 +826,7 @@ document.addEventListener('contextmenu', async (ev) => {
   ev.stopPropagation();
   const msgId = pill.dataset.dpillMsg || pill.closest('li.chat-message')?.dataset?.messageId;
   const message = msgId ? game.messages.get(msgId) : null;
-  if (!message || (!game.user.isGM && !message.isOwner)) return;
+  if (!message || (!game.user.isGM && !message.isOwner && !getModuleApi(false)?.socket)) return;
   await _removeOverridePill(message, pill.dataset.dpillOp, Number(pill.dataset.dpillIdx));
 }, { capture: true });
 
@@ -766,10 +836,10 @@ document.addEventListener('click', (ev) => {
   const msgId = btn.closest('[data-message-id]')?.dataset?.messageId;
   const message = msgId ? game.messages.get(msgId) : null;
   if (!message) return;
-  if (!message.isOwner && !game.user.isGM) return;
+  if (!message.isOwner && !game.user.isGM && !getModuleApi(false)?.socket) return;
   ev.preventDefault();
   ev.stopImmediatePropagation();
-  _openPillDamageEditor(message, btn).catch((err) => console.error('DSCT | pill damage editor:', err));
+  _openPillDamageEditor(message, btn, ev.shiftKey).catch((err) => console.error('DSCT | pill damage editor:', err));
 }, { capture: true });
 
 export function registerDstdDamagePills() {

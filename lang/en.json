@@ -549,6 +549,10 @@
         "name": "Pill Damage Editor",
         "hint": "Replaces the edit damage window on ability messages with a pill editor in the Alternative Ability Roll UI style, including surge spending, damage type changes, and named modifiers that appear as pills under the damage button."
       },
+      "skipPillEditor": {
+        "name": "Cog Opens Add Modifier Directly",
+        "hint": "Clicking the edit cog on damage and power roll rows jumps straight to the Add Modifier dialog instead of opening the pill editor window first. Existing pills stay toggleable and removable in chat, and holding Shift while clicking the cog still opens the full editor."
+      },
       "multiplierOverride": {
         "name": "Damage Multiplier Override",
         "hint": "Half and Double damage pills always apply after bonuses, penalties, and surges, regardless of the order they were added in."
@@ -678,7 +682,8 @@
         "hint": "Custom label for the chat button. Leave blank to use the auto-generated label."
       },
       "Damage": {
-        "defaultLabel": "Apply {value} {types}"
+        "defaultLabel": "Apply {value} {types}",
+        "typeSelect": "{name} Type"
       },
       "Heal": {
         "healLabel":      "Heal {amount} Stamina",

@@ -654,6 +654,10 @@ export const registerSettings = () => {
     name: L('pillDamageEditor.name'), hint: L('pillDamageEditor.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'skipPillEditor', {
+    name: L('skipPillEditor.name'), hint: L('skipPillEditor.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'multiplierOverride', {
     name: L('multiplierOverride.name'), hint: L('multiplierOverride.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

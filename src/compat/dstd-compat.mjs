@@ -8,6 +8,7 @@ import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automa
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { _addDamagedToken, reviveTokens } from '../death-tracker/death-tracker.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
+import { injectDamagePills } from './dstd-damage-pills.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
 const DSTD       = 'draw-steel-target-damage';
@@ -1132,7 +1133,9 @@ async function _injectFmButtons(message, root) {
     for (const { effect, amount } of flatDamageResolved) {
       if (!amount) continue;
       if (effect.flatDamage.displayText) { previewParts.push(effect.flatDamage.displayText); continue; }
-      const typeList = Array.from(effect.flatDamage.types);
+      const chosenFlat = message.getFlag(M, 'flatDmgTypes')?.[effect.id] ?? null;
+      const allTypes   = Array.from(effect.flatDamage.types);
+      const typeList   = chosenFlat && allTypes.includes(chosenFlat) ? [chosenFlat] : allTypes;
       const typeLabel = typeList.length
         ? game.i18n.getListFormatter({ type: 'disjunction' }).format(typeList.map(t => ds.CONFIG.damageTypes[t]?.label ?? t))
         : game.i18n.localize('DRAW_STEEL.DamageType.typeless');
@@ -1928,7 +1931,9 @@ async function _injectFmButtons(message, root) {
     for (const { effect, amount } of flatDamageResolved) {
       if (!amount) continue;
 
-      const typeList   = Array.from(effect.flatDamage.types);
+      const chosenFlat = message.getFlag(M, 'flatDmgTypes')?.[effect.id] ?? null;
+      const allTypes   = Array.from(effect.flatDamage.types);
+      const typeList   = chosenFlat && allTypes.includes(chosenFlat) ? [chosenFlat] : allTypes;
       const immunities = Array.from(effect.flatDamage.ignoredImmunities);
       const damageType = typeList[0] ?? '';
       const typeLabel  = typeList.length
@@ -2792,4 +2797,5 @@ async function _injectFmButtons(message, root) {
     });
   }
 
+  injectDamagePills(message, root);
 }
