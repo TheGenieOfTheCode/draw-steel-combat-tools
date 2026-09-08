@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist } from '../helpers.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank } from '../helpers.mjs';
 import { buildCleanseAutoLabel } from '../ability-automation/flat-special-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
@@ -1212,6 +1212,30 @@ async function _injectFmButtons(message, root) {
           noteDesc:  '',
         } : null;
 
+        const _bvlApplies = sourceToken?.actor && _tgtDoc?.actor
+          && (ability.system?.keywords?.has('melee') ?? false)
+          && (ability.system?.keywords?.has('weapon') ?? false)
+          && sizeRank(sourceToken.actor.system?.combat?.size ?? { value: 1, letter: 'M' })
+             > sizeRank(_tgtDoc.actor.system?.combat?.size ?? { value: 1, letter: 'M' });
+        const _bvlMod = _bvlApplies ? {
+          modState: [{
+            distanceDelta:             1,
+            movement:                  movementType,
+            vertical:                  baseState.vertical,
+            verticalDistance:          baseState.verticalDistance ?? '',
+            fallReduction:             baseState.fallReduction,
+            noFallDamage:              baseState.noFallDamage,
+            noCollisionDamage:         baseState.noCollisionDamage,
+            noMoverCollisionDamage:    baseState.noMoverCollisionDamage,
+            noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
+            ignoreStability:           baseState.ignoreStability,
+            fastMove:                  baseState.fastMove,
+          }],
+          noteName: 'Big vs Little',
+          noteDesc: '',
+          srcTokenId: sourceToken.id,
+        } : null;
+
         let quickBtn = null;
 
         let saved = _fmState.get(stateKey);
@@ -1219,7 +1243,7 @@ async function _injectFmButtons(message, root) {
           const fromFlags = savedFlagState[subKey];
           saved = fromFlags
             ? { applied: fromFlags.applied ?? false, undoMsgId: fromFlags.undoMsgId ?? null, modStack: (fromFlags.modStack ?? []).map(e => ({ ...e })) }
-            : { applied: false, undoMsgId: null, modStack: _flyingMod ? [_flyingMod] : [] };
+            : { applied: false, undoMsgId: null, modStack: [...(_bvlMod ? [_bvlMod] : []), ...(_flyingMod ? [_flyingMod] : [])] };
           _fmState.set(stateKey, saved);
         }
         saved.redirected = savedFlagState[subKey]?.redirected ?? null;

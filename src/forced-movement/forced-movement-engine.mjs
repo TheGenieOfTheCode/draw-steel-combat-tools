@@ -84,7 +84,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
   let effectiveDistance   = distance;
   let effectiveVertical   = verticalHeight;
-  if (keywords.includes('melee') && sourceToken) {
+  if (keywords.includes('melee') && keywords.includes('weapon') && sourceToken) {
     const attackerRank = sizeRank(sourceToken.actor?.system?.combat?.size ?? { value: 1, letter: 'M' });
     const targetRank   = sizeRank(targetToken.actor?.system?.combat?.size ?? { value: 1, letter: 'M' });
     if (attackerRank > targetRank) {
@@ -1350,7 +1350,10 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); cleanup(isVertical);  resolve(path); }
       };
 
+      let _cleaned = false;
       const cleanup = (deferArrow = false) => {
+        if (_cleaned) return;
+        _cleaned = true;
         overlay.off('pointermove', onMove);
         overlay.off('pointerdown', onClick);
         overlay.off('rightdown',   onRightClick);
@@ -1361,8 +1364,12 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         maskGraphics.destroy();
         chevronMaskGraphics.destroy();
         overlay.destroy();
-        fmOverlay?.end();
-        fmOverlay = null;
+        
+        
+        if (!deferArrow) {
+          fmOverlay?.end();
+          fmOverlay = null;
+        }
         if (deferArrow) {
           
           arrowGraphics.mask   = null;
@@ -1546,6 +1553,8 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     }
 
     const chosen = !isVertical ? 0 : await VerticalDistancePopup.open(0, popupMax, combinedPreview, popupMin);
+    fmOverlay?.end();
+    fmOverlay = null;
     destroyArrow();
     if (chosen === null) {
       ui.notifications.info(game.i18n.localize('DSCT.notice.fm.cancelled'));
@@ -2696,7 +2705,8 @@ export async function runForcedMovement(macroArgs = []) {
   } 
   else if (typeof macroArgs === 'object' && !Array.isArray(macroArgs) && 'movement' in macroArgs) {
     
-    const { movement, distance: distRaw, properties, verticalDistance = 0, fallReduction = 0, target: explicitTarget, source: explicitSource, contextMessageId = null } = macroArgs;
+    const { movement, distance: distRaw, properties, verticalDistance = 0, fallReduction = 0, target: explicitTarget, source: explicitSource, contextMessageId = null, keywords: rawKeywords = [] } = macroArgs;
+    const kwList = [...(rawKeywords ?? [])].map(k => String(k).toLowerCase());
     const type     = parseType(movement);
     const distance = parseInt(distRaw) || 0;
     const propSet  = properties instanceof Set ? properties : new Set(properties ?? []);
@@ -2732,12 +2742,12 @@ export async function runForcedMovement(macroArgs = []) {
     if (type === 'Pull' && verticalHeight > 0) verticalHeight = -verticalHeight;
 
     if (targetsToProcess.length === 1) {
-      await _runForcedMovement(type, distance, targetsToProcess[0], source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, [], fastMove, false, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
+      await _runForcedMovement(type, distance, targetsToProcess[0], source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, false, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
     } else {
       const results = [];
       if (fastMove) {
         for (const t of targetsToProcess) {
-          const result = await _runForcedMovement(type, distance, t, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, [], fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
+          const result = await _runForcedMovement(type, distance, t, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
           if (result) results.push(result);
         }
       } else {
@@ -2746,7 +2756,7 @@ export async function runForcedMovement(macroArgs = []) {
           const picked = await pickTarget(remaining);
           if (!picked) break;
           remaining = remaining.filter(t => t.id !== picked.id);
-          const result = await _runForcedMovement(type, distance, picked, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, [], fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
+          const result = await _runForcedMovement(type, distance, picked, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
           if (result) results.push(result);
         }
       }

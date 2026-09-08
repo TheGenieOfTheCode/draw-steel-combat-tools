@@ -14,7 +14,7 @@ export class VerticalDistancePopup extends ds.applications.api.DSApplication {
 
   static DEFAULT_OPTIONS = {
     id: 'dsct-vertical-popup',
-    classes: ['draw-steel'],
+    classes: ['draw-steel', 'dsct-picker-exempt'],
     window: { title: 'DSCT.panel.title.VerticalDistance', minimizable: false, resizable: false },
     position: { width: 280, height: 'auto' },
     actions: { 'confirm-vertical': VerticalDistancePopup._onConfirm },
