@@ -571,6 +571,7 @@ function _checkAbilityRange(dialog) {
   const ability = dialog.options?.ability;
   if (!ability) return null;
   if (ability.system?.keywords?.has('area')) return null;
+  if (ability.system?.type === 'triggered') return null;
 
   const _actor = ability.actor ?? ability.parent;
   if (_actor?.system?.isMinion && ability.system?.category === 'signature') return null;

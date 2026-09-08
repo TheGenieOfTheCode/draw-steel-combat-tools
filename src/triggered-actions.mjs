@@ -109,6 +109,19 @@ export const registerTriggeredActionHooks = () => {
     await applyTriggeredActions(targetMode, true);
   });
 
+  Hooks.on('createCombatant', async (combatant) => {
+    if (!getSetting('autoTriggeredActionsEnabled')) return;
+    if (!game.users.activeGM?.isSelf) return;
+    const combat = combatant.parent;
+    if (!combat?.started || !combat.active) return;
+    const actor = getActorFromCombatant(combatant);
+    if (!actor) return;
+    const resolvedMode = getSetting('autoTriggeredActionsTarget');
+    const targetedIds = new Set([...game.user.targets].map(t => t.actor?.id).filter(Boolean));
+    if (!shouldApply(actor, resolvedMode, targetedIds)) return;
+    await enableEffect(actor);
+  });
+
   Hooks.on('updateCombat', async (combat, changes) => {
     if (!game.users.activeGM?.isSelf) return;
     if (changes.round === undefined) return;
