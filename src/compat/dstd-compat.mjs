@@ -679,6 +679,7 @@ async function _persistDstdState(message, subKey, state) {
     noteSrc: e.noteSrc ?? null, srcTokenId: e.srcTokenId ?? null,
     ...(e.enabled === false ? { enabled: false } : {}),
     ...(e.dstRedirect ? { dstRedirect: true } : {}),
+    ...(e.dsctSeeded ? { dsctSeeded: true } : {}),
     ...(e.dstTrigger ? { dstTrigger: true } : {}),
   }));
   const allState  = foundry.utils.deepClone(message.getFlag(M, 'dstdFmState') ?? {});
@@ -1232,6 +1233,7 @@ async function _injectFmButtons(message, root) {
             fastMove:                  baseState.fastMove,
           }],
           noteName: 'Big vs Little',
+          dsctSeeded: true,
           noteDesc: '',
           srcTokenId: sourceToken.id,
         } : null;

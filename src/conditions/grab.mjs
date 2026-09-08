@@ -86,6 +86,7 @@ const ensureGrabHooks = () => {
 
   if (!window._grabberGrabbedHook) {
     window._grabberGrabbedHook = Hooks.on('createActiveEffect', async (effect) => {
+      if (!game.users.activeGM?.isSelf) return;
       if (!effect.getFlag(M, 'grabbed') || !window._activeGrabs?.size) return;
       const effectToken = effect.parent?.token;
       for (const [gid, grab] of [...window._activeGrabs.entries()]) {
@@ -99,15 +100,25 @@ const ensureGrabHooks = () => {
   }
 
   if (!window._grabEffectDeleteHook) {
-    window._grabEffectDeleteHook = Hooks.on('deleteActiveEffect', async (effect) => {
+    window._grabEffectDeleteHook = Hooks.on('deleteActiveEffect', async (effect, options) => {
       if (!window._activeGrabs?.size) return;
       for (const [gid, grab] of [...window._activeGrabs.entries()]) {
         if (effect.id !== grab.grabbedEffectId && effect.id !== grab.grabberEffectId) continue;
+        
+        
+        
+        
+        if (options?.dsctGrabTeardown || !game.users.activeGM?.isSelf) {
+          window._activeGrabs.delete(gid);
+          if (!window._activeGrabs.size) removeGrabHooks();
+          refreshOpenPanel();
+          break;
+        }
         const isGrabber = effect.id === grab.grabberEffectId;
         const msg = isGrabber
           ? `${grab.grabberName}'s Grabber effect was removed, ending the grab on ${grab.grabbedName}.`
           : `${grab.grabbedName}'s Grabbed effect was removed, ending the grab.`;
-        await endGrab(gid, { silent: !game.user.isGM, customMsg: game.user.isGM ? msg : null });
+        await endGrab(gid, { customMsg: msg });
         break;
       }
     });
@@ -244,8 +255,8 @@ export const endGrab = async (grabbedTokenId, { silent = false, customMsg = null
 
   const grabberTok = getTokenById(grab.grabberTokenId);
   const grabbedTok = getTokenById(grab.grabbedTokenId);
-  if (grab.grabberEffectId) { const e = grabberTok?.actor.effects.get(grab.grabberEffectId); if (e) await safeDelete(e); }
-  if (grab.grabbedEffectId) { const e = grabbedTok?.actor.effects.get(grab.grabbedEffectId); if (e) await safeDelete(e); }
+  if (grab.grabberEffectId) { const e = grabberTok?.actor.effects.get(grab.grabberEffectId); if (e) await safeDelete(e, { dsctGrabTeardown: true }); }
+  if (grab.grabbedEffectId) { const e = grabbedTok?.actor.effects.get(grab.grabbedEffectId); if (e) await safeDelete(e, { dsctGrabTeardown: true }); }
 
   if (!window._activeGrabs.size) {
     removeGrabHooks();

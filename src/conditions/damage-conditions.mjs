@@ -513,6 +513,12 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
         const end = this._activeEnd() !== 'unlimited' ? ` ${this._activeEnd()}` : '';
         content   = `[[/apply ${this._condition}${end}]]`;
         msgParts.push({ type: 'content' });
+      } else {
+        
+        
+        const srcNote = this._sourceToken ? ` from <strong>${this._sourceToken.name}</strong>` : '';
+        content = `<p><strong>${condDef.label}</strong>${durAbbr(this._activeEnd())}${srcNote}</p>`;
+        msgParts.push({ type: 'content' });
       }
       if (!title) title = `${condDef?.label ?? this._condition}${durAbbr(this._activeEnd())}`;
     }

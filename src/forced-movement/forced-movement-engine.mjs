@@ -25,7 +25,7 @@ import {
 import { toggleForcedMovementPanel } from './forced-movement-panel.mjs';
 import { VerticalDistancePopup } from './forced-movement-vertical-popup.mjs';
 import { runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
-import { beginPickerOverlay } from '../ability-automation/picker-overlay.mjs';
+import { beginPickerOverlay, endPickerOverlay } from '../ability-automation/picker-overlay.mjs';
 
 let _fmGateBypass = false;
 
@@ -1553,8 +1553,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     }
 
     const chosen = !isVertical ? 0 : await VerticalDistancePopup.open(0, popupMax, combinedPreview, popupMin);
-    fmOverlay?.end();
-    fmOverlay = null;
+    endPickerOverlay();
     destroyArrow();
     if (chosen === null) {
       ui.notifications.info(game.i18n.localize('DSCT.notice.fm.cancelled'));

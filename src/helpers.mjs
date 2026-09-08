@@ -209,10 +209,10 @@ export const safeUpdate = async (document, data, options = {}) => {
   return await getSocket().executeAsGM('dsct.updateDocument', document.uuid, data, options);
 };
 
-export const safeDelete = async (document) => {
+export const safeDelete = async (document, options = {}) => {
   try {
-    if (document.isOwner) return await document.delete();
-    return await getSocket().executeAsGM('dsct.deleteDocument', document.uuid);
+    if (document.isOwner) return await document.delete(options);
+    return await getSocket().executeAsGM('dsct.deleteDocument', document.uuid, options);
   } catch (_) {}
 };
 

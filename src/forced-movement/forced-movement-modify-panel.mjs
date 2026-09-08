@@ -49,6 +49,7 @@ export const persistStack = (msgEl, stack) => {
   const stackData = stack.map(e => ({
     modState: e.modState, noteName: e.noteName, noteDesc: e.noteDesc,
     noteSrc: e.noteSrc ?? null, srcTokenId: e.srcTokenId ?? null,
+    ...(e.dsctSeeded ? { dsctSeeded: true } : {}),
     ...(e.enabled === false ? { enabled: false } : {}),
   }));
   const api = getModuleApi();
@@ -76,7 +77,7 @@ const _buildModTooltip = (entry, baseStates) => {
     return parts.join(', ');
   }).filter(Boolean);
   const summary = lines.join('\n');
-  const hint    = game.i18n.localize((entry.dstRedirect || entry.dstTrigger)
+  const hint    = game.i18n.localize((entry.dstRedirect || entry.dstTrigger || entry.dsctSeeded)
     ? 'DSCT.panel.modFm.modifierTitleAbility' : 'DSCT.panel.modFm.modifierTitle');
   return summary ? `${summary}\n${'_'.repeat(24)}\n${hint}` : hint;
 };
@@ -104,7 +105,7 @@ const _modEffectSummary = (entry, baseStates) => {
 export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, btnEls, makeLabel, noteParent, msgEl, persistFn = persistStack) => {
   const { noteName, noteDesc } = entry;
   const esc = foundry.utils.escapeHTML;
-  const isAbilityPill = !!(entry.dstRedirect || entry.dstTrigger);
+  const isAbilityPill = !!(entry.dstRedirect || entry.dstTrigger || entry.dsctSeeded);
   const pillBtn = document.createElement('button');
   pillBtn.type = 'button';
   pillBtn.className = `dsct-source-pill dsct-fm-pill${isAbilityPill ? '' : ' dsct-pill-custom'}${entry.enabled === false ? ' dsct-pill-disabled' : ''}`;
@@ -130,7 +131,7 @@ export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, 
   });
   pillBtn.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    if (entry.dstRedirect || entry.dstTrigger) return;
+    if (entry.dstRedirect || entry.dstTrigger || entry.dsctSeeded) return;
     const idx = modifierStack.indexOf(entry);
     if (idx !== -1) modifierStack.splice(idx, 1);
     pillBtn.remove();

@@ -407,6 +407,7 @@ function _registerButtonHooks() {
       const modStack   = savedMods.map(s => ({
         modState: s.modState, noteName: s.noteName, noteDesc: s.noteDesc,
         noteSrc: s.noteSrc ?? null, srcTokenId: s.srcTokenId ?? null,
+        ...(s.dsctSeeded ? { dsctSeeded: true } : {}),
         ...(s.enabled === false ? { enabled: false } : {}),
       }));
       const baseStates = fmBtns.map(btn => _fmBaseStateFromBtn(btn));
