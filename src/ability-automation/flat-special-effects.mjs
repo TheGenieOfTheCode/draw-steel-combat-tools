@@ -577,14 +577,14 @@ function _buildDamageButton(effect, item) {
   return btn;
 }
 
-const _FLAT_DAMAGE_ICONS = {
+export const _FLAT_DAMAGE_ICONS = {
   acid: "fa-solid fa-flask-vial", cold: "fa-solid fa-snowflake",
   corruption: "fa-brands fa-galactic-republic", fire: "fa-solid fa-fire",
   holy: "fa-solid fa-sun", lightning: "fa-solid fa-bolt",
   poison: "fa-solid fa-skull-crossbones", psychic: "fa-solid fa-brain",
   sonic: "fa-solid fa-volume-high",
 };
-const _FLAT_DAMAGE_COLORS = {
+export const _FLAT_DAMAGE_COLORS = {
   acid: "#6fbf4a", cold: "#65c7f7", corruption: "#9b59b6", fire: "#e74c3c",
   holy: "#f1c40f", lightning: "#f7dc6f", poison: "#2ecc71", psychic: "#e056fd",
   sonic: "#00cec9",

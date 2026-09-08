@@ -1,6 +1,7 @@
-import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, footprintDistFromBounds, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld } from '../helpers.mjs';
+import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
-import { checkAndRunTargetPicker, runSourcePicker, runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
+import { checkAndRunTargetPicker } from '../ability-automation/target-picker.mjs';
+import { toggleDamageConditionsPanel } from './damage-conditions.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore, isNullSpeedExemptActive } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { _effectiveRowTier } from '../compat/dstd-compat.mjs';
@@ -34,10 +35,13 @@ export const buildFreeStrikeButton = (actor, targetTokenId = null) => {
   return dmg !== undefined ? `[[/damage ${dmg}]]{Free Strike (${dmg} damage)}` : `<em>(No Melee Free Strike found)</em>`;
 };
 
+
+export const grabUiState = { pendingConfirm: null, pendingEscape: null };
+
 const refreshOpenPanel = () => {
-  const panel = getWindowById('grab-panel');
-  if (panel) panel._refreshPanel();
+  getWindowById('dsct-dc-panel')?._refreshGrabs?.();
 };
+export const refreshGrabUis = refreshOpenPanel;
 
 const ensureGrabHooks = () => {
   if (!window._grabFollowActive)  window._grabFollowActive  = new Set();
@@ -286,11 +290,8 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
         flags: { [M]: { grabConfirm: { grabberId: grabberToken.id, targetId: targetToken.id, maxGrabs } } },
       });
 
-      const panel = getWindowById('grab-panel');
-      if (panel) {
-        panel._pendingConfirm = { grabberToken, targetToken, msgId: createdMsg?.id ?? null, maxGrabs };
-        panel._refreshPanel();
-      }
+      grabUiState.pendingConfirm = { grabberToken, targetToken, msgId: createdMsg?.id ?? null, maxGrabs };
+      refreshOpenPanel();
       return;
     }
     await applyGrab(grabberToken, targetToken, { maxGrabs });
@@ -300,8 +301,10 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
 
   const dist = tokFootprintDist(grabberToken, targetToken);
   if (dist >= canvas.grid.distance) {
-    ui.notifications.warn(game.i18n.format('DSCT.notice.grab.notAdjacent', { name: targetToken.name, dist }));
-    return;
+    
+    const squares = Math.round(dist / canvas.grid.distance) + 1;
+    const ok = await confirmRangeOverride(grabberToken, targetToken, squares, 'Grab');
+    if (!ok) return;
   }
 
   const grabItem = grabberActor.items.find(i => i.name === 'Grab');
@@ -360,318 +363,185 @@ export const registerGrabTierSync = () => {
   });
 };
 
-export class GrabPanel extends ds.applications.api.DSApplication {
-  constructor() {
-    super();
-    this._grabberToken   = null;
-    this._targetToken    = null;
-    this._pendingEscape  = null;
-    this._pendingConfirm = null;
-    this._updatePreview();
+export const attemptGrabEscape = async (grabbedTokenId) => {
+  const grab = window._activeGrabs?.get(grabbedTokenId);
+  if (!grab) return;
+  const grabbedTok = getTokenById(grabbedTokenId);
+  if (!grabbedTok) return;
+  const escapeItem = grabbedTok.actor.items.find(i => i.name === 'Escape Grab');
+  if (!escapeItem) { ui.notifications.warn(game.i18n.format('DSCT.notice.grab.noEscapeItem', { name: grab.grabbedName })); return; }
+  ds.helpers.macros.rollItemMacro(escapeItem.uuid);
+};
+
+export const startGrabReposition = async (grabbedTokenId) => {
+  const grab = window._activeGrabs?.get(grabbedTokenId);
+  if (!grab) return;
+  const grabbedTok = getTokenById(grabbedTokenId);
+  const grabberTok = getTokenById(grab.grabberTokenId);
+  if (!grabbedTok || !grabberTok) return;
+
+  if (!window._grabRepositioning) window._grabRepositioning = new Set();
+  if (window._grabRepositioning.has(grabbedTokenId)) return;
+
+  window._grabRepositioning.add(grabbedTokenId);
+  refreshOpenPanel();
+
+  const chosen = await chooseFreeSquare(grabbedTok, grabberTok, {
+    maxRadius: 1,
+    title: game.i18n.localize('DSCT.picker.titleReposition'),
+    status: game.i18n.format('DSCT.picker.repositionInstruction', { name: grab.grabbedName, grabber: grab.grabberName }),
+  });
+
+  window._grabRepositioning.delete(grabbedTokenId);
+
+  if (chosen) {
+    const dest = toWorld(chosen);
+    window._grabFollowActive.add(grabbedTokenId);
+    await safeUpdate(grabbedTok.document, { x: dest.x, y: dest.y });
+    window._grabFollowActive.delete(grabbedTokenId);
+    grab.offsetX = dest.x - grabberTok.document.x;
+    grab.offsetY = dest.y - grabberTok.document.y;
+    window._activeGrabs.set(grabbedTokenId, grab);
+    ui.notifications.info(game.i18n.format('DSCT.notice.grab.repositioned', { name: grab.grabbedName }));
   }
 
-  static PARTS = { form: { template: 'modules/draw-steel-combat-tools/templates/panels/grab.hbs' } };
+  refreshOpenPanel();
+};
 
-  static DEFAULT_OPTIONS = {
-    id: 'grab-panel',
-    classes: ['draw-steel'],
-    window: { title: 'DSCT.panel.title.Grab', minimizable: false, resizable: true },
-    position: { width: 336, height: 'auto' },
-    actions: {
-      'attempt-grab': GrabPanel._onAttemptGrab,
-      'apply-grab':   GrabPanel._onApplyGrab,
-    },
-  };
-
-  static async _onAttemptGrab(_event, _target) {
-    if (!this._grabberToken) {
-      if (!getSetting('abilityAutomationEnabled')) return;
-      const picked = await runSourcePicker();
-      if (!picked) return;
-      this._grabberToken = picked;
-      this._refreshPanel();
-    }
-    const actor    = this._grabberToken.actor;
-    const grabItem = actor?.items.find(i => i.name === 'Grab');
-    if (!grabItem) {
-      ui.notifications.warn(game.i18n.format('DSCT.notice.grab.noGrabItem', { name: actor.name }));
-      return;
-    }
-    ds.helpers.macros.rollItemMacro(grabItem.uuid);
+export const buildGrabListHTML = () => {
+  const grabs = window._activeGrabs?.size ? [...window._activeGrabs.values()] : [];
+  if (!grabs.length && !grabUiState.pendingConfirm) {
+    return `<div class="dsct-grab-empty">No active grabs</div>`;
   }
 
-  static async _onApplyGrab(_event, _target) {
-    let grabber = this._grabberToken;
-    let target  = this._targetToken;
-    if (!grabber && getSetting('abilityAutomationEnabled')) {
-      const picked = await runSourcePicker();
-      if (!picked) return;
-      grabber = picked;
-      this._grabberToken = picked;
-      this._refreshPanel();
-    }
-    if (!target && getSetting('abilityAutomationEnabled')) {
-      const picked = await runMultiTokenPicker({ maxTargets: 1 });
-      if (!picked?.length) return;
-      target = picked[0];
-      this._targetToken = picked[0];
-      this._refreshPanel();
-    }
-    await runGrab(grabber, target, { forceApply: true });
+  const allowManual = !getSetting('restrictGrabButtons') || game.user.isGM;
+  let html = '';
+
+  if (grabUiState.pendingConfirm) {
+    const { grabberToken, targetToken } = grabUiState.pendingConfirm;
+    html += `<div class="dsct-grab-pending">
+      <div class="dsct-grab-pending-label">Pending: ${grabberToken.name} grabs ${targetToken.name}</div>
+      <div class="dsct-grab-free-strike">${buildFreeStrikeButton(targetToken.actor, grabberToken.id)}</div>
+      <div class="dsct-flex-row">
+        <button type="button" data-confirm-grab="1" class="dsct-grab-action-btn accent">Confirm</button>
+        <button type="button" data-cancel-grab="1"  class="dsct-grab-action-btn danger">Cancel</button>
+      </div>
+    </div>`;
   }
 
-  _updatePreview() {
-    const controlled   = canvas.tokens.controlled;
-    const targets      = [...game.user.targets];
-    this._grabberToken = controlled.length === 1 ? controlled[0] : null;
-    this._targetToken  = targets.length   === 1 ? targets[0]    : null;
-  }
+  html += grabs.map(grab => {
+    const grabberTok    = getTokenById(grab.grabberTokenId);
+    const grabbedTok    = getTokenById(grab.grabbedTokenId);
+    const grabberSrc    = grabberTok?.document.texture.src ?? 'icons/svg/mystery-man.svg';
+    const grabbedSrc    = grabbedTok?.document.texture.src ?? 'icons/svg/mystery-man.svg';
+    const isPending     = grabUiState.pendingEscape?.grabbedTokenId === grab.grabbedTokenId;
+    const repositioning = window._grabRepositioning?.has(grab.grabbedTokenId);
 
-  async _endGrab(grabbedTokenId, silent = false, customMsg = null) {
-    await endGrab(grabbedTokenId, { silent, customMsg });
-  }
-
-  async _applyGrab(grabberTok, grabbedTok) {
-    await applyGrab(grabberTok, grabbedTok);
-  }
-
-  async _attemptEscape(grabbedTokenId) {
-    const grab       = window._activeGrabs?.get(grabbedTokenId);
-    if (!grab) return;
-    const grabbedTok = getTokenById(grabbedTokenId);
-    if (!grabbedTok) return;
-
-    const escapeItem = grabbedTok.actor.items.find(i => i.name === 'Escape Grab');
-    if (!escapeItem) { ui.notifications.warn(game.i18n.format('DSCT.notice.grab.noEscapeItem', { name: grab.grabbedName })); return; }
-
-    ds.helpers.macros.rollItemMacro(escapeItem.uuid);
-  }
-
-  async _startReposition(grabbedTokenId) {
-    const grab = window._activeGrabs?.get(grabbedTokenId);
-    if (!grab) return;
-
-    const grabbedTok = getTokenById(grabbedTokenId);
-    const grabberTok = getTokenById(grab.grabberTokenId);
-    if (!grabbedTok || !grabberTok) return;
-
-    if (!window._grabRepositioning) window._grabRepositioning = new Set();
-    if (window._grabRepositioning.has(grabbedTokenId)) return;
-
-    window._grabRepositioning.add(grabbedTokenId);
-    this._refreshPanel();
-
-    
-    
-    const chosen = await chooseFreeSquare(grabbedTok, grabberTok, {
-      maxRadius: 1,
-      title: game.i18n.localize('DSCT.picker.titleReposition'),
-      status: game.i18n.format('DSCT.picker.repositionInstruction', { name: grab.grabbedName, grabber: grab.grabberName }),
-    });
-
-    window._grabRepositioning.delete(grabbedTokenId);
-
-    if (chosen) {
-      const dest = toWorld(chosen);
-      window._grabFollowActive.add(grabbedTokenId);
-      await safeUpdate(grabbedTok.document, { x: dest.x, y: dest.y });
-      window._grabFollowActive.delete(grabbedTokenId);
-      grab.offsetX = dest.x - grabberTok.document.x;
-      grab.offsetY = dest.y - grabberTok.document.y;
-      window._activeGrabs.set(grabbedTokenId, grab);
-      ui.notifications.info(game.i18n.format('DSCT.notice.grab.repositioned', { name: grab.grabbedName }));
-    }
-
-    this._refreshPanel();
-  }
-
-  _buildGrabListHTML() {
-    const grabs = window._activeGrabs?.size ? [...window._activeGrabs.values()] : [];
-    if (!grabs.length && !this._pendingConfirm) {
-      return `<div class="dsct-grab-empty">No active grabs</div>`;
-    }
-
-    const allowManual = !getSetting('restrictGrabButtons') || game.user.isGM;
-    let html = '';
-
-    if (this._pendingConfirm) {
-      const { grabberToken, targetToken } = this._pendingConfirm;
-      html += `<div class="dsct-grab-pending">
-        <div class="dsct-grab-pending-label">Pending: ${grabberToken.name} grabs ${targetToken.name}</div>
-        <div class="dsct-grab-free-strike">${buildFreeStrikeButton(targetToken.actor, grabberToken.id)}</div>
-        <div class="dsct-flex-row">
-          <button type="button" data-confirm-grab="1" class="dsct-grab-action-btn accent">Confirm</button>
-          <button type="button" data-cancel-grab="1"  class="dsct-grab-action-btn danger">Cancel</button>
+    return `<div class="dsct-grab-item${repositioning ? ' repositioning' : ''}">
+      <div class="dsct-grab-grid">
+        <img data-ping="${grab.grabberTokenId}" src="${grabberSrc}"
+          class="dsct-grab-token-img" style="grid-column:1;grid-row:1;">
+        <div class="dsct-fm-moves-label" style="grid-column:2;grid-row:1/3;align-self:center;">grabs</div>
+        <img data-ping="${grab.grabbedTokenId}" src="${grabbedSrc}"
+          class="dsct-grab-token-img${repositioning ? ' repositioning' : ''}" style="grid-column:3;grid-row:1;">
+        <div class="dsct-grab-name" style="grid-column:1;grid-row:2;">${grab.grabberName}</div>
+        <div class="dsct-grab-name" style="grid-column:3;grid-row:2;">${grab.grabbedName}</div>
+      </div>
+      ${repositioning ? `<div class="dsct-reposition-status">Move ${grab.grabbedName} to an adjacent position</div>` : ''}
+      <div class="dsct-flex-row">
+        <button type="button" data-escape="${grab.grabbedTokenId}" class="dsct-grab-action-btn">Escape</button>
+        <button type="button" data-reposition="${grab.grabbedTokenId}" class="dsct-grab-action-btn${repositioning ? ' repositioning' : ''}">
+          ${repositioning ? 'Moving...' : 'Reposition'}</button>
+        ${allowManual ? `<button type="button" data-endgrab="${grab.grabbedTokenId}" class="dsct-grab-action-btn danger">End Grab</button>` : ''}
+      </div>
+      ${isPending ? `<div class="dsct-escape-tier2">
+        Tier 2: ${grab.grabbedName} can escape, but ${grab.grabberName} gets a free strike first.<br>
+        ${buildFreeStrikeButton(grabberTok?.actor, grab.grabbedTokenId)}
+        <div class="dsct-flex-row" style="margin-top:4px;">
+          <button type="button" data-escapetier2accept="${grab.grabbedTokenId}" class="dsct-grab-action-btn accent">Accept escape</button>
+          <button type="button" data-escapetier2deny="${grab.grabbedTokenId}"   class="dsct-grab-action-btn danger">Stay grabbed</button>
         </div>
-      </div>`;
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  return html;
+};
+
+export const handleGrabListClick = async (e) => {
+  const pingId = e.target.closest('[data-ping]')?.dataset.ping;
+  if (pingId) { const tok = getTokenById(pingId); if (tok) canvas.ping({ x: tok.center.x, y: tok.center.y }); return true; }
+
+  const escapeId = e.target.closest('[data-escape]')?.dataset.escape;
+  if (escapeId) { await attemptGrabEscape(escapeId); return true; }
+
+  const repoId = e.target.closest('[data-reposition]')?.dataset.reposition;
+  if (repoId) { await startGrabReposition(repoId); return true; }
+
+  const endId = e.target.closest('[data-endgrab]')?.dataset.endgrab;
+  if (endId) { await endGrab(endId); return true; }
+
+  const acceptId = e.target.closest('[data-escapetier2accept]')?.dataset.escapetier2accept;
+  if (acceptId) {
+    const grab = window._activeGrabs?.get(acceptId);
+    const grabberTk = grab ? getTokenById(grab.grabberTokenId) : null;
+    grabUiState.pendingEscape = null;
+    if (grab && grabberTk) await triggerGrabberFreeStrike(grabberTk, grab);
+    await endGrab(acceptId, { silent: true });
+    await resolveEscapeChatMessage(acceptId, 'accepted');
+    return true;
+  }
+
+  const denyId = e.target.closest('[data-escapetier2deny]')?.dataset.escapetier2deny;
+  if (denyId) {
+    const grab = window._activeGrabs?.get(denyId);
+    grabUiState.pendingEscape = null;
+    refreshOpenPanel();
+    if (grab) ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.staysGrabbed', { name: grab.grabbedName }) });
+    await resolveEscapeChatMessage(denyId, 'denied');
+    return true;
+  }
+
+  if (e.target.closest('[data-confirm-grab]')) {
+    if (!grabUiState.pendingConfirm) return true;
+    const { grabberToken, targetToken, msgId, maxGrabs } = grabUiState.pendingConfirm;
+    grabUiState.pendingConfirm = null;
+    await applyGrab(grabberToken, targetToken, { maxGrabs: maxGrabs ?? 1 });
+    await resolveGrabConfirmChatMessage(msgId, 'confirmed');
+    return true;
+  }
+
+  if (e.target.closest('[data-cancel-grab]')) {
+    const pc = grabUiState.pendingConfirm;
+    grabUiState.pendingConfirm = null;
+    refreshOpenPanel();
+    if (pc) await resolveGrabConfirmChatMessage(pc.msgId, 'cancelled');
+    return true;
+  }
+
+  const freeStrikeEl = e.target.closest('[data-dsct-action="dsct-free-strike"]');
+  if (freeStrikeEl) {
+    const targetTokId = freeStrikeEl.dataset.targetTokenId;
+    if (targetTokId) {
+      const tok = getTokenById(targetTokId);
+      if (tok) tok.setTarget(true, { user: game.user, releaseOthers: true });
     }
-
-    html += grabs.map(grab => {
-      const grabberTok    = getTokenById(grab.grabberTokenId);
-      const grabbedTok    = getTokenById(grab.grabbedTokenId);
-      const grabberSrc    = grabberTok?.document.texture.src ?? 'icons/svg/mystery-man.svg';
-      const grabbedSrc    = grabbedTok?.document.texture.src ?? 'icons/svg/mystery-man.svg';
-      const isPending     = this._pendingEscape?.grabbedTokenId === grab.grabbedTokenId;
-      const repositioning = window._grabRepositioning?.has(grab.grabbedTokenId);
-
-      return `<div class="dsct-grab-item${repositioning ? ' repositioning' : ''}">
-        <div class="dsct-grab-grid">
-          <img data-ping="${grab.grabberTokenId}" src="${grabberSrc}"
-            class="dsct-grab-token-img" style="grid-column:1;grid-row:1;">
-          <div class="dsct-fm-moves-label" style="grid-column:2;grid-row:1/3;align-self:center;">grabs</div>
-          <img data-ping="${grab.grabbedTokenId}" src="${grabbedSrc}"
-            class="dsct-grab-token-img${repositioning ? ' repositioning' : ''}" style="grid-column:3;grid-row:1;">
-          <div class="dsct-grab-name" style="grid-column:1;grid-row:2;">${grab.grabberName}</div>
-          <div class="dsct-grab-name" style="grid-column:3;grid-row:2;">${grab.grabbedName}</div>
-        </div>
-        ${repositioning ? `<div class="dsct-reposition-status">Move ${grab.grabbedName} to an adjacent position</div>` : ''}
-        <div class="dsct-flex-row">
-          <button type="button" data-escape="${grab.grabbedTokenId}" class="dsct-grab-action-btn">Escape</button>
-          <button type="button" data-reposition="${grab.grabbedTokenId}" class="dsct-grab-action-btn${repositioning ? ' repositioning' : ''}">
-            ${repositioning ? 'Moving...' : 'Reposition'}</button>
-          ${allowManual ? `<button type="button" data-endgrab="${grab.grabbedTokenId}" class="dsct-grab-action-btn danger">End Grab</button>` : ''}
-        </div>
-        ${isPending ? `<div class="dsct-escape-tier2">
-          Tier 2: ${grab.grabbedName} can escape, but ${grab.grabberName} gets a free strike first.<br>
-          ${buildFreeStrikeButton(grabberTok?.actor, grab.grabbedTokenId)}
-          <div class="dsct-flex-row" style="margin-top:4px;">
-            <button type="button" data-escapetier2accept="${grab.grabbedTokenId}" class="dsct-grab-action-btn accent">Accept escape</button>
-            <button type="button" data-escapetier2deny="${grab.grabbedTokenId}"   class="dsct-grab-action-btn danger">Stay grabbed</button>
-          </div>
-        </div>` : ''}
-      </div>`;
-    }).join('');
-
-    return html;
+    await ds.helpers.macros.rollItemMacro(freeStrikeEl.dataset.itemUuid);
+    return true;
   }
 
-  _refreshPanel() {
-    if (!this.rendered) return;
-    this._updatePreview();
+  return false;
+};
 
-    const grabberImg    = this.element.querySelector('#grab-grabber-img');
-    const grabberNameEl = this.element.querySelector('#grab-grabber-name');
-    if (grabberImg)    grabberImg.src = this._grabberToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
-    if (grabberNameEl) { grabberNameEl.textContent = this._grabberToken?.name ?? 'No token selected'; grabberNameEl.classList.toggle('dim', !this._grabberToken); }
-
-    const targetImg    = this.element.querySelector('#grab-target-img');
-    const targetNameEl = this.element.querySelector('#grab-target-name');
-    if (targetImg)    targetImg.src = this._targetToken?.document.texture.src ?? 'icons/svg/mystery-man.svg';
-    if (targetNameEl) { targetNameEl.textContent = this._targetToken?.name ?? 'No target'; targetNameEl.classList.toggle('dim', !this._targetToken); }
-
-    const grabList = this.element.querySelector('#grab-list');
-    if (grabList) grabList.innerHTML = this._buildGrabListHTML();
-  }
-
-  async _prepareContext(_options) {
-    this._updatePreview();
-    return {
-      grabberSrc:   this._grabberToken?.document.texture.src ?? 'icons/svg/mystery-man.svg',
-      grabberLabel: this._grabberToken?.name ?? 'No token selected',
-      grabberDim:   !this._grabberToken,
-      targetSrc:    this._targetToken?.document.texture.src  ?? 'icons/svg/mystery-man.svg',
-      targetLabel:  this._targetToken?.name ?? 'No target',
-      targetDim:    !this._targetToken,
-      allowManual:  !getSetting('restrictGrabButtons') || game.user.isGM,
-      grabListHTML: this._buildGrabListHTML(),
-    };
-  }
-
-  _onRender(_context, _options) {
-    setTimeout(() => this.setPosition({ height: 'auto' }), 0);
-
-    if (this._hookControl) Hooks.off('controlToken', this._hookControl);
-    if (this._hookTarget)  Hooks.off('targetToken',  this._hookTarget);
-    this._hookControl = Hooks.on('controlToken', () => this._refreshPanel());
-    this._hookTarget  = Hooks.on('targetToken',  () => this._refreshPanel());
-    this._themeObserver = new MutationObserver(() => this._refreshPanel());
-    this._themeObserver.observe(document.body, { attributeFilter: ['class'] });
-
-    this.element.addEventListener('click', async e => {
-      const pingId = e.target.closest('[data-ping]')?.dataset.ping;
-      if (pingId) { const tok = getTokenById(pingId); if (tok) canvas.ping({ x: tok.center.x, y: tok.center.y }); return; }
-
-      const escapeId = e.target.closest('[data-escape]')?.dataset.escape;
-      if (escapeId) { await this._attemptEscape(escapeId); return; }
-
-      const repoId = e.target.closest('[data-reposition]')?.dataset.reposition;
-      if (repoId) { await this._startReposition(repoId); return; }
-
-      const endId = e.target.closest('[data-endgrab]')?.dataset.endgrab;
-      if (endId) { await endGrab(endId); return; }
-
-      const acceptId = e.target.closest('[data-escapetier2accept]')?.dataset.escapetier2accept;
-      if (acceptId) {
-        const grab = window._activeGrabs?.get(acceptId);
-        const grabberTk = grab ? getTokenById(grab.grabberTokenId) : null;
-        this._pendingEscape = null;
-        if (grab && grabberTk) await triggerGrabberFreeStrike(grabberTk, grab);
-        await endGrab(acceptId, { silent: true });
-        await resolveEscapeChatMessage(acceptId, 'accepted');
-        return;
-      }
-
-      const denyId = e.target.closest('[data-escapetier2deny]')?.dataset.escapetier2deny;
-      if (denyId) {
-        const grab = window._activeGrabs?.get(denyId);
-        this._pendingEscape = null;
-        this._refreshPanel();
-        if (grab) ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.staysGrabbed', { name: grab.grabbedName }) });
-        await resolveEscapeChatMessage(denyId, 'denied');
-        return;
-      }
-
-      if (e.target.closest('[data-confirm-grab]')) {
-        if (!this._pendingConfirm) return;
-        const { grabberToken, targetToken, msgId, maxGrabs } = this._pendingConfirm;
-        this._pendingConfirm = null;
-        await applyGrab(grabberToken, targetToken, { maxGrabs: maxGrabs ?? 1 });
-        await resolveGrabConfirmChatMessage(msgId, 'confirmed');
-        return;
-      }
-
-      if (e.target.closest('[data-cancel-grab]')) {
-        const pc = this._pendingConfirm;
-        this._pendingConfirm = null;
-        this._refreshPanel();
-        if (pc) await resolveGrabConfirmChatMessage(pc.msgId, 'cancelled');
-        return;
-      }
-
-      const freeStrikeEl = e.target.closest('[data-dsct-action="dsct-free-strike"]');
-      if (freeStrikeEl) {
-        const targetTokId = freeStrikeEl.dataset.targetTokenId;
-        if (targetTokId) {
-          const tok = getTokenById(targetTokId);
-          if (tok) tok.setTarget(true, { user: game.user, releaseOthers: true });
-        }
-        await ds.helpers.macros.rollItemMacro(freeStrikeEl.dataset.itemUuid);
-        return;
-      }
-    });
-  }
-
-  async close(options = {}) {
-    if (this._hookControl)   Hooks.off('controlToken', this._hookControl);
-    if (this._hookTarget)    Hooks.off('targetToken',  this._hookTarget);
-    if (this._themeObserver) this._themeObserver.disconnect();
-    return super.close(options);
-  }
-}
 
 export const toggleGrabPanel = () => {
   if (!getSetting('conditionsEnabled')) return;
-  const existing = getWindowById('grab-panel');
-  if (existing) existing.close();
-  else new GrabPanel().render({ force: true });
+  const existing = getWindowById('dsct-dc-panel');
+  if (existing) { existing._setGrabsExpanded?.(true); existing.bringToFront?.(); return; }
+  toggleDamageConditionsPanel({ grabsExpanded: true });
 };
 
-export const openGrabPanel = () => {
-  if (!getSetting('conditionsEnabled')) return;
-  const existing = getWindowById('grab-panel');
-  if (existing) existing.render({ force: true });
-  else new GrabPanel().render({ force: true });
-};
+export const openGrabPanel = toggleGrabPanel;
 
 function _isKnockbackGrabbed(dialog) {
   const ability = dialog.options?.ability;

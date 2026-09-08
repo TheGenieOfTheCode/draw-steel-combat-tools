@@ -1,4 +1,4 @@
-import { applyGrab, buildFreeStrikeButton, sizeRankG } from './conditions/grab.mjs';
+import { applyGrab, buildFreeStrikeButton, sizeRankG, grabUiState, refreshGrabUis } from './conditions/grab.mjs';
 import { getItemDsid, getSetting, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, undoDamage, getSquadGroup, safeDelete } from './helpers.mjs';
 import { registerAbilityInjectors } from './ability-automation/ability-automation.mjs';
 import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetweenTokens } from './conditions/conditions.mjs';
@@ -327,11 +327,8 @@ export function registerChatHooks() {
           } else if (tier === 1) {
             ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.failedEscape', { grabbed: grab.grabbedName }) });
           } else if (tier === 2) {
-             const panel = getWindowById('grab-panel');
-             if (panel) {
-                 panel._pendingEscape = { grabbedTokenId };
-                 panel._refreshPanel();
-             }
+             grabUiState.pendingEscape = { grabbedTokenId };
+             refreshGrabUis();
           }
           _escapeGrabInFlight.delete(msg.id);
         }
@@ -411,6 +408,44 @@ export function registerChatHooks() {
         const status = document.createElement('div');
         status.className = 'dsct-undo-status';
         status.textContent = game.i18n.localize('DSCT.fall.awaitingConfirm');
+        btnArea().appendChild(status);
+      }
+    }
+
+    if (msg.getFlag('draw-steel-combat-tools', 'isRangeConfirm')) {
+      const res = msg.getFlag('draw-steel-combat-tools', 'rangeConfirmResolved');
+      if (res != null) {
+        const status = document.createElement('div');
+        status.className = 'dsct-undo-status';
+        status.textContent = res === 'allow'
+          ? game.i18n.localize('DSCT.rangeConfirm.allowed')
+          : game.i18n.localize('DSCT.rangeConfirm.denied');
+        btnArea().appendChild(status);
+      } else if (game.user.isGM) {
+        const allowBtn = document.createElement('button');
+        allowBtn.type  = 'button';
+        allowBtn.innerHTML = `<i class="fa-solid fa-check"></i> ${game.i18n.localize('DSCT.rangeConfirm.allowBtn')}`;
+        const denyBtn = document.createElement('button');
+        denyBtn.type  = 'button';
+        denyBtn.innerHTML = `<i class="fa-solid fa-xmark"></i> ${game.i18n.localize('DSCT.rangeConfirm.denyBtn')}`;
+        allowBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          allowBtn.disabled = true;
+          denyBtn.disabled  = true;
+          await msg.setFlag('draw-steel-combat-tools', 'rangeConfirmResolved', 'allow');
+        });
+        denyBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          allowBtn.disabled = true;
+          denyBtn.disabled  = true;
+          await msg.setFlag('draw-steel-combat-tools', 'rangeConfirmResolved', 'deny');
+        });
+        btnArea().appendChild(allowBtn);
+        btnArea().appendChild(denyBtn);
+      } else {
+        const status = document.createElement('div');
+        status.className = 'dsct-undo-status';
+        status.textContent = game.i18n.localize('DSCT.rangeConfirm.awaiting');
         btnArea().appendChild(status);
       }
     }
@@ -517,8 +552,8 @@ export function registerChatHooks() {
           const grabbed = getTokenById(grabConfirm.targetId);
           if (grabber && grabbed) await getModuleApi(false)?.grab(grabber, grabbed, { forceApply: true, maxGrabs: grabConfirm.maxGrabs ?? 1 });
           await resolveGrabConfirmChatMessage(msg.id, 'confirmed');
-          const panel = getWindowById('grab-panel');
-          if (panel) { panel._pendingConfirm = null; panel._refreshPanel(); }
+          grabUiState.pendingConfirm = null;
+          refreshGrabUis();
         });
         const cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
@@ -527,8 +562,8 @@ export function registerChatHooks() {
         cancelBtn.addEventListener('click', async (e) => {
           e.preventDefault();
           await resolveGrabConfirmChatMessage(msg.id, 'cancelled');
-          const panel = getWindowById('grab-panel');
-          if (panel) { panel._pendingConfirm = null; panel._refreshPanel(); }
+          grabUiState.pendingConfirm = null;
+          refreshGrabUis();
         });
         btnArea().appendChild(confirmBtn);
         btnArea().appendChild(cancelBtn);
@@ -561,15 +596,15 @@ export function registerChatHooks() {
             await triggerGrabberFreeStrike(grabberTok, grab);
             await getModuleApi(false)?.endGrab(escapeData.speakerToken, { silent: true });
             await resolveEscapeChatMessage(escapeData.speakerToken, 'accepted');
-            const panel = getWindowById('grab-panel');
-            if (panel) { panel._pendingEscape = null; panel._refreshPanel(); }
+            grabUiState.pendingEscape = null;
+            refreshGrabUis();
           });
           container.querySelector('.dsct-deny-escape')?.addEventListener('click', async (e) => {
             e.preventDefault();
             ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.staysGrabbed', { name: grab.grabbedName }) });
             await resolveEscapeChatMessage(escapeData.speakerToken, 'denied');
-            const panel = getWindowById('grab-panel');
-            if (panel) { panel._pendingEscape = null; panel._refreshPanel(); }
+            grabUiState.pendingEscape = null;
+            refreshGrabUis();
           });
           btnArea().appendChild(container);
         }

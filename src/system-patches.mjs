@@ -1,7 +1,7 @@
 import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, safeDelete } from './helpers.mjs';
 import { applyGrab, runGrab, endGrab, openGrabPanel } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
-import { DamageConditionsPanel } from './conditions/damage-conditions.mjs';
+import { DamageConditionsPanel, applyJudgedEffect, applyMarkedEffect } from './conditions/damage-conditions.mjs';
 import { runForcedMovement } from './forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv, persistStack } from './forced-movement/forced-movement-modify-panel.mjs';
 
@@ -116,6 +116,7 @@ function _patchFMConstructButtons() {
         btn.dataset.properties       = JSON.stringify([...properties]);
         btn.dataset.verticalDistance = String(verticalDistance);
         btn.dataset.fallReduction    = String(fallReduction);
+        btn.dataset.dsctKeywords     = [...(item?.system?.keywords ?? [])].join(',');
         return btn;
       });
     },
@@ -295,13 +296,14 @@ function _registerButtonHooks() {
 
     const _dcCond = _msg.getFlag(M, 'postedDsctCondition');
     if (_dcCond && getSetting('conditionsEnabled') && !root.querySelector('[data-dsct-posted-cond]')) {
-      const { conditionId, endStr, endLabel, sourceActorUuid } = _dcCond;
+      const { conditionId, endStr, endLabel, sourceActorUuid, sourceTokenId } = _dcCond;
       const _condBtn = document.createElement('button');
       _condBtn.type = 'button';
       _condBtn.className = 'apply-condition';
       _condBtn.dataset.dsctPostedCond = 'true';
       _condBtn.dataset.dsctAction     = `dsct-${conditionId}`;
       if (sourceActorUuid) _condBtn.dataset.sourceActorUuid = sourceActorUuid;
+      if (sourceTokenId)   _condBtn.dataset.sourceTokenId   = sourceTokenId;
       if (endStr)          _condBtn.dataset.end              = endStr;
       const _label = conditionId.charAt(0).toUpperCase() + conditionId.slice(1);
       _condBtn.textContent = `Apply ${_label}${endLabel ?? ''}`;
@@ -434,6 +436,7 @@ function _registerButtonHooks() {
             properties: props, verticalDistance: vertDist, fallReduction: st.fallReduction,
             source: (st.sourceTokenId ? canvas.tokens.get(st.sourceTokenId) : null) ?? undefined,
             contextMessageId: _msg.id,
+            keywords: (btn.dataset.dsctKeywords ?? '').split(',').filter(Boolean),
           });
         });
       });
@@ -562,9 +565,22 @@ function _registerButtonHooks() {
       });
     }
 
+    const _resolvePostedSource = async (btn) => {
+      const storedTokenId = btn.dataset.sourceTokenId || null;
+      const storedToken   = storedTokenId ? canvas.tokens.get(storedTokenId) : null;
+      const sourceActorUuid = btn.dataset.sourceActorUuid || null;
+      const sourceActor = storedToken?.actor
+        ?? (sourceActorUuid ? await fromUuid(sourceActorUuid).catch(() => null) : null);
+      const sourceToken = storedToken
+        ?? (sourceActor
+          ? (canvas.tokens.controlled.find(t => t.actor?.id === sourceActor.id)
+            ?? canvas.tokens.placeables.find(t => t.actor?.id === sourceActor.id))
+          : null);
+      return { sourceActor: sourceToken?.actor ?? sourceActor, sourceToken, sourceTokenId: sourceToken?.id ?? null };
+    };
+
     for (const btn of root.querySelectorAll('[data-dsct-action="dsct-frightened"],[data-dsct-action="dsct-taunted"]')) {
       const conditionId      = btn.dataset.dsctAction === 'dsct-frightened' ? 'frightened' : 'taunted';
-      const sourceActorUuid  = btn.dataset.sourceActorUuid || null;
       const endStr           = btn.dataset.end || null;
 
       btn.addEventListener('click', async (e) => {
@@ -574,16 +590,37 @@ function _registerButtonHooks() {
         const targets = [...game.user.targets];
         if (!targets.length) { ui.notifications.warn(game.i18n.localize('DSCT.notice.sys.noConditionTargets')); return; }
 
-        const sourceActor = sourceActorUuid ? await fromUuid(sourceActorUuid) : null;
-        const sourceToken = sourceActor
-          ? (canvas.tokens.controlled.find(t => t.actor?.id === sourceActor.id)
-            ?? canvas.tokens.placeables.find(t => t.actor?.id === sourceActor.id))
-          : null;
-        const sourceTokenId = sourceToken?.id ?? null;
+        const { sourceActor, sourceTokenId } = await _resolvePostedSource(btn);
 
         for (const t of targets) {
           if (conditionId === 'frightened') await applyFrightened(t, sourceActor, sourceTokenId, endStr);
           else                              await applyTaunted(t, sourceActor, sourceTokenId, endStr);
+        }
+      });
+    }
+
+    for (const btn of root.querySelectorAll('[data-dsct-posted-cond]')) {
+      const conditionId = (btn.dataset.dsctAction ?? '').replace('dsct-', '');
+      if (!['judged', 'marked', 'grabbed'].includes(conditionId)) continue;
+      const endStr = btn.dataset.end || null;
+
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const targets = [...game.user.targets];
+        if (!targets.length) { ui.notifications.warn(game.i18n.localize('DSCT.notice.sys.noConditionTargets')); return; }
+
+        const { sourceActor, sourceToken, sourceTokenId } = await _resolvePostedSource(btn);
+        if (!sourceActor) { ui.notifications.warn(game.i18n.localize('DSCT.notice.sys.postedCondNoSource')); return; }
+
+        for (const t of targets) {
+          if (conditionId === 'grabbed') {
+            if (sourceToken) await applyGrab(sourceToken, t, { maxGrabs: targets.length });
+            else ui.notifications.warn(game.i18n.localize('DSCT.notice.sys.postedCondNoSource'));
+          }
+          else if (conditionId === 'judged') await applyJudgedEffect(t, sourceActor, sourceTokenId, endStr);
+          else                               await applyMarkedEffect(t, sourceActor, sourceTokenId, endStr);
         }
       });
     }

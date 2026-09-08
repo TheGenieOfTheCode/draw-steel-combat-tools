@@ -263,6 +263,81 @@
 
 .dsct-grab-panel-body { min-height: 504px; }
 
+.dsct-dc-body {
+  display: flex;
+  align-items: stretch;
+}
+
+.dsct-dc-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+button.dsct-dc-grab-fist {
+  opacity: 0.45;
+}
+button.dsct-dc-grab-fist:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+button.dsct-dc-grab-fist.lit {
+  opacity: 1;
+  color: var(--dsct-accent, #a98ae0);
+  text-shadow: 0 0 6px rgba(122, 80, 192, 0.8);
+}
+button.dsct-dc-grab-fist.active {
+  color: #c0a8e8;
+  background: rgba(122, 80, 192, 0.3);
+  border-radius: 3px;
+}
+
+#dsct-dc-panel #dc-condition {
+  flex: 0 0 110px;
+  width: 110px;
+}
+
+#dsct-dc-panel #dc-type {
+  width: 118px;
+}
+
+#dsct-dc-panel #dc-condition-end {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+#dsct-dc-panel .dsct-mode-btn {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+#dc-type-icon {
+  width: 18px;
+  text-align: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.dsct-dc-grabs {
+  flex: 0 0 auto;
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-left: 0;
+  transition: width 0.25s ease, opacity 0.2s ease, margin-left 0.25s ease;
+}
+.dsct-dc-grabs.expanded {
+  width: 240px;
+  opacity: 1;
+  margin-left: 8px;
+}
+
+.dsct-dc-grabs-list {
+  overflow-y: auto;
+  max-height: 470px;
+  padding-right: 2px;
+}
+
 .dsct-grab-empty {
   font-size: 12px;
   color: var(--dsct-text-dim);

@@ -360,6 +360,45 @@ export const confirmFall = async (token, rawFall, effectiveFall, dmg, { noFallDa
   });
 };
 
+
+export const confirmRangeOverride = async (sourceToken, targetToken, squares, actionLabel) => {
+  if (game.user.isGM) {
+    const ok = await foundry.applications.api.DialogV2.confirm({
+      window: { title: game.i18n.localize('DSCT.rangeConfirm.title') },
+      content: `<p>${game.i18n.format('DSCT.rangeConfirm.gmContent', { source: sourceToken.name, target: targetToken.name, squares, action: actionLabel })}</p>`,
+      rejectClose: false,
+    });
+    return !!ok;
+  }
+  const whisper = game.users
+    .filter(u => u.isGM || sourceToken.actor?.testUserPermission(u, 3))
+    .map(u => u.id);
+  const content = game.i18n.format('DSCT.rangeConfirm.content', { source: sourceToken.name, target: targetToken.name, squares, action: actionLabel });
+  const msg = await ChatMessage.create({
+    content,
+    whisper,
+    flags: { [M]: { isRangeConfirm: true, creatorUserId: game.user.id } },
+    speaker: ChatMessage.getSpeaker({ token: sourceToken.document }),
+  });
+  return new Promise((resolve) => {
+    let hookId, deleteHookId;
+    const finish = (val) => {
+      Hooks.off('updateChatMessage', hookId);
+      Hooks.off('deleteChatMessage', deleteHookId);
+      resolve(val);
+    };
+    hookId = Hooks.on('updateChatMessage', (updatedMsg) => {
+      if (updatedMsg.id !== msg.id) return;
+      const res = updatedMsg.getFlag(M, 'rangeConfirmResolved');
+      if (res === 'allow' || res === 'deny') finish(res === 'allow');
+    });
+    deleteHookId = Hooks.on('deleteChatMessage', (deletedMsg) => {
+      if (deletedMsg.id !== msg.id) return;
+      finish(false);
+    });
+  });
+};
+
 export const confirmFriendlyFireCase1 = async (sourceToken, targetToken) => {
   const whisper = game.users
     .filter(u => u.isGM || sourceToken.actor?.testUserPermission(u, 3))

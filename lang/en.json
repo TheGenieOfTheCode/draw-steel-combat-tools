@@ -917,7 +917,9 @@
         "condition": "Condition",
         "requiresSource": "Requires a controlled source token.",
         "pickSource": "Pick Source",
-        "pickTargets": "Pick Targets"
+        "pickTargets": "Pick Targets",
+        "distance": "Distance",
+        "activeGrabs": "Active Grabs"
       },
       "modFm": {
         "logEntry": "Log Entry",
@@ -1276,6 +1278,7 @@
         "grabTooManyTargets": "This ability can only grab up to {max} creature{s} at once.",
         "grabTargetTooLarge": "{grabber} cannot grab {target}: target is too large.",
         "noConditionTargets": "Target one or more tokens to apply the condition.",
+        "postedCondNoSource": "The source of this condition could not be found on the canvas.",
         "noTargetForEffect": "Target one or more tokens before applying this effect."
       },
       "noSceneForTemplate": "Open a scene before configuring this ability template."
@@ -1388,6 +1391,16 @@
       "visExtraCombatTurn": "Active Combat Turn",
       "visExtraControlled": "Token Controlled",
       "visExtraHover": "Token Hovered"
+    },
+    "rangeConfirm": {
+      "title": "Out of Range",
+      "gmContent": "{source} is using {action} on {target} from {squares} squares away, beyond the allowed range. Allow it anyway?",
+      "content": "<strong><i class=\"fa-solid fa-ruler\"></i> Out of Range:</strong> <strong>{source}</strong> is trying to use <strong>{action}</strong> on <strong>{target}</strong> from <strong>{squares}</strong> squares away, beyond the allowed range. The Director may allow it.",
+      "awaiting": "(Awaiting the Director's decision)",
+      "allowed": "(Allowed by the Director)",
+      "denied": "(Denied by the Director)",
+      "allowBtn": "Allow",
+      "denyBtn": "Deny"
     },
     "friendlyFire": {
       "case1Content": "<strong><i class=\"fa-solid fa-shield-heart\"></i> Ally Collision Warning:</strong> <strong>{source}</strong> is force moving <strong>{target}</strong> toward a collision. Would you like to shorten the movement to avoid unnecessary damage to your ally? This will also spare any creature they collide with.",

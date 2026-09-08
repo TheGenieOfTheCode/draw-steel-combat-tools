@@ -1,8 +1,11 @@
 import {
   getSetting, getWindowById, getSquadGroup, applyDamage,
   safeToggleStatusEffect, safeCreateEmbedded, safeDelete, getItemDsid,
+  tokFootprintDist, confirmRangeOverride,
 } from '../helpers.mjs';
 import { applyFrightened, applyTaunted } from './conditions.mjs';
+import { applyGrab, buildGrabListHTML, handleGrabListClick, grabUiState } from './grab.mjs';
+import { _FLAT_DAMAGE_ICONS as DMG_ICONS, _FLAT_DAMAGE_COLORS as DMG_COLORS } from '../ability-automation/flat-special-effects.mjs';
 import { runSourcePicker, runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -28,6 +31,7 @@ const ALL_CONDITIONS = [
   { id: 'bleeding',   label: 'Bleeding' },
   { id: 'dazed',      label: 'Dazed' },
   { id: 'frightened', label: 'Frightened', requiresSource: true, dsct: true },
+  { id: 'grabbed',    label: 'Grabbed',    requiresSource: true, dsct: true },
   { id: 'invisible',  label: 'Invisible' },
   { id: 'judged',     label: 'Judged',     requiresSource: true, dsct: true },
   { id: 'marked',     label: 'Marked',     requiresSource: true, dsct: true },
@@ -53,7 +57,7 @@ const resolveEnd = (endStr) => {
 };
 
 
-const applyJudgedEffect = async (targetToken, sourceActor, sourceTokenId, endStr) => {
+export const applyJudgedEffect = async (targetToken, sourceActor, sourceTokenId, endStr) => {
   const actor = targetToken.actor;
   if (!actor) return;
   const existing = actor.appliedEffects?.find(e => e.getFlag(M, 'judgement')?.userId === game.user.id);
@@ -70,7 +74,7 @@ const applyJudgedEffect = async (targetToken, sourceActor, sourceTokenId, endStr
   }]);
 };
 
-const applyMarkedEffect = async (targetToken, sourceActor, sourceTokenId, endStr) => {
+export const applyMarkedEffect = async (targetToken, sourceActor, sourceTokenId, endStr) => {
   const actor = targetToken.actor;
   if (!actor) return;
   const end = resolveEnd(endStr);
@@ -117,13 +121,16 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     this._damageMode     = 'strike';
     this._condition      = '';
     this._conditionEnd   = 'save';
+    this._grabbedEnd     = 'combatEnd';
+    this._distance       = null;
+    this._grabsExpanded  = false;
     this._updatePreview();
   }
 
   static DEFAULT_OPTIONS = {
     id: 'dsct-dc-panel',
     classes: ['draw-steel'],
-    window: { title: 'DSCT.panel.title.DamageConditions', minimizable: false, resizable: true },
+    window: { title: 'DSCT.panel.title.DamageConditions', minimizable: false },
     position: { width: 348, height: 'auto' },
     actions: {
       'execute-dc': DamageConditionsPanel._onExecuteDC,
@@ -184,18 +191,29 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     `;
   }
 
+  _typeVisual() {
+    const t = this._damageType;
+    return {
+      icon:  DMG_ICONS[t] ?? 'fa-solid fa-burst',
+      color: DMG_COLORS[t] ?? '',
+    };
+  }
+
   _buildButtonText() {
     const parts = [];
     if (this._amount > 0) {
-      const typeStr = this._damageType !== 'untyped'
-        ? ` ${this._damageType.charAt(0).toUpperCase() + this._damageType.slice(1)}`
-        : '';
       const modeStr = this._damageMode === 'area' ? ' (Area)' : '';
-      parts.push(`${this._amount}${typeStr} Damage${modeStr}`);
+      if (this._damageType !== 'untyped') {
+        const { icon, color } = this._typeVisual();
+        const label = this._damageType.charAt(0).toUpperCase() + this._damageType.slice(1);
+        parts.push(`<i class="${icon}" style="color:${color}"></i> <span style="color:${color}">${this._amount} ${label}</span> Damage${modeStr}`);
+      } else {
+        parts.push(`${this._amount} Damage${modeStr}`);
+      }
     }
     if (this._condition) {
       const condDef = ALL_CONDITIONS.find(c => c.id === this._condition);
-      if (condDef) parts.push(`${condDef.label}${durAbbr(this._conditionEnd)}`);
+      if (condDef) parts.push(`${condDef.label}${durAbbr(this._activeEnd())}`);
     }
     return parts.length ? `Apply: ${parts.join('; ')}` : 'Apply';
   }
@@ -217,7 +235,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     if (srcNote) srcNote.classList.toggle('dsct-hidden', !condDef?.requiresSource);
 
     const execBtn = this.element.querySelector('[data-action="execute-dc"]');
-    if (execBtn) execBtn.textContent = this._buildButtonText();
+    if (execBtn) execBtn.innerHTML = this._buildButtonText();
   }
 
   async _prepareContext(_options) {
@@ -227,16 +245,56 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       sourceSelected:  !!this._sourceToken,
       targetHTML:      this._buildTargetHTML(),
       amount:          this._amount,
-      damageTypes:     DAMAGE_TYPES.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1), selected: t === this._damageType })),
+      damageTypes:     DAMAGE_TYPES.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1), selected: t === this._damageType, color: t === 'untyped' ? '#c8c8d0' : (DMG_COLORS[t] ?? '') })),
+      typeIcon:        this._typeVisual().icon,
+      typeColor:       this._typeVisual().color,
       ignoreImmunity:  this._ignoreImmunity,
       modeStrike:      this._damageMode === 'strike',
       modeArea:        this._damageMode === 'area',
       conditions:      [{ value: '', label: '-- None --', selected: !this._condition }, ...ALL_CONDITIONS.map(c => ({ value: c.id, label: c.label, selected: c.id === this._condition }))],
-      durOptions:      DUR_OPTIONS.map(o => ({ value: o.value, label: o.label, selected: o.value === this._conditionEnd })),
+      durOptions:      DUR_OPTIONS.map(o => ({ value: o.value, label: o.label, selected: o.value === this._activeEnd() })),
       conditionDisabled: !this._condition,
       requiresSource:  !!(ALL_CONDITIONS.find(c => c.id === this._condition)?.requiresSource),
+      distanceValue:   this._distance ?? '',
       buttonText:      this._buildButtonText(),
+      hasGrabs:        this._hasGrabs(),
+      grabsExpanded:   this._grabsExpanded,
+      grabListHTML:    buildGrabListHTML(),
     };
+  }
+
+  _activeEnd() {
+    return this._condition === 'grabbed' ? this._grabbedEnd : this._conditionEnd;
+  }
+
+  _hasGrabs() {
+    return !!(window._activeGrabs?.size || grabUiState.pendingConfirm);
+  }
+
+  _setGrabsExpanded(open) {
+    this._grabsExpanded = !!open && this._hasGrabs();
+    const section = this.element?.querySelector('#dc-grabs-section');
+    if (!section) return;
+    section.classList.toggle('expanded', this._grabsExpanded);
+    this.element.querySelector('#dc-grab-toggle')?.classList.toggle('active', this._grabsExpanded);
+    if (this._grabsExpanded) {
+      const list = this.element.querySelector('#dc-grab-list');
+      if (list) list.innerHTML = buildGrabListHTML();
+    }
+    this.setPosition({ width: this._grabsExpanded ? 596 : 348, height: 'auto' });
+  }
+
+  _refreshGrabs() {
+    if (!this.rendered) return;
+    const hasGrabs = this._hasGrabs();
+    const fist = this.element.querySelector('#dc-grab-toggle');
+    if (fist) { fist.disabled = !hasGrabs; fist.classList.toggle('lit', hasGrabs); }
+    if (!hasGrabs && this._grabsExpanded) { this._setGrabsExpanded(false); return; }
+    if (this._grabsExpanded) {
+      const list = this.element.querySelector('#dc-grab-list');
+      if (list) list.innerHTML = buildGrabListHTML();
+      this.setPosition({ height: 'auto' });
+    }
   }
 
   _onRender(_context, _options) {
@@ -251,21 +309,70 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
 
     const refreshBtn = () => {
       const execBtn = this.element.querySelector('[data-action="execute-dc"]');
-      if (execBtn) execBtn.textContent = this._buildButtonText();
+      if (execBtn) execBtn.innerHTML = this._buildButtonText();
     };
 
 
     this.element.querySelector('#dc-amount')?.addEventListener('input',  e => { this._amount        = parseInt(e.target.value) || 0; refreshBtn(); });
-    this.element.querySelector('#dc-type')?.addEventListener('change',   e => { this._damageType    = e.target.value;              refreshBtn(); });
+    this.element.querySelector('#dc-type')?.addEventListener('change', e => {
+      this._damageType = e.target.value;
+      const { icon, color } = this._typeVisual();
+      const iconEl = this.element.querySelector('#dc-type-icon');
+      if (iconEl) { iconEl.className = icon; iconEl.style.color = color; }
+      e.target.style.color = color;
+      refreshBtn();
+    });
     this.element.querySelector('#dc-ignore-immunity')?.addEventListener('change', e => { this._ignoreImmunity = e.target.checked; });
     this.element.querySelector('#dc-condition')?.addEventListener('change', e => {
       this._condition = e.target.value;
       const sel = this.element.querySelector('#dc-condition-end');
-      if (sel) sel.disabled = !this._condition;
+      if (sel) {
+        sel.disabled = !this._condition;
+        
+        
+        sel.value = this._activeEnd();
+      }
       this._refreshPanel();
       refreshBtn();
     });
-    this.element.querySelector('#dc-condition-end')?.addEventListener('change', e => { this._conditionEnd = e.target.value; refreshBtn(); });
+    this.element.querySelector('#dc-condition-end')?.addEventListener('change', e => {
+      if (this._condition === 'grabbed') this._grabbedEnd = e.target.value;
+      else this._conditionEnd = e.target.value;
+      refreshBtn();
+    });
+    this.element.querySelector('#dc-distance')?.addEventListener('input', e => { this._distance = parseInt(e.target.value) || null; });
+
+    this.element.style.transition = 'width 0.25s ease';
+
+    
+    
+    const header = this.element.querySelector('.window-header');
+    if (header && !header.querySelector('#dc-grab-toggle')) {
+      const fist = document.createElement('button');
+      fist.type = 'button';
+      fist.id = 'dc-grab-toggle';
+      fist.className = 'header-control icon fa-solid fa-hand-fist dsct-dc-grab-fist';
+      fist.dataset.tooltip = game.i18n.localize('DSCT.panel.dc.activeGrabs');
+      fist.addEventListener('click', () => this._setGrabsExpanded(!this._grabsExpanded));
+      const kebab = header.querySelector('[data-action="toggleControls"]');
+      header.insertBefore(fist, kebab ?? header.querySelector('[data-action="close"]'));
+    }
+    const fistBtn = this.element.querySelector('#dc-grab-toggle');
+    if (fistBtn) {
+      const has = this._hasGrabs();
+      fistBtn.disabled = !has;
+      fistBtn.classList.toggle('lit', has);
+      fistBtn.classList.toggle('active', this._grabsExpanded);
+    }
+
+    this.element.querySelector('#dc-grab-list')?.addEventListener('click', async e => {
+      await handleGrabListClick(e);
+      this._refreshGrabs();
+    });
+    if (this._grabsStartExpanded) {
+      this._grabsStartExpanded = false;
+      this._setGrabsExpanded(true);
+    }
   }
 
   static async _onExecuteDC() {
@@ -282,7 +389,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       b.classList.toggle('active', b.dataset.mode === this._damageMode);
     });
     const execBtn = this.element.querySelector('[data-action="execute-dc"]');
-    if (execBtn) execBtn.textContent = this._buildButtonText();
+    if (execBtn) execBtn.innerHTML = this._buildButtonText();
   }
 
   async _execute() {
@@ -320,7 +427,24 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       ui.notifications.warn(game.i18n.localize('DSCT.notice.tactical.markRequiresAbility'));
       return;
     }
-    const endStr        = this._conditionEnd;
+    const endStr        = this._activeEnd();
+
+    
+    if (sourceToken && this._targetTokens.length) {
+      const CGD       = canvas.grid.distance;
+      const rangeLimit = this._distance || 10;
+      const offending = this._targetTokens
+        .map(t => ({ t, squares: Math.round(tokFootprintDist(sourceToken, t) / CGD) + 1 }))
+        .filter(o => o.squares > rangeLimit);
+      if (offending.length) {
+        const worst = offending.reduce((a, b) => (b.squares > a.squares ? b : a));
+        const label = this._condition
+          ? (ALL_CONDITIONS.find(c => c.id === this._condition)?.label ?? 'this')
+          : 'Damage';
+        const ok = await confirmRangeOverride(sourceToken, worst.t, worst.squares, label);
+        if (!ok) return;
+      }
+    }
 
     for (const targetToken of this._targetTokens) {
       const actor = targetToken.actor;
@@ -333,6 +457,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
         switch (this._condition) {
           case 'frightened': if (sourceActor) await applyFrightened(targetToken, sourceActor, sourceTokenId, endStr); break;
           case 'taunted':    if (sourceActor) await applyTaunted(targetToken, sourceActor, sourceTokenId, endStr); break;
+          case 'grabbed':    if (sourceToken) await applyGrab(sourceToken, targetToken, { maxGrabs: this._targetTokens.length }); break;
           case 'judged':     if (sourceActor) await applyJudgedEffect(targetToken, sourceActor, sourceTokenId, endStr); break;
           case 'marked':     if (sourceActor) await applyMarkedEffect(targetToken, sourceActor, sourceTokenId, endStr); break;
           default:           await applyNativeCondition(actor, this._condition, endStr); break;
@@ -348,6 +473,18 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     if (this._amount <= 0 && !this._condition) {
       ui.notifications.warn(game.i18n.localize('DSCT.notice.dc.nothingToApply'));
       return;
+    }
+
+    
+    
+    const postCondDef = ALL_CONDITIONS.find(c => c.id === this._condition);
+    if (postCondDef?.requiresSource && !this._sourceToken) {
+      if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.format('DSCT.notice.dc.requiresSource', { condition: postCondDef.label })); return; }
+      const picked = await runSourcePicker();
+      if (!picked) return;
+      this._pinnedSource = picked;
+      this._sourceToken  = picked;
+      this._refreshPanel();
     }
 
     const speaker   = this._sourceToken
@@ -369,23 +506,24 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     }
 
     const condDef  = ALL_CONDITIONS.find(c => c.id === this._condition);
-    const isDsctCond = condDef?.dsct && (this._condition === 'frightened' || this._condition === 'taunted');
+    const isDsctCond = !!condDef?.dsct;
 
     if (this._condition) {
       if (!isDsctCond) {
-        const end = this._conditionEnd && this._conditionEnd !== 'unlimited' ? ` ${this._conditionEnd}` : '';
+        const end = this._activeEnd() !== 'unlimited' ? ` ${this._activeEnd()}` : '';
         content   = `[[/apply ${this._condition}${end}]]`;
         msgParts.push({ type: 'content' });
       }
-      if (!title) title = `${condDef?.label ?? this._condition}${durAbbr(this._conditionEnd)}`;
+      if (!title) title = `${condDef?.label ?? this._condition}${durAbbr(this._activeEnd())}`;
     }
 
     const dsctCondFlag = isDsctCond ? {
       postedDsctCondition: {
         conditionId:     this._condition,
-        endStr:          this._conditionEnd !== 'unlimited' ? this._conditionEnd : null,
-        endLabel:        durAbbr(this._conditionEnd),
+        endStr:          this._activeEnd() !== 'unlimited' ? this._activeEnd() : null,
+        endLabel:        durAbbr(this._activeEnd()),
         sourceActorUuid: this._sourceToken?.actor?.uuid ?? null,
+        sourceTokenId:   this._sourceToken?.id ?? null,
       },
     } : {};
 
@@ -415,9 +553,15 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
 
 export const registerDCHooks = () => {};
 
-export const toggleDamageConditionsPanel = () => {
+export const toggleDamageConditionsPanel = (opts = {}) => {
   if (!getSetting('conditionsEnabled')) return;
   const existing = getWindowById('dsct-dc-panel');
-  if (existing) { existing.close(); return; }
-  new DamageConditionsPanel().render({ force: true });
+  if (existing) {
+    if (opts.grabsExpanded) { existing._setGrabsExpanded(true); existing.bringToFront?.(); return; }
+    existing.close();
+    return;
+  }
+  const panel = new DamageConditionsPanel();
+  panel._grabsStartExpanded = !!opts.grabsExpanded;
+  panel.render({ force: true });
 };
