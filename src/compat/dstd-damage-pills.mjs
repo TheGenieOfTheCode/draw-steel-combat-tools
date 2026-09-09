@@ -422,20 +422,24 @@ function _pillOpData(ov, pills) {
   };
 }
 
-async function _writePillsToOps(message, entries, pills) {
+async function _writePillsToOps(message, entries, pills, srcGrp = null) {
   if (!entries.length) return;
   const direct = game.user.isGM || message.isOwner;
   const FD = foundry.data?.operators?.ForcedDeletion;
   const FR = foundry.data?.operators?.ForcedReplacement;
   const payload = { [`flags.${DSTD}.state.updatedAt`]: Date.now() };
-  const removeAll = !pills.length;
+  const mults = pills.filter(_isMult);
   for (const [id, ov] of entries) {
+    const own = (srcGrp == null || (ov.dstGrp ?? 'rolled') === srcGrp)
+      ? pills
+      : [...(Array.isArray(ov.dstPills) ? ov.dstPills : []).filter((p) => !_isMult(p)), ...mults];
+    const removeAll = !own.length;
     if (removeAll && !ov.additional && (ov.dstOrigType !== undefined || !ov.damageType)) {
       if (direct && FD) payload[`flags.${DSTD}.state.damageOverrides.${id}`] = new FD();
       else payload[`flags.${DSTD}.state.damageOverrides.-=${id}`] = null;
       continue;
     }
-    const data = _pillOpData(ov, pills);
+    const data = _pillOpData(ov, own);
     payload[`flags.${DSTD}.state.damageOverrides.${id}`] = direct && FR ? new FR(data) : data;
   }
   if (direct) return message.update(payload);
@@ -472,6 +476,7 @@ async function _siblingDamageOps(message, target) {
       out.push({
         opId: _targetOpId(target, partId, i), base: Number(roll.total ?? 0),
         damageType: roll.type ?? roll.options?.type ?? '', typeLabel: roll.typeLabel ?? '',
+        grp: 'rolled',
       });
     }
   }
@@ -494,6 +499,7 @@ async function _siblingDamageOps(message, target) {
       out.push({
         opId: _targetOpId(target, `tier${tier}-synthetic`, effKey), base: amount,
         damageType: type, typeLabel: type ? damageTypeLabel(type) : '',
+        grp: 'rolled',
       });
     }
     dmgIndex++;
@@ -514,6 +520,7 @@ async function _siblingDamageOps(message, target) {
       out.push({
         opId: `damage-${eff.id}-action-${targetHash}`.replace(/[^A-Za-z0-9_-]/g, '-'),
         base: amount, damageType: pick, typeLabel: pick ? damageTypeLabel(pick) : '',
+        grp: `flat:${eff.id}`,
       });
     }
   }
@@ -525,7 +532,7 @@ async function _toggleOverridePill(message, opId, idx) {
   const ov = state.damageOverrides?.[opId];
   if (!Array.isArray(ov?.dstPills) || !ov.dstPills[idx]) return;
   const pills = ov.dstPills.map((p, i) => i === idx ? { ...p, enabled: p.enabled === false } : p);
-  await _writePillsToOps(message, _pillFamily(state, opId), pills);
+  await _writePillsToOps(message, _pillFamily(state, opId), pills, ov.dstGrp ?? 'rolled');
 }
 
 async function _toggleHalfFamily(message, opId) {
@@ -559,7 +566,7 @@ async function _removeOverridePill(message, opId, idx) {
   const ov = state.damageOverrides?.[opId];
   if (!Array.isArray(ov?.dstPills)) return;
   const pills = ov.dstPills.filter((_, i) => i !== idx);
-  await _writePillsToOps(message, _pillFamily(state, opId), pills);
+  await _writePillsToOps(message, _pillFamily(state, opId), pills, ov.dstGrp ?? 'rolled');
 }
 
 function _findPartRoll(message, partId, rollIndex) {
@@ -611,7 +618,8 @@ async function _openPillDamageEditor(message, button, fullEditor = false) {
     ui.notifications.warn(L('noRoll'));
     return;
   }
-  const surge = await _resolveSurgeContext(message, state);
+  const srcGrp = synthetic ? `flat:${button.dataset.partId}` : 'rolled';
+  const surge = synthetic ? null : await _resolveSurgeContext(message, state);
   const editorCfg = {
     title: L('editorTitle', { name: target.name ?? '' }),
     label: target.name ?? '',
@@ -641,22 +649,30 @@ async function _openPillDamageEditor(message, button, fullEditor = false) {
     ...(o.dstOrigType !== undefined ? { dstOrigType: o.dstOrigType } : {}),
     surgeDamage,
     dstFam: fam,
+    dstGrp: o.grp ?? 'rolled',
+    dstPills: Array.isArray(o.dstPills) ? o.dstPills : [],
   });
-  const known = new Map((ov ? _pillFamily(state, opId) : []).map(([id, o]) => [id, cleanEntry(o)]));
+  const sibs    = await _siblingDamageOps(message, target);
+  const grpById = new Map(sibs.map((s) => [s.opId, s.grp]));
+  const known = new Map((ov ? _pillFamily(state, opId) : []).map(([id, o]) =>
+    [id, cleanEntry({ ...o, grp: o.dstGrp ?? grpById.get(id) ?? 'rolled' })]));
   if (!known.has(opId)) {
     known.set(opId, cleanEntry({
       baseAmount: base,
       damageType: roll?.type ?? roll?.options?.type ?? button.dataset.damageType ?? '',
       typeLabel: roll?.typeLabel ?? button.dataset.typeLabel ?? '',
+      grp: srcGrp,
     }));
   }
+  const hasMult = pills.some(_isMult);
   if (pills.length) {
-    for (const sib of await _siblingDamageOps(message, target)) {
+    for (const sib of sibs) {
       if (known.has(sib.opId) || state.damageOverrides?.[sib.opId]) continue;
-      known.set(sib.opId, cleanEntry({ baseAmount: sib.base, damageType: sib.damageType, typeLabel: sib.typeLabel }));
+      if (sib.grp !== srcGrp && !hasMult) continue;
+      known.set(sib.opId, cleanEntry({ baseAmount: sib.base, damageType: sib.damageType, typeLabel: sib.typeLabel, grp: sib.grp }));
     }
   }
-  await _writePillsToOps(message, [...known.entries()], pills);
+  await _writePillsToOps(message, [...known.entries()], pills, srcGrp);
 }
 
 const _providers = [];
