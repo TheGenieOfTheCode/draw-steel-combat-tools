@@ -1,5 +1,6 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
 import { DSCTAddModifierDialog } from '../ability-automation/roll-dialog-hooks.mjs';
+import { drawSourceLines, clearSourceLines } from '../ability-automation/source-lines.mjs';
 
 const M    = 'draw-steel-combat-tools';
 const DSTD = 'draw-steel-target-damage';
@@ -202,6 +203,7 @@ function _stashProvenance(app) {
   if (!ability?.uuid || !app._dsctSources) return;
   const shrink = (p) => ({
     kind: p.kind, amount: p.amount, reason: p.reason, src: p.src ?? null, srcTokenId: p.srcTokenId ?? null,
+    srcTokenIds: p.srcTokenIds ?? [], lineFrom: p.lineFrom ?? null,
     ...(p.enabled ? {} : { enabled: false }),
     ...(p.custom ? { custom: true } : {}),
   });
@@ -297,6 +299,9 @@ function _chatPillHTML(p, msgId, targetKey) {
     if (p.disabled) cls += ' dsct-pill-disabled';
   }
   if (p.srcTokenId) attrs += ` data-src-token-id="${p.srcTokenId}"`;
+  if (p.srcTokenIds?.length) attrs += ` data-src-token-ids="${p.srcTokenIds.join(',')}"`;
+  if (p.lineFrom)   attrs += ` data-line-from="${p.lineFrom}"`;
+  if (p.lineStyle)  attrs += ` data-line-style="${p.lineStyle}"`;
   return `<button type="button" class="${cls}"${attrs} title="${foundry.utils.escapeHTML(title)}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
 }
 
@@ -1030,10 +1035,56 @@ function _hoverPillEl(e) {
   return el;
 }
 
+function _ownerTokenFor(el) {
+  const msgEl = el.closest('li.chat-message');
+  const msg   = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
+  const tokId = msg?.speaker?.token;
+  if (tokId) return canvas.tokens.get(tokId) ?? null;
+  const actorId = msg?.speaker?.actor;
+  return actorId ? (canvas.tokens.placeables.find(t => t.actor?.id === actorId) ?? null) : null;
+}
+
+function _targetTokenFor(el) {
+  const key = el.closest('[data-target-key]')?.dataset.targetKey;
+  if (!key || key === 'selected-token') return null;
+  const uuid = key.replace(/__/g, '.');
+  const doc  = fromUuidSync(uuid);
+  return doc?.object ?? canvas.tokens.placeables.find(t => t.document.uuid === uuid) ?? null;
+}
+
+function _sourceTokensFor(el) {
+  const ids = el.dataset.srcTokenIds
+    ? el.dataset.srcTokenIds.split(',').filter(Boolean)
+    : (el.dataset.srcTokenId ? [el.dataset.srcTokenId] : []);
+  return ids.map(id => canvas.tokens.get(id)).filter(Boolean);
+}
+
+function _drawPillSourceLines(el) {
+  const sources = _sourceTokensFor(el);
+  if (!sources.length) return;
+  const owner  = _ownerTokenFor(el);
+  const target = _targetTokenFor(el);
+  const preferOwner = el.dataset.lineFrom === 'owner';
+
+  if (preferOwner && sources.length > 1) {
+    drawSourceLines(sources[0], sources.slice(1), el.dataset.lineStyle === 'primary' ? 'primary' : 'dashed');
+    return;
+  }
+
+  let anchor = preferOwner ? (owner ?? target) : (target ?? owner);
+
+  if (anchor && sources.length === 1 && sources[0].id === anchor.id) {
+    anchor = preferOwner ? (target ?? anchor) : (owner ?? anchor);
+  }
+  if (!anchor) return;
+  drawSourceLines(anchor, sources, el.dataset.lineStyle === 'primary' ? 'primary' : 'dashed');
+}
+
 function _onPillHoverIn(e) {
   const el = _hoverPillEl(e);
   if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
   if (!canvas?.ready) return;
+  _drawPillSourceLines(el);
   const token = canvas.tokens.placeables.find(t => t.id === el.dataset.srcTokenId);
   if (!token || !token.visible || !token._canHover(game.user, e)) return;
   token._onHoverIn(e, { hoverOutOthers: true });
@@ -1043,6 +1094,7 @@ function _onPillHoverOut(e) {
   const el = _hoverPillEl(e);
   if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
   if (!canvas?.ready) return;
+  clearSourceLines();
   const token = canvas.tokens.placeables.find(t => t.id === el.dataset.srcTokenId);
   token?._onHoverOut(e);
 }

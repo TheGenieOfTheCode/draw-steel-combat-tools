@@ -538,32 +538,32 @@
         "hint": "Replaces the standard ability roll UI with an enhanced variant which displays modifiers by name, sometimes with their sources. Includes various unimplemented situational banes and edges that exist within the rules."
       },
       "dstdRollPills": {
-        "name": "Power Roll Pills in Chat",
-        "hint": "Shows each target's power roll modifiers as named pills under the roll result in ability messages. Rolls made through the Alternative Ability Roll UI keep their modifier names and sources, and retroactive roll edits appear as removable pills."
+        "name": "Power Roll Modifiers in Chat",
+        "hint": "Shows each target's power roll modifiers by name under the roll result in ability messages. Rolls made through the Alternative Ability Roll UI keep their modifier names and sources, and retroactive roll edits appear as removable modifiers."
       },
       "dstdRollEditor": {
-        "name": "Pill Roll Editor",
-        "hint": "Replaces the edit roll window on ability messages with a compact pill editor in the Alternative Ability Roll UI style. Modifiers added there become removable pills under the roll."
+        "name": "Modifier Roll Editor",
+        "hint": "Replaces the edit roll window on ability messages with a compact modifier editor in the Alternative Ability Roll UI style. Modifiers added there become removable modifiers under the roll."
       },
       "pillDamageEditor": {
-        "name": "Pill Damage Editor",
-        "hint": "Replaces the edit damage window on ability messages with a pill editor in the Alternative Ability Roll UI style, including surge spending, damage type changes, and named modifiers that appear as pills under the damage button."
+        "name": "Modifier Damage Editor",
+        "hint": "Replaces the edit damage window on ability messages with a modifier editor in the Alternative Ability Roll UI style, including surge spending, damage type changes, and named modifiers that appear under the damage button."
       },
       "skipPillEditor": {
         "name": "Cog Opens Add Modifier Directly",
-        "hint": "Clicking the edit cog on damage and power roll rows jumps straight to the Add Modifier dialog instead of opening the pill editor window first. Existing pills stay toggleable and removable in chat, and holding Shift while clicking the cog still opens the full editor."
+        "hint": "Clicking the edit cog on damage and power roll rows jumps straight to the Add Modifier dialog instead of opening the modifier editor window first. Existing modifiers stay toggleable and removable in chat, and holding Shift while clicking the cog still opens the full editor."
       },
       "multiplierOverride": {
         "name": "Damage Multiplier Override",
-        "hint": "Half and Double damage pills always apply after bonuses, penalties, and surges, regardless of the order they were added in."
+        "hint": "Half and Double damage modifiers always apply after bonuses, penalties, and surges, regardless of the order they were added in."
       },
       "noMultiplierStacking": {
         "name": "No Multiplier Stacking",
-        "hint": "Duplicate Half (or Double) damage pills beyond the first have no effect and render dimmed."
+        "hint": "Duplicate Half (or Double) damage modifiers beyond the first have no effect and render dimmed."
       },
       "highGroundEnabled": {
         "name": "High Ground Edge",
-        "hint": "Shows a High Ground edge pill in the roll dialog when the attacker is standing on terrain at a higher elevation than the target."
+        "hint": "Shows a High Ground edge modifier in the roll dialog when the attacker is standing on terrain at a higher elevation than the target."
       },
       "enforceAbilityRange": {
         "name": "Enforce Ability Range",
@@ -1563,7 +1563,7 @@
     "compat": {
       "dsTerrain": {
         "name": "DS Terrain Designer",
-        "hint": "Forced Movement reads terrain elevation data to resolve slopes and surface heights, ensuring pushed tokens land correctly on multi-level terrain. The High Ground roll modifier pill automatically defers to DS Terrain Designer's edge calculation when this module is active."
+        "hint": "Forced Movement reads terrain elevation data to resolve slopes and surface heights, ensuring pushed tokens land correctly on multi-level terrain. The High Ground roll modifier automatically defers to DS Terrain Designer's edge calculation when this module is active."
       },
       "tagger": {
         "name": "Tagger",

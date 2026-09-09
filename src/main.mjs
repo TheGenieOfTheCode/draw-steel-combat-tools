@@ -15,6 +15,7 @@ import { registerModuleButtons } from './module-buttons.mjs';
 import { installMacros, distributeAbilities } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.mjs';
 import { registerTargetDistance } from './ability-automation/target-distance.mjs';
+import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
 import { openImNoThreatPanel } from './ability-automation/ability-automation.mjs';
@@ -128,6 +129,7 @@ Hooks.once('init', () => {
   registerWallDoorHooks();
   registerTeleportHooks();
   registerTargetDistance();
+  registerSourceLineHooks();
   registerCrossfadeHooks();
   registerHIWHooks();
   registerCombatLogHooks();

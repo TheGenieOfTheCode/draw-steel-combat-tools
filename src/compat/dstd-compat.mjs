@@ -2771,7 +2771,7 @@ async function _injectFmButtons(message, root) {
           const primaryTok = primaryId ? canvas.tokens.get(primaryId) : null;
           const squadPills = [];
           if (primaryTok) {
-            squadPills.push({ kind: 'note', value: null, label: 'Primary Attacker', src: primaryTok.name, srcTokenId: primaryTok.id, source: 'trigger', dstSquad: true });
+            squadPills.push({ kind: 'note', value: null, label: 'Primary Attacker', src: primaryTok.name, srcTokenId: primaryTok.id, source: 'trigger', dstSquad: true, lineStyle: 'primary' });
           }
           for (const mid of sqEntry.minionIds ?? []) {
             if (mid === primaryId) continue;

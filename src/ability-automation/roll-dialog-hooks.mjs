@@ -74,6 +74,7 @@ function _buildNativeConditionTargetPills(actor, casterToken, targetActor, token
       const grabberTok = grabberActor ? canvas.tokens.placeables.find(t => t.actor?.uuid === grabberActor.uuid) : null;
       const p = pill(mkId(`gr-${tokenId}`), 'bane', 1, 'Grabbed', grabberActor?.name ?? null, tokenId, true);
       p.srcTokenId = grabberTok?.id ?? null;
+      p.lineFrom = 'owner';
       pills.push(p);
     }
   }
@@ -110,6 +111,7 @@ function _buildNativeConditionTargetPills(actor, casterToken, targetActor, token
       const tauntTok = tauntActor ? canvas.tokens.placeables.find(t => t.actor?.uuid === tauntActor.uuid) : null;
       const p = pill(mkId(`ta-${tokenId}`), 'bane', 2, 'Taunted', tauntActor?.name ?? null, tokenId, true);
       p.srcTokenId = tauntTok?.id ?? null;
+      p.lineFrom = 'owner';
       pills.push(p);
     }
   }
@@ -160,6 +162,7 @@ function _buildTargetPills(app, tokenId) {
       
       const p = pill(mkId(`fl-${tokenId}`), 'edge', 1, 'Flanking', flanker?.name ?? null, tokenId, flankingAttacker === casterToken && origTEdges >= 1);
       p.srcTokenId = flanker?.id ?? null;
+      p.lineFrom = 'owner';
       
       if (isMinion) p.srcTokenIds = [flankingAttacker.id, flanker?.id].filter(Boolean);
       pills.push(p);
@@ -196,6 +199,7 @@ function _buildTargetPills(app, tokenId) {
       if (adjEnemy) {
         const p = pill(mkId(`rng-adj-${tokenId}`), 'bane', 1, 'Adjacent Enemy', adjEnemy.name, tokenId, false);
         p.srcTokenId = adjEnemy.id;
+        p.lineFrom = 'owner';
         pills.push(p);
       }
     }
@@ -216,6 +220,7 @@ function _buildTargetPills(app, tokenId) {
     if (grab && grab.grabberTokenId !== tokenId && grab.grabberActorId !== targetActor.id) {
       const p = pill(mkId(`gr-${tokenId}`), 'bane', 1, 'Grabbed', grab.grabberName, tokenId, false);
       p.srcTokenId = grab.grabberTokenId;
+      p.lineFrom = 'owner';
       pills.push(p);
     }
   }
@@ -404,9 +409,10 @@ function _pillHTML(p) {
   const disClass     = p.enabled ? '' : ' dsct-pill-disabled';
   const custClass    = p.custom ? ' dsct-pill-custom' : '';
   const title        = p.custom ? 'Click to toggle · Right-click to remove' : (p.enabled ? 'Click to disable' : 'Click to enable');
-  const srcTokenAttr = p.srcTokenIds?.length > 0
+  const srcTokenAttr = (p.srcTokenIds?.length > 0
     ? ` data-src-token-ids="${p.srcTokenIds.join(',')}"`
-    : (p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : '');
+    : (p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : ''))
+    + (p.lineFrom ? ` data-line-from="${p.lineFrom}"` : '');
   return `<button type="button" class="dsct-source-pill dsct-pill-${p.kind}${disClass}${custClass}"${srcTokenAttr} data-pill-id="${p.id}" title="${title}"><span class="dsct-pip">${amtStr} &middot; ${p.reason}</span>${fromStr}</button>`;
 }
 

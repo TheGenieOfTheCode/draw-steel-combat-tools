@@ -67,12 +67,13 @@ const _buildModTooltip = (entry, baseStates) => {
     if (m.vertical && !base?.vertical)                      parts.push('Vertical');
     if (m.verticalDistance !== '' && m.verticalDistance !== base?.verticalDistance) parts.push(`Vert. dist. ${m.verticalDistance}`);
     if (m.fallReduction !== (base?.fallReduction ?? 0))     parts.push(`Fall reduction: ${m.fallReduction}`);
-    if (m.noFallDamage)                                     parts.push('No fall damage');
-    if (m.noCollisionDamage)                                parts.push('No collision damage');
-    if (m.noMoverCollisionDamage)                           parts.push('No mover damage');
-    if (m.noObstacleCollisionDamage)                        parts.push('No obstacle damage');
-    if (m.ignoreStability)                                  parts.push('Ignore stability');
-    if (m.fastMove)                                         parts.push('Fast path');
+    if (m.noFallDamage && !base?.noFallDamage)                                     parts.push('No fall damage');
+    if (m.noCollisionDamage && !base?.noCollisionDamage)                           parts.push('No collision damage');
+    if (m.noMoverCollisionDamage && !base?.noMoverCollisionDamage)                 parts.push('No mover damage');
+    if (m.noObstacleCollisionDamage && !base?.noObstacleCollisionDamage)           parts.push('No obstacle damage');
+    if (_guardsAnyDamage(base) && !_guardsAnyDamage(m))                            parts.push('All take damage');
+    if (m.ignoreStability && !base?.ignoreStability)                               parts.push('Ignore stability');
+    if (m.fastMove && !base?.fastMove)                                             parts.push('Fast path');
     if (m.sourceTokenId)                                    parts.push(`Source: ${canvas.tokens?.get(m.sourceTokenId)?.name ?? '?'}`);
     return parts.join(', ');
   }).filter(Boolean);
@@ -92,15 +93,18 @@ const _modEffectSummary = (entry, baseStates) => {
   if (m.movement !== base?.movement)                  parts.push(`→ ${cap(m.movement)}`);
   if (m.vertical && !base?.vertical)                  parts.push('Vertical');
   if (m.fallReduction !== (base?.fallReduction ?? 0)) parts.push(`Fall -${m.fallReduction}`);
-  if (m.noFallDamage)                                 parts.push('No Fall Dmg');
-  if (m.noCollisionDamage)                            parts.push('No Collision Dmg');
-  if (m.noMoverCollisionDamage)                       parts.push('No Mover Dmg');
-  if (m.noObstacleCollisionDamage)                    parts.push('No Obstacle Dmg');
-  if (m.ignoreStability)                              parts.push('Ignore Stability');
-  if (m.fastMove)                                     parts.push('Fast Path');
+  if (m.noFallDamage && !base?.noFallDamage)                                 parts.push('No Fall Dmg');
+  if (m.noCollisionDamage && !base?.noCollisionDamage)                       parts.push('No Collision Dmg');
+  if (m.noMoverCollisionDamage && !base?.noMoverCollisionDamage)             parts.push('No Mover Dmg');
+  if (m.noObstacleCollisionDamage && !base?.noObstacleCollisionDamage)       parts.push('No Obstacle Dmg');
+  if (_guardsAnyDamage(base) && !_guardsAnyDamage(m))                        parts.push('All Take Damage');
+  if (m.ignoreStability && !base?.ignoreStability)                           parts.push('Ignore Stability');
+  if (m.fastMove && !base?.fastMove)                                         parts.push('Fast Path');
   if (m.sourceTokenId)                                parts.push(`Source → ${canvas.tokens?.get(m.sourceTokenId)?.name ?? '?'}`);
   return parts.join(', ');
 };
+
+const _guardsAnyDamage = (x) => !!(x && (x.noCollisionDamage || x.noMoverCollisionDamage || x.noObstacleCollisionDamage));
 
 const _PILL_COLORS = {
   up:    '111, 191, 115',
@@ -120,9 +124,11 @@ const _pillCategories = (entry, baseStates) => {
   else if (m.distanceDelta < 0) cats.push('down');
   if (m.movement !== base?.movement) cats.push('type');
   if ((m.vertical && !base?.vertical) || (m.verticalDistance !== '' && m.verticalDistance !== base?.verticalDistance)) cats.push('vert');
-  if (m.noFallDamage || m.noCollisionDamage || m.noMoverCollisionDamage || m.noObstacleCollisionDamage
+  if ((m.noFallDamage && !base?.noFallDamage) || (m.noCollisionDamage && !base?.noCollisionDamage)
+    || (m.noMoverCollisionDamage && !base?.noMoverCollisionDamage) || (m.noObstacleCollisionDamage && !base?.noObstacleCollisionDamage)
+    || (_guardsAnyDamage(base) && !_guardsAnyDamage(m))
     || m.fallReduction !== (base?.fallReduction ?? 0)) cats.push('guard');
-  if (m.ignoreStability || m.fastMove || m.sourceTokenId) cats.push('tweak');
+  if ((m.ignoreStability && !base?.ignoreStability) || (m.fastMove && !base?.fastMove) || m.sourceTokenId) cats.push('tweak');
   return cats;
 };
 

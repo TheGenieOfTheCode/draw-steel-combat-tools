@@ -197,7 +197,9 @@ class DsctDamageEditor extends ds.applications.api.DSApplication {
         const off = p.enabled === false;
         const title = x.inert ? (p.kind === 'type' ? L('typeOverridden') : L('inert')) : L('sessionPill');
         const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
-        const srcAttr = p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : '';
+        const srcAttr = (p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : '')
+          + (p.lineFrom ? ` data-line-from="${p.lineFrom}"` : '')
+          + (p.lineStyle ? ` data-line-style="${p.lineStyle}"` : '');
         return `<button type="button" class="dsct-source-pill dsct-de-pill dsct-dpill-${p.kind}${off ? ' dsct-pill-disabled' : ''}${x.inert ? ' dsct-dpill-inert' : ''}"${_typePillStyleAttr(p)} data-pill-idx="${x.idx}"${srcAttr} title="${foundry.utils.escapeHTML(title)}"><span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${fromStr}</button>`;
       });
       const label = this._cfg.label
@@ -781,6 +783,8 @@ export function injectDamagePills(message, root) {
         styleTypePill(span, p);
         span.innerHTML = `<span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : ''}`;
         if (p.srcTokenId) span.dataset.srcTokenId = p.srcTokenId;
+        if (p.lineFrom)   span.dataset.lineFrom   = p.lineFrom;
+        if (p.lineStyle)  span.dataset.lineStyle  = p.lineStyle;
         let tooltip = it.inert
           ? (p.kind === 'type' ? L('typeOverridden') : L('inert'))
           : damagePillEffect(p);
