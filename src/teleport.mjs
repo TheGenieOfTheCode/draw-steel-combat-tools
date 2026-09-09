@@ -1,6 +1,6 @@
 import {
   hasTags, GRID as getGRID, toGrid, toWorld, gridDist,
-  tokenAt, tileAt, safeUpdate, replayUndo, getWallBlockTop,
+  tokenAt, tileAt, safeUpdate, replayUndo, getWallBlockTop, tileIsOpenDoor,
   applyDamage, safeToggleStatusEffect, getSetting, canCurrentlyFly, applyFall, snapStamina,
   getTokenById, getWindowById, pickCanvasTarget, confirmFall,
 } from './helpers.mjs';
@@ -62,7 +62,7 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}
              const cy = startY + iy;
              const tile = tileAt(cx, cy);
 
-             if (tile && hasTags(tile, 'obstacle') && !hasTags(tile, 'broken')) {
+             if (tile && hasTags(tile, 'obstacle') && !hasTags(tile, 'broken') && !tileIsOpenDoor(tile)) {
                  const wallTop = getWallBlockTop(tile);
                  if (wallTop !== null) {
                      const surfaceElev = wallTop - 1;

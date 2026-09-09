@@ -1021,6 +1021,31 @@ export class WallBuilderPanel extends ds.applications.api.DSApplication {
 }
 
 
+export const registerWallDoorHooks = () => {
+  const M = 'draw-steel-combat-tools';
+  Hooks.on('updateWall', async (wallDoc, changes) => {
+    if (!game.users.activeGM?.isSelf) return;
+    const tagChange = foundry.utils.getProperty(changes, `flags.${M}.tags`)
+                   ?? foundry.utils.getProperty(changes, 'flags.tagger.tags');
+    if (!tagChange) return;
+
+    const doorType = wallDoc.door ?? 0;
+    const saved    = wallDoc.getFlag(M, 'preBreakDoor');
+
+    if (hasTags(wallDoc, 'broken')) {
+      if (doorType === CONST.WALL_DOOR_TYPES.NONE || saved != null) return;
+      const update = { [`flags.${M}.preBreakDoor`]: doorType };
+      if (doorType === CONST.WALL_DOOR_TYPES.DOOR) update.door = CONST.WALL_DOOR_TYPES.SECRET;
+      await wallDoc.update(update);
+      if (getSetting('debugMode')) console.log(`DSCT | WB | broken door hidden: wall=${wallDoc.id} was=${doorType}`);
+    } else {
+      if (saved == null) return;
+      await wallDoc.update({ door: saved, [`flags.${M}.-=preBreakDoor`]: null });
+      if (getSetting('debugMode')) console.log(`DSCT | WB | fixed door restored: wall=${wallDoc.id} to=${saved}`);
+    }
+  });
+};
+
 export const MATERIAL_RULE_DEFAULTS = {
   glass: { cost: 1, damage: 3,  alpha: 0.1 },
   wood:  { cost: 3, damage: 5,  alpha: 0.8 },

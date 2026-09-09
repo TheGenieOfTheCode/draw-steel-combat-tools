@@ -4,7 +4,7 @@ import {
   toGrid,
   MATERIAL_RULES, MATERIAL_ICONS, WALL_RESTRICTIONS,
   getMaterialIcon, getMaterialAlpha, getMaterial,
-  tokenAt, tileAt, wallBetween,
+  tokenAt, tileAt, wallBetween, tileIsOpenDoor,
   applyDamage,
   canCurrentlyFly, getWallBlockTop,
   safeUpdate, safeDelete, safeCreateEmbedded, safeToggleStatusEffect,
@@ -270,7 +270,7 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
     .filter(t => {
       const tg = toGrid(t.document);
       if (tg.x !== landingGrid.x || tg.y !== landingGrid.y) return false;
-      if (!hasTags(t, 'obstacle') || hasTags(t, 'broken')) return false;
+      if (!hasTags(t, 'obstacle') || hasTags(t, 'broken') || tileIsOpenDoor(t)) return false;
       const top = getWallBlockTop(t) ?? 0;
       return (top - 1) < finalElev;
     })
@@ -401,7 +401,7 @@ const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landing
     .filter(t => {
       const tg = toGrid(t.document);
       if (tg.x !== landingGrid.x || tg.y !== landingGrid.y) return false;
-      if (!hasTags(t, 'obstacle') || hasTags(t, 'broken')) return false;
+      if (!hasTags(t, 'obstacle') || hasTags(t, 'broken') || tileIsOpenDoor(t)) return false;
       const top = getWallBlockTop(t) ?? 0;
       return (top - 1) < finalElev;
     })

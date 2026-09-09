@@ -146,13 +146,32 @@ export const segmentsIntersect = (ax, ay, bx, by, cx, cy, dx, dy) => {
           ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)));
 };
 
+export const isOpenDoorWall = (wall) => {
+  const w = wall?.document ?? wall;
+  return !!w && (w.door ?? 0) > 0 && w.ds === CONST.WALL_DOOR_STATES.OPEN;
+};
+
+export const wallBlocksMovement = (wall) => {
+  const w = wall?.document ?? wall;
+  if (!w) return false;
+  if (w.move === CONST.WALL_MOVEMENT_TYPES.NONE) return false;
+  return !isOpenDoorWall(w);
+};
+
+export const tileIsOpenDoor = (tile) => {
+  if (!tile) return false;
+  const blockTag = getTags(tile).find(t => t.startsWith('wall-block-'));
+  if (!blockTag) return false;
+  const walls = getByTag(blockTag).map(o => o.document ?? o).filter(o => Array.isArray(o.c));
+  return walls.length > 0 && walls.every(isOpenDoorWall);
+};
+
 export const wallBetween = (fromGrid, toGrid_) => {
   const from = toCenter(fromGrid);
   const to   = toCenter(toGrid_);
   let fallback = null;
   for (const w of canvas.walls.placeables) {
-    if (w.document.move === CONST.WALL_MOVEMENT_TYPES.NONE) continue;
-    if ((w.document.door ?? 0) > 0 && w.document.ds === CONST.WALL_DOOR_STATES.OPEN) continue;
+    if (!wallBlocksMovement(w.document)) continue;
     const c = w.document.c;
     if (!segmentsIntersect(from.x, from.y, to.x, to.y, c[0], c[1], c[2], c[3])) continue;
     if (hasTags(w.document, 'obstacle')) return w.document;
@@ -551,7 +570,7 @@ export const chooseFreeSquare = (targetToken, landedOnToken = null, { forceOnCan
     const tok = tokenAt(gx, gy, targetToken.id);
     if (tok && !tok.actor?.statuses?.has(defeatedId)) return false;
     const t = tileAt(gx, gy);
-    if (t && hasTags(t, 'obstacle') && !hasTags(t, 'broken')) return false;
+    if (t && hasTags(t, 'obstacle') && !hasTags(t, 'broken') && !tileIsOpenDoor(t)) return false;
     return true;
   };
 

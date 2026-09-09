@@ -4,7 +4,7 @@ import {
   toGrid, toWorld, gridEq, gridDist,
   MATERIAL_RULES, MATERIAL_ICONS,
   getMaterialIcon, getMaterialAlpha,
-  getMaterial, tokenAt, tileAt, wallBetween,
+  getMaterial, tokenAt, tileAt, wallBetween, tileIsOpenDoor, wallBlocksMovement,
   getSquadGroup, applyDamage, snapStamina,
   canCurrentlyFly, getWallBlockTileAt,
   sizeRank,
@@ -203,7 +203,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     if (cornerCutsWall(from, to, elev)) return true;
     const checkCells = isLargeToken ? footprintCells(to.x, to.y, tokenSize) : [to];
     for (const tile of tilesAtCells(checkCells)) {
-      if (!hasTags(tile, 'obstacle') || hasTags(tile, 'broken')) continue;
+      if (!hasTags(tile, 'obstacle') || hasTags(tile, 'broken') || tileIsOpenDoor(tile)) continue;
       const bt      = getTags(tile).find(t => t.startsWith('wall-block-'));
       const tws     = bt ? getByTag(bt).filter(o => Array.isArray(o.c)) : [];
       const tBottom = tws[0]?.flags?.['wall-height']?.bottom ?? 0;
@@ -700,6 +700,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
           return (((d1>0&&d2<0)||(d1<0&&d2>0))&&((d3>0&&d4<0)||(d3<0&&d4>0)));
         };
         for (const w of canvas.walls.placeables) {
+          if (!wallBlocksMovement(w.document)) continue;
           const c = w.document.c;
           const [wx0,wy0,wx1,wy1] = c;
           if (wx0>=x0&&wx0<=x1&&wy0>=y0&&wy0<=y1) return true;
@@ -1026,7 +1027,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
                 };
 
                 const checkCells = isLargeToken ? footprintCells(gx, gy, tokenSize) : [{ x: gx, y: gy }];
-                const hitTiles   = tilesAtCells(checkCells).filter(t => hasTags(t, 'obstacle') && !hasTags(t, 'broken'));
+                const hitTiles   = tilesAtCells(checkCells).filter(t => hasTags(t, 'obstacle') && !hasTags(t, 'broken') && !tileIsOpenDoor(t));
 
                 if (hitTiles.length > 0) {
                   const hardTiles = hitTiles.filter(t => !hasTags(t, 'breakable'));
@@ -1844,7 +1845,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
 
       const checkTileCollision = async (cells) => {
         const hitTiles = tilesAtCells(cells).filter(tile => {
-          if (!hasTags(tile, 'obstacle') || hasTags(tile, 'broken')) return false;
+          if (!hasTags(tile, 'obstacle') || hasTags(tile, 'broken') || tileIsOpenDoor(tile)) return false;
           if (isVertical) {
             const bt     = getTags(tile).find(t => t.startsWith('wall-block-'));
             const tws    = bt ? getByTag(bt).filter(o => Array.isArray(o.c)) : [];
@@ -2326,7 +2327,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       }
 
       const tile = tileAt(step.x, step.y);
-      if (tile && hasTags(tile, 'obstacle') && !hasTags(tile, 'broken')) {
+      if (tile && hasTags(tile, 'obstacle') && !hasTags(tile, 'broken') && !tileIsOpenDoor(tile)) {
         const blockTag   = getTags(tile).find(t => t.startsWith('wall-block-'));
         const tileWalls  = blockTag ? getByTag(blockTag).filter(o => Array.isArray(o.c)) : [];
         const tileBottom = tileWalls[0]?.flags?.['wall-height']?.bottom ?? 0;
