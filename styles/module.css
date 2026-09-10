@@ -2313,3 +2313,42 @@ body.detached .chat-form {
 .dsct-tag-add-select {
   width: 100%;
 }
+
+.dsct-dep-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  font-size: 0.72em;
+  font-weight: bold;
+  padding: 1px 7px;
+  border-radius: 9px;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: help;
+}
+.dsct-dep-active {
+  background: rgba(50, 180, 50, 0.15);
+  color: #2d7a2d;
+  border: 1px solid #2d7a2d;
+}
+.dsct-dep-installed {
+  background: rgba(200, 160, 30, 0.18);
+  color: #8a6a10;
+  border: 1px solid #8a6a10;
+}
+.dsct-dep-missing {
+  background: rgba(200, 60, 60, 0.15);
+  color: #a33;
+  border: 1px solid #a33;
+}
+
+.dsct-dep-unmet > label,
+.dsct-dep-unmet > .hint {
+  opacity: 0.65;
+}
+
+.dsct-dep-partial {
+  border-style: dashed;
+  font-weight: normal;
+}

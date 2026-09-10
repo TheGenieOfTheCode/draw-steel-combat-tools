@@ -273,11 +273,19 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
     this._negate = false;
   }
 
+  
+  _surgeRoom() {
+    return Math.max(0, this._editor._surgeCap() - this._editor._stagedSurges());
+  }
+
   async _prepareContext() {
     const surge = this._editor._cfg.surge;
+    const room  = this._surgeRoom();
     return {
       hasSurge: !!surge,
-      surgeDisabled: !surge || this._editor._stagedSurges() >= this._editor._surgeCap(),
+      surgeDisabled: !surge || room <= 0,
+      
+      surgeOptions: Array.from({ length: room }, (_, i) => i + 1),
       surgeTooltip: surge ? L('surgeTooltip', { damage: surge.damage, available: surge.available }) : '',
       typeOptions: [
         { value: '__untyped', label: L('typeUntyped') },
@@ -298,6 +306,8 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
     this._valueGroup  = root.querySelector('.dsct-amw-value-group');
     this._typeGroup   = root.querySelector('.dsct-dmw-type-group');
     this._typeSelect  = root.querySelector('.dsct-dmw-type-select');
+    this._surgeGroup  = root.querySelector('.dsct-amw-surge-group');
+    this._surgeSelect = root.querySelector('.dsct-amw-surge-select');
     this._typeButtons = [...root.querySelectorAll('.dsct-amw-type-btn')];
 
     this._syncFields();
@@ -333,6 +343,7 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
     this._sourceInput?.addEventListener('input', () => this._updatePreview());
     this._valueInput?.addEventListener('input',  () => this._updatePreview());
     this._typeSelect?.addEventListener('change', () => this._updatePreview());
+    this._surgeSelect?.addEventListener('change', () => this._updatePreview());
 
     this._updatePreview();
   }
@@ -340,6 +351,7 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
   _syncFields() {
     if (this._valueGroup) this._valueGroup.style.display = this._kind === 'delta' ? '' : 'none';
     if (this._typeGroup)  this._typeGroup.style.display  = this._kind === 'type' ? '' : 'none';
+    if (this._surgeGroup) this._surgeGroup.style.display = this._kind === 'surge' ? '' : 'none';
     setTimeout(() => this.setPosition({ height: 'auto' }), 0);
   }
 
@@ -366,19 +378,39 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
     if (!prev) return;
     const pill = this._buildPill();
     const fromStr = pill.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(pill.src)}</span>` : '';
+
     prev.className = `dsct-source-pill dsct-dpill-${pill.kind} dsct-pill-custom dsct-amw-preview-pill`;
     prev.removeAttribute('style');
     styleTypePill(prev, pill);
     prev.innerHTML = `<span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(pill))}</span>${fromStr}`;
+
+    
+    
+    for (const extra of prev.parentElement?.querySelectorAll('.dsct-amw-preview-extra') ?? []) extra.remove();
+    const n = pill.kind === 'surge' ? (parseInt(this._surgeSelect?.value) || 1) : 1;
+    for (let i = 1; i < n; i++) {
+      const clone = prev.cloneNode(true);
+      clone.classList.add('dsct-amw-preview-extra');
+      prev.parentElement.appendChild(clone);
+    }
   }
 
   _submit() {
     if (!this._editor?.rendered) { this.close(); return; }
     const pill = this._buildPill();
-    if (pill.kind === 'surge' && this._editor._stagedSurges() >= this._editor._surgeCap()) {
-      ui.notifications.warn(L('surgeCapWarn'));
+
+    if (pill.kind === 'surge') {
+      const room = this._surgeRoom();
+      if (room <= 0) { ui.notifications.warn(L('surgeCapWarn')); return; }
+      
+      
+      const n = Math.min(Math.max(1, parseInt(this._surgeSelect?.value) || 1), room);
+      for (let i = 0; i < n; i++) this._editor._pills.push({ ...pill });
+      this._editor._refresh();
+      this.close();
       return;
     }
+
     this._editor._pills.push(pill);
     this._editor._refresh();
     this.close();

@@ -23,16 +23,16 @@
     <p class="hint">{{hint}}</p>
   </div>
   {{else if isBoolean}}
-  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}">
-    <label for="dsct-sub-{{key}}">{{name}}</label>
+  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}{{#if depsUnmet}} dsct-dep-unmet{{/if}}">
+    <label for="dsct-sub-{{key}}">{{name}}{{> dsctDepBadges}}</label>
     <div class="form-fields">
       <input type="checkbox" id="dsct-sub-{{key}}" name="{{key}}" {{#if value}}checked{{/if}}>
     </div>
     <p class="hint">{{hint}}</p>
   </div>
   {{else if isSelect}}
-  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}">
-    <label for="dsct-sub-{{key}}">{{name}}</label>
+  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}{{#if depsUnmet}} dsct-dep-unmet{{/if}}">
+    <label for="dsct-sub-{{key}}">{{name}}{{> dsctDepBadges}}</label>
     <div class="form-fields">
       <select id="dsct-sub-{{key}}" name="{{key}}">
         {{#each choices}}<option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option>{{/each}}
@@ -41,8 +41,8 @@
     <p class="hint">{{hint}}</p>
   </div>
   {{else if isRange}}
-  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}">
-    <label for="dsct-sub-{{key}}">{{name}}</label>
+  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}{{#if depsUnmet}} dsct-dep-unmet{{/if}}">
+    <label for="dsct-sub-{{key}}">{{name}}{{> dsctDepBadges}}</label>
     <div class="form-fields">
       <input type="range" id="dsct-sub-{{key}}" name="{{key}}" value="{{value}}" min="{{range.min}}" max="{{range.max}}" step="{{range.step}}">
       <span class="dsct-range-val" id="dsct-sub-val-{{key}}">{{value}}</span>
@@ -62,8 +62,8 @@
     <p class="hint">{{hint}}</p>
   </div>
   {{else}}
-  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}">
-    <label for="dsct-sub-{{key}}">{{name}}</label>
+  <div class="form-group{{#if isEnableToggle}} dsct-sub-enable-toggle{{/if}}{{#if depsUnmet}} dsct-dep-unmet{{/if}}">
+    <label for="dsct-sub-{{key}}">{{name}}{{> dsctDepBadges}}</label>
     <div class="form-fields">
       <input type="number" id="dsct-sub-{{key}}" name="{{key}}" value="{{value}}">
     </div>

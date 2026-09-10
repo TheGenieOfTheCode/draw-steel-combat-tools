@@ -1005,6 +1005,7 @@
         "surge": "Surge",
         "type": "Damage Type",
         "surgeAmt": "+{n} Surge",
+        "surgeAmount": "Amount",
         "value": "Value",
         "damageType": "Damage Type",
         "sourceActor": "Source actor",
@@ -1131,7 +1132,7 @@
     "notice": {
       "notActive": "Draw Steel: Combat Tools not active.",
       "noTargets": "No targets selected. Target tokens before applying.",
-      "playerCannotUndoDamage": "Players lack permission to undo damage. Enable \"Players Can Undo Deaths via Target Damage\" in Compatibility settings.",
+      "playerCannotUndoDamage": "Undoing this would revive a defeated target, which players cannot do. Enable \"Players Can Undo Deaths via Target Damage\" in Compatibility settings.",
       "abilityRange": {
         "outOfRange": "{names} {verb} not within range {range} of {ability}"
       },

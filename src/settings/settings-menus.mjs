@@ -1,6 +1,7 @@
 import { ImNoThreatSettingsMenu } from '../ability-automation/ability-automation.mjs';
 import { WallBuilderSettingsMenu } from '../forced-movement/wall-builder.mjs';
 import { getSetting } from '../helpers.mjs';
+import { depsFor } from './setting-deps.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -16,6 +17,9 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
   };
 
   static get regularKeys() { return []; }
+
+  
+  static get showDepBadges() { return true; }
   static get debugKeys()   { return []; }
   static get enableKey()   { return null; }
 
@@ -57,8 +61,12 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
     if (!def) return null;
     if (!game.user.isGM && def.scope === 'world') return null;
     const value = game.settings.get(M, key);
+    const deps = this.constructor.showDepBadges ? depsFor(key) : [];
     return {
       key,
+      deps,
+      
+      depsUnmet:      deps.some(d => !d.isActive),
       name:           game.i18n.localize(def.name),
       hint:           game.i18n.localize(def.hint),
       isBoolean:      def.type === Boolean,
@@ -161,6 +169,14 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
 
 
 const header = (label) => ({ isSectionHeader: true, label });
+
+
+Handlebars.registerPartial('dsctDepBadges', `
+{{#each deps}}
+<span class="dsct-dep-badge dsct-dep-{{state}}{{#if isReduced}} dsct-dep-partial{{/if}}" data-tooltip="{{tooltip}}">
+  <i class="fas {{#if isActive}}fa-check{{else if isInstalled}}fa-plug-circle-exclamation{{else}}fa-xmark{{/if}}"></i> {{label}}
+</span>
+{{/each}}`);
 const compatInfo = (moduleId, nameKey, hintKey) => ({
   isInfo: true,
   name:     game.i18n.localize(nameKey),
@@ -705,6 +721,8 @@ export class HomeRulesSettingsMenu extends SettingsSubmenu {
 }
 
 export class CompatibilitySettingsMenu extends SettingsSubmenu {
+  static get showDepBadges() { return false; }
+
   static DEFAULT_OPTIONS = {
     id:     'dsct-compatibility-settings',
     window: { title: 'DSCT.panel.title.CompatibilitySettings' },

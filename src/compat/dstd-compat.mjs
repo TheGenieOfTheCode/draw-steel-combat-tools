@@ -14,6 +14,14 @@ import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/
 const DSTD       = 'draw-steel-target-damage';
 const DSTD_PANEL = `section.${DSTD}-panel`;
 const DSTD_ROW   = `.${DSTD}-target-row[data-target-key]`;
+
+
+function _rowTargetDefeated(el) {
+  const key = el?.closest(DSTD_ROW)?.dataset?.targetKey;
+  if (!key || key === 'selected-token') return false;
+  const doc = fromUuidSync(key.replace(/__/g, '.'));
+  return !!doc?.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead');
+}
 const M          = 'draw-steel-combat-tools';
 
 
@@ -394,7 +402,10 @@ function _installUndoDeathHook(root) {
 
   root.addEventListener('click', (e) => {
     if (game.users.activeGM?.isSelf || getSetting('playerCanUndoDstdDeaths')) return;
-    if (!e.target.closest('[data-dstd-action="undoDamage"]')?.closest(DSTD_PANEL)) return;
+    const undoDmgBtn = e.target.closest('[data-dstd-action="undoDamage"]');
+    if (!undoDmgBtn?.closest(DSTD_PANEL)) return;
+    
+    if (!_rowTargetDefeated(undoDmgBtn)) return;
     e.stopImmediatePropagation();
     ui.notifications.warn(game.i18n.localize('DSCT.notice.playerCannotUndoDamage'));
   }, { capture: true });
@@ -933,7 +944,9 @@ async function _injectFmButtons(message, root) {
 
     _installGlobalDamageButtons(panel, message);
     if (!game.users.activeGM?.isSelf && !getSetting('playerCanUndoDstdDeaths')) {
-      for (const btn of panel.querySelectorAll('[data-dstd-action="undoDamage"]')) btn.disabled = true;
+      for (const btn of panel.querySelectorAll('[data-dstd-action="undoDamage"]')) {
+        if (_rowTargetDefeated(btn)) btn.disabled = true;
+      }
     }
   }
 

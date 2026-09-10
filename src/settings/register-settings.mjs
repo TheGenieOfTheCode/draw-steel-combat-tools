@@ -173,6 +173,9 @@ export const registerSettings = () => {
     name: L('targetDistanceLines.name'), hint: L('targetDistanceLines.hint'),
     scope: 'client', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'firstRunNoticeShown', {
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
   game.settings.register(M, 'trueDrawSteelLos', {
     name: L('trueDrawSteelLos.name'), hint: L('trueDrawSteelLos.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
