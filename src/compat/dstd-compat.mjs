@@ -388,15 +388,20 @@ function _installUndoDeathHook(root) {
     if (!targetKey || targetKey === 'selected-token') return;
     const tokenUuid = targetKey.replace(/__/g, '.');
 
-    _dsctPendingRevival.add(tokenUuid);
+    
+    
+    
+    
+    markPendingRevival(tokenUuid);
+    const socket = getModuleApi(false)?.socket;
+    socket?.executeForEveryone('dsct.dstdPendingRevival', tokenUuid);
 
     if (game.users.activeGM?.isSelf) {
       setTimeout(() => runDstdUndoRevival(tokenUuid), 500);
     } else {
       if (!getSetting('playerCanUndoDstdDeaths')) return;
-      const socket = getModuleApi(false)?.socket;
       if (!socket) return;
-      setTimeout(() => socket.executeAsGM('dsct.dstdUndoDeath', tokenUuid), 600);
+      socket.executeAsGM('dsct.dstdUndoDeath', tokenUuid);
     }
   }, { capture: true });
 
@@ -411,6 +416,18 @@ function _installUndoDeathHook(root) {
   }, { capture: true });
 }
 
+
+
+export function markPendingRevival(tokenUuid, ttl = 8000) {
+  _dsctPendingRevival.add(tokenUuid);
+  setTimeout(() => _dsctPendingRevival.delete(tokenUuid), ttl);
+}
+
+
+export function queueDstdUndoRevival(tokenUuid, delay = 500) {
+  markPendingRevival(tokenUuid);
+  setTimeout(() => runDstdUndoRevival(tokenUuid), delay);
+}
 
 export async function runDstdUndoRevival(tokenUuid) {
   const dbg = getSetting('debugMode');
