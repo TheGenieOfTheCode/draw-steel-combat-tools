@@ -95,6 +95,85 @@ export const toCenter = (grid)  => ({ x: grid.x * GRID() + GRID() / 2, y: grid.y
 export const gridEq   = (a, b)  => a.x === b.x && a.y === b.y;
 export const gridDist = (a, b)  => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
+
+
+
+const _sightBackend = () => CONFIG?.Canvas?.polygonBackends?.sight ?? null;
+
+
+export const segmentBlocksSight = (from, to) => {
+  const backend = _sightBackend();
+  if (!backend) return false;
+  return !!backend.testCollision(from, to, { type: 'sight', mode: 'any' });
+};
+
+
+export const sightBlockPoint = (from, to) => {
+  const backend = _sightBackend();
+  if (!backend) return null;
+  const hit = backend.testCollision(from, to, { type: 'sight', mode: 'closest' });
+  if (!hit) return null;
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const len2 = (dx * dx) + (dy * dy);
+  const t = len2 ? (((hit.x - from.x) * dx) + ((hit.y - from.y) * dy)) / len2 : 0;
+  return { t, x: hit.x, y: hit.y };
+};
+
+
+export const SIGHT_SAMPLES = [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]];
+
+
+export const sightSamplePoints = (token) => {
+  const GS  = canvas.grid.size;
+  const w   = Math.max(1, Math.round(token.document.width));
+  const h   = Math.max(1, Math.round(token.document.height));
+  const out = [];
+  for (let dx = 0; dx < w; dx++) {
+    for (let dy = 0; dy < h; dy++) {
+      const cellX = token.x + dx * GS;
+      const cellY = token.y + dy * GS;
+      SIGHT_SAMPLES.forEach(([fx, fy], sample) => {
+        out.push({ x: cellX + fx * GS, y: cellY + fy * GS, cell: { dx, dy }, sample });
+      });
+    }
+  }
+  return out;
+};
+
+
+export const sightOriginPoints = (token) => {
+  if (!getSetting('trueDrawSteelLos')) {
+    const c = token.center;
+    return SIGHT_SAMPLES.map(() => ({ x: c.x, y: c.y }));
+  }
+  const GS = canvas.grid.size;
+  const w  = Math.max(1, Math.round(token.document.width))  * GS;
+  const h  = Math.max(1, Math.round(token.document.height)) * GS;
+  return SIGHT_SAMPLES.map(([fx, fy]) => ({ x: token.x + fx * w, y: token.y + fy * h }));
+};
+
+
+export const hasSightToToken = (fromToken, token) => {
+  if (!fromToken || !token) return false;
+  const origins = sightOriginPoints(fromToken);
+  for (const p of sightSamplePoints(token)) {
+    if (!segmentBlocksSight(origins[p.sample], p)) return true;
+  }
+  return false;
+};
+
+
+export const sightLinesToToken = (fromToken, token) => {
+  if (!fromToken || !token) return [];
+  const origins = sightOriginPoints(fromToken);
+  return sightSamplePoints(token).map(p => {
+    const from = origins[p.sample];
+    const to   = { x: p.x, y: p.y };
+    const hit  = sightBlockPoint(from, to);
+    return { from, to, cell: p.cell, sample: p.sample, blocked: !!hit, hit };
+  });
+};
+
 export const MATERIAL_RULES    = () => getSetting('materialRules');
 export const WALL_RESTRICTIONS = () => getSetting('wallRestrictions');
 
@@ -157,6 +236,7 @@ export const wallBlocksMovement = (wall) => {
   if (w.move === CONST.WALL_MOVEMENT_TYPES.NONE) return false;
   return !isOpenDoorWall(w);
 };
+
 
 export const tileIsOpenDoor = (tile) => {
   if (!tile) return false;

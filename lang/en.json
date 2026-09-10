@@ -648,6 +648,10 @@
         "name": "Distance Lines to Targets",
         "hint": "While controlling a single token, targeting other tokens draws a dashed line in your player color to each target with the distance in squares. Per client."
       },
+      "trueDrawSteelLos": {
+        "name": "True Draw Steel Line of Sight",
+        "hint": "Measure sight corner to corner rather than from the looking creature's centre, and apply the same rule to Foundry's vision and fog."
+      },
       "collisionOnUnitStep": {
         "name": "Collide on 1-Square Elevation Steps",
         "hint": "Forced movement into a square 1 elevation higher triggers a collision instead of climbing it freely. Steps down are unaffected."

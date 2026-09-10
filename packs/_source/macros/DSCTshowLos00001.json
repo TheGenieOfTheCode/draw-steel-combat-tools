@@ -1,0 +1,25 @@
+{
+  "_id": "DSCTshowLos00001",
+  "name": "DSCT: Show Line of Sight",
+  "type": "script",
+  "img": "icons/magic/perception/eye-ringed-green.webp",
+  "command": "// Draws the sight lines the module actually tests, between the selected token and\n// each target. Green reached its point; red hit a sight-blocking wall, is marked with\n// an X where it hit, and fades away beyond it.\n//\n// Sight is clear if ANY one line gets through, so a mostly-red target with a single\n// green line is still visible.\n//\n// Run it again, or move or retarget anything, to clear the overlay.\nconst api = game.modules.get('draw-steel-combat-tools')?.api;\nif (!api?.sightLines) { ui.notifications.error('Draw Steel: Combat Tools is not active.'); return; }\n\nif (window._dsctLosLayer && !window._dsctLosLayer.destroyed) {\n  window._dsctLosLayer.destroy({ children: true });\n  window._dsctLosLayer = null;\n  return;\n}\n\nconst src = canvas.tokens.controlled[0];\nif (!src) { ui.notifications.warn('Select the token doing the looking.'); return; }\n\nconst targets = [...game.user.targets].filter(t => t !== src && !t.destroyed);\nif (!targets.length) { ui.notifications.warn('Target at least one token to check sight to.'); return; }\n\nconst layer = new PIXI.Container();\nlayer.eventMode = 'none';\ncanvas.controls.addChild(layer);\nwindow._dsctLosLayer = layer;\n\nconst CLEAR = 0x44d07a;\nconst BLOCK = 0xd04444;\nconst summary = [];\n\nfor (const tok of targets) {\n  const lines = api.sightLines(src, tok);\n  const clear = lines.filter(l => !l.blocked);\n  const g = new PIXI.Graphics();\n\n  // Blocked first, so a single successful line stays readable on top of the twenty\n  // red ones a large token can produce.\n  for (const l of lines) {\n    if (!l.blocked) continue;\n    const hit = l.hit;\n\n    g.lineStyle(2, BLOCK, 0.85);\n    g.moveTo(l.from.x, l.from.y);\n    g.lineTo(hit.x, hit.y);\n\n    // Past the wall the line dies out. PIXI has no gradient stroke, so it is drawn as\n    // short steps with falling alpha, which reads the same at this scale.\n    const STEPS = 12;\n    for (let i = 0; i < STEPS; i++) {\n      const a = i / STEPS, b = (i + 1) / STEPS;\n      g.lineStyle(2, BLOCK, 0.5 * (1 - b));\n      g.moveTo(hit.x + (l.to.x - hit.x) * a, hit.y + (l.to.y - hit.y) * a);\n      g.lineTo(hit.x + (l.to.x - hit.x) * b, hit.y + (l.to.y - hit.y) * b);\n    }\n\n    // X on the blocking point, drawn square to the line so it reads at any angle.\n    const len = Math.hypot(l.to.x - l.from.x, l.to.y - l.from.y) || 1;\n    const ux = (l.to.x - l.from.x) / len, uy = (l.to.y - l.from.y) / len;\n    const px = -uy, py = ux, R = 5;\n    g.lineStyle(2.5, BLOCK, 1);\n    g.moveTo(hit.x - (ux + px) * R, hit.y - (uy + py) * R);\n    g.lineTo(hit.x + (ux + px) * R, hit.y + (uy + py) * R);\n    g.moveTo(hit.x - (ux - px) * R, hit.y - (uy - py) * R);\n    g.lineTo(hit.x + (ux - px) * R, hit.y + (uy - py) * R);\n  }\n\n  for (const l of clear) {\n    g.lineStyle(3, CLEAR, 0.95);\n    g.moveTo(l.from.x, l.from.y);\n    g.lineTo(l.to.x, l.to.y);\n    g.beginFill(CLEAR, 1);\n    g.drawCircle(l.to.x, l.to.y, 3);\n    g.endFill();\n  }\n  layer.addChild(g);\n\n  const visible = clear.length > 0;\n  const label = new PIXI.Text(`${visible ? 'SEEN' : 'BLOCKED'}  ${clear.length}/${lines.length}`, {\n    fontFamily: 'Signika, sans-serif', fontSize: 20, fontWeight: 'bold',\n    fill: visible ? 0xbdffd6 : 0xffc0c0, stroke: 0x000000, strokeThickness: 5,\n  });\n  label.anchor.set(0.5, 1);\n  label.position.set(tok.center.x, tok.y - 6);\n  layer.addChild(label);\n\n  summary.push(`${tok.name}: ${visible ? 'visible' : 'blocked'} (${clear.length}/${lines.length} clear)`);\n}\n\nui.notifications.info(`Line of sight from ${src.name} - ${summary.join(' | ')}`);\n\n// Clear on the next move, selection change or retarget, so it never goes stale.\nconst off = () => {\n  if (window._dsctLosLayer && !window._dsctLosLayer.destroyed) {\n    window._dsctLosLayer.destroy({ children: true });\n    window._dsctLosLayer = null;\n  }\n  Hooks.off('updateToken', off);\n  Hooks.off('controlToken', off);\n  Hooks.off('targetToken', off);\n};\nHooks.on('updateToken', off);\nHooks.on('controlToken', off);\nHooks.on('targetToken', off);\n",
+  "scope": "global",
+  "sort": 1300,
+  "folder": "DSCTfoldUT000001",
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTshowLos00001"
+}

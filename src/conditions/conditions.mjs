@@ -1,5 +1,6 @@
 import {
   safeCreateEmbedded, safeDelete, getSetting, getTokenById, footprintDistFromBounds,
+  segmentBlocksSight, hasSightToToken,
 } from '../helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -39,47 +40,16 @@ const TAUNTED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, source
   flags: { [M]: { taunted: { sourceActorId, sourceTokenId } } },
 };};
 
-const _cross = (ox, oy, px, py, qx, qy) => (px - ox) * (qy - oy) - (py - oy) * (qx - ox);
-
-const _segBlocked = (from, to) => {
-  for (const w of canvas.walls.placeables) {
-    if (!w.document.sight) continue;
-    const c = w.document.c;
-    const d1 = _cross(c[0], c[1], c[2], c[3], from.x, from.y);
-    const d2 = _cross(c[0], c[1], c[2], c[3], to.x,   to.y);
-    const d3 = _cross(from.x, from.y, to.x, to.y, c[0], c[1]);
-    const d4 = _cross(from.x, from.y, to.x, to.y, c[2], c[3]);
-    if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
-        ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
-  }
-  return false;
-};
-
 
 export const sightBlockedBetween = (tokA, tokB) => {
   if (!tokA || !tokB) return true;
-  return _segBlocked({ x: tokA.center.x, y: tokA.center.y }, { x: tokB.center.x, y: tokB.center.y });
+  return segmentBlocksSight(tokA.center, tokB.center);
 };
-
-const _SIGHT_SAMPLES = [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]];
 
 
 export const sightBlockedBetweenTokens = (tokA, tokB) => {
   if (!tokA || !tokB) return true;
-  const GS   = canvas.grid.size;
-  const w    = Math.max(1, Math.round(tokB.document.width));
-  const h    = Math.max(1, Math.round(tokB.document.height));
-  const from = { x: tokA.center.x, y: tokA.center.y };
-  for (let dx = 0; dx < w; dx++) {
-    for (let dy = 0; dy < h; dy++) {
-      const cellX = tokB.x + dx * GS;
-      const cellY = tokB.y + dy * GS;
-      for (const [fx, fy] of _SIGHT_SAMPLES) {
-        if (!_segBlocked(from, { x: cellX + fx * GS, y: cellY + fy * GS })) return false;
-      }
-    }
-  }
-  return true;
+  return !hasSightToToken(tokA, tokB);
 };
 
 

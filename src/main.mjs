@@ -3,7 +3,7 @@ import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
-import { applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter } from './helpers.mjs';
+import { applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken } from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes } from './death-tracker/death-tracker.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
@@ -12,6 +12,7 @@ import { registerSquadTurnHooks } from './squad-turns.mjs';
 import { registerPairTurnHooks } from './pair-turns.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
+import { registerCornerVision } from './corner-vision.mjs';
 import { installMacros, distributeAbilities } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.mjs';
 import { registerTargetDistance } from './ability-automation/target-distance.mjs';
@@ -81,6 +82,10 @@ const api = {
   monsterFilter,
   damageConditionsUI:   toggleDamageConditionsPanel,
   cleanupPixi:          cleanupPixi,
+  
+  
+  sightLines:       sightLinesToToken,
+  hasSightTo:       hasSightToToken,
   setRollDialogLock:         setBaneDialogLockWithOverlay,
   getStickBugged:   getStickBugged,
   isFMActive:       () => !!window._dsctFMActive,
@@ -134,6 +139,7 @@ Hooks.once('init', () => {
   registerHIWHooks();
   registerCombatLogHooks();
   registerSystemPatches();
+  registerCornerVision();
   registerDefeatedTokenVisibility();
   registerRollDialogPillHooks();
   registerSquadTargetingHooks();

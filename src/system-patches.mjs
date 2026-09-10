@@ -1,4 +1,4 @@
-import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, safeDelete } from './helpers.mjs';
+import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, safeDelete, SIGHT_SAMPLES, sightOriginPoints } from './helpers.mjs';
 import { applyGrab, runGrab, endGrab, openGrabPanel } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
 import { DamageConditionsPanel, applyJudgedEffect, applyMarkedEffect } from './conditions/damage-conditions.mjs';
@@ -47,7 +47,81 @@ export function registerSystemPatches() {
   _patchAppliedEffect();
   _patchDamageRollButton();
   _patchToggleStatusEffect();
+  _patchVisionTestPoints();
+  _patchVisionOrigins();
   _registerButtonHooks();
+}
+
+
+function _patchVisionOrigins() {
+  libWrapper.register(
+    M,
+    'foundry.canvas.perception.DetectionMode.prototype._testLOS',
+    function(wrapped, visionSource, mode, target, test) {
+      if (wrapped(visionSource, mode, target, test)) return true;
+      if (!getSetting('trueDrawSteelLos')) return false;
+      
+      if (!this.walls) return false;
+
+      const tok = visionSource.object;
+      if (!tok?.document) return false;
+      const backend = CONFIG.Canvas?.polygonBackends?.sight;
+      if (!backend?.testCollision) return false;
+
+      const dest = test.point;
+      const elevation = visionSource.origin?.elevation;
+      
+      for (const o of sightOriginPoints(tok).slice(1)) {
+        const origin = { x: o.x, y: o.y, elevation };
+        if (!backend.testCollision(origin, dest, { type: 'sight', mode: 'any', source: visionSource })) return true;
+      }
+      return false;
+    },
+    'MIXED',
+  );
+}
+
+
+function _patchVisionTestPoints() {
+  libWrapper.register(
+    M,
+    'CONFIG.Token.documentClass.prototype.getVisibilityTestPoints',
+    function(wrapped, data = {}) {
+      if (!getSetting('trueDrawSteelLos')) return wrapped(data);
+
+      const grid = this.parent?.grid ?? canvas?.grid;
+      
+      if (!grid || grid.isHexagonal || grid.isGridless) return wrapped(data);
+
+      const size = this.getSize(data);
+      if (!size?.width || !size?.height) return wrapped(data);
+
+      const x = data.x ?? this.x;
+      const y = data.y ?? this.y;
+      
+      
+      const cols  = Math.max(1, Math.round(size.width  / grid.sizeX));
+      const rows  = Math.max(1, Math.round(size.height / grid.sizeY));
+      const stepX = size.width  / cols;
+      const stepY = size.height / rows;
+
+      const points = [];
+      for (let cx = 0; cx < cols; cx++) {
+        for (let cy = 0; cy < rows; cy++) {
+          for (const [fx, fy] of SIGHT_SAMPLES) {
+            points.push({ x: x + (cx + fx) * stepX, y: y + (cy + fy) * stepY });
+          }
+        }
+      }
+
+      
+      this._constrainTestPoints(points, data);
+      const elevation = this.getMovementOrigin(data).elevation;
+      for (const p of points) p.elevation = elevation;
+      return points.length ? points : wrapped(data);
+    },
+    'MIXED',
+  );
 }
 
 function _extendFMProperties() {
