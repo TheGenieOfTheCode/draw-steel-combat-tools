@@ -1,6 +1,9 @@
-import { safeCreateEmbedded, safeDelete, getItemDsid, getSetting, normalizeCollection, getModuleApi } from '../helpers.mjs';
+import { safeCreateEmbedded, safeDelete, getItemDsid, getSetting, normalizeCollection, getModuleApi, getActingActor } from '../helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
+
+
+const hasJudgementItem = (a) => a.items.some(i => getItemDsid(i) === 'judgement');
 
 const AID_ATTACK_EFFECT = {
   name: 'Aid Attack (Target)',
@@ -33,18 +36,18 @@ const removeMarkAbilityMarks = async () => {
   }
 };
 
-export const applyJudgement = async () => {
+
+export const applyJudgement = async ({ sourceActorId = null } = {}) => {
   const targets = [...game.user.targets];
   if (targets.length !== 1) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tactical.judgeOneTarget')); return; }
   const targetToken = targets[0];
 
   await removeExistingJudgement();
 
-  const censorActor = game.user.character
-    ?? canvas.tokens.controlled[0]?.actor
-    ?? canvas.tokens.placeables.find(t => t.isOwner && !t.actor?.isToken)?.actor;
+  const named = sourceActorId ? game.actors.get(sourceActorId) : null;
+  const censorActor = named ?? getActingActor(hasJudgementItem) ?? getActingActor();
 
-  if (!censorActor || !censorActor.items.some(i => getItemDsid(i) === 'judgement')) {
+  if (!censorActor || !hasJudgementItem(censorActor)) {
     ui.notifications.warn(game.i18n.localize('DSCT.notice.tactical.judgeRequiresAbility'));
     return;
   }
@@ -67,7 +70,8 @@ export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'othe
   if (!targets.length) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tactical.markOneTarget')); return; }
 
   const resolvedActor = (sourceActorId ? game.actors.get(sourceActorId) : null)
-                      ?? canvas.tokens.controlled[0]?.actor;
+                      ?? getActingActor(a => a.items.some(i => getItemDsid(i) === dsid))
+                      ?? getActingActor();
   const resolvedActorId = resolvedActor?.id ?? null;
 
   let effectiveMax = maxTargets;
@@ -145,10 +149,18 @@ const triggerProc = async (actor, effect) => {
   const isMark = !!effect.getFlag(M, 'mark');
 
   if (isJudgement) {
-    const userId = effect.getFlag(M, 'judgement')?.userId;
+    const judgeFlag = effect.getFlag(M, 'judgement') ?? {};
+    
+    
+    
+    const censor = judgeFlag.actorId ? game.actors.get(judgeFlag.actorId) : null;
     await ChatMessage.create({
-      content: game.i18n.format('DSCT.chat.tactical.judgementFallen', { name: actor.name }),
-      flags: { [M]: { judgementFallen: { userId } } },
+      content: censor
+        ? game.i18n.format('DSCT.chat.tactical.judgementFallenBy', { name: actor.name, censor: censor.name })
+        : game.i18n.format('DSCT.chat.tactical.judgementFallen', { name: actor.name }),
+      
+      
+      flags: { [M]: { judgementFallen: { userId: judgeFlag.userId, actorId: judgeFlag.actorId ?? null } } },
     });
   } else if (isMark) {
     const markFlag    = effect.flags?.[M]?.mark ?? {};
@@ -254,10 +266,11 @@ export const registerTacticalHooks = () => {
     if (!shouldTrigger(key)) return;
 
     const censorActorId = judgeEffect.getFlag(M, 'judgement')?.actorId;
+    
+    
     const censorActor = (censorActorId ? game.actors.get(censorActorId) : null)
-      ?? game.user.character
-      ?? canvas.tokens.placeables.find(t => t.isOwner && !t.actor?.isToken)?.actor
-      ?? canvas.tokens.placeables.find(t => t.isOwner)?.actor;
+      ?? getActingActor(hasJudgementItem)
+      ?? getActingActor();
     if (debug) console.log(`DSCT | JudgementTriggers | censorActorId=${censorActorId} censorActor=${censorActor?.name ?? 'NOT FOUND'}`);
     if (!censorActor) return;
 

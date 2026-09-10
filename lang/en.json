@@ -1390,6 +1390,7 @@
         "judged": "<strong>Judgement:</strong> {name} is judged.",
         "marked": "<strong>Mark:</strong> {names} {verb} marked.",
         "judgementFallen": "<strong>{name} has fallen!</strong> You may use a free triggered action to apply Judgement to a new target.",
+        "judgementFallenBy": "<strong>{name} has fallen!</strong> {censor} may use a free triggered action to apply Judgement to a new target.",
         "judgementBaneReminder": "<strong>Judgement:</strong> {name} is making a power roll. Spend 1 heroic resource to impose a bane.",
         "judgementBaneImposed": "Bane imposed.",
         "judgementBaneCanceled": "Ability Canceled: Cost Refunded",

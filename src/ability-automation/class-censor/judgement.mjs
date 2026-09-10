@@ -4,6 +4,11 @@ import { applyTaunted } from '../../conditions/conditions.mjs';
 
 const M = 'draw-steel-combat-tools';
 
+const _speakerActor = (msg) => {
+  const tokenDoc = msg.speaker?.token ? canvas?.tokens?.get(msg.speaker.token)?.document : null;
+  return tokenDoc?.actor ?? (msg.speaker?.actor ? game.actors.get(msg.speaker.actor) : null) ?? null;
+};
+
 export const registerJudgementHooks = () => {
   Hooks.on('renderChatMessageHTML', (msg, el) => {
     let _ba = null;
@@ -26,7 +31,10 @@ export const registerJudgementHooks = () => {
       btn.className = 'dsct-judgement-btn';
       btn.innerHTML = '<i class="fa-solid fa-skull-crossbones"></i> Apply Judgement';
       btn.style.cssText = 'cursor:pointer;';
-      btn.addEventListener('click', (e) => { e.preventDefault(); getModuleApi(false)?.judgement(); });
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        getModuleApi(false)?.judgement({ sourceActorId: _speakerActor(msg)?.id ?? null });
+      });
       btnArea().appendChild(btn);
     }
 
@@ -38,7 +46,10 @@ export const registerJudgementHooks = () => {
         btn.className = 'dsct-judgement-btn';
         btn.innerHTML = '<i class="fa-solid fa-skull-crossbones"></i> Apply Judgement';
         btn.style.cssText = 'cursor:pointer;';
-        btn.addEventListener('click', (e) => { e.preventDefault(); getModuleApi(false)?.judgement(); });
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          getModuleApi(false)?.judgement({ sourceActorId: fallenFlag.actorId ?? null });
+        });
         btnArea().appendChild(btn);
       }
     }

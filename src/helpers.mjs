@@ -881,6 +881,23 @@ export const getWindowById = (id) =>
   ?? Object.values(ui.windows).find(w => w.id === id)
   ?? null;
 
+
+export const getActingActor = (predicate = null) => {
+  const placeables = canvas?.tokens?.placeables ?? [];
+  const candidates = [
+    ...(canvas?.tokens?.controlled ?? []).map(t => t.actor).filter(a => a?.isOwner),
+    game.user.character,
+    
+    
+    ...(game.user.isGM ? [] : [
+      ...placeables.filter(t => t.actor?.isOwner && !t.actor?.isToken).map(t => t.actor),
+      ...placeables.filter(t => t.actor?.isOwner).map(t => t.actor),
+    ]),
+  ].filter(Boolean);
+  if (predicate) return candidates.find(predicate) ?? null;
+  return candidates[0] ?? null;
+};
+
 export const getModuleApi = (warn = true) => {
   const api = game.modules.get('draw-steel-combat-tools')?.api ?? null;
   if (!api && warn) ui.notifications.error(game.i18n.localize('DSCT.notice.notActive'));
