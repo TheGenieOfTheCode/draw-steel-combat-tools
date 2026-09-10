@@ -9,6 +9,7 @@ import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { _addDamagedToken, reviveTokens } from '../death-tracker/death-tracker.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
+import { filterChooseDstdRows, chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
 const DSTD       = 'draw-steel-target-damage';
@@ -208,7 +209,9 @@ export function registerDstdCompat() {
 
     const ability = fromUuidSync(abilityUuid);
     if (!ability) return;
-    const effectsList = Array.from(ability.system?.effects?.contents ?? []);
+    const _keeps = chooseMessageFilter(message, ability);
+    const effectsList = Array.from(ability.system?.effects?.contents ?? [])
+      .filter(e => !_keeps || _keeps(e));
     const hasFlatEffects = getSetting('flatEffectsEnabled')
       && effectsList.some(e => ['dsct.flatDamage', 'dsct.flatForced', 'dsct.flatApplied', 'dsct.flatHeal', 'dsct.flatCleanse'].includes(e.type));
     if (!hasFlatEffects) return;
@@ -944,6 +947,7 @@ async function _injectFmButtons(message, root) {
     _installAreaDamageHook(panel, message);
     _installUndoDeathHook(root);
     _installSquadHoverListeners(panel, message);
+    filterChooseDstdRows(message, panel);
 
     const defeatedStatus = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
     for (const deadRow of panel.querySelectorAll(DSTD_ROW)) {
@@ -976,7 +980,13 @@ async function _injectFmButtons(message, root) {
   if (!ability) return;
 
   const _flatOn = getSetting('flatEffectsEnabled');
-  const _flatOfType = (type) => _flatOn ? Array.from(ability.system?.effects?.contents ?? []).filter(e => e.type === type) : [];
+  
+  const _chooseKeeps = chooseMessageFilter(message, ability);
+  const _flatOfType = (type) => _flatOn
+    ? Array.from(ability.system?.effects?.contents ?? [])
+      .filter(e => e.type === type)
+      .filter(e => !_chooseKeeps || _chooseKeeps(e))
+    : [];
   const flatDamageEffects   = _flatOfType('dsct.flatDamage');
   const flatForcedEffects   = _flatOfType('dsct.flatForced');
   const flatAppliedEffects  = _flatOfType('dsct.flatApplied');
@@ -1061,9 +1071,11 @@ async function _injectFmButtons(message, root) {
   if (!tier && !doMark && !doJudgement && !descEnrichers.length && !doSquad && !doFlatEffects) return;
 
   const fmEffects = tier ? Array.from(ability.system?.power?.effects ?? [])
-    .filter(e => e.forced && typeof e.forced === 'object') : [];
+    .filter(e => e.forced && typeof e.forced === 'object')
+    .filter(e => !_chooseKeeps || _chooseKeeps(e)) : [];
   const appliedEffects = tier ? Array.from(ability.system?.power?.effects ?? [])
-    .filter(e => e.applied && typeof e.applied === 'object') : [];
+    .filter(e => e.applied && typeof e.applied === 'object')
+    .filter(e => !_chooseKeeps || _chooseKeeps(e)) : [];
 
   const dstdState       = message.flags?.[DSTD]?.state;
   const sourceTokenUuid = dstdState?.sourceTokenUuid;

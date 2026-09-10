@@ -1,4 +1,5 @@
 import { applyDamage, getSetting, getModuleApi } from '../helpers.mjs';
+import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 import { executeTeleport, executeTeleswap } from '../teleport.mjs';
 import { runSourcePicker } from './target-picker.mjs';
@@ -1148,7 +1149,12 @@ function _installFlatEffectChatHook() {
     const item = fromUuidSync(part.abilityUuid);
     if (!item?.system?.effects) return;
 
-    const flatEffects = item.system.effects.contents.filter(e => FLAT_TYPES.has(e.type));
+    
+    
+    const chooseKeeps = chooseMessageFilter(message, item);
+    const flatEffects = item.system.effects.contents
+      .filter(e => FLAT_TYPES.has(e.type))
+      .filter(e => !chooseKeeps || chooseKeeps(e));
     if (!flatEffects.length) return;
 
     const partSection = html.querySelector(`section[data-message-part="${ABILITY_PART_ID}"]`);
@@ -1359,8 +1365,10 @@ function _installFlatTypeSelection() {
   Hooks.on('renderAbilityConfigurationDialog', (app) => {
     if (!getSetting('flatEffectsEnabled')) return;
     const ability = app.options?.ability;
+    const keeps = chooseMessageFilter(null, ability);
     const multi = Array.from(ability?.system?.effects?.contents ?? [])
-      .filter(e => e.type === 'dsct.flatDamage' && e.flatDamage.types.size > 1);
+      .filter(e => e.type === 'dsct.flatDamage' && e.flatDamage.types.size > 1)
+      .filter(e => !keeps || keeps(e));
     if (!multi.length) return;
     const form = app.element?.querySelector('form') ?? app.element;
     if (!form || form.querySelector('.dsct-flat-type-group')) return;

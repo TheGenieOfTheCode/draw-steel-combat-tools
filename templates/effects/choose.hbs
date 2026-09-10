@@ -1,0 +1,60 @@
+<div class="dsct-choose">
+
+  {{#if ctx.hasDuplicates}}
+  <p class="dsct-choose-warning">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    {{localize "DSCT.choose.duplicateWarning" names=ctx.duplicateNames}}
+  </p>
+  {{/if}}
+
+  {{#each ctx.choices as |choice|}}
+  <fieldset class="dsct-choice">
+    <legend>
+      {{#if choice.src.name}}{{choice.src.name}}{{else}}{{localize "DSCT.choose.unnamed" n=choice.number}}{{/if}}
+      <a class="dsct-choice-remove" data-action="dsctRemoveChoice" data-index="{{choice.index}}"
+         data-tooltip="DSCT.choose.remove"><i class="fa-solid fa-trash"></i></a>
+    </legend>
+
+    {{formGroup ../ctx.fields.name value=choice.src.name name=(concat choice.prefix ".name") label="DSCT.choose.name.label" hint="DSCT.choose.name.hint" localize=true}}
+    {{formGroup ../ctx.fields.story value=choice.src.story name=(concat choice.prefix ".story") label=../ctx.labels.story}}
+    {{formGroup ../ctx.fields.keywords value=choice.src.keywords name=(concat choice.prefix ".keywords") options=../ctx.keywordOptions label=../ctx.labels.keywords}}
+
+    <fieldset>
+      <legend>{{../ctx.labels.distanceLegend}}</legend>
+      {{formGroup ../ctx.fields.distance.fields.type value=choice.src.distance.type name=(concat choice.prefix ".distance.type") options=../ctx.distanceTypes label=../ctx.labels.distanceType}}
+      {{#if choice.primaryDistance}}
+      {{formGroup ../ctx.fields.distance.fields.primary value=choice.src.distance.primary name=(concat choice.prefix ".distance.primary") label=choice.primaryDistance}}
+      {{/if}}
+      {{#if choice.secondaryDistance}}
+      {{formGroup ../ctx.fields.distance.fields.secondary value=choice.src.distance.secondary name=(concat choice.prefix ".distance.secondary") label=choice.secondaryDistance}}
+      {{/if}}
+      {{#if choice.tertiaryDistance}}
+      {{formGroup ../ctx.fields.distance.fields.tertiary value=choice.src.distance.tertiary name=(concat choice.prefix ".distance.tertiary") label=choice.tertiaryDistance}}
+      {{/if}}
+    </fieldset>
+
+    <fieldset>
+      <legend>{{../ctx.labels.targetLegend}}</legend>
+      {{formGroup ../ctx.fields.target.fields.type value=choice.src.target.type name=(concat choice.prefix ".target.type") options=../ctx.targetTypes label=../ctx.labels.targetType}}
+      {{formGroup ../ctx.fields.target.fields.custom value=choice.src.target.custom name=(concat choice.prefix ".target.custom") label=../ctx.labels.targetCustom}}
+      {{#if choice.showTargetValue}}
+      {{formGroup ../ctx.fields.target.fields.value value=choice.src.target.value name=(concat choice.prefix ".target.value") label=../ctx.labels.targetValue}}
+      {{/if}}
+    </fieldset>
+
+    {{#if ../ctx.hasEffects}}
+    {{formGroup ../ctx.fields.effects value=choice.src.effects name=(concat choice.prefix ".effects") options=../ctx.effectOptions label="DSCT.choose.effects.label" hint="DSCT.choose.effects.hint" localize=true}}
+    {{else}}
+    <p class="dsct-choose-empty">{{localize "DSCT.choose.noEffects"}}</p>
+    {{/if}}
+  </fieldset>
+  {{/each}}
+
+  {{#unless ctx.choices.length}}
+  <p class="dsct-choose-empty">{{localize "DSCT.choose.noChoices"}}</p>
+  {{/unless}}
+
+  <button type="button" class="dsct-choose-add" data-action="dsctAddChoice">
+    <i class="fa-solid fa-plus"></i> {{localize "DSCT.choose.add"}}
+  </button>
+</div>

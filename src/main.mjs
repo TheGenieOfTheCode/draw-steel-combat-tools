@@ -41,6 +41,7 @@ import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mj
 import { registerAbilityHudCompat } from './compat/ability-hud-compat.mjs';
 import { registerCombatLogHooks } from './combat-logs.mjs';
 import { registerFlatEffects } from './ability-automation/flat-special-effects.mjs';
+import { registerChooseEffect } from './ability-automation/choose-effect.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
 
 const api = {
@@ -146,6 +147,7 @@ Hooks.once('init', () => {
   registerSquadTargetingHooks();
   registerMaliceInjectors();
   registerFlatEffects();
+  registerChooseEffect();
   registerDstdCompat();
   registerDstdRollPills();
   registerDstdDamagePills();

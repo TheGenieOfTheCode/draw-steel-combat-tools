@@ -1,4 +1,5 @@
 import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, safeDelete, SIGHT_SAMPLES, sightOriginPoints } from './helpers.mjs';
+import { chooseMessageFilter } from './ability-automation/choose-effect.mjs';
 import { applyGrab, runGrab, endGrab, openGrabPanel } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
 import { DamageConditionsPanel, applyJudgedEffect, applyMarkedEffect } from './conditions/damage-conditions.mjs';
@@ -595,8 +596,18 @@ function _registerButtonHooks() {
     }
 
     if (getSetting('teleportEnabled') && !root.querySelector('.dsct-tp-ability-btn')) {
-      const hasPart = normalizeCollection(_msg.system?.parts).some(p => p.type === 'abilityUse');
-      if (hasPart && root.querySelector('.message-part-html')?.textContent?.toLowerCase().includes('teleport')) {
+      const _abilityPart = normalizeCollection(_msg.system?.parts).find(p => p.type === 'abilityUse');
+      const _tpItem = _abilityPart?.abilityUuid ? fromUuidSync(_abilityPart.abilityUuid) : null;
+
+      
+      
+      
+      const _tpKeeps = _tpItem ? chooseMessageFilter(_msg, _tpItem) : null;
+      const _hasFlatTeleport = Array.from(_tpItem?.system?.effects?.contents ?? [])
+        .filter(e => e.type === 'dsct.flatTeleport')
+        .some(e => !_tpKeeps || _tpKeeps(e));
+
+      if (_abilityPart && !_hasFlatTeleport && root.querySelector('.message-part-html')?.textContent?.toLowerCase().includes('teleport')) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'dsct-tp-ability-btn';

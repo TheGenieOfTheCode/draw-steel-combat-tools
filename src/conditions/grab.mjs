@@ -1,5 +1,6 @@
 import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
+import { checkAndRunChoose, clearChoicePicks } from '../ability-automation/choose-effect.mjs';
 import { checkAndRunTargetPicker } from '../ability-automation/target-picker.mjs';
 import { toggleDamageConditionsPanel } from './damage-conditions.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
@@ -679,10 +680,14 @@ export function registerKnockbackGuard() {
   Hooks.on('closeAbilityConfigurationDialog', (app) => {
     const uuid = app.options?.ability?.uuid;
     if (uuid) _mrChosen.delete(uuid);
+    if (uuid) clearChoicePicks(uuid);
   });
 
   Hooks.on('ds.canRenderAbilityConfigurationDialog', (app) => {
     if (getSetting('conditionsEnabled') && _isKnockbackGrabbed(app)) return false;
+    
+    
+    if (getSetting('abilityAutomationEnabled') && checkAndRunChoose(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && _checkMeleeRangedChoice(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && _checkAbilityRange(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && checkAndRunSquadTargeting(app) === 'block') return false;

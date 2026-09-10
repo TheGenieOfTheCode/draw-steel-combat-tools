@@ -1,4 +1,5 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
+import { chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
 
 const M    = 'draw-steel-combat-tools';
 const DSTD = 'draw-steel-target-damage';
@@ -514,9 +515,11 @@ async function _siblingDamageOps(message, target) {
   }
   const abilityUuid = parts.find((p) => p.type === 'abilityUse')?.abilityUuid;
   const ability = abilityUuid ? await fromUuid(abilityUuid).catch(() => null) : null;
+  const chooseKeeps = chooseMessageFilter(message, ability);
   let dmgIndex = 0;
   for (const powerEffect of ability?.system?.power?.effects ?? []) {
     if (powerEffect.type !== 'damage') continue;
+    if (chooseKeeps && !chooseKeeps(powerEffect)) continue;
     const effKey = powerEffect.id ?? powerEffect._id ?? `damage-${dmgIndex}`;
     for (const tier of [1, 2, 3]) {
       const tierData = powerEffect.damage?.[`tier${tier}`];
@@ -541,6 +544,7 @@ async function _siblingDamageOps(message, target) {
     const targetHash = _dsctHashKey(String(target?.tokenUuid ?? '').replace(/\./g, '__'));
     for (const eff of Array.from(ability?.system?.effects?.contents ?? [])) {
       if (eff.type !== 'dsct.flatDamage') continue;
+      if (chooseKeeps && !chooseKeeps(eff)) continue;
       let amount = NaN;
       try {
         amount = Number(globalThis.ds?.utils?.simplifyRollFormula?.(String(eff.flatDamage.value ?? '0'), ability.getRollData?.() ?? {}));

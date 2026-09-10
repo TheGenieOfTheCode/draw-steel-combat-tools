@@ -2352,3 +2352,43 @@ body.detached .chat-form {
   border-style: dashed;
   font-weight: normal;
 }
+
+
+.dsct-choose { display: flex; flex-direction: column; gap: 8px; }
+
+.dsct-choose .dsct-choice { border-radius: 6px; padding: 6px 8px 8px; }
+
+.dsct-choose .dsct-choice > legend { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+
+.dsct-choose .dsct-choice-remove { cursor: pointer; opacity: 0.6; }
+.dsct-choose .dsct-choice-remove:hover { opacity: 1; }
+
+.dsct-choose-warning { display: flex; align-items: baseline; gap: 6px; font-size: var(--font-size-12); }
+
+.dsct-choose-empty { font-size: var(--font-size-12); opacity: 0.75; margin: 0; }
+
+.dsct-choose-add { align-self: flex-start; }
+
+
+.dsct-choose-sheet .window-content {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.dsct-choose-sheet .dsct-choose { padding-bottom: 4px; }
+
+
+.dsct-choose-prompt .dsct-choose-list {
+  margin: 0 0 4px;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dsct-choose-prompt .dsct-choose-story { opacity: 0.85; font-style: italic; }
+
+.dsct-choose-prompt .form-footer { flex-wrap: wrap; }
+
+
+.dsct-choose-hidden { display: none !important; }
