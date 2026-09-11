@@ -571,6 +571,10 @@
         "name": "High Ground Edge",
         "hint": "Shows a High Ground edge modifier in the roll dialog when the attacker is standing on terrain at a higher elevation than the target."
       },
+      "coverBaneEnabled": {
+        "name": "Cover Bane",
+        "hint": "Shows a Cover bane in the roll dialog for damage dealing abilities when the target has at least half their form blocked from you, meaning no corner of your space can see more than two corners of theirs. Like every modifier, it can be toggled off."
+      },
       "enforceAbilityRange": {
         "name": "Enforce Ability Range",
         "hint": "Prevents Ability Roll UI from opening if target is out of range."

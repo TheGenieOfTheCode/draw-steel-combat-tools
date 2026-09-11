@@ -153,24 +153,82 @@ export const sightOriginPoints = (token) => {
 };
 
 
+
+const _sightEnds = (fromToken, token) => {
+  const trueLoE = getSetting('trueDrawSteelLos');
+
+  
+  const seen = new Set();
+  const origins = sightOriginPoints(fromToken).filter((p, i) => {
+    if (trueLoE && i === 0) return false;
+    const key = `${Math.round(p.x)},${Math.round(p.y)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const targets = sightSamplePoints(token).filter(p => !trueLoE || p.sample !== 0);
+  return { origins, targets };
+};
+
 export const hasSightToToken = (fromToken, token) => {
   if (!fromToken || !token) return false;
-  const origins = sightOriginPoints(fromToken);
-  for (const p of sightSamplePoints(token)) {
-    if (!segmentBlocksSight(origins[p.sample], p)) return true;
+  const { origins, targets } = _sightEnds(fromToken, token);
+
+  
+  for (const p of targets) {
+    for (const origin of origins) {
+      if (!segmentBlocksSight(origin, p)) return true;
+    }
   }
   return false;
 };
 
 
+
+const _spaceCorners = (token) => {
+  const GS = canvas.grid.size;
+  const w  = Math.max(1, Math.round(token.document.width))  * GS;
+  const h  = Math.max(1, Math.round(token.document.height)) * GS;
+  return SIGHT_SAMPLES.slice(1).map(([fx, fy]) => ({ x: token.x + fx * w, y: token.y + fy * h }));
+};
+
+
+export const visibleTargetCorners = (fromToken, token) => {
+  if (!fromToken || !token) return 0;
+
+  const origins = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [fromToken.center];
+  const corners = _spaceCorners(token);
+
+  let best = 0;
+  for (const origin of origins) {
+    let seen = 0;
+    for (const corner of corners) if (!segmentBlocksSight(origin, corner)) seen++;
+    if (seen > best) best = seen;
+  }
+  return best;
+};
+
+
+export const hasCover = (fromToken, token) => {
+  const seen = visibleTargetCorners(fromToken, token);
+  return seen >= 1 && seen <= 2;
+};
+
 export const sightLinesToToken = (fromToken, token) => {
   if (!fromToken || !token) return [];
-  const origins = sightOriginPoints(fromToken);
-  return sightSamplePoints(token).map(p => {
-    const from = origins[p.sample];
-    const to   = { x: p.x, y: p.y };
-    const hit  = sightBlockPoint(from, to);
-    return { from, to, cell: p.cell, sample: p.sample, blocked: !!hit, hit };
+  const { origins, targets } = _sightEnds(fromToken, token);
+  if (!origins.length) return [];
+
+  return targets.map(p => {
+    const to = { x: p.x, y: p.y };
+    let blocked = null;
+    for (const from of origins) {
+      const hit = sightBlockPoint(from, to);
+      if (!hit) return { from, to, cell: p.cell, sample: p.sample, blocked: false, hit: null };
+      blocked ??= { from, to, cell: p.cell, sample: p.sample, blocked: true, hit };
+    }
+    return blocked;
   });
 };
 

@@ -167,9 +167,7 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
   }
 }
 
-
 const header = (label) => ({ isSectionHeader: true, label });
-
 
 Handlebars.registerPartial('dsctDepBadges', `
 {{#each deps}}
@@ -656,7 +654,6 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       syncImNoThreat();
     }
 
-
     const homebrewOn     = game.settings.get(M, 'homebrewOptions');
     const crossfadeGroup = this.element.querySelector('[name="crossfadeEnabled"]')?.closest('.form-group');
     if (crossfadeGroup && !homebrewOn) crossfadeGroup.style.display = 'none';
@@ -738,6 +735,7 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
     if (debugMode || isActive('ds-terrain-designer')) {
       keys.push(header('DS Terrain Designer'));
       keys.push('highGroundEnabled');
+      keys.push('coverBaneEnabled');
       keys.push('collisionOnUnitStep');
       keys.push(compatInfo('ds-terrain-designer', 'DSCT.compat.dsTerrain.name', 'DSCT.compat.dsTerrain.hint'));
     }

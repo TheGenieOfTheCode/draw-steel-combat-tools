@@ -686,6 +686,10 @@ export const registerSettings = () => {
     name: L('highGroundEnabled.name'), hint: L('highGroundEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'coverBaneEnabled', {
+    name: L('coverBaneEnabled.name'), hint: L('coverBaneEnabled.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'enforceAbilityRange', {
     name: L('enforceAbilityRange.name'), hint: L('enforceAbilityRange.hint'),
     scope: 'world', config: false, type: Boolean, default: false,

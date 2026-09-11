@@ -1,4 +1,4 @@
-import { getSetting, getItemDsid } from '../helpers.mjs';
+import { getSetting, getItemDsid, hasCover } from '../helpers.mjs';
 import { getFrightenedData, getTauntedData, sightBlockedBetweenTokens } from '../conditions/conditions.mjs';
 import { sizeRankG } from '../conditions/grab.mjs';
 import { getStrikeType, isCrossfadeStrike, getCrossfadeEdgeForAbility } from './class-shadow/crossfade.mjs';
@@ -259,8 +259,23 @@ function _buildTargetPills(app, tokenId) {
     pills.push(p);
   }
 
+  
+  
+  if (getSetting('coverBaneEnabled') && casterToken && _dealsDamage(ability)) {
+    const p = pill(mkId(`cov-${tokenId}`), 'bane', 1, 'Cover', null, tokenId, false);
+    p.enabled = hasCover(casterToken, targetToken);
+    pills.push(p);
+  }
+
   return pills;
 }
+
+const _dealsDamage = (ability) => {
+  for (const effect of ability?.system?.power?.effects ?? []) {
+    if (effect?.type === 'damage') return true;
+  }
+  return false;
+};
 
 function _buildModifierSources(app) {
   const ability = app.options.ability;
