@@ -166,7 +166,9 @@ function _cleanupMarkerWrapper(token, { keepNative = false } = {}) {
       _glowTicker = null;
     }
   }
-  if (token._dsctMarkerWrapper || _markerWrappers.has(token.id)) {
+  
+  
+  if (!_isPreview(token) && (token._dsctMarkerWrapper || _markerWrappers.has(token.id))) {
     _mdbg('cleanup', token.name, 'expando=', !!token._dsctMarkerWrapper, 'map=', _markerWrappers.has(token.id));
     _destroyMarkerWrapper(token.id, token._dsctMarkerWrapper);
     token._dsctMarkerWrapper = null;
@@ -459,7 +461,6 @@ export function registerSquadTurnHooks() {
 
   if (typeof libWrapper !== 'undefined') {
     libWrapper.register('draw-steel-combat-tools', 'Token.prototype._refreshTurnMarker', function(wrapped, ...args) {
-      if (_isPreview(this)) return wrapped(...args);
       
       
       _purgeDeadTurnMarkers();
@@ -505,6 +506,21 @@ export function registerSquadTurnHooks() {
           )?.token?.object;
           const TurnMarkerCtor = _resolveTurnMarkerCtor(activeCombatantToken);
           if (!TurnMarkerCtor) _mdbg('no TurnMarker class for', this.name);
+
+          if (TurnMarkerCtor && _isPreview(this)) {
+            
+            
+            if (!this.turnMarker) {
+              const marker = new TurnMarkerCtor(this);
+              this.addChildAt(marker, 0);
+              this.turnMarker = marker;
+              marker.draw();
+              _mdbg('preview ring for', this.name);
+            }
+            canvas.tokens.turnMarkers?.add(this);
+            return;
+          }
+
           if (TurnMarkerCtor) {
             if (!this.turnMarker) {
               
