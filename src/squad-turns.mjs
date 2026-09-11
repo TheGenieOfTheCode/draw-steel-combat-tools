@@ -112,7 +112,50 @@ function refreshSquadMarkers(group, primaryToken) {
   }
 }
 
-function _cleanupMarkerWrapper(token) {
+const _markerWrappers = new Map();
+
+const _mdbg = (...a) => { if (getSetting('debugMode')) console.log('DSCT | marker |', ...a); };
+
+const _isPreview = (token) => !!token?.isPreview || !!token?._original;
+
+let _turnMarkerCtor = null;
+
+function _resolveTurnMarkerCtor(fallbackToken) {
+  _turnMarkerCtor ??= foundry.canvas?.placeables?.tokens?.TokenTurnMarker
+    ?? globalThis.TokenTurnMarker
+    ?? game.combat?.combatant?.token?.object?.turnMarker?.constructor
+    ?? fallbackToken?.turnMarker?.constructor
+    ?? [...(canvas.tokens?.turnMarkers ?? [])].map(t => t.turnMarker).find(Boolean)?.constructor
+    ?? null;
+  return _turnMarkerCtor;
+}
+
+function _pixiAlive(obj) {
+  return !!obj && obj.destroyed !== true && !!obj.transform;
+}
+
+function _destroyMarkerWrapper(tokenId, also = null) {
+  for (const wrapper of new Set([_markerWrappers.get(tokenId), also].filter(Boolean))) {
+    try { canvas.tokens?.removeChild(wrapper); } catch {  }
+    try { if (wrapper.destroyed !== true) wrapper.destroy({ children: true }); } catch {  }
+  }
+  _markerWrappers.delete(tokenId);
+  _purgeDeadTurnMarkers();
+}
+
+function _purgeDeadTurnMarkers() {
+  const markers = canvas.tokens?.turnMarkers;
+  if (!markers) return;
+  for (const token of [...markers]) {
+    if (!token || _pixiAlive(token.turnMarker)) continue;
+    _mdbg('purge drops', token.name, 'marker=', token.turnMarker === null ? 'null' : 'dead',
+      'destroyed=', token.turnMarker?.destroyed, 'transform=', !!token.turnMarker?.transform);
+    markers.delete(token);
+    try { token.turnMarker = null; } catch {  }
+  }
+}
+
+function _cleanupMarkerWrapper(token, { keepNative = false } = {}) {
   if (token._dsctGlowGraphic) {
     _glowTargets.delete(token._dsctGlowGraphic);
     token.removeChild?.(token._dsctGlowGraphic);
@@ -123,13 +166,13 @@ function _cleanupMarkerWrapper(token) {
       _glowTicker = null;
     }
   }
-  if (token._dsctMarkerWrapper) {
-    canvas.tokens?.removeChild(token._dsctMarkerWrapper);
-    token._dsctMarkerWrapper.destroy({ children: true });
+  if (token._dsctMarkerWrapper || _markerWrappers.has(token.id)) {
+    _mdbg('cleanup', token.name, 'expando=', !!token._dsctMarkerWrapper, 'map=', _markerWrappers.has(token.id));
+    _destroyMarkerWrapper(token.id, token._dsctMarkerWrapper);
     token._dsctMarkerWrapper = null;
     token.turnMarker = null;
     canvas.tokens?.turnMarkers?.delete(token);
-  } else if (token.turnMarker) {
+  } else if (token.turnMarker && !keepNative) {
     canvas.tokens?.turnMarkers?.delete(token);
     try { token.turnMarker.destroy(); } catch {}
     token.turnMarker = null;
@@ -230,7 +273,20 @@ export function registerSquadTurnHooks() {
   });
   Hooks.on('combatStart', _patchCombatDock);
 
+  
+  
+  
+  
+  
+  Hooks.on('drawToken', (token) => {
+    if (_isPreview(token) || !_markerWrappers.has(token.id)) return;
+    _mdbg('redraw re-establishing marker for', token.name);
+    token._refreshTurnMarker?.();
+  });
+
   Hooks.on('canvasReady', () => {
+    
+    _markerWrappers.clear();
     if (!getSetting('squadGlowMarker') && !getSetting('squadSimultaneousTurns')) return;
     const activeCombatant = game.combat?.combatant;
     if (!activeCombatant) return;
@@ -383,17 +439,32 @@ export function registerSquadTurnHooks() {
   if (typeof libWrapper !== 'undefined') {
     libWrapper.register('draw-steel-combat-tools', 'Token.prototype._refreshPosition', function(wrapped, ...args) {
       wrapped(...args);
-      if (this._dsctMarkerWrapper) {
+      if (_isPreview(this)) return;
+      const wrapper = this._dsctMarkerWrapper ?? _markerWrappers.get(this.id);
+      if (_pixiAlive(wrapper)) {
         const { x, y } = this.document;
-        this._dsctMarkerWrapper.position.set(x, y);
+        wrapper.position.set(x, y);
+      } else if (wrapper) {
+        
+        
+        
+        
+        _mdbg('position let go', this.name, 'destroyed=', wrapper.destroyed,
+          'mapIsSame=', _markerWrappers.get(this.id) === wrapper);
+        if (this._dsctMarkerWrapper === wrapper) this._dsctMarkerWrapper = null;
+        if (_markerWrappers.get(this.id) === wrapper) _markerWrappers.delete(this.id);
       }
     }, 'WRAPPER');
   }
 
   if (typeof libWrapper !== 'undefined') {
     libWrapper.register('draw-steel-combat-tools', 'Token.prototype._refreshTurnMarker', function(wrapped, ...args) {
+      if (_isPreview(this)) return wrapped(...args);
+      
+      
+      _purgeDeadTurnMarkers();
       if (!game.combat) {
-        _cleanupMarkerWrapper(this);
+        _cleanupMarkerWrapper(this, { keepNative: true });
         return wrapped(...args);
       }
       const myCombatant    = game.combat?.combatants?.find(c => c.tokenId === this.id);
@@ -419,7 +490,7 @@ export function registerSquadTurnHooks() {
       const inSquadTurn = getSetting('squadSimultaneousTurns') && inActiveGroup;
       const inPairTurn  = getSetting('pairSimultaneousTurns') && inActivePair;
       if (!inSquadTurn && !inPairTurn) {
-        _cleanupMarkerWrapper(this);
+        _cleanupMarkerWrapper(this, { keepNative: true });
         return wrapped(...args);
       }
 
@@ -432,23 +503,30 @@ export function registerSquadTurnHooks() {
           const activeCombatantToken = game.combat?.combatants?.get(
             [...(game.combat?.groups?.get(activeGroupId)?.members ?? [])][0]?.id
           )?.token?.object;
-          const TurnMarkerCtor = globalThis.TokenTurnMarker
-            ?? game.combat?.combatant?.token?.object?.turnMarker?.constructor
-            ?? activeCombatantToken?.turnMarker?.constructor
-            ?? [...(canvas.tokens?.turnMarkers ?? [])].find(t => t.turnMarker)?.turnMarker?.constructor;
+          const TurnMarkerCtor = _resolveTurnMarkerCtor(activeCombatantToken);
+          if (!TurnMarkerCtor) _mdbg('no TurnMarker class for', this.name);
           if (TurnMarkerCtor) {
             if (!this.turnMarker) {
+              
+              
+              _mdbg('create for', this.name, 'hadWrapper=', !!this._dsctMarkerWrapper,
+                'mapHad=', _markerWrappers.has(this.id), 'inSet=', !!canvas.tokens?.turnMarkers?.has?.(this));
+              _destroyMarkerWrapper(this.id, this._dsctMarkerWrapper);
               const marker = new TurnMarkerCtor(this);
               const wrapper = new PIXI.Container();
               const { x, y } = this.document;
               wrapper.position.set(x, y);
               canvas.tokens.addChildAt(wrapper, 0);
               wrapper.addChild(marker);
+              _markerWrappers.set(this.id, wrapper);
               this._dsctMarkerWrapper = wrapper;
               this.turnMarker = marker;
+              
+              
+              
+              this.turnMarker.draw();
             }
             canvas.tokens.turnMarkers?.add(this);
-            this.turnMarker.draw();
             return;
           }
         } else if (this.turnMarker) {
@@ -457,7 +535,7 @@ export function registerSquadTurnHooks() {
         }
       }
 
-      _cleanupMarkerWrapper(this);
+      _cleanupMarkerWrapper(this, { keepNative: true });
       return wrapped(...args);
     }, 'MIXED');
   }
