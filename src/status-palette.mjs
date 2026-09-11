@@ -1,6 +1,8 @@
 
 
-const CORE = new Set(['dead', 'sleep', 'fly', 'burrow', 'blind', 'deaf', 'invisible']);
+const CORE = new Set(['dead', 'sleep', 'fly', 'blind', 'deaf']);
+
+const CLAIMED = new Set(['invisible', 'burrow']);
 
 const DEALER = new Set(['burning', 'jolted', 'dazzled', 'delayed', 'captivated', 'soul-imprisoned']);
 
@@ -13,7 +15,7 @@ const _statusIds = () => (Array.isArray(CONFIG.statusEffects)
   : Object.keys(CONFIG.statusEffects ?? {})).filter(Boolean);
 
 function _group(id) {
-  if (id.startsWith('dsct')) return 'dsct';
+  if (id.startsWith('dsct') || CLAIMED.has(id)) return 'dsct';
   if (CORE.has(id)) return 'core';
   if (DEALER.has(id) && game.modules.get('draw-steel-dealer')?.active) return 'dealer';
   if (_atInit?.has(id)) return 'system';

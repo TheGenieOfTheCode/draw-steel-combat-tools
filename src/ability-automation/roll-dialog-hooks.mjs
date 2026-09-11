@@ -1,5 +1,6 @@
-import { getSetting, getItemDsid, hasCover } from '../helpers.mjs';
-import { isHiddenFrom } from '../conditions/stealth.mjs';
+import { getSetting, getItemDsid } from '../helpers.mjs';
+import { isHiddenFrom, isConcealed, hasHiddenEcho } from '../conditions/stealth.mjs';
+import { isCompletelyBeneath, coverWithBurrow } from '../conditions/burrow.mjs';
 import { getFrightenedData, getTauntedData, sightBlockedBetweenTokens } from '../conditions/conditions.mjs';
 import { sizeRankG } from '../conditions/grab.mjs';
 import { getStrikeType, isCrossfadeStrike, getCrossfadeEdgeForAbility } from './class-shadow/crossfade.mjs';
@@ -25,6 +26,9 @@ function _pickFlankingAlly(casterToken, targetToken, allies) {
 }
 
 function _hasHighGround(casterToken, targetToken) {
+  
+  if (isCompletelyBeneath(targetToken)) return false;
+
   const casterElev = casterToken.document.elevation ?? 0;
   const targetElev = targetToken.document.elevation ?? 0;
   const targetSize = targetToken.actor?.system?.combat?.size?.value ?? 1;
@@ -261,13 +265,25 @@ function _buildTargetPills(app, tokenId) {
   
   
   
-  if (getSetting('stealthSystemEnabled') && casterToken && isHiddenFrom(casterToken, targetToken)) {
-    pills.push(pill(mkId(`hid-${tokenId}`), 'edge', 1, 'Hidden', null, tokenId, false));
+  if (getSetting('stealthSystemEnabled') && casterToken) {
+    const stillHidden = isHiddenFrom(casterToken, targetToken);
+    const lingering = !stillHidden && hasHiddenEcho(casterToken, targetToken);
+    if (stillHidden || lingering) {
+      pills.push(pill(mkId(`hid-${tokenId}`), 'edge', 1, lingering ? 'Was Hidden' : 'Hidden', null, tokenId, false));
+    }
   }
 
   if (getSetting('coverBaneEnabled') && casterToken && _dealsDamage(ability)) {
     const p = pill(mkId(`cov-${tokenId}`), 'bane', 1, 'Cover', null, tokenId, false);
-    p.enabled = hasCover(casterToken, targetToken);
+    p.enabled = coverWithBurrow(casterToken, targetToken);
+    pills.push(p);
+  }
+
+  
+  
+  if (getSetting('stealthSystemEnabled') && casterToken && abilityKeywords.has('strike')) {
+    const p = pill(mkId(`conc-${tokenId}`), 'bane', 1, 'Concealment', null, tokenId, false);
+    p.enabled = isConcealed(targetToken);
     pills.push(p);
   }
 

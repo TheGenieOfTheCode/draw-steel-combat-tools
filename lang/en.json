@@ -1685,7 +1685,8 @@
     "status": {
       "hidden": "Hidden",
       "concealedMagical": "Magical Concealment",
-      "concealedMundane": "Mundane Concealment"
+      "concealedMundane": "Mundane Concealment",
+      "wasHidden": "Was Hidden"
     },
     "statusGroup": {
       "system": "Draw Steel",

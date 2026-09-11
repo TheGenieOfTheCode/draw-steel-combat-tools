@@ -159,8 +159,55 @@ const _sightEnds = (fromToken, token) => {
   return { origins, targets };
 };
 
+export const isBurrowing = (token) => token?.actor?.statuses?.has('burrow') ?? false;
+
+export function groundElevation(token) {
+  const size = canvas.grid.size;
+  const gx = Math.floor(token.document.x / size);
+  const gy = Math.floor(token.document.y / size);
+  const levels = game.modules.get('ds-terrain-designer')?.active
+    ? (canvas.scene?.getFlag('ds-terrain-designer', 'elevation-levels') ?? {})
+    : {};
+  return levels[`${gx},${gy}`] ?? 0;
+}
+
+const _tokenSize = (token) => token?.actor?.system?.combat?.size?.value ?? 1;
+
+export const burrowDepth = (token) =>
+  isBurrowing(token) ? Math.max(0, groundElevation(token) - (token.document.elevation ?? 0)) : 0;
+
+export const isCompletelyBeneath = (token) => isBurrowing(token) && burrowDepth(token) >= _tokenSize(token);
+export const touchesGround = (token) => isBurrowing(token) && burrowDepth(token) <= _tokenSize(token);
+
+export const isOnGround = (token) => (token?.document?.elevation ?? 0) === groundElevation(token);
+
+export const burrowAdjacent = (a, b) =>
+  tokFootprintDist(a, b) <= (canvas.grid.distance || 1)
+  && Math.abs((a.document.elevation ?? 0) - (b.document.elevation ?? 0)) <= 1;
+
+export function burrowBlocksLineOfEffect(fromToken, toToken) {
+  if (!getSetting('stealthSystemEnabled')) return false;
+  if (!fromToken || !toToken) return false;
+
+  const fromUnder = isBurrowing(fromToken);
+  const toUnder = isBurrowing(toToken);
+  if (!fromUnder && !toUnder) return false;
+
+  if (fromUnder && toUnder) return !burrowAdjacent(fromToken, toToken);
+  if (fromUnder) return isCompletelyBeneath(fromToken);
+
+  
+  
+  if (!isCompletelyBeneath(toToken)) return false;
+
+  
+  
+  return !isOnGround(fromToken) || !touchesGround(toToken);
+}
+
 export const hasSightToToken = (fromToken, token) => {
   if (!fromToken || !token) return false;
+  if (burrowBlocksLineOfEffect(fromToken, token)) return false;
   const { origins, targets } = _sightEnds(fromToken, token);
 
   
@@ -218,13 +265,25 @@ export const sightLinesToToken = (fromToken, token) => {
   const { origins, targets } = _sightEnds(fromToken, token);
   if (!origins.length) return [];
 
+  
+  
+  const buried = burrowBlocksLineOfEffect(fromToken, token);
+
   return targets.map(p => {
     const to = { x: p.x, y: p.y };
     let blocked = null;
     for (const from of origins) {
       const hit = sightBlockPoint(from, to);
-      if (!hit) return { from, to, cell: p.cell, sample: p.sample, blocked: false, hit: null };
-      blocked ??= { from, to, cell: p.cell, sample: p.sample, blocked: true, hit };
+      if (!hit) {
+        
+        
+        if (buried) {
+          const at = { t: 1, x: to.x, y: to.y };
+          return { from, to, cell: p.cell, sample: p.sample, blocked: true, hit: at, burrowed: true };
+        }
+        return { from, to, cell: p.cell, sample: p.sample, blocked: false, hit: null };
+      }
+      blocked ??= { from, to, cell: p.cell, sample: p.sample, blocked: true, hit, burrowed: buried };
     }
     return blocked;
   });

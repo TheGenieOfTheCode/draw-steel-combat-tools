@@ -1,4 +1,5 @@
-import { getSetting, hasCover, safeDelete, safeUpdate } from '../helpers.mjs';
+import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken } from '../helpers.mjs';
+import { coverWithBurrow as hasCover } from './burrow.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -56,6 +57,7 @@ export function registerStealthSystem() {
   }
 
   registerHiddenTracking();
+  Hooks.on('updateActiveEffect', _sweepExpiredEcho);
   Hooks.on('drawToken', _syncInvisibilityFilter);
   for (const hook of ['createActiveEffect', 'deleteActiveEffect', 'updateActiveEffect']) {
     Hooks.on(hook, (effect) => {
@@ -82,22 +84,73 @@ export function hiddenFrom(token) {
 export const isHiddenFrom = (token, observer) =>
   !!observer && hiddenFrom(token).has(observer.id);
 
+const _canHideFrom = (observer, token) =>
+  isConcealed(token) || !hasSightToToken(observer, token) || hasCover(observer, token);
+
 export function proposeHide(token) {
   if (!token) return [];
   const disposition = token.document.disposition;
   return canvas.tokens.placeables
     .filter(other => other.id !== token.id && other.actor)
     .filter(other => other.document.disposition !== disposition)
-    .filter(other => isConcealed(token) || hasCover(other, token))
+    .filter(other => _canHideFrom(other, token))
     .map(other => other.id);
 }
 
+export const WAS_HIDDEN = 'dsctWasHidden';
+
+const _echoEffect = (token) =>
+  token?.actor?.appliedEffects?.find(e => e.getFlag(M, 'effectType') === WAS_HIDDEN) ?? null;
+
+async function _rememberEcho(token, observerIds) {
+  const actor = token?.actor;
+  if (!actor || !observerIds.length || !game.combat) return;
+
+  const existing = _echoEffect(token);
+  const merged = [...new Set([...(existing?.getFlag(M, FLAG) ?? []), ...observerIds])];
+
+  if (existing) return safeUpdate(existing, { [`flags.${M}.${FLAG}`]: merged });
+
+  const start = ds.documents.DrawSteelActiveEffect.getEffectStart();
+  start.combatant = game.combat.getCombatantsByActor(actor)[0];
+
+  await safeCreateEmbedded(actor, 'ActiveEffect', [{
+    name: game.i18n.localize('DSCT.status.wasHidden'),
+    img: 'icons/svg/cowled.svg',
+    type: 'base',
+    system: { end: { roll: '' } },
+    changes: [],
+    start,
+    duration: { expiry: 'turnEnd' },
+    flags: { [M]: { effectType: WAS_HIDDEN, [FLAG]: merged } },
+  }]);
+}
+
+export const hasHiddenEcho = (token, observer) => {
+  if (!observer) return false;
+  const effect = _echoEffect(token);
+  if (!effect || effect.duration?.expired) return false;
+  return (effect.getFlag(M, FLAG) ?? []).includes(observer.id);
+};
+
+function _sweepExpiredEcho(effect) {
+  if (!game.users.activeGM?.isSelf) return;
+  if (effect?.getFlag(M, 'effectType') !== WAS_HIDDEN) return;
+  if (!effect.duration?.expired) return;
+  safeDelete(effect);
+}
+
 export async function setHiddenFrom(token, ids) {
+  const before = hiddenFrom(token);
   const list = [...new Set(ids)].filter(Boolean);
   const effect = _hiddenEffect(token);
 
+  
+  const dropped = [...before].filter(id => !list.includes(id));
+
   if (!list.length) {
     if (effect) await safeDelete(effect);
+    await _rememberEcho(token, dropped);
     return [];
   }
 
@@ -105,6 +158,7 @@ export async function setHiddenFrom(token, ids) {
   else await token.actor?.toggleStatusEffect?.(HIDDEN, { active: true })
     .then(() => safeUpdate(_hiddenEffect(token), { [`flags.${M}.${FLAG}`]: list }));
 
+  await _rememberEcho(token, dropped);
   return list;
 }
 
@@ -131,7 +185,10 @@ export async function recheckHidden(moved) {
     for (const id of hiddenFrom(hider)) {
       const observer = canvas.tokens.get(id);
       if (!observer) continue;
-      if (concealed || hasCover(observer, hider)) { trace.push(`${hider.name}: still hidden from ${observer.name} (concealed=${concealed}, cover=${hasCover(observer, hider)})`); continue; }
+      if (_canHideFrom(observer, hider)) {
+        trace.push(`${hider.name}: still hidden from ${observer.name} (concealed=${concealed}, cover=${hasCover(observer, hider)}, noLineOfEffect=${!hasSightToToken(observer, hider)})`);
+        continue;
+      }
       spotted.push(observer);
     }
 

@@ -22,6 +22,7 @@ import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damag
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, moveLog } from './conditions/stealth.mjs';
 import { registerStatusPalette } from './status-palette.mjs';
+import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { openImNoThreatPanel } from './ability-automation/ability-automation.mjs';
 import { openTransformPicker, runTransform } from './ability-automation/transformation.mjs';
 import { triggerAbyssalEvolution, registerMaliceInjectors } from './ability-automation/malice/malice-features.mjs';
@@ -129,6 +130,7 @@ Hooks.once('init', () => {
   registerConditionHooks();
   registerStatusPalette();
   registerStealthSystem();
+  registerBurrowRendering();
   registerDCHooks();
   registerTacticalHooks();
   registerDeathTrackerHooks();

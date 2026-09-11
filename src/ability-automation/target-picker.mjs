@@ -1,6 +1,7 @@
 import { getSetting, tokFootprintDist, getItemRange, hasSightToToken } from '../helpers.mjs';
 import { chooseTargeting } from './choose-effect.mjs';
 import { isHiddenFrom } from '../conditions/stealth.mjs';
+import { burrowBlocksLineOfEffect } from '../conditions/burrow.mjs';
 import {
   setRaisedDeadVisible,
   addPreviewToken,
@@ -70,6 +71,7 @@ export function _getValidTargets(casterToken, targetType, range, { excludeSelf =
 
     
     if (checkLOS && !isSelf(t) && !_hasAnySightTo(casterToken, t)) return false;
+    if (!isSelf(t) && burrowBlocksLineOfEffect(casterToken, t)) return false;
 
     
     if (respectHidden && !isSelf(t) && isHiddenFrom(t, casterToken)) return false;
