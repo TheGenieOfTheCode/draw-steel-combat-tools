@@ -2,6 +2,7 @@ import { getSetting, getItemDsid } from '../helpers.mjs';
 import { getFrightenedData, getTauntedData, sightBlockedBetweenTokens } from '../conditions/conditions.mjs';
 import { sizeRankG } from '../conditions/grab.mjs';
 import { getStrikeType, isCrossfadeStrike, getCrossfadeEdgeForAbility } from './class-shadow/crossfade.mjs';
+import { chooseKeywords } from './choose-effect.mjs';
 
 let _pillIdCounter = 0;
 const mkId = (s) => `dsct-p-${++_pillIdCounter}-${s}`;
@@ -128,7 +129,8 @@ function _buildTargetPills(app, tokenId) {
   const targetActor = targetToken?.actor;
   if (!targetToken || !targetActor) return [];
 
-  const isMeleeStrike = ability.system?.keywords?.has('melee') && ability.system?.keywords?.has('strike');
+  const abilityKeywords = chooseKeywords(ability);
+  const isMeleeStrike = abilityKeywords.has('melee') && abilityKeywords.has('strike');
   const pills = [];
 
 

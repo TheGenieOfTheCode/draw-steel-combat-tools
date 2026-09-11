@@ -44,6 +44,9 @@ const ALL_CONDITIONS = [
   { id: 'weakened',   label: 'Weakened' },
 ];
 
+
+const SEPARATE_ENDS = ['grabbed', 'judged', 'marked'];
+
 const durAbbr = (endStr) => {
   if (!endStr || endStr === 'unlimited') return '';
   const opt = DUR_OPTIONS.find(o => o.value === endStr);
@@ -121,7 +124,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     this._damageMode     = 'strike';
     this._condition      = '';
     this._conditionEnd   = 'save';
-    this._grabbedEnd     = 'combatEnd';
+    this._separateEnds   = Object.fromEntries(SEPARATE_ENDS.map(id => [id, 'combatEnd']));
     this._distance       = null;
     this._grabsExpanded  = false;
     this._updatePreview();
@@ -265,7 +268,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
   }
 
   _activeEnd() {
-    return this._condition === 'grabbed' ? this._grabbedEnd : this._conditionEnd;
+    return this._separateEnds[this._condition] ?? this._conditionEnd;
   }
 
   _hasGrabs() {
@@ -337,7 +340,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       refreshBtn();
     });
     this.element.querySelector('#dc-condition-end')?.addEventListener('change', e => {
-      if (this._condition === 'grabbed') this._grabbedEnd = e.target.value;
+      if (this._condition in this._separateEnds) this._separateEnds[this._condition] = e.target.value;
       else this._conditionEnd = e.target.value;
       refreshBtn();
     });

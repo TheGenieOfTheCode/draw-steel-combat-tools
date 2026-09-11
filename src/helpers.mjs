@@ -813,8 +813,8 @@ export const MULTI_GRAB_LIMITS = {
   'ribcage-chomp': 4,
 };
 
-export const getItemRange = (item) => {
-  const dist = item.system?.distance;
+export const getItemRange = (item, distanceOverride = null) => {
+  const dist = distanceOverride ?? item.system?.distance;
   if (!dist) return 0;
   const p = parseInt(dist.primary)   || 0;
   const s = parseInt(dist.secondary) || 0;

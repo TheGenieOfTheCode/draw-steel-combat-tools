@@ -1,6 +1,7 @@
 import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
-import { checkAndRunChoose, clearChoicePicks } from '../ability-automation/choose-effect.mjs';
+import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
+import { stackedPrompt } from '../ability-automation/stacked-prompt.mjs';
 import { checkAndRunTargetPicker } from '../ability-automation/target-picker.mjs';
 import { toggleDamageConditionsPanel } from './damage-conditions.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
@@ -19,10 +20,10 @@ const SIZE_EDGE_EFFECT = {
   name: 'Size Advantage (Grab)',
   img: 'icons/skills/social/diplomacy-handshake-blue.webp',
   type: 'base',
-  system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
+  system: { end: { roll: '1d10 + @combat.save.bonus' } },
   changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
   disabled: false,
-  duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0 },
+  duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0, expiry: 'combatEnd' },
   description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: {},
 };
 
@@ -243,9 +244,9 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
     type: 'base',
     statuses: [],
     changes: [],
-    system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
+    system: { end: { roll: '1d10 + @combat.save.bonus' } },
     disabled: false, transfer: false, flags: { [M]: { grabbed: true } },
-    duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0 },
+    duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0, expiry: 'combatEnd' },
     description: '<p>You have speed 0, cannot be force moved except by the creature, object, or effect that has you grabbed, and cannot use the Knockback maneuver. You take a bane on abilities that do not target the creature, object, or effect that has you grabbed.</p><p>You can attempt to escape using the <strong>Escape Grab</strong> maneuver. If you teleport, or if either you or the creature grabbing you is force moved so that you are no longer adjacent, the grab ends.</p><p>If the creature grabbing you moves, they bring you with them.</p>',
     tint: '#ffffff', sort: 0,
   }]);
@@ -260,9 +261,9 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
     name: 'Grabber',
     img: getSetting('grabberEffectIcon') || 'icons/magic/control/debuff-chains-shackle-movement-red.webp',
     type: 'base',
-    system: { end: { type: 'encounter', roll: '' }, filters: { keywords: [] } },
+    system: { end: { roll: '' }, filters: { keywords: [] } },
     changes: speedChanges, disabled: false, transfer: false, statuses: [], flags: {},
-    duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
+    duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null, expiry: 'combatEnd' },
     description: '<p>You can use a maneuver to move the grabbed creature into an unoccupied space adjacent to you. You can release the grabbed creature at any time to end the grab (no action required). If you are force moved so that you are no longer adjacent to the grabbed creature, the grab ends.</p><p>You can grab only creatures of your size or smaller. If your Might score is 2 or higher, you can grab creatures larger than you with a size equal to or less than your Might score. Unless otherwise indicated, you can grab only one creature at a time.</p><p>If your size is equal to or less than the size of the creature you have grabbed, your speed is halved while you have them grabbed.</p>',
     tint: '#ffffff', sort: 0,
     flags: { [M]: { grab: { grabberId: grabberTok.id, grabbedId: grabbedTok.id } } },
@@ -606,13 +607,18 @@ function _isKnockbackGrabbed(dialog) {
 function _checkAbilityRange(dialog) {
   const ability = dialog.options?.ability;
   if (!ability) return null;
-  if (ability.system?.keywords?.has('area')) return null;
+
+  
+  
+  const view = getSetting('abilityTargetingEnabled') ? chooseTargeting(ability) : null;
+  const keywords = view?.keywords ?? ability.system?.keywords;
+  if (keywords?.has('area')) return null;
   if (ability.system?.type === 'triggered') return null;
 
   const _actor = ability.actor ?? ability.parent;
   if (_actor?.system?.isMinion && ability.system?.category === 'signature') return null;
 
-  const range = getItemRange(ability);
+  const range = getItemRange(ability, view?.distance);
   if (!range || isNaN(range)) return null;
 
   const actor       = ability.actor ?? ability.parent;
@@ -658,14 +664,13 @@ function _checkMeleeRangedChoice(dialog) {
 
   (async () => {
     const current = ability.system?.damageDisplay ?? 'melee';
-    const choice = await foundry.applications.api.DialogV2.wait({
-      window: { title: ability.name },
-      content: `<p>${game.i18n.localize('DSCT.dialog.mr.prompt')}</p>`,
-      buttons: [
+    const choice = await stackedPrompt({
+      title: ability.name,
+      heading: game.i18n.localize('DSCT.dialog.mr.prompt'),
+      options: [
         { label: game.i18n.format('DSCT.dialog.mr.melee',  { range: p }), action: 'melee',  icon: 'fa-solid fa-hand-fist', default: current === 'melee' },
         { label: game.i18n.format('DSCT.dialog.mr.ranged', { range: s }), action: 'ranged', icon: 'fa-solid fa-bullseye',  default: current === 'ranged' },
       ],
-      rejectClose: false,
     });
     if (choice !== 'melee' && choice !== 'ranged') return;
     if (choice !== current) await ability.update({ 'system.damageDisplay': choice });

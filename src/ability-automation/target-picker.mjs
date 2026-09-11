@@ -1,4 +1,5 @@
 import { getSetting, tokFootprintDist, getItemRange, hasSightToToken } from '../helpers.mjs';
+import { chooseTargeting } from './choose-effect.mjs';
 import {
   setRaisedDeadVisible,
   addPreviewToken,
@@ -20,11 +21,12 @@ const _hidingDefeated = () => (game.user.getFlag(M, 'hideDefeated') ?? false) ==
 
 
 
-function _isPickerEligible(ability) {
-  const target = ability.system?.target;
+function _isPickerEligible(ability, view) {
+  const target = view?.target ?? ability.system?.target;
+  const keywords = view?.keywords ?? ability.system?.keywords;
   if (!target?.value) return false;
   if (target.type === 'self') return false;
-  if (ability.system?.keywords?.has('area')) return false;
+  if (keywords?.has('area')) return false;
   return true;
 }
 
@@ -72,14 +74,16 @@ export function _getValidTargets(casterToken, targetType, range, { excludeSelf =
 }
 
 async function _runTargetPicker(ability, casterToken) {
-  const target      = ability.system.target;
+  const view        = chooseTargeting(ability);
+  const target      = view?.target ?? ability.system.target;
+  const keywords    = view?.keywords ?? ability.system?.keywords;
   const maxTargets  = target.value;
   const targetType  = target.type;
-  const range       = getItemRange(ability);
+  const range       = getItemRange(ability, view?.distance);
   const isRangeEnforced = getSetting('enforceAbilityRange');
   const needsReveal = /object/i.test(targetType);
-  const isStrike    = ability.system?.keywords?.has('strike') ?? false;
-  const excludeSelf = isStrike || (ability.system?.keywords?.has('weapon') ?? false);
+  const isStrike    = keywords?.has('strike') ?? false;
+  const excludeSelf = isStrike || (keywords?.has('weapon') ?? false);
   const cDisp       = casterToken.document.disposition;
 
   if (needsReveal) { setRaisedDeadVisible(true); activateTokenLayer(); }
@@ -628,15 +632,17 @@ export function checkAndRunTargetPicker(dialog) {
   }
 
   if (!getSetting('abilityTargetingEnabled')) return null;
-  if (!_isPickerEligible(ability)) return null;
+  const view = chooseTargeting(ability);
+  if (!_isPickerEligible(ability, view)) return null;
 
   const casterToken = _getCasterToken(ability);
   if (!casterToken) return null;
 
-  const target   = ability.system.target;
-  const range    = getItemRange(ability);
-  const isStrike    = ability.system?.keywords?.has('strike') ?? false;
-  const excludeSelf = isStrike || (ability.system?.keywords?.has('weapon') ?? false);
+  const target   = view?.target ?? ability.system.target;
+  const keywords = view?.keywords ?? ability.system?.keywords;
+  const range    = getItemRange(ability, view?.distance);
+  const isStrike    = keywords?.has('strike') ?? false;
+  const excludeSelf = isStrike || (keywords?.has('weapon') ?? false);
 
   
   if (game.user.targets.size > 0) {

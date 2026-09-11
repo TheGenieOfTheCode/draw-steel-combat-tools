@@ -9,7 +9,7 @@ import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { _addDamagedToken, reviveTokens } from '../death-tracker/death-tracker.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
-import { filterChooseDstdRows, chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
+import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords } from '../ability-automation/choose-effect.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
 const DSTD       = 'draw-steel-target-damage';
@@ -940,6 +940,50 @@ async function _buildSyntheticFlatPanel(message, root, storedTargets) {
   return panel;
 }
 
+
+const _soloCollapsed = new Set();
+
+function _allowSoloCollapse(message, panel) {
+  const rows = panel.querySelectorAll(`.${DSTD}-target-row[data-target-key]`);
+  if (rows.length !== 1) return;
+
+  const row = rows[0];
+  const key = `${message.id}:${row.dataset.targetKey}`;
+  row.classList.toggle('is-collapsed', _soloCollapsed.has(key));
+
+  const head = row.querySelector(`.${DSTD}-target-head`);
+  if (!head) return;
+
+  
+  
+  
+  if (!head.querySelector('.dsct-solo-quick')) {
+    const source = row.querySelector(`.${DSTD}-target-body .${DSTD}-action-button`);
+    const toggle = head.querySelector(`.${DSTD}-target-toggle`);
+    if (source && toggle) {
+      const quick = source.cloneNode(true);
+      quick.classList.remove(`${DSTD}-stretch-button`);
+      quick.classList.add('dsct-solo-quick');
+      head.insertBefore(quick, toggle);
+    }
+  }
+
+  if (head.dataset.dsctSolo) return;
+  head.dataset.dsctSolo = '1';
+
+  
+  head.addEventListener('click', (event) => {
+    if (event.target.closest(`button, .${DSTD}-action-button, .${DSTD}-icon-button`)) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const collapsed = !row.classList.contains('is-collapsed');
+    row.classList.toggle('is-collapsed', collapsed);
+    if (collapsed) _soloCollapsed.add(key);
+    else _soloCollapsed.delete(key);
+  }, { capture: true });
+}
+
 async function _injectFmButtons(message, root) {
   const panel = root?.querySelector(DSTD_PANEL);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons msgId=${message.id} hasPanel=${!!panel}`);
@@ -948,6 +992,7 @@ async function _injectFmButtons(message, root) {
     _installUndoDeathHook(root);
     _installSquadHoverListeners(panel, message);
     filterChooseDstdRows(message, panel);
+    _allowSoloCollapse(message, panel);
 
     const defeatedStatus = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
     for (const deadRow of panel.querySelectorAll(DSTD_ROW)) {
@@ -1313,8 +1358,8 @@ async function _injectFmButtons(message, root) {
         } : null;
 
         const _bvlApplies = sourceToken?.actor && _tgtDoc?.actor
-          && (ability.system?.keywords?.has('melee') ?? false)
-          && (ability.system?.keywords?.has('weapon') ?? false)
+          && chooseKeywords(ability, message).has('melee')
+          && chooseKeywords(ability, message).has('weapon')
           && sizeRank(sourceToken.actor.system?.combat?.size ?? { value: 1, letter: 'M' })
              > sizeRank(_tgtDoc.actor.system?.combat?.size ?? { value: 1, letter: 'M' });
         const _bvlMod = _bvlApplies ? {

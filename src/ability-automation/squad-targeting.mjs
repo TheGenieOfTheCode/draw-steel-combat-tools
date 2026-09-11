@@ -3,6 +3,7 @@ import { _getValidTargets, setFoundryTargets, _addPickerReticle, _removePickerRe
 import { beginPickerOverlay } from './picker-overlay.mjs';
 import { getStrikeType } from './class-shadow/crossfade.mjs';
 import { _recomputeAndSync, _injectPillUI } from './roll-dialog-hooks.mjs';
+import { chooseKeywords } from './choose-effect.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -200,7 +201,7 @@ function _tokenCenter(token) {
 
 function _getMinionNetEdges(token, ability, rangedOnly) {
   const actor      = token.actor;
-  const abilityKws = ability.system?.keywords ?? new Set();
+  const abilityKws = chooseKeywords(ability);
   let edges = 0;
   let banes = 0;
   for (const effect of (actor?.effects ?? [])) {

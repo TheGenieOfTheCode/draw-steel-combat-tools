@@ -358,6 +358,35 @@ function _basePills(roll, prov, target, ctx = null) {
   return pills;
 }
 
+function _diceIcons(rollLine, roll) {
+  const formula = rollLine.querySelector(`.${DSTD}-roll-formula`);
+  if (!formula || formula.dataset.dsctDice) return;
+
+  const faces = _diceResults(roll).filter(f => f >= 1 && f <= 10);
+  if (!faces.length) return;
+
+  formula.dataset.dsctDice = '1';
+  const bonus = (formula.textContent ?? '').replace(/^\s*\d*d\d+/i, '').trim();
+
+  formula.classList.add('dsct-dice-formula');
+  formula.replaceChildren();
+
+  for (const face of faces) {
+    const die = document.createElement('img');
+    die.className = 'dsct-die';
+    die.src = `modules/${M}/icons/dice/die-${face}.png`;
+    die.alt = String(face);
+    formula.append(die);
+  }
+
+  if (bonus) {
+    const mod = document.createElement('span');
+    mod.className = 'dsct-die-mod';
+    mod.textContent = bonus;
+    formula.append(mod);
+  }
+}
+
 export function injectRollPills(message, root) {
   if (!getSetting('dstdRollPills')) return;
   if (!game.modules.get(DSTD)?.active) return;
@@ -377,6 +406,8 @@ export function injectRollPills(message, root) {
     host?.querySelectorAll(':scope > .dsct-roll-pills-row').forEach(e => e.remove());
     const roll = _findTargetRoll(message, target);
     if (!roll) continue;
+
+    _diceIcons(rollLine, roll);
 
     const override = state.tierOverrides?.[targetKey] ?? null;
     const baseOff = _overrideBaseOff(override);
@@ -413,6 +444,7 @@ export function injectRollPills(message, root) {
     const rollLine = summary.querySelector(`.${DSTD}-roll-line`);
     const baseRoll = _findBaseRoll(message);
     if (rollLine && baseRoll) {
+      _diceIcons(rollLine, baseRoll);
       summary.querySelectorAll('.dsct-roll-pills-row').forEach(e => e.remove());
       if (canEdit && getSetting('dstdRollEditor') && !rollLine.querySelector('.dsct-global-cog')) {
         const btn = document.createElement('button');

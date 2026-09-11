@@ -1,5 +1,5 @@
 import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, safeDelete, SIGHT_SAMPLES, sightOriginPoints } from './helpers.mjs';
-import { chooseMessageFilter } from './ability-automation/choose-effect.mjs';
+import { chooseMessageFilter, chooseKeywords } from './ability-automation/choose-effect.mjs';
 import { applyGrab, runGrab, endGrab, openGrabPanel } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
 import { DamageConditionsPanel, applyJudgedEffect, applyMarkedEffect } from './conditions/damage-conditions.mjs';
@@ -354,7 +354,7 @@ function _registerButtonHooks() {
     const abilityUse = parts.find(p => p.type === 'abilityUse');
     if (getSetting('applyDamageEnabled') && !_dstdCeding && getSetting('areaDamageEnabled') && abilityUse?.abilityUuid) {
       const item   = await fromUuid(abilityUse.abilityUuid).catch(() => null);
-      if (item?.system?.keywords?.has('area')) {
+      if (chooseKeywords(item, _msg).has('area')) {
         for (const btn of root.querySelectorAll('.apply-damage')) {
           btn.dataset.dsctArea = 'true';
           btn.appendChild(document.createTextNode(' (Area)'));
@@ -442,7 +442,7 @@ function _registerButtonHooks() {
           const t3Au    = t3Parts.find(p => p.type === 'abilityUse');
           if (t3Au?.abilityUuid) {
             const t3Item = await fromUuid(t3Au.abilityUuid).catch(() => null);
-            if (t3Item?.system?.keywords?.has('melee')) {
+            if (chooseKeywords(t3Item, _msg).has('melee')) {
               root.querySelectorAll('.apply-damage').forEach(dmgBtn => {
                 dmgBtn.addEventListener('click', async () => {
                   if (_usedJudgementT3.has(_msg.id)) return;
@@ -478,6 +478,12 @@ function _registerButtonHooks() {
 
     const fmBtns = [...root.querySelectorAll('[data-dsct-action="dsct-fm"]')];
     if (fmBtns.length) {
+      
+      
+      const fmUuid   = normalizeCollection(_msg.system?.parts).find(p => p.type === 'abilityUse')?.abilityUuid;
+      const fmItem   = fmUuid ? fromUuidSync(fmUuid) : null;
+      const fmChosen = fmItem ? [...chooseKeywords(fmItem, _msg)] : null;
+
       const savedMods  = _msg.getFlag(M, 'fmModifiers') ?? [];
       const modStack   = savedMods.map(s => ({
         modState: s.modState, noteName: s.noteName, noteDesc: s.noteDesc,
@@ -512,7 +518,7 @@ function _registerButtonHooks() {
             properties: props, verticalDistance: vertDist, fallReduction: st.fallReduction,
             source: (st.sourceTokenId ? canvas.tokens.get(st.sourceTokenId) : null) ?? undefined,
             contextMessageId: _msg.id,
-            keywords: (btn.dataset.dsctKeywords ?? '').split(',').filter(Boolean),
+            keywords: fmChosen ?? (btn.dataset.dsctKeywords ?? '').split(',').filter(Boolean),
           });
         });
       });

@@ -2356,11 +2356,65 @@ body.detached .chat-form {
 
 .dsct-choose { display: flex; flex-direction: column; gap: 8px; }
 
-.dsct-choose .dsct-choice { border-radius: 6px; padding: 6px 8px 8px; }
+.dsct-choose-count { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; }
+.dsct-choose-count select { flex: 0 0 auto; width: auto; }
 
-.dsct-choose .dsct-choice > legend { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.dsct-stacked-prompt .dsct-stacked-selected {
+  box-shadow: inset 0 0 0 2px var(--color-warm-2, #c9ab6f);
+  filter: brightness(1.15);
+}
 
-.dsct-choose .dsct-choice-remove { cursor: pointer; opacity: 0.6; }
+
+.dsct-choose .dsct-choice {
+  border: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.25));
+  border-radius: 6px;
+  padding: 0 8px;
+}
+
+
+.dsct-choose .dsct-choice-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacer-16);
+  padding-bottom: var(--spacer-16);
+}
+
+.dsct-choose .dsct-choice-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.dsct-choose .dsct-choice-summary::-webkit-details-marker { display: none; }
+
+.dsct-choose .dsct-choice-caret { flex: 0 0 auto; width: 10px; opacity: 0.7; transition: transform 100ms ease; }
+.dsct-choose .dsct-choice[open] .dsct-choice-caret { transform: rotate(90deg); }
+
+.dsct-choose .dsct-choice-title { flex: 1 1 auto; }
+
+.dsct-choose .dsct-choice-icon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 4px;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.dsct-choose .dsct-choice-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: none;
+  border-radius: 3px;
+}
+
+.dsct-choose .dsct-choice-remove { flex: 0 0 auto; cursor: pointer; opacity: 0.6; }
 .dsct-choose .dsct-choice-remove:hover { opacity: 1; }
 
 .dsct-choose-warning { display: flex; align-items: baseline; gap: 6px; font-size: var(--font-size-12); }
@@ -2378,17 +2432,91 @@ body.detached .chat-form {
 .dsct-choose-sheet .dsct-choose { padding-bottom: 4px; }
 
 
-.dsct-choose-prompt .dsct-choose-list {
-  margin: 0 0 4px;
-  padding-left: 1.2em;
+.dsct-stacked-prompt .dsct-stacked-heading { margin: 0; font-weight: 600; }
+
+.dsct-stacked-prompt .form-footer { flex-direction: column; align-items: stretch; gap: 6px; }
+
+.dsct-stacked-prompt .dsct-stacked-option {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  height: auto;
+  min-height: 40px;
+  padding: 4px 10px;
+  text-align: left;
 }
 
-.dsct-choose-prompt .dsct-choose-story { opacity: 0.85; font-style: italic; }
+.dsct-stacked-prompt .dsct-stacked-option > i {
+  flex: 0 0 auto;
+  width: 30px;
+  font-size: var(--font-size-20);
+  text-align: center;
+}
 
-.dsct-choose-prompt .form-footer { flex-wrap: wrap; }
+.dsct-stacked-prompt .dsct-stacked-option img {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  object-fit: cover;
+  border: none;
+  border-radius: 4px;
+}
+
+
+.dsct-choose .dsct-ghost-tag { opacity: 0.5; pointer-events: none; font-style: italic; }
+
+
+.dsct-choose-preview { margin: 0.25em 0 0; padding-left: 1.4em; }
+.dsct-choose-preview li { margin: 0.15em 0; }
 
 
 .dsct-choose-hidden { display: none !important; }
+
+.draw-steel-target-damage-roll-formula.dsct-dice-formula {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+}
+
+.dsct-dice-formula .dsct-die {
+  flex: 0 0 auto;
+  width: 2.1em;
+  height: 2.1em;
+  border: none;
+  vertical-align: middle;
+}
+
+.dsct-dice-formula .dsct-die-mod {
+  flex: 0 0 auto;
+  margin-left: 2px;
+  font-family: var(--font-monospace, monospace);
+  opacity: 0.9;
+}
+
+body .draw-steel-target-damage-panel.draw-steel-target-damage-single-target .draw-steel-target-damage-target-toggle {
+  display: inline-block;
+}
+
+body .draw-steel-target-damage-panel.draw-steel-target-damage-single-target .draw-steel-target-damage-target-name {
+  flex: 1 1 auto;
+}
+
+body .draw-steel-target-damage-panel .dsct-solo-quick {
+  flex: 0 0 auto;
+  max-width: 45%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.themed.theme-light .dsct-dice-formula .dsct-die,
+.theme-light .dsct-dice-formula .dsct-die {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.themed.theme-dark .dsct-dice-formula .dsct-die,
+.theme-dark .dsct-dice-formula .dsct-die {
+  filter: none;
+}

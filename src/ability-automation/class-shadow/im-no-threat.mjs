@@ -1,4 +1,5 @@
 import { getSetting, getModuleApi } from '../../helpers.mjs';
+import { chooseKeywords } from '../choose-effect.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -6,10 +7,10 @@ const _INT_EFFECT_ABILITY = {
   name: "I'm No Threat",
   img: 'icons/creatures/mammals/humanoid-fox-cat-archer.webp',
   type: 'abilityModifier',
-  system: { end: { type: 'turn', roll: '1d10 + @combat.save.bonus' }, filters: { keywords: ['strike'] } },
+  system: { end: { roll: '1d10 + @combat.save.bonus' }, filters: { keywords: ['strike'] } },
   changes: [{ key: 'power.roll.edges', mode: 2, value: '1', priority: null }],
   disabled: false,
-  duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
+  duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null, expiry: 'turnEnd' },
   description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'int' } },
 };
 
@@ -17,7 +18,7 @@ const _INT_EFFECT_PASSIVE = {
   name: "I'm No Threat (Disengage)",
   img: 'icons/creatures/mammals/humanoid-fox-cat-archer.webp',
   type: 'base',
-  system: { end: { type: '', roll: '1d10 + @combat.save.bonus' }, filters: { keywords: [] } },
+  system: { end: { roll: '1d10 + @combat.save.bonus' }, filters: { keywords: [] } },
   changes: [{ key: 'system.movement.disengage', mode: 2, value: '1', priority: null }],
   disabled: false,
   duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
@@ -295,7 +296,7 @@ class ImNoThreatPanel extends ds.applications.api.DSApplication {
       const abilityResult = parts.find(p => p.type === 'abilityResult');
       if (!abilityResult?.abilityUuid) return;
       const item = await fromUuid(abilityResult.abilityUuid);
-      if (!item?.system?.keywords?.has('strike')) return;
+      if (!chooseKeywords(item, message).has('strike')) return;
       await this._endIllusion(true);
     });
   }

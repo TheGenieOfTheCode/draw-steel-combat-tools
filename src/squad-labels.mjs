@@ -112,9 +112,9 @@ export const applySquadLabels = async () => {
       await safeCreateEmbedded(token.actor, 'ActiveEffect', [{
         name: want.name, img: want.img,
         type: "base",
-        system: { end: { type: "encounter", roll: "" }, filters: { keywords: [] } },
+        system: { end: { roll: "" }, filters: { keywords: [] } },
         changes: [], disabled: false,
-        duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
+        duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null, expiry: "combatEnd" },
         description: "", tint: want.tint, transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'squad-label' } },
       }]);
       updated++;

@@ -17,6 +17,28 @@ const _ensureLayer = () => {
   return _layer;
 };
 
+const _rayExit = (rect, from, dx, dy) => {
+  const rx = rect.width / 2;
+  const ry = rect.height / 2;
+  if (!(rx > 0) || !(ry > 0)) return 0;
+
+  const ox = (from.x - (rect.x + rx)) / rx;
+  const oy = (from.y - (rect.y + ry)) / ry;
+  const ux = dx / rx;
+  const uy = dy / ry;
+
+  const a = ux * ux + uy * uy;
+  const b = 2 * (ox * ux + oy * uy);
+  const c = ox * ox + oy * oy - 1;
+  if (a <= 0) return 0;
+
+  const disc = b * b - 4 * a * c;
+  if (disc < 0) return 0;
+
+  const t = (-b + Math.sqrt(disc)) / (2 * a);
+  return Number.isFinite(t) ? Math.max(0, Math.min(1, t)) : 0;
+};
+
 const _drawDashedLine = (g, from, to, color) => {
   const dx = to.x - from.x, dy = to.y - from.y;
   const len = Math.hypot(dx, dy);
@@ -50,14 +72,24 @@ const _redraw = () => {
     const g = new PIXI.Graphics();
     const from = src.center;
     const to   = t.center;
-    _drawDashedLine(g, from, to, color);
+    const dx   = to.x - from.x;
+    const dy   = to.y - from.y;
+
+    const tStart = _rayExit(src.bounds, from, dx, dy);
+    const tEnd   = 1 - _rayExit(t.bounds, to, -dx, -dy);
+    const start  = { x: from.x + dx * tStart, y: from.y + dy * tStart };
+    const end    = { x: from.x + dx * tEnd,   y: from.y + dy * tEnd };
+
+    
+    if (tEnd > tStart) _drawDashedLine(g, start, end, color);
+
     const squares = Math.round(tokFootprintDist(src, t) / CGD) + 1;
     const label = new PIXI.Text(String(squares), {
       fontFamily: 'Signika, sans-serif', fontSize: 22, fontWeight: 'bold',
       fill: 0xffffff, stroke: 0x000000, strokeThickness: 5,
     });
     label.anchor.set(0.5);
-    label.position.set((from.x + to.x) / 2, (from.y + to.y) / 2 - 12);
+    label.position.set((start.x + end.x) / 2, (start.y + end.y) / 2 - 12);
     layer.addChild(g, label);
   }
 };

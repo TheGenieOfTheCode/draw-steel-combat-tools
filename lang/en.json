@@ -655,8 +655,8 @@
         "hint": "While controlling a single token, targeting other tokens draws a dashed line in your player color to each target with the distance in squares. Per client."
       },
       "trueDrawSteelLos": {
-        "name": "True Draw Steel Line of Sight",
-        "hint": "Measure sight corner to corner rather than from the looking creature's centre, and apply the same rule to Foundry's vision and fog."
+        "name": "True Line of Effect",
+        "hint": "Judge targeting by the book’s corner to corner line of effect, and apply the same rule to Foundry’s vision and fog."
       },
       "collisionOnUnitStep": {
         "name": "Collide on 1-Square Elevation Steps",
@@ -1629,7 +1629,13 @@
     "choose": {
       "typeLabel": "Choose",
       "label": "Choose: {choices}",
+      "count": {
+        "before": "Choose",
+        "after": "of the following:"
+      },
+      "counts": "one, two, three, four, five, six, seven, eight, nine, ten",
       "sameAsAbility": "Same as ability",
+      "sameAsAbilityNamed": "Same as ability ({value})",
       "distance": "Distance",
       "target": "Target",
       "add": "Add Choice",
@@ -1647,12 +1653,22 @@
         "label": "Assigned Effects"
       },
       "name": {
-        "label": "Name",
-        "hint": "What this choice is called when the ability asks."
+        "label": "Name"
+      },
+      "icon": {
+        "label": "Icon",
+        "hint": "Click to pick an image, right-click to clear. Shown beside the name when the ability asks."
+      },
+      "preview": {
+        "label": "Preview",
+        "hint": "The line this choice shows in the ability preview and stat block.",
+        "heading": "Choose one of the following effects:",
+        "fallback": "The {ordinal} option.",
+        "ordinals": "first, second, third, fourth, fifth, sixth, seventh, eighth, ninth, tenth"
       },
       "prompt": {
-        "body": "Choose one of the following effects:",
-        "named": "{effect}: choose one of the following effects:"
+        "body": "Choose {count} of the following",
+        "named": "{effect}: choose {count} of the following"
       }
     }
   },

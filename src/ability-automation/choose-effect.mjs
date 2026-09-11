@@ -1,14 +1,17 @@
 import { normalizeCollection } from '../helpers.mjs';
+import { stackedPrompt } from './stacked-prompt.mjs';
 
 const M = 'draw-steel-combat-tools';
 const PARTIAL = `modules/${M}/templates/effects/choose.hbs`;
 
 function choiceSchema() {
-  const { SchemaField, StringField, NumberField, ArrayField, SetField } = foundry.data.fields;
+  const { SchemaField, StringField, NumberField, ArrayField, SetField, FilePathField } = foundry.data.fields;
   const Formula = ds.data.fields.FormulaField;
 
   return new ArrayField(new SchemaField({
     name: new StringField({ required: true, blank: true }),
+    icon: new FilePathField({ categories: ['IMAGE'], required: true, blank: true, initial: '' }),
+    preview: new StringField({ required: true, blank: true }),
     story: new StringField({ required: true, blank: true }),
     keywords: new SetField(new StringField({ required: true, blank: false })),
     distance: new SchemaField({
@@ -56,10 +59,19 @@ function _effectChoices(pseudo) {
 
 function chooseSheetContext(pseudo) {
   const config = ds.CONFIG.abilities;
-  const blank = { value: '', label: game.i18n.localize('DSCT.choose.sameAsAbility') };
+  const ability = pseudo.document?.system ?? {};
 
-  const distanceTypes = [blank, ...Object.entries(config.distances).map(([value, { label }]) => ({ value, label }))];
-  const targetTypes = [blank, ...Object.entries(config.targets).map(([value, { label }]) => ({ value, label }))];
+  const blankFor = (label) => ({
+    value: '',
+    label: label
+      ? game.i18n.format('DSCT.choose.sameAsAbilityNamed', { value: label })
+      : game.i18n.localize('DSCT.choose.sameAsAbility'),
+  });
+
+  const distanceTypes = [blankFor(config.distances[ability.distance?.type]?.label),
+    ...Object.entries(config.distances).map(([value, { label }]) => ({ value, label }))];
+  const targetTypes = [blankFor(config.targets[ability.target?.type]?.label),
+    ...Object.entries(config.targets).map(([value, { label }]) => ({ value, label }))];
   const { options: effectOptions, duplicates } = _effectChoices(pseudo);
 
   const source = pseudo._source.choose?.choices ?? [];
@@ -80,6 +92,8 @@ function chooseSheetContext(pseudo) {
     targetValue: af.target?.fields?.value?.label ?? '',
   };
 
+  const fallbackIcon = pseudo.img || pseudo.document?.img || 'icons/svg/book.svg';
+
   const choices = source.map((choice, index) => {
     const dist = config.distances[choice.distance?.type] ?? {};
     const targetType = choice.target?.type ?? '';
@@ -88,6 +102,13 @@ function chooseSheetContext(pseudo) {
       number: index + 1,
       src: choice,
       prefix: `choose.choices.${index}`,
+      
+      iconPreview: choice.icon || fallbackIcon,
+      ghostPreview: _defaultPreview(index),
+      ghostStory: ability.story ?? '',
+      ghostPrimary: ability.distance?.primary ?? '',
+      ghostSecondary: ability.distance?.secondary ?? '',
+      ghostTertiary: ability.distance?.tertiary ?? '',
       primaryDistance: dist.primary ?? '',
       secondaryDistance: dist.secondary ?? '',
       tertiaryDistance: dist.tertiary ?? '',
@@ -95,9 +116,13 @@ function chooseSheetContext(pseudo) {
     };
   });
 
+  const count = pseudo._source.choose?.count ?? 1;
+
   return {
     fields,
     choices,
+    count,
+    countOptions: Array.from({ length: Math.max(source.length, 1) }, (_, i) => ({ value: i + 1, label: String(i + 1) })),
     distanceTypes,
     targetTypes,
     effectOptions,
@@ -126,23 +151,115 @@ export function registerChooseEffect() {
       actions: {
         dsctAddChoice: ChooseEffectSheet.#addChoice,
         dsctRemoveChoice: ChooseEffectSheet.#removeChoice,
+        dsctPickIcon: { handler: ChooseEffectSheet.#pickIcon, buttons: [0, 2] },
       },
       position: { width: 560, height: 640 },
       window: { resizable: true },
     };
 
+    
+    
+    #expanded = new Set();
+
+    #listeners = null;
+
+    async _preparePartContext(partId, context, options) {
+      context = await super._preparePartContext(partId, context, options);
+      for (const choice of context.ctx?.choices ?? []) choice.open = this.#expanded.has(choice.index);
+      return context;
+    }
+
+    async _onRender(context, options) {
+      await super._onRender(context, options);
+      this.#showGhostKeywords();
+
+      this.#listeners?.abort();
+      this.#listeners = new AbortController();
+      const { signal } = this.#listeners;
+
+      
+      for (const details of this.element.querySelectorAll('.dsct-choice')) {
+        details.addEventListener('toggle', () => {
+          const index = Number(details.dataset.index);
+          if (details.open) this.#expanded.add(index);
+          else this.#expanded.delete(index);
+        }, { signal });
+      }
+    }
+
+    
+    
+    
+    #showGhostKeywords() {
+      const keywords = this.pseudoDocument.document?.system?.keywords ?? [];
+      const labels = [...keywords].map(k => ds.CONFIG.abilities.keywords[k]?.label ?? k);
+      if (!labels.length) return;
+
+      const choices = this.pseudoDocument._source.choose?.choices ?? [];
+      choices.forEach((choice, index) => {
+        if (choice.keywords?.length) return;
+        const tags = this.element
+          .querySelector(`[name="choose.choices.${index}.keywords"]`)
+          ?.querySelector('.tags');
+        if (!tags || tags.children.length) return;
+
+        for (const label of labels) {
+          const tag = document.createElement('span');
+          tag.className = 'tag dsct-ghost-tag';
+          tag.textContent = label;
+          tags.append(tag);
+        }
+      });
+    }
+
+    async close(options) {
+      this.#listeners?.abort();
+      this.#listeners = null;
+      this.#expanded.clear();
+      return super.close(options);
+    }
+
     static async #addChoice() {
       const choices = foundry.utils.deepClone(this.pseudoDocument._source.choose?.choices ?? []);
-      choices.push({ name: '', story: '', keywords: [], distance: {}, target: {}, effects: [] });
+      choices.push({ name: '', icon: '', preview: '', story: '', keywords: [], distance: {}, target: {}, effects: [] });
+      this.#expanded.add(choices.length - 1);
       await this.pseudoDocument.update({ 'choose.choices': choices });
     }
 
     static async #removeChoice(event, target) {
+      event.preventDefault();
       const index = Number(target.dataset.index);
       const choices = foundry.utils.deepClone(this.pseudoDocument._source.choose?.choices ?? []);
       if (!Number.isInteger(index) || index < 0 || index >= choices.length) return;
       choices.splice(index, 1);
+      this.#expanded = new Set([...this.#expanded].filter(i => i !== index).map(i => (i > index ? i - 1 : i)));
       await this.pseudoDocument.update({ 'choose.choices': choices });
+    }
+
+    static async #pickIcon(event, target) {
+      
+      event.preventDefault();
+
+      const index = Number(target.dataset.index);
+      const input = this.element.querySelector(`input[name="choose.choices.${index}.icon"]`);
+      if (!input) return;
+
+      const apply = (path) => {
+        input.value = path;
+        const preview = target.querySelector('img');
+        if (preview) preview.src = path || target.dataset.fallback;
+        this.element.dispatchEvent(new Event('submit', { cancelable: true }));
+      };
+
+      if (event.button === 2) return apply('');
+
+      const picker = new foundry.applications.apps.FilePicker.implementation({
+        type: 'image',
+        current: input.value,
+        position: { top: this.position.top + 40, left: this.position.left + 10 },
+        callback: apply,
+      });
+      await picker.browse();
     }
   }
 
@@ -154,9 +271,12 @@ export function registerChooseEffect() {
     }
 
     static defineSchema() {
-      const { SchemaField } = foundry.data.fields;
+      const { SchemaField, NumberField } = foundry.data.fields;
       return Object.assign(super.defineSchema(), {
-        choose: new SchemaField({ choices: choiceSchema() }),
+        choose: new SchemaField({
+          count: new NumberField({ required: true, integer: true, min: 1, initial: 1, nullable: false }),
+          choices: choiceSchema(),
+        }),
       });
     }
 
@@ -186,6 +306,7 @@ export function registerChooseEffect() {
   _registerChooseMessageHooks();
   _registerDamageRollFilter();
   _registerRollSuppression();
+  _registerPreviewOverride();
 }
 
 const _chosen = new Map();
@@ -213,31 +334,34 @@ export function getChoicePicks(abilityUuid) {
 
 async function _promptChoice(ability, effect, named) {
   const choices = effect.choose.choices;
+  const count = Math.max(1, Math.min(effect.choose.count ?? 1, choices.length));
 
-  const lines = choices.map((choice, index) => {
-    const name = choice.name || game.i18n.format('DSCT.choose.unnamed', { n: index + 1 });
-    const story = choice.story ? `<span class="dsct-choose-story">${choice.story}</span>` : '';
-    return `<li><strong>${name}</strong>${story ? ' ' + story : ''}</li>`;
-  }).join('');
+  const words = game.i18n.localize('DSCT.choose.counts').split(',').map(w => w.trim());
+  const count_ = words[count - 1] ?? String(count);
 
   const heading = named
-    ? game.i18n.format('DSCT.choose.prompt.named', { effect: effect.name })
-    : game.i18n.localize('DSCT.choose.prompt.body');
+    ? game.i18n.format('DSCT.choose.prompt.named', { effect: effect.name, count: count_ })
+    : game.i18n.format('DSCT.choose.prompt.body', { count: count_ });
 
-  const action = await foundry.applications.api.DialogV2.wait({
-    window: { title: ability.name },
-    classes: ['dsct-choose-prompt'],
-    content: `<p>${heading}</p><ul class="dsct-choose-list">${lines}</ul>`,
-    buttons: choices.map((choice, index) => ({
+  const answer = await stackedPrompt({
+    title: ability.name,
+    heading,
+    count,
+    options: choices.map((choice, index) => ({
       label: choice.name || game.i18n.format('DSCT.choose.unnamed', { n: index + 1 }),
+      img: choice.icon || effect.img || ability.img,
       action: String(index),
-      default: index === 0,
     })),
-    rejectClose: false,
   });
 
-  const index = Number(action);
-  return Number.isInteger(index) && index >= 0 && index < choices.length ? index : null;
+  const actions = Array.isArray(answer) ? answer : (typeof answer === 'string' ? [answer] : null);
+  if (!actions) return null;
+
+  const indexes = [...new Set(actions.map(Number))]
+    .filter(i => Number.isInteger(i) && i >= 0 && i < choices.length);
+  if (indexes.length !== count) return null;
+
+  return count > 1 ? indexes : indexes[0];
 }
 
 export function checkAndRunChoose(dialog) {
@@ -285,12 +409,22 @@ export function clearChoicePicks(abilityUuid) {
 
 const FLAG = 'choosePicks';
 
+const _pickedIndexes = (picks, effectId) => {
+  const value = picks?.[effectId];
+  if (value === undefined || value === null) return [];
+  return Array.isArray(value) ? value : [value];
+};
+
 function _pickedChoices(item, picks) {
   const out = [];
   for (const effect of _chooseEffects(item)) {
-    const index = picks?.[effect.id];
-    const choice = effect.choose?.choices?.[index];
-    if (choice) out.push(choice);
+    
+    
+    if ((effect.choose?.count ?? 1) > 1) continue;
+    for (const index of _pickedIndexes(picks, effect.id)) {
+      const choice = effect.choose?.choices?.[index];
+      if (choice) out.push(choice);
+    }
   }
   return out;
 }
@@ -299,11 +433,11 @@ function _assignment(item, picks) {
   const claimed = new Set();
   const active = new Set();
   for (const effect of _chooseEffects(item)) {
-    const chosenIndex = picks?.[effect.id];
+    const chosen = _pickedIndexes(picks, effect.id);
     effect.choose.choices.forEach((choice, index) => {
       for (const name of choice.effects ?? []) {
         claimed.add(name);
-        if (index === chosenIndex) active.add(name);
+        if (chosen.includes(index)) active.add(name);
       }
     });
   }
@@ -315,6 +449,23 @@ function _effectShows(effect, assignment) {
   if (!name) return true;
   if (!assignment.claimed.has(name)) return true;
   return assignment.active.has(name);
+}
+
+export function chooseResolved(item, message = null) {
+  const picks = message?.getFlag?.(M, FLAG) ?? getChoicePicks(item?.uuid);
+  if (!picks || !Object.keys(picks).length) return null;
+  return resolveChoice(item, picks);
+}
+
+export function chooseKeywords(item, message = null) {
+  return chooseResolved(item, message)?.keywords ?? item?.system?.keywords ?? new Set();
+}
+
+export function chooseTargeting(item) {
+  const resolved = chooseResolved(item);
+  if (!resolved) return null;
+  const { distance, target, keywords } = resolved;
+  return { distance, target, keywords };
 }
 
 export function resolveChoice(item, picks) {
@@ -412,6 +563,17 @@ function _stampMessage(message, data) {
   item.prepareData?.();
 }
 
+function _pickedNames(item, picks) {
+  const names = [];
+  for (const effect of _chooseEffects(item)) {
+    for (const index of _pickedIndexes(picks, effect.id)) {
+      const name = effect.choose?.choices?.[index]?.name?.trim();
+      if (name) names.push(name);
+    }
+  }
+  return names;
+}
+
 function _applyToCard(message, html) {
   const picks = message.getFlag('draw-steel-combat-tools', FLAG);
   if (!picks || !Object.keys(picks).length) return;
@@ -422,6 +584,15 @@ function _applyToCard(message, html) {
 
   const embed = html.querySelector('document-embed.draw-steel.ability');
   if (!embed) return;
+
+  
+  
+  const names = _pickedNames(item, picks);
+  const heading = embed.querySelector(':scope > h5');
+  if (names.length && heading && !heading.dataset.dsctChoice) {
+    heading.dataset.dsctChoice = '1';
+    heading.append(document.createTextNode(` (${names.join(', ')})`));
+  }
 
   const resolved = resolveChoice(item, picks);
   const labels = _labels(resolved);
@@ -629,6 +800,65 @@ function _registerRollSuppression() {
   cls.prototype.prepareDerivedData = function (...args) {
     original.apply(this, args);
     suppress.call(this);
+  };
+}
+
+function _defaultPreview(index) {
+  const ordinals = game.i18n.localize('DSCT.choose.preview.ordinals').split(',').map(o => o.trim());
+  const ordinal = ordinals[index] ?? `${index + 1}th`;
+  return game.i18n.format('DSCT.choose.preview.fallback', { ordinal });
+}
+
+function _registerPreviewOverride() {
+  const path = 'CONFIG.Item.dataModels.ability.prototype.getSheetContext';
+
+  const rewrite = async function (context) {
+    
+    if ('limitEffects' in context) return;
+
+    const chosen = _chooseEffects(this.parent);
+    if (!chosen.length) return;
+
+    const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
+    const heading = game.i18n.localize('DSCT.choose.preview.heading');
+    const entries = [];
+
+    for (const effect of chosen) {
+      const bullets = [];
+      for (const [index, choice] of effect.choose.choices.entries()) {
+        const line = choice.preview?.trim() || _defaultPreview(index);
+        bullets.push(`<li>${await enrich(line, { relativeTo: this.parent })}</li>`);
+      }
+      entries.push({
+        label: game.i18n.localize('TYPES.SpecialEffect.base'),
+        text: `<p>${heading}</p><ul class="dsct-choose-preview">${bullets.join('')}</ul>`,
+      });
+    }
+
+    context.beforeEffects = [];
+    context.afterEffects = entries;
+    context.powerRolls = false;
+  };
+
+  if (game.modules.get('lib-wrapper')?.active) {
+    libWrapper.register(M, path, async function (wrapped, context, ...args) {
+      const result = await wrapped(context, ...args);
+      await rewrite.call(this, context);
+      return result;
+    }, 'WRAPPER');
+    return;
+  }
+
+  const cls = CONFIG.Item?.dataModels?.ability;
+  if (!cls) {
+    console.warn('DSCT | Choose | ability data model unavailable, the preview is not rewritten');
+    return;
+  }
+  const original = cls.prototype.getSheetContext;
+  cls.prototype.getSheetContext = async function (context, ...args) {
+    const result = await original.call(this, context, ...args);
+    await rewrite.call(this, context);
+    return result;
   };
 }
 

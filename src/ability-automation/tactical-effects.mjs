@@ -9,10 +9,10 @@ const AID_ATTACK_EFFECT = {
   name: 'Aid Attack (Target)',
   img: 'icons/skills/social/diplomacy-handshake-blue.webp',
   type: 'base',
-  system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
+  system: { end: { roll: '1d10 + @combat.save.bonus' } },
   changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
   disabled: false,
-  duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0 },
+  duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0, expiry: 'combatEnd' },
   description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'aid-attack' } },
 };
 
@@ -56,7 +56,8 @@ export const applyJudgement = async ({ sourceActorId = null } = {}) => {
     name: `Judged [${censorActor.name}]`,
     img: getSetting('judgedEffectIcon') || 'icons/magic/death/skull-humanoid-white-red.webp',
     type: 'base',
-    system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
+    system: { end: { roll: '1d10 + @combat.save.bonus' } },
+    duration: { expiry: 'combatEnd' },
     changes: [],
     flags: { [M]: { judgement: { userId: game.user.id, actorId: censorActor.id } } },
   };
@@ -105,7 +106,8 @@ export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'othe
       name: 'Mark',
       img: getSetting('markedEffectIcon') || 'icons/skills/targeting/crosshair-pointed-orange.webp',
       type: 'base',
-      system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' } },
+      system: { end: { roll: '1d10 + @combat.save.bonus' } },
+      duration: { expiry: 'combatEnd' },
       changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
       flags: { [M]: { mark: { userId: game.user.id, actorId: resolvedActorId, dsid, isMarkAbility } } },
     };

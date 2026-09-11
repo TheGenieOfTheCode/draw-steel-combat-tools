@@ -7,29 +7,46 @@
   </p>
   {{/if}}
 
+  {{#if ctx.choices.length}}
+  <p class="dsct-choose-count">
+    {{localize "DSCT.choose.count.before"}}
+    <select name="choose.count">{{selectOptions ctx.countOptions selected=ctx.count valueAttr="value" labelAttr="label"}}</select>
+    {{localize "DSCT.choose.count.after"}}
+  </p>
+  {{/if}}
+
   {{#each ctx.choices as |choice|}}
-  <fieldset class="dsct-choice">
-    <legend>
-      {{#if choice.src.name}}{{choice.src.name}}{{else}}{{localize "DSCT.choose.unnamed" n=choice.number}}{{/if}}
+  <details class="dsct-choice" data-index="{{choice.index}}" {{#if choice.open}}open{{/if}}>
+    <summary class="dsct-choice-summary">
+      <i class="fa-solid fa-chevron-right dsct-choice-caret"></i>
+      <button type="button" class="dsct-choice-icon" data-action="dsctPickIcon" data-index="{{choice.index}}"
+              data-fallback="{{choice.iconPreview}}" data-tooltip="DSCT.choose.icon.hint">
+        <img src="{{choice.iconPreview}}" alt="">
+      </button>
+      <span class="dsct-choice-title">{{#if choice.src.name}}{{choice.src.name}}{{else}}{{localize "DSCT.choose.unnamed" n=choice.number}}{{/if}}</span>
       <a class="dsct-choice-remove" data-action="dsctRemoveChoice" data-index="{{choice.index}}"
          data-tooltip="DSCT.choose.remove"><i class="fa-solid fa-trash"></i></a>
-    </legend>
+    </summary>
 
-    {{formGroup ../ctx.fields.name value=choice.src.name name=(concat choice.prefix ".name") label="DSCT.choose.name.label" hint="DSCT.choose.name.hint" localize=true}}
-    {{formGroup ../ctx.fields.story value=choice.src.story name=(concat choice.prefix ".story") label=../ctx.labels.story}}
+    <div class="dsct-choice-body">
+    <input type="hidden" name="{{concat choice.prefix '.icon'}}" value="{{choice.src.icon}}">
+
+    {{formGroup ../ctx.fields.name value=choice.src.name name=(concat choice.prefix ".name") label="DSCT.choose.name.label" localize=true}}
+    {{formGroup ../ctx.fields.preview value=choice.src.preview name=(concat choice.prefix ".preview") placeholder=choice.ghostPreview label="DSCT.choose.preview.label" hint="DSCT.choose.preview.hint" localize=true}}
+    {{formGroup ../ctx.fields.story value=choice.src.story name=(concat choice.prefix ".story") placeholder=choice.ghostStory label=../ctx.labels.story}}
     {{formGroup ../ctx.fields.keywords value=choice.src.keywords name=(concat choice.prefix ".keywords") options=../ctx.keywordOptions label=../ctx.labels.keywords}}
 
     <fieldset>
       <legend>{{../ctx.labels.distanceLegend}}</legend>
       {{formGroup ../ctx.fields.distance.fields.type value=choice.src.distance.type name=(concat choice.prefix ".distance.type") options=../ctx.distanceTypes label=../ctx.labels.distanceType}}
       {{#if choice.primaryDistance}}
-      {{formGroup ../ctx.fields.distance.fields.primary value=choice.src.distance.primary name=(concat choice.prefix ".distance.primary") label=choice.primaryDistance}}
+      {{formGroup ../ctx.fields.distance.fields.primary value=choice.src.distance.primary name=(concat choice.prefix ".distance.primary") placeholder=choice.ghostPrimary label=choice.primaryDistance}}
       {{/if}}
       {{#if choice.secondaryDistance}}
-      {{formGroup ../ctx.fields.distance.fields.secondary value=choice.src.distance.secondary name=(concat choice.prefix ".distance.secondary") label=choice.secondaryDistance}}
+      {{formGroup ../ctx.fields.distance.fields.secondary value=choice.src.distance.secondary name=(concat choice.prefix ".distance.secondary") placeholder=choice.ghostSecondary label=choice.secondaryDistance}}
       {{/if}}
       {{#if choice.tertiaryDistance}}
-      {{formGroup ../ctx.fields.distance.fields.tertiary value=choice.src.distance.tertiary name=(concat choice.prefix ".distance.tertiary") label=choice.tertiaryDistance}}
+      {{formGroup ../ctx.fields.distance.fields.tertiary value=choice.src.distance.tertiary name=(concat choice.prefix ".distance.tertiary") placeholder=choice.ghostTertiary label=choice.tertiaryDistance}}
       {{/if}}
     </fieldset>
 
@@ -47,7 +64,8 @@
     {{else}}
     <p class="dsct-choose-empty">{{localize "DSCT.choose.noEffects"}}</p>
     {{/if}}
-  </fieldset>
+    </div>
+  </details>
   {{/each}}
 
   {{#unless ctx.choices.length}}

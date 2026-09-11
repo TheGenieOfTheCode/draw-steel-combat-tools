@@ -1,4 +1,5 @@
 import { getSetting, getItemDsid } from '../../helpers.mjs';
+import { chooseKeywords } from '../choose-effect.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -10,9 +11,9 @@ const CF_EFFECT_DEFS = {
     name: 'Crossfade: Melee Edge',
     img:  'icons/skills/melee/sword-winged-holy-orange.webp',
     type: 'base',
-    system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' }, filters: { keywords: [] } },
+    system: { end: { roll: '1d10 + @combat.save.bonus' }, filters: { keywords: [] } },
     changes: [], disabled: false,
-    duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
+    duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null, expiry: 'combatEnd' },
     description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0,
     flags: { [M]: { isCrossfadeEffect: true, strikeType: 'melee' } },
   },
@@ -20,9 +21,9 @@ const CF_EFFECT_DEFS = {
     name: 'Crossfade: Ranged Edge',
     img:  'icons/skills/ranged/shuriken-thrown-orange.webp',
     type: 'base',
-    system: { end: { type: 'encounter', roll: '1d10 + @combat.save.bonus' }, filters: { keywords: [] } },
+    system: { end: { roll: '1d10 + @combat.save.bonus' }, filters: { keywords: [] } },
     changes: [], disabled: false,
-    duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
+    duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null, expiry: 'combatEnd' },
     description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0,
     flags: { [M]: { isCrossfadeEffect: true, strikeType: 'ranged' } },
   },
@@ -68,7 +69,7 @@ async function _syncCfEffects(actor) {
 }
 
 export function getStrikeType(item) {
-  const kw = item.system?.keywords;
+  const kw = chooseKeywords(item);
   if (!kw?.has('strike')) return null;
   const melee  = kw.has('melee');
   const ranged = kw.has('ranged');

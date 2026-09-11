@@ -6,9 +6,12 @@ const TRIGGER_EFFECT = {
   name: "Unspent Triggered Action",
   img: "icons/magic/time/arrows-circling-pink.webp",
   type: "base",
-  system: { end: { type: "encounter", roll: "" }, filters: { keywords: [] } },
+  system: { end: { roll: "" }, filters: { keywords: [] } },
   changes: [], disabled: false,
-  duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
+  duration: {
+    startTime: 0, combat: null, seconds: null, rounds: null, turns: null,
+    startRound: null, startTurn: null, expiry: "combatEnd",
+  },
   description: "", tint: "#ffffff", transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'triggered-action' } }
 };
 
@@ -42,7 +45,14 @@ const _triggerEffects = (actor) => actor.effects.filter(e => e.getFlag(M, 'effec
 const enableEffect = async (actor) => {
   const existing = _triggerEffects(actor);
   if (existing.length) {
-    for (const e of existing) if (e.disabled) await safeUpdate(e, { disabled: false });
+    for (const e of existing) {
+      const update = {};
+      if (e.disabled) update.disabled = false;
+      
+      
+      if (e.duration?.expired) update['duration.expired'] = false;
+      if (Object.keys(update).length) await safeUpdate(e, update);
+    }
     return;
   }
   await safeCreateEmbedded(actor, 'ActiveEffect', [foundry.utils.deepClone(TRIGGER_EFFECT)]);
@@ -133,8 +143,11 @@ export const registerTriggeredActionHooks = () => {
       if (!actor) continue;
 
       for (const effect of actor.effects.filter(e => e.getFlag(M, 'effectType') === 'triggered-action')) {
-        if (!effect.disabled) continue;
-        try { await safeUpdate(effect, { disabled: false }); } catch (_) {}
+        const update = {};
+        if (effect.disabled) update.disabled = false;
+        if (effect.duration?.expired) update['duration.expired'] = false;
+        if (!Object.keys(update).length) continue;
+        try { await safeUpdate(effect, update); } catch (_) {}
       }
     }
   });
