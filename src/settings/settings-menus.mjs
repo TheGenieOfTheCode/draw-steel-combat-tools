@@ -736,6 +736,7 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
       keys.push(header('DS Terrain Designer'));
       keys.push('highGroundEnabled');
       keys.push('coverBaneEnabled');
+      keys.push('stealthSystemEnabled');
       keys.push('collisionOnUnitStep');
       keys.push(compatInfo('ds-terrain-designer', 'DSCT.compat.dsTerrain.name', 'DSCT.compat.dsTerrain.hint'));
     }

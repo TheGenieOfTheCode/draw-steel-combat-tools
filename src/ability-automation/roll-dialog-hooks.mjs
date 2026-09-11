@@ -1,4 +1,5 @@
 import { getSetting, getItemDsid, hasCover } from '../helpers.mjs';
+import { isHiddenFrom } from '../conditions/stealth.mjs';
 import { getFrightenedData, getTauntedData, sightBlockedBetweenTokens } from '../conditions/conditions.mjs';
 import { sizeRankG } from '../conditions/grab.mjs';
 import { getStrikeType, isCrossfadeStrike, getCrossfadeEdgeForAbility } from './class-shadow/crossfade.mjs';
@@ -10,7 +11,6 @@ const mkId = (s) => `dsct-p-${++_pillIdCounter}-${s}`;
 function pill(id, kind, amount, reason, src, scope, dsNative = false) {
   return { id, kind, amount, reason, src, srcTokenId: null, srcTokenIds: [], srcAbility: null, scope, enabled: true, custom: false, dsNative };
 }
-
 
 function _pickFlankingAlly(casterToken, targetToken, allies) {
   if (allies.length <= 1) return allies[0] ?? null;
@@ -62,7 +62,6 @@ function _buildGlobalPills(actor) {
   if (actor.statuses?.has('prone')) pills.push(pill(mkId('pr'), 'bane', 1, 'Prone', null, 'global', false));
   return pills;
 }
-
 
 function _buildNativeConditionTargetPills(actor, casterToken, targetActor, tokenId) {
   const pills = [];
@@ -132,7 +131,6 @@ function _buildTargetPills(app, tokenId) {
   const abilityKeywords = chooseKeywords(ability);
   const isMeleeStrike = abilityKeywords.has('melee') && abilityKeywords.has('strike');
   const pills = [];
-
 
   if (targetActor.statuses?.has('restrained'))
     pills.push(pill(mkId(`rst-${tokenId}`), 'edge', 1, 'Target Restrained', null, tokenId, true));
@@ -261,6 +259,12 @@ function _buildTargetPills(app, tokenId) {
 
   
   
+  
+  
+  if (getSetting('stealthSystemEnabled') && casterToken && isHiddenFrom(casterToken, targetToken)) {
+    pills.push(pill(mkId(`hid-${tokenId}`), 'edge', 1, 'Hidden', null, tokenId, false));
+  }
+
   if (getSetting('coverBaneEnabled') && casterToken && _dealsDamage(ability)) {
     const p = pill(mkId(`cov-${tokenId}`), 'bane', 1, 'Cover', null, tokenId, false);
     p.enabled = hasCover(casterToken, targetToken);
@@ -351,7 +355,6 @@ function _buildModifierSources(app) {
   return pills;
 }
 
-
 export function _recomputeAndSync(app) {
   const ctx    = app.options.context;
   if (!ctx?.modifiers) return;
@@ -409,7 +412,6 @@ export function _recomputeAndSync(app) {
     }
   }
 }
-
 
 function _totalClass(val, kind) {
   if (val === 0) return 'dsct-total-zero';
@@ -631,7 +633,6 @@ function _updateTotalSpan(fg, scope, kind, val) {
   span.className   = `dsct-total-display ${_totalClass(val, kind)}`;
 }
 
-
 const M_ID = 'draw-steel-combat-tools';
 
 export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
@@ -801,7 +802,6 @@ function _refreshTauntedPill(app) {
   app._dsctSources.push(p);
 }
 
-
 export function setBaneDialogLockWithOverlay(app, locked, reasons = []) {
   if (!app.element) return;
   if (!getSetting('rollDialogPillUI')) return;
@@ -855,7 +855,6 @@ export function injectJudgementBanePill(app) {
   _injectPillUI(app);
   return true;
 }
-
 
 export function registerRollDialogPillHooks() {
   if (!getSetting('abilityAutomationEnabled')) return;

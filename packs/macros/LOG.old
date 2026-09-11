@@ -1,5 +1,15 @@
-2026/09/10-08:43:37.625 6ce0 Delete type=3 #1
-2026/09/10-08:43:37.628 5494 Level-0 table #5: started
-2026/09/10-08:43:37.629 5494 Level-0 table #5: 16491 bytes OK
-2026/09/10-08:43:37.631 5494 Delete type=0 #3
-2026/09/10-08:43:37.631 5494 Manual compaction at level-0 from '!folders!DSCTfoldAA000001' @ 72057594037927935 : 1 .. '!macros!DSCTtrigAction01' @ 0 : 0; will stop at (end)
+2026/09/11-20:37:50.450 a1f4 Recovering log #7
+2026/09/11-20:37:50.455 a1f4 Delete type=0 #7
+2026/09/11-20:37:50.455 a1f4 Delete type=3 #6
+2026/09/11-20:37:50.462 65e4 Level-0 table #11: started
+2026/09/11-20:37:50.465 65e4 Level-0 table #11: 20663 bytes OK
+2026/09/11-20:37:50.467 65e4 Delete type=0 #9
+2026/09/11-20:37:50.467 65e4 Manual compaction at level-0 from '!folders!DSCTfoldAA000001' @ 72057594037927935 : 1 .. '!macros!DSCTtrigAction01' @ 0 : 0; will stop at (end)
+2026/09/11-20:37:50.467 65e4 Manual compaction at level-1 from '!folders!DSCTfoldAA000001' @ 72057594037927935 : 1 .. '!macros!DSCTtrigAction01' @ 0 : 0; will stop at '!macros!DSCTtrigAction01' @ 77 : 1
+2026/09/11-20:37:50.467 65e4 Compacting 1@1 + 1@2 files
+2026/09/11-20:37:50.471 65e4 Generated table #12@1: 42 keys, 20663 bytes
+2026/09/11-20:37:50.472 65e4 Compacted 1@1 + 1@2 files => 20663 bytes
+2026/09/11-20:37:50.473 65e4 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/09/11-20:37:50.473 65e4 Delete type=2 #5
+2026/09/11-20:37:50.473 65e4 Delete type=2 #11
+2026/09/11-20:37:50.473 65e4 Manual compaction at level-1 from '!macros!DSCTtrigAction01' @ 77 : 1 .. '!macros!DSCTtrigAction01' @ 0 : 0; will stop at (end)

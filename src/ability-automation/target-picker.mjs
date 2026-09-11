@@ -1,5 +1,6 @@
 import { getSetting, tokFootprintDist, getItemRange, hasSightToToken } from '../helpers.mjs';
 import { chooseTargeting } from './choose-effect.mjs';
+import { isHiddenFrom } from '../conditions/stealth.mjs';
 import {
   setRaisedDeadVisible,
   addPreviewToken,
@@ -37,7 +38,7 @@ function _getCasterToken(ability) {
       ?? canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
 }
 
-export function _getValidTargets(casterToken, targetType, range, { excludeSelf = false, checkLOS = false } = {}) {
+export function _getValidTargets(casterToken, targetType, range, { excludeSelf = false, checkLOS = false, respectHidden = false } = {}) {
   const CGD      = canvas.grid.distance;
   const hasRange = range > 0 && !isNaN(range);
   const cDisp    = casterToken.document.disposition;
@@ -69,6 +70,9 @@ export function _getValidTargets(casterToken, targetType, range, { excludeSelf =
 
     
     if (checkLOS && !isSelf(t) && !_hasAnySightTo(casterToken, t)) return false;
+
+    
+    if (respectHidden && !isSelf(t) && isHiddenFrom(t, casterToken)) return false;
     return true;
   });
 }
@@ -88,7 +92,8 @@ async function _runTargetPicker(ability, casterToken) {
 
   if (needsReveal) { setRaisedDeadVisible(true); activateTokenLayer(); }
 
-  const validTokens = _getValidTargets(casterToken, targetType, isRangeEnforced ? range : 0, { excludeSelf, checkLOS: true });
+  const respectHidden = !(keywords?.has('area') ?? false);
+  const validTokens = _getValidTargets(casterToken, targetType, isRangeEnforced ? range : 0, { excludeSelf, checkLOS: true, respectHidden });
   const inRangeIds  = (!isRangeEnforced && range > 0)
     ? new Set(_getValidTargets(casterToken, targetType, range, { excludeSelf }).map(t => t.id))
     : null;
@@ -660,7 +665,8 @@ export function checkAndRunTargetPicker(dialog) {
     return null;
   }
 
-  const validTokens = _getValidTargets(casterToken, target.type, range, { excludeSelf, checkLOS: true });
+  const respectHidden = !(keywords?.has('area') ?? false);
+  const validTokens = _getValidTargets(casterToken, target.type, range, { excludeSelf, checkLOS: true, respectHidden });
 
   if (!validTokens.length) {
     if (getSetting('enforceAbilityRange') || !_getValidTargets(casterToken, target.type, 0, { excludeSelf, checkLOS: true }).length) {

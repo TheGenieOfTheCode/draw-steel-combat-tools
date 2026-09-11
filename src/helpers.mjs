@@ -50,8 +50,6 @@ export const initPalette = () => {
 
 const taggerActive = () => game.modules.get('tagger')?.active;
 
-
-
 const M = 'draw-steel-combat-tools';
 const _doc  = (obj) => obj?.document ?? obj;
 const _tags = (obj) => _doc(obj)?.getFlag(M, 'tags') ?? [];
@@ -95,18 +93,13 @@ export const toCenter = (grid)  => ({ x: grid.x * GRID() + GRID() / 2, y: grid.y
 export const gridEq   = (a, b)  => a.x === b.x && a.y === b.y;
 export const gridDist = (a, b)  => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
-
-
-
 const _sightBackend = () => CONFIG?.Canvas?.polygonBackends?.sight ?? null;
-
 
 export const segmentBlocksSight = (from, to) => {
   const backend = _sightBackend();
   if (!backend) return false;
   return !!backend.testCollision(from, to, { type: 'sight', mode: 'any' });
 };
-
 
 export const sightBlockPoint = (from, to) => {
   const backend = _sightBackend();
@@ -119,9 +112,7 @@ export const sightBlockPoint = (from, to) => {
   return { t, x: hit.x, y: hit.y };
 };
 
-
 export const SIGHT_SAMPLES = [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]];
-
 
 export const sightSamplePoints = (token) => {
   const GS  = canvas.grid.size;
@@ -140,7 +131,6 @@ export const sightSamplePoints = (token) => {
   return out;
 };
 
-
 export const sightOriginPoints = (token) => {
   if (!getSetting('trueDrawSteelLos')) {
     const c = token.center;
@@ -151,8 +141,6 @@ export const sightOriginPoints = (token) => {
   const h  = Math.max(1, Math.round(token.document.height)) * GS;
   return SIGHT_SAMPLES.map(([fx, fy]) => ({ x: token.x + fx * w, y: token.y + fy * h }));
 };
-
-
 
 const _sightEnds = (fromToken, token) => {
   const trueLoE = getSetting('trueDrawSteelLos');
@@ -184,20 +172,31 @@ export const hasSightToToken = (fromToken, token) => {
   return false;
 };
 
-
-
-const _spaceCorners = (token) => {
+const _spaceRect = (token) => {
   const GS = canvas.grid.size;
-  const w  = Math.max(1, Math.round(token.document.width))  * GS;
-  const h  = Math.max(1, Math.round(token.document.height)) * GS;
-  return SIGHT_SAMPLES.slice(1).map(([fx, fy]) => ({ x: token.x + fx * w, y: token.y + fy * h }));
+  const doc = token.document;
+  return {
+    x: doc.x,
+    y: doc.y,
+    w: Math.max(1, Math.round(doc.width)) * GS,
+    h: Math.max(1, Math.round(doc.height)) * GS,
+  };
 };
 
+const _spaceCorners = (token) => {
+  const { x, y, w, h } = _spaceRect(token);
+  return SIGHT_SAMPLES.slice(1).map(([fx, fy]) => ({ x: x + fx * w, y: y + fy * h }));
+};
+
+const _spaceCentre = (token) => {
+  const { x, y, w, h } = _spaceRect(token);
+  return { x: x + w / 2, y: y + h / 2 };
+};
 
 export const visibleTargetCorners = (fromToken, token) => {
   if (!fromToken || !token) return 0;
 
-  const origins = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [fromToken.center];
+  const origins = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [_spaceCentre(fromToken)];
   const corners = _spaceCorners(token);
 
   let best = 0;
@@ -208,7 +207,6 @@ export const visibleTargetCorners = (fromToken, token) => {
   }
   return best;
 };
-
 
 export const hasCover = (fromToken, token) => {
   const seen = visibleTargetCorners(fromToken, token);
@@ -258,7 +256,6 @@ export const getMaterial = (obj) => {
   return 'wood';
 };
 
-
 export const tokenAt = (gx, gy, excludeId) => canvas.tokens.placeables.find(t => {
   if (t.id === excludeId) return false;
   const tg   = toGrid(t.document);
@@ -270,8 +267,6 @@ export const tileAt = (gx, gy) => canvas.tiles.placeables.find(t => {
   const tg = toGrid(t.document);
   return tg.x === gx && tg.y === gy;
 });
-
-
 
 export const segmentsIntersect = (ax, ay, bx, by, cx, cy, dx, dy) => {
   const cross = (ox, oy, px, py, qx, qy) => (px - ox) * (qy - oy) - (py - oy) * (qx - ox);
@@ -295,7 +290,6 @@ export const wallBlocksMovement = (wall) => {
   return !isOpenDoorWall(w);
 };
 
-
 export const tileIsOpenDoor = (tile) => {
   if (!tile) return false;
   const blockTag = getTags(tile).find(t => t.startsWith('wall-block-'));
@@ -317,7 +311,6 @@ export const wallBetween = (fromGrid, toGrid_) => {
   }
   return fallback;
 };
-
 
 export const getSquadGroup = (actor) => {
   const combatant = game.combat?.combatants.find(c => c.actorId === actor.id);
@@ -518,7 +511,6 @@ export const confirmFall = async (token, rawFall, effectiveFall, dmg, { noFallDa
     });
   });
 };
-
 
 export const confirmRangeOverride = async (sourceToken, targetToken, squares, actionLabel) => {
   if (game.user.isGM) {
@@ -902,7 +894,6 @@ export const tokFootprintDist = (tokA, tokB) => footprintDistFromBounds(
   tokB.document.x, tokB.document.y, tokB.document.width, tokB.document.height,
 );
 
-
 export const getWallBlockTileAt = (gx, gy) => {
   return canvas.tiles.placeables.find(t => {
     const tg = toGrid(t.document);
@@ -938,7 +929,6 @@ export const getWindowById = (id) =>
   foundry.applications.instances?.get(id)
   ?? Object.values(ui.windows).find(w => w.id === id)
   ?? null;
-
 
 export const getActingActor = (predicate = null) => {
   const placeables = canvas?.tokens?.placeables ?? [];

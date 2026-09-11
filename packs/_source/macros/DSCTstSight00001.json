@@ -1,0 +1,25 @@
+{
+  "_id": "DSCTstSight00001",
+  "name": "Stealth: Sight and Cover Report",
+  "type": "script",
+  "img": "icons/svg/eye.svg",
+  "command": "const mod = game.modules.get('draw-steel-combat-tools');\nconst stealth = mod?.api?.stealth;\nconst sight = mod?.api?.sight;\nconst say = (title, body) => ChatMessage.create({\n  content: `<div class=\"dsct-stealth-report\"><h3>${title}</h3>${body}</div>`,\n  whisper: [game.user.id],\n});\nif (!stealth || !sight) {\n  ui.notifications.error('DSCT stealth api missing. Is the module active, and has the world been reloaded since it was installed?');\n  return;\n}\nconst me = canvas.tokens.controlled[0];\nif (!me) {\n  ui.notifications.warn('Select the token you are testing with first.');\n  return;\n}\nconst nameOf = (id) => canvas.tokens.get(id)?.name ?? id;\nconst list = (names) => names.length ? '<ul><li>' + names.join('</li><li>') + '</li></ul>' : '<p><em>Nobody.</em></p>';\n\nconst rows = canvas.tokens.placeables\n  .filter(t => t.id !== me.id && t.actor)\n  .map(t => {\n    const corners = sight.visibleTargetCorners(t, me);\n    return `<tr><td>${t.name}</td><td style=\"text-align:center\">${corners}</td>` +\n      `<td style=\"text-align:center\">${sight.hasCover(t, me) ? 'yes' : 'no'}</td>` +\n      `<td style=\"text-align:center\">${sight.hasSightTo(t, me) ? 'yes' : 'no'}</td>` +\n      `<td style=\"text-align:center\">${stealth.isHiddenFrom(me, t) ? 'yes' : 'no'}</td></tr>`;\n  });\n\nsay(`What everyone can see of ${me.name}`,\n  rows.length\n    ? '<table><thead><tr><th>Looking at you</th><th>Corners</th><th>You have cover</th><th>Line of effect</th><th>You are hidden</th></tr></thead><tbody>' +\n      rows.join('') + '</tbody></table>' +\n      '<p><em>Corners is the most of your four they can see from any one of their corners. Two or fewer is cover.</em></p>'\n    : '<p><em>Nobody else on the scene.</em></p>');\n",
+  "scope": "global",
+  "sort": 0,
+  "folder": "DSCTfoldST000001",
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTstSight00001"
+}

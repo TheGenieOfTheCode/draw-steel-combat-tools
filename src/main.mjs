@@ -3,7 +3,7 @@ import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
-import { applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken } from './helpers.mjs';
+import { applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes } from './death-tracker/death-tracker.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
@@ -20,6 +20,8 @@ import { registerTargetDistance } from './ability-automation/target-distance.mjs
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
+import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, moveLog } from './conditions/stealth.mjs';
+import { registerStatusPalette } from './status-palette.mjs';
 import { openImNoThreatPanel } from './ability-automation/ability-automation.mjs';
 import { openTransformPicker, runTransform } from './ability-automation/transformation.mjs';
 import { triggerAbyssalEvolution, registerMaliceInjectors } from './ability-automation/malice/malice-features.mjs';
@@ -49,6 +51,8 @@ const api = {
   bypassNextFmGate: bypassNextFmGate,
   colorTokenPicker: runColoredTokenPicker,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
+  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog },
+  sight:            { hasCover, visibleTargetCorners, hasSightTo: hasSightToToken },
   grab:             runGrab,
   wallBuilder: () => { const existing = getWindowById('wall-builder-panel'); if (existing) existing.close(); else new WallBuilderPanel().render(true); },
   convertWalls: convertWalls,
@@ -123,6 +127,8 @@ Hooks.once('init', () => {
   registerKnockbackGuard();
   registerGrabTierSync();
   registerConditionHooks();
+  registerStatusPalette();
+  registerStealthSystem();
   registerDCHooks();
   registerTacticalHooks();
   registerDeathTrackerHooks();
@@ -162,7 +168,6 @@ Hooks.once('init', () => {
     onDown: () => { refreshChatInjections(); return true; },
   });
 });
-
 
 Hooks.once('canvasReady', () => {
   
@@ -318,8 +323,6 @@ Hooks.once('ready', async () => {
   if (choice === 'skip-update') await game.settings.set(M, 'macroPromptSeenVersion', currentVersion);
   if (doImport) await installMacros();
 });
-
-
 
 Hooks.once('socketlib.ready', () => {
   const socket = socketlib.registerModule('draw-steel-combat-tools');

@@ -686,6 +686,10 @@ export const registerSettings = () => {
     name: L('highGroundEnabled.name'), hint: L('highGroundEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'stealthSystemEnabled', {
+    name: L('stealthSystemEnabled.name'), hint: L('stealthSystemEnabled.hint'),
+    scope: 'world', config: false, type: Boolean, default: true, requiresReload: true,
+  });
   game.settings.register(M, 'coverBaneEnabled', {
     name: L('coverBaneEnabled.name'), hint: L('coverBaneEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

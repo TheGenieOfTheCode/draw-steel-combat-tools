@@ -1,0 +1,25 @@
+{
+  "_id": "DSCTstReveal0001",
+  "name": "Stealth: Reveal",
+  "type": "script",
+  "img": "icons/svg/light.svg",
+  "command": "const mod = game.modules.get('draw-steel-combat-tools');\nconst stealth = mod?.api?.stealth;\nconst sight = mod?.api?.sight;\nconst say = (title, body) => ChatMessage.create({\n  content: `<div class=\"dsct-stealth-report\"><h3>${title}</h3>${body}</div>`,\n  whisper: [game.user.id],\n});\nif (!stealth || !sight) {\n  ui.notifications.error('DSCT stealth api missing. Is the module active, and has the world been reloaded since it was installed?');\n  return;\n}\nconst me = canvas.tokens.controlled[0];\nif (!me) {\n  ui.notifications.warn('Select the token you are testing with first.');\n  return;\n}\nconst nameOf = (id) => canvas.tokens.get(id)?.name ?? id;\nconst list = (names) => names.length ? '<ul><li>' + names.join('</li><li>') + '</li></ul>' : '<p><em>Nobody.</em></p>';\n\nconst had = [...stealth.hiddenFrom(me)].map(nameOf);\nawait stealth.reveal(me);\nsay(`${me.name} is no longer hidden`, had.length\n  ? '<p>Was hidden from ' + had.join(', ') + '.</p>'\n  : '<p><em>Was not hidden from anyone.</em></p>');\n",
+  "scope": "global",
+  "sort": 0,
+  "folder": "DSCTfoldST000001",
+  "ownership": {
+    "default": 0
+  },
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "coreVersion": "14.0.0",
+    "systemId": null,
+    "systemVersion": null,
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "_key": "!macros!DSCTstReveal0001"
+}

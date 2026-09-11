@@ -249,7 +249,6 @@
   color: var(--dsct-text-dim);
 }
 
-
 .dsct-target-col {
   display: flex;
   flex-direction: column;
@@ -265,7 +264,6 @@
   border-radius: 2px;
   border: 1px dashed var(--dsct-border-outer);
 }
-
 
 .dsct-grab-panel-body { min-height: 504px; }
 
@@ -867,7 +865,6 @@ enriched-content[enricher="dsct.teleport"] {
 }
 .dsct-fm-icon-btn:hover { color: var(--dsct-text) !important; }
 
-
 .dsct-fm-exec-shell {
   flex: 1;
   display: flex;
@@ -893,7 +890,6 @@ enriched-content[enricher="dsct.teleport"] {
   transition: border-color 0.8s;
   overflow: hidden;
 }
-
 
 .dsct-fm-split {
   display: flex;
@@ -1080,7 +1076,6 @@ enriched-content[enricher="dsct.teleport"] {
   line-height: 1.4;
 }
 
-
 .dsct-sub-debug-header {
   grid-column: 1 / -1;
   border-top: 1px solid var(--color-border-dark-4);
@@ -1123,7 +1118,6 @@ enriched-content[enricher="dsct.teleport"] {
 .dsct-sub-settings .form-group {
   margin-bottom: 10px !important;
 }
-
 
 .dsct-sub-settings .form-group > label {
   flex: 0 0 65%;
@@ -1239,7 +1233,6 @@ enriched-content[enricher="dsct.teleport"] {
   border-color: var(--dsct-accent) !important;
 }
 
-
 #dsct-vertical-popup .dsct-vert-picker-row {
   display: flex;
   gap: 16px;
@@ -1294,7 +1287,6 @@ enriched-content[enricher="dsct.teleport"] {
   gap: 8px;
 }
 
-
 .dsct-undo-status {
   text-align: center;
   color: var(--color-text-dark-secondary);
@@ -1304,7 +1296,6 @@ enriched-content[enricher="dsct.teleport"] {
   border: 1px dashed var(--color-border-dark-4);
   border-radius: 3px;
 }
-
 
 .dsct-attached-vis-header {
   font-size: 11px;
@@ -1320,7 +1311,6 @@ enriched-content[enricher="dsct.teleport"] {
   pointer-events: none;
 }
 
-
 .dsct-region-opacity-group {
   grid-template-columns: auto 1fr;
 }
@@ -1328,7 +1318,6 @@ enriched-content[enricher="dsct.teleport"] {
 .dsct-region-opacity-group label {
   flex: 0 0 auto;
 }
-
 
 .dsct-template-config-btn-wrap {
   padding: 0 0 6px;
@@ -1338,13 +1327,10 @@ enriched-content[enricher="dsct.teleport"] {
   width: 100%;
 }
 
-
-
 :root {
   --dsct-color-edge: #6fbf73;
   --dsct-color-bane: #d77676;
 }
-
 
 .dsct-source-pill {
   display: flex;
@@ -1461,7 +1447,6 @@ enriched-content[enricher="dsct.teleport"] {
 }
 .dsct-source-pills:empty { display: none; }
 
-
 .dsct-roll-pills-row {
   display: flex;
   flex-wrap: wrap;
@@ -1512,7 +1497,6 @@ enriched-content[enricher="dsct.teleport"] {
 }
 .dsct-chat-pill-gbase[data-gbase-idx].dsct-pill-disabled:hover { filter: brightness(1.3); }
 .dsct-roll-editor .dsct-re-echo { border-style: dotted; }
-
 
 .dsct-dmg-pills-row {
   display: flex;
@@ -1592,7 +1576,6 @@ enriched-content[enricher="dsct.teleport"] {
 }
 .dsct-roll-editor .dsct-re-base.dsct-pill-disabled:hover { filter: brightness(1.3); }
 
-
 .dsct-roll-editor .dsct-re {
   display: flex;
   flex-direction: column;
@@ -1645,7 +1628,6 @@ enriched-content[enricher="dsct.teleport"] {
 }
 .dsct-roll-editor .dsct-re-footer button { flex: 1; }
 
-
 .dsct-total-display {
   height: 24px;
   background: #221d28;
@@ -1672,7 +1654,6 @@ enriched-content[enricher="dsct.teleport"] {
   box-shadow: inset 0 0 0 1px rgba(238, 155, 58, 0.15);
 }
 
-
 .dsct-mod-pills-row {
   display: flex;
   flex-wrap: wrap;
@@ -1691,7 +1672,6 @@ enriched-content[enricher="dsct.teleport"] {
   color: var(--color-form-hint, #807e72);
   margin-right: 4px;
 }
-
 
 .dsct-add-mod-btn {
   display: inline-flex;
@@ -1732,7 +1712,6 @@ enriched-content[enricher="dsct.teleport"] {
   font-weight: 600;
 }
 
-
 .dsct-rdp-wrapper {
   position: relative;
   display: grid;
@@ -1760,7 +1739,6 @@ enriched-content[enricher="dsct.teleport"] {
   background: var(--button-hover-background-color);
   color: var(--button-hover-text-color);
 }
-
 
 .dsct-rdp-wrapper .group .header {
   display: flex;
@@ -1802,15 +1780,12 @@ enriched-content[enricher="dsct.teleport"] {
   user-select: none;
 }
 
-
-
 .dsct-amw {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px 4px 0;
 }
-
 
 .dsct-amw-type-grid {
   display: grid;
@@ -1852,7 +1827,6 @@ enriched-content[enricher="dsct.teleport"] {
   color: var(--draw-steel-c-laserline, #d9c186);
 }
 
-
 .dsct-fm-src-wrap { position: relative; display: inline-flex; align-items: center; }
 .dsct-fm-src-wrap .dsct-fm-src-fill {
   position: absolute;
@@ -1883,7 +1857,6 @@ enriched-content[enricher="dsct.teleport"] {
 }
 .dsct-amw-target-fill:hover { color: var(--color-text-light-primary, #d8d4c8); }
 
-
 .dsct-amw-preview {
   display: flex;
   align-items: center;
@@ -1902,9 +1875,7 @@ enriched-content[enricher="dsct.teleport"] {
   white-space: nowrap;
 }
 
-
 .dsct-amw-footer { justify-content: flex-end; }
-
 
 .dsct-lock-overlay {
   position: absolute;
@@ -1976,7 +1947,6 @@ enriched-content[enricher="dsct.teleport"] {
   flex-basis: 100%;
 }
 
-
 .ability-configuration-dialog.dsct-locked .window-content {
   pointer-events: none;
   user-select: none;
@@ -1990,8 +1960,6 @@ enriched-content[enricher="dsct.teleport"] {
   filter: grayscale(0.5);
   opacity: 0.30;
 }
-
-
 
 .ability-configuration-dialog.dsct-pill-ui-active .window-content {
   display: grid;
@@ -2019,7 +1987,6 @@ enriched-content[enricher="dsct.teleport"] {
   grid-column: 1 / -1;
 }
 
-
 .dsct-compat-badge {
   display: inline-block;
   font-size: 0.8em;
@@ -2039,7 +2006,6 @@ enriched-content[enricher="dsct.teleport"] {
   border: 1px solid #aaa;
 }
 
-
 .draw-steel-target-damage-quick-damage + .dsct-dstd-quick-fm-btn {
   margin-left: 0;
 }
@@ -2047,7 +2013,6 @@ enriched-content[enricher="dsct.teleport"] {
 body.dsct-prominent-picker > *:not(#board):not(#dsct-picker-topbar):not(.dsct-picker-exempt) {
   display: none !important;
 }
-
 
 .dsahud-button.dsct-ta-tracked > .dsahud-button-icon {
   color: rgb(70, 210, 120);
@@ -2227,7 +2192,6 @@ body.dsct-prominent-picker > *:not(#board):not(#dsct-picker-topbar):not(.dsct-pi
   color: #6eaae6;
 }
 
-
 body.detached .application {
   position: fixed !important;
   inset: 0 !important;
@@ -2243,7 +2207,6 @@ body.detached .window-content {
   overflow: hidden !important;
 }
 
-
 body.detached .chat-scroll {
   flex: 1 1 0 !important;
   min-height: 0 !important;
@@ -2258,7 +2221,6 @@ body.detached .chat-form {
 .dsct-hidden-enricher {
   display: none;
 }
-
 
 .dsct-tag-picker {
   display: flex;
@@ -2353,7 +2315,6 @@ body.detached .chat-form {
   font-weight: normal;
 }
 
-
 .dsct-choose { display: flex; flex-direction: column; gap: 8px; }
 
 .dsct-choose-count { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; }
@@ -2364,13 +2325,11 @@ body.detached .chat-form {
   filter: brightness(1.15);
 }
 
-
 .dsct-choose .dsct-choice {
   border: 1px solid var(--color-border-light-2, rgba(0, 0, 0, 0.25));
   border-radius: 6px;
   padding: 0 8px;
 }
-
 
 .dsct-choose .dsct-choice-body {
   display: flex;
@@ -2423,14 +2382,12 @@ body.detached .chat-form {
 
 .dsct-choose-add { align-self: flex-start; }
 
-
 .dsct-choose-sheet .window-content {
   overflow-y: auto;
   overflow-x: hidden;
 }
 
 .dsct-choose-sheet .dsct-choose { padding-bottom: 4px; }
-
 
 .dsct-stacked-prompt .dsct-stacked-heading { margin: 0; font-weight: 600; }
 
@@ -2463,13 +2420,10 @@ body.detached .chat-form {
   border-radius: 4px;
 }
 
-
 .dsct-choose .dsct-ghost-tag { opacity: 0.5; pointer-events: none; font-style: italic; }
-
 
 .dsct-choose-preview { margin: 0.25em 0 0; padding-left: 1.4em; }
 .dsct-choose-preview li { margin: 0.15em 0; }
-
 
 .dsct-choose-hidden { display: none !important; }
 
@@ -2519,4 +2473,39 @@ body .draw-steel-target-damage-panel .dsct-solo-quick {
 .themed.theme-dark .dsct-dice-formula .dsct-die,
 .theme-dark .dsct-dice-formula .dsct-die {
   filter: none;
+}
+
+body #token-hud .status-effects.palette {
+  max-height: none;
+}
+
+body #token-hud .status-effects.palette section.effect-pane {
+  grid-template-columns: repeat(3, 145px);
+  align-items: center;
+}
+
+body #token-hud .status-effects.palette section.effect-pane span.title.ellipsis {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  line-height: 1.15;
+  
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
+body #token-hud .status-effects.palette section.effect-pane .dsct-status-header {
+  grid-column: 1 / -1;
+  margin: 6px 0 2px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  font-size: var(--font-size-11);
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+body #token-hud .status-effects.palette section.effect-pane .dsct-status-header:first-child {
+  margin-top: 0;
 }

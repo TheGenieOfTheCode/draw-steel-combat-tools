@@ -683,6 +683,10 @@
         "name": "Compatibility",
         "label": "Configure Compatibility",
         "hint": "Settings for compatibility with other installed modules."
+      },
+      "stealthSystemEnabled": {
+        "name": "Draw Steel Stealth",
+        "hint": "Stops Foundry erasing invisible and burrowing tokens from everyone's vision, which is not how either works in Draw Steel, and adds the Hidden and Concealment statuses the game has but the system does not. Needs a reload."
       }
     },
     "FM": {
@@ -1453,6 +1457,9 @@
         "animalDisguise": "<strong>I'm No Threat</strong> <em>{name} takes on the appearance of a <strong>{disguise}</strong>.</em><br><br>Strikes gain an edge, and Disengage gains +1 distance.",
         "mimic": "<strong>I'm No Threat</strong> <em>{name} appears as <strong>{target}</strong>, their allies may mistake {name} for the real thing.</em><br><br>This illusion covers your entire body, including clothing and armor, and alters your voice to sound like that of the creature. You gain an edge on tests made to convince the creature's allies that you are the creature.<br><br>Strikes gain an edge, and Disengage gains +1 distance.",
         "illusionShatters": "<strong>I'm No Threat</strong> <em>{name}'s illusion shatters, the enemy never saw it coming!</em> {name} gains a <strong>Surge</strong>."
+      },
+      "stealth": {
+        "spotted": "<p><strong>{name}</strong> is no longer hidden from {by}.</p>"
       }
     },
     "label": {
@@ -1674,6 +1681,18 @@
         "body": "Choose {count} of the following",
         "named": "{effect}: choose {count} of the following"
       }
+    },
+    "status": {
+      "hidden": "Hidden",
+      "concealedMagical": "Magical Concealment",
+      "concealedMundane": "Mundane Concealment"
+    },
+    "statusGroup": {
+      "system": "Draw Steel",
+      "dsct": "Combat Tools",
+      "dealer": "Dealer",
+      "module": "Other Modules",
+      "core": "Foundry"
     }
   },
   "TYPES": {
