@@ -1,5 +1,6 @@
-import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken } from '../helpers.mjs';
+import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken, getModuleApi } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
+import { playDetected } from './detected-flash.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -170,6 +171,12 @@ export async function reveal(token, observerIds = null) {
   return setHiddenFrom(token, remaining);
 }
 
+function _announceDetected(spotterId, hiderId) {
+  playDetected(spotterId, hiderId);
+  const socket = getModuleApi(false)?.socket;
+  socket?.executeForOthers?.('dsct.detected', spotterId, hiderId);
+}
+
 export async function recheckHidden(moved) {
   if (!game.users.activeGM?.isSelf) return;
   if (!moved) return;
@@ -196,6 +203,8 @@ export async function recheckHidden(moved) {
     trace.push(`${hider.name}: spotted by ${spotted.map(o => o.name).join(", ")}`);
     await reveal(hider, spotted.map(o => o.id));
 
+    for (const observer of spotted) _announceDetected(observer.id, hider.id);
+
     ChatMessage.create({
       content: game.i18n.format('DSCT.chat.stealth.spotted', {
         name: hider.name,
@@ -210,7 +219,25 @@ export async function recheckHidden(moved) {
 const _moveLog = [];
 export const moveLog = () => [..._moveLog];
 
+function _watchQualifyingStatuses() {
+  const qualifying = (effect) =>
+    effect?.statuses?.has('invisible')
+    || effect?.statuses?.has('burrow')
+    || CONCEALED.some(id => effect?.statuses?.has(id));
+
+  for (const hook of ['createActiveEffect', 'deleteActiveEffect', 'updateActiveEffect']) {
+    Hooks.on(hook, (effect) => {
+      const actor = effect?.parent;
+      if (actor?.documentName !== 'Actor') return;
+      if (!qualifying(effect)) return;
+      for (const token of actor.getActiveTokens?.() ?? []) recheckHidden(token);
+    });
+  }
+}
+
 export function registerHiddenTracking() {
+  _watchQualifyingStatuses();
+
   Hooks.on('updateToken', async (doc, change) => {
     const keys = Object.keys(change).filter(k => k !== '_id').join(', ');
     const note = (what) => {

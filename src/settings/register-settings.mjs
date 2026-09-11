@@ -12,6 +12,7 @@ import {
   CompatibilitySettingsMenu,
   SquadToolsSettingsMenu,
   CombatLogsSettingsMenu,
+  StealthSettingsMenu,
 } from './settings-menus.mjs';
 
 export const registerSettings = () => {
@@ -212,6 +213,11 @@ export const registerSettings = () => {
   game.settings.register(M, 'restrictGrabButtons', {
     name: L('restrictGrabButtons.name'), hint: L('restrictGrabButtons.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.registerMenu(M, 'stealthSettings', {
+    name: L('stealthSettings.name'), label: L('stealthSettings.label'),
+    hint: L('stealthSettings.hint'),
+    icon: 'fas fa-user-ninja', type: StealthSettingsMenu, restricted: true,
   });
   game.settings.registerMenu(M, 'conditionsSettings', {
     name: L('conditionsSettings.name'), label: L('conditionsSettings.label'),
@@ -739,6 +745,10 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'showTeleportButton', {
     name: L('showTeleportButton.name'), hint: L('showTeleportButton.hint'),
+    scope: 'client', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'showStealthButton', {
+    name: L('showStealthButton.name'), hint: L('showStealthButton.hint'),
     scope: 'client', config: false, type: Boolean, default: true,
   });
   game.settings.register(M, 'showDamageConditionsButton', {

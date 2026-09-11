@@ -2509,3 +2509,54 @@ body #token-hud .status-effects.palette section.effect-pane .dsct-status-header 
 body #token-hud .status-effects.palette section.effect-pane .dsct-status-header:first-child {
   margin-top: 0;
 }
+
+.dsct-stealth-panel { display: flex; flex-direction: column; gap: 8px; }
+
+.dsct-stealth-panel .dsct-stealth-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+}
+
+.dsct-stealth-panel .dsct-stealth-who img {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.dsct-stealth-panel .dsct-stealth-label {
+  margin: 0;
+  font-size: var(--font-size-11);
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.dsct-stealth-panel .dsct-stealth-list {
+  margin: 2px 0 0;
+  padding-left: 1.2em;
+}
+
+.dsct-stealth-panel .dsct-stealth-empty {
+  margin: 0;
+  font-size: var(--font-size-12);
+  opacity: 0.75;
+}
+
+.dsct-stealth-panel .dsct-stealth-buttons { display: flex; gap: 4px; }
+.dsct-stealth-panel .dsct-stealth-buttons button { flex: 1; }
+
+.dsct-stealth-panel .dsct-stealth-on {
+  border-color: var(--dsct-accent, #7a50c0);
+  box-shadow: inset 0 0 0 1px var(--dsct-accent, #7a50c0);
+}
+
+#dsct-picker-topbar .dsct-stealth-key {
+  margin-right: 1.2em;
+  font-weight: bold;
+  white-space: nowrap;
+}

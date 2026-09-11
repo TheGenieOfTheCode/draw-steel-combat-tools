@@ -77,6 +77,13 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
     }
   }
 
+  
+  
+  if (sourceToken && sourceToken.id === targetToken.id && (type === 'push' || type === 'pull')) {
+    ui.notifications.warn(game.i18n.format('DSCT.notice.fm.selfPushPull', { name: targetToken.name, type }));
+    return;
+  }
+
   const GRID      = getGRID();
   const stability = ignoreStability ? 0 : (targetToken.actor?.system?.combat?.stability ?? 0);
   const tokenSize = targetToken.actor?.system?.combat?.size?.value ?? targetToken.document.width ?? 1;

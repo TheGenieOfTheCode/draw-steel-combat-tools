@@ -14,7 +14,7 @@ const addTools = (control, tools) => {
   }
 };
 
-const DSCT_GROUP_TOOLS = ['dsct-grab', 'dsct-forced-movement', 'dsct-teleport', 'dsct-dc', 'dsct-hide-defeated'];
+const DSCT_GROUP_TOOLS = ['dsct-grab', 'dsct-forced-movement', 'dsct-teleport', 'dsct-dc', 'dsct-stealth', 'dsct-hide-defeated'];
 
 export const registerModuleButtons = () => {
   Hooks.on('renderSceneControls', (app, html) => {
@@ -90,6 +90,14 @@ export const registerModuleButtons = () => {
         button: true,
         visible: S('teleportEnabled') && S('showTeleportButton'),
         onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.teleportUI()
+      },
+      'dsct-stealth': {
+        name: 'dsct-stealth',
+        title: 'Stealth',
+        icon: 'fas fa-user-ninja',
+        button: true,
+        visible: S('stealthSystemEnabled') && S('showStealthButton'),
+        onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.stealthPanel()
       },
       'dsct-dc': {
         name: 'dsct-dc',

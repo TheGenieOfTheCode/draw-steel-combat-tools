@@ -23,6 +23,8 @@ import { applyFrightened, applyTaunted, registerConditionHooks } from './conditi
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, moveLog } from './conditions/stealth.mjs';
 import { registerStatusPalette } from './status-palette.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
+import { toggleStealthPanel, registerStealthPanel } from './conditions/stealth-panel.mjs';
+import { playDetected } from './conditions/detected-flash.mjs';
 import { openImNoThreatPanel } from './ability-automation/ability-automation.mjs';
 import { openTransformPicker, runTransform } from './ability-automation/transformation.mjs';
 import { triggerAbyssalEvolution, registerMaliceInjectors } from './ability-automation/malice/malice-features.mjs';
@@ -53,6 +55,7 @@ const api = {
   colorTokenPicker: runColoredTokenPicker,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
   stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog },
+  stealthPanel:     toggleStealthPanel,
   sight:            { hasCover, visibleTargetCorners, hasSightTo: hasSightToToken },
   grab:             runGrab,
   wallBuilder: () => { const existing = getWindowById('wall-builder-panel'); if (existing) existing.close(); else new WallBuilderPanel().render(true); },
@@ -131,6 +134,7 @@ Hooks.once('init', () => {
   registerStatusPalette();
   registerStealthSystem();
   registerBurrowRendering();
+  registerStealthPanel();
   registerDCHooks();
   registerTacticalHooks();
   registerDeathTrackerHooks();
@@ -334,6 +338,7 @@ Hooks.once('socketlib.ready', () => {
   socket.register('dsct.deleteDocument',    async (uuid, options = {}) => { const doc = await fromUuid(uuid); if (doc) return await doc.delete(options); });
   socket.register('dsct.createEmbedded',    async (parentUuid, type, data) => { const parent = await fromUuid(parentUuid); if (parent) return await parent.createEmbeddedDocuments(type, data); });
   socket.register('dsct.toggleStatusEffect',async (uuid, effectId, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.toggleStatusEffect(effectId, options); });
+  socket.register('dsct.detected',          (spotterId, hiderId) => playDetected(spotterId, hiderId));
   socket.register('dsct.takeDamage',        async (uuid, amount, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.system.takeDamage(amount, options); });
   socket.register('dsct.rollFreeStrike',    async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });
   socket.register('dsct.executeHIWTurn',    async (actorUuid, msgId) => await executeHIWTurn(actorUuid, msgId));

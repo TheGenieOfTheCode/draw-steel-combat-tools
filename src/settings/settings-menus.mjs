@@ -351,6 +351,22 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
   }
 }
 
+export class StealthSettingsMenu extends SettingsSubmenu {
+  static DEFAULT_OPTIONS = {
+    id:     'dsct-stealth-settings',
+    window: { title: 'DSCT.panel.title.StealthSettings' },
+  };
+
+  static get enableKey() { return 'stealthSystemEnabled'; }
+
+  static get regularKeys() {
+    return [
+      'stealthSystemEnabled',
+      'coverBaneEnabled',
+    ];
+  }
+}
+
 export class DeathTrackerSettingsMenu extends SettingsSubmenu {
   static DEFAULT_OPTIONS = {
     id:     'dsct-death-tracker-settings',
@@ -683,7 +699,7 @@ export class ModuleButtonsSettingsMenu extends SettingsSubmenu {
   };
 
   static get regularKeys() {
-    const keys = ['toolboxEnabled', 'showForcedMovementButton', 'showGrabButton', 'showTeleportButton', 'showDamageConditionsButton'];
+    const keys = ['toolboxEnabled', 'showForcedMovementButton', 'showGrabButton', 'showTeleportButton', 'showDamageConditionsButton', 'showStealthButton'];
     if (game.user.isGM) keys.push('showWallBuilderButton');
     return keys;
   }
@@ -735,8 +751,6 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
     if (debugMode || isActive('ds-terrain-designer')) {
       keys.push(header('DS Terrain Designer'));
       keys.push('highGroundEnabled');
-      keys.push('coverBaneEnabled');
-      keys.push('stealthSystemEnabled');
       keys.push('collisionOnUnitStep');
       keys.push(compatInfo('ds-terrain-designer', 'DSCT.compat.dsTerrain.name', 'DSCT.compat.dsTerrain.hint'));
     }

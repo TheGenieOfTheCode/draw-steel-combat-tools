@@ -1,0 +1,54 @@
+<div class="dsct-stealth-panel">
+
+  {{#if ctx.token}}
+  <header class="dsct-stealth-who">
+    <img src="{{ctx.img}}" alt="">
+    <span class="dsct-stealth-name">{{ctx.name}}</span>
+  </header>
+
+  <section class="dsct-stealth-state">
+    {{#if ctx.hiddenFrom.length}}
+    <p class="dsct-stealth-label">{{localize "DSCT.panel.stealth.hiddenFrom"}}</p>
+    <ul class="dsct-stealth-list">
+      {{#each ctx.hiddenFrom}}<li>{{this}}</li>{{/each}}
+    </ul>
+    {{else}}
+    <p class="dsct-stealth-empty">{{localize "DSCT.panel.stealth.notHidden"}}</p>
+    {{/if}}
+  </section>
+
+  <section class="dsct-stealth-state">
+    <p class="dsct-stealth-label">{{localize "DSCT.panel.stealth.couldHideFrom"}}</p>
+    {{#if ctx.couldHideFrom.length}}
+    <ul class="dsct-stealth-list">
+      {{#each ctx.couldHideFrom}}<li>{{this}}</li>{{/each}}
+    </ul>
+    {{else}}
+    <p class="dsct-stealth-empty">{{localize "DSCT.panel.stealth.nobody"}}</p>
+    {{/if}}
+  </section>
+
+  <div class="dsct-stealth-buttons">
+    <button type="button" data-action="hide" {{#unless ctx.couldHideFrom.length}}disabled{{/unless}}>
+      <i class="fa-solid fa-user-ninja"></i> {{localize "DSCT.panel.stealth.hide"}}
+    </button>
+    <button type="button" data-action="hideTargeted" {{#unless ctx.hasTargets}}disabled{{/unless}}>
+      <i class="fa-solid fa-bullseye"></i> {{localize "DSCT.panel.stealth.hideTargeted"}}
+    </button>
+    <button type="button" data-action="reveal" {{#unless ctx.hiddenFrom.length}}disabled{{/unless}}>
+      <i class="fa-solid fa-eye"></i> {{localize "DSCT.panel.stealth.reveal"}}
+    </button>
+  </div>
+
+  <div class="dsct-stealth-buttons">
+    <button type="button" data-action="vision" class="{{#if ctx.visionOn}}dsct-stealth-on{{/if}}">
+      <i class="fa-solid fa-eye-low-vision"></i>
+      {{#if ctx.visionOn}}{{localize "DSCT.panel.stealth.visionOff"}}{{else}}{{localize "DSCT.panel.stealth.visionOn"}}{{/if}}
+    </button>
+  </div>
+
+  {{else}}
+  <p class="dsct-stealth-empty">{{localize "DSCT.panel.stealth.selectToken"}}</p>
+  {{/if}}
+
+</div>

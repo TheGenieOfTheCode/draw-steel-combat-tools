@@ -687,6 +687,15 @@
       "stealthSystemEnabled": {
         "name": "Draw Steel Stealth",
         "hint": "Stops Foundry erasing invisible and burrowing tokens from everyone's vision, which is not how either works in Draw Steel, and adds the Hidden and Concealment statuses the game has but the system does not. Needs a reload."
+      },
+      "showStealthButton": {
+        "name": "Show Stealth Button",
+        "hint": "Adds a Stealth button to the token controls, opening the panel for hiding and Stealth Vision. Per client."
+      },
+      "stealthSettings": {
+        "name": "Stealth",
+        "label": "Configure Stealth",
+        "hint": "Hidden and Concealment, cover, and how burrowing creatures are reached."
       }
     },
     "FM": {
@@ -902,7 +911,9 @@
         "HomeRulesSettings": "Home Rules",
         "CompatibilitySettings": "Compatibility",
         "SquadToolsSettings": "Squad Tools Settings",
-        "CombatLogsSettings": "Combat Logs"
+        "CombatLogsSettings": "Combat Logs",
+        "stealth": "Stealth",
+        "StealthSettings": "Stealth Settings"
       },
       "fm": {
         "noTarget": "No Target",
@@ -1074,6 +1085,26 @@
         "mimic": "Mimic",
         "noTarget": "No Target",
         "freeSpentInsight": "Free (spent Insight)"
+      },
+      "stealth": {
+        "hiddenFrom": "Hidden from",
+        "notHidden": "Not hidden from anyone.",
+        "couldHideFrom": "Could hide from",
+        "nobody": "Nobody. Find cover, concealment, or break their line of effect.",
+        "hide": "Hide",
+        "hideTargeted": "Hide from Targeted",
+        "reveal": "Reveal",
+        "visionOn": "Stealth Vision",
+        "visionOff": "Exit Stealth Vision",
+        "selectToken": "Select the token you are hiding with.",
+        "visionTitle": "Stealth Vision: {name}",
+        "visionStatus": "{seen} can see you, {could} you could hide from, {hidden} already hidden from",
+        "legend": {
+          "seen": "Red sees you",
+          "covered": "Amber sees you, but you have cover",
+          "blind": "Green lacks line of effect to you",
+          "hidden": "Blue is already hidden from"
+        }
       }
     },
     "settings": {
@@ -1212,7 +1243,8 @@
         "invalidMovementType": "Invalid movement type.",
         "notInRange": "{name} is not within range.",
         "targetNotFound": "DSCT | Target token not found on canvas.",
-        "chooseLanding": "Choose where {name} lands. Escape to skip."
+        "chooseLanding": "Choose where {name} lands. Escape to skip.",
+        "selfPushPull": "DSCT | {name} cannot {type} themselves, since there is no distance between a creature and itself. Use a slide or a teleport instead."
       },
       "grab": {
         "noGrabber": "No grabber token specified.",
@@ -1359,7 +1391,10 @@
         "postedCondNoSource": "The source of this condition could not be found on the canvas.",
         "noTargetForEffect": "Target one or more tokens before applying this effect."
       },
-      "noSceneForTemplate": "Open a scene before configuring this ability template."
+      "noSceneForTemplate": "Open a scene before configuring this ability template.",
+      "stealth": {
+        "noTargets": "Target the creatures you want to be hidden from first."
+      }
     },
     "button": {
       "undo": "Undo",

@@ -57,6 +57,9 @@ const SETTING_DEPS = {
 
   
 
+  stealthSystemEnabled: [lw('reduced', 'the statuses and the hiding rules still work, but burrowing creatures keep sorting under the map and the fade that marks them as underground never appears.')],
+  coverBaneEnabled:      [td('reduced', 'the bane still appears in the roll window, but there is no Target Damage panel for it to carry through to.')],
+
   quickStrikeCompat: [{ id: QUICKSTRIKE, level: 'inert', why: 'this only adjusts DSCT behaviour for the Quick Strike module.' }],
 };
 
