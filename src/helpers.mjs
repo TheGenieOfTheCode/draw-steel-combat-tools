@@ -75,14 +75,14 @@ export const addTags = async (obj, tags) => {
   if (taggerActive()) return Tagger.addTags(obj, tags);
   const doc  = _doc(obj);
   const curr = _tags(obj);
-  await doc.setFlag(M, 'tags', [...new Set([...curr, ...tags])]);
+  await safeUpdate(doc, { [`flags.${M}.tags`]: [...new Set([...curr, ...tags])] });
 };
 
 export const removeTags = async (obj, tags) => {
   if (taggerActive()) return Tagger.removeTags(obj, tags);
   const doc  = _doc(obj);
   const curr = _tags(obj);
-  await doc.setFlag(M, 'tags', curr.filter(t => !tags.includes(t)));
+  await safeUpdate(doc, { [`flags.${M}.tags`]: curr.filter(t => !tags.includes(t)) });
 };
 
 export const GRID = () => canvas.grid.size;
@@ -409,6 +409,8 @@ export const replayUndo = async (ops) => {
   }
 };
 
+export const STEALTH_WORKFLOW_READY = false;
+
 export const safeUpdate = async (document, data, options = {}) => {
   if (options.teleport) {
     const { teleport, ...rest } = options;
@@ -431,6 +433,12 @@ export const safeCreateEmbedded = async (parent, type, data) => {
   if (parent.isOwner) return await parent.createEmbeddedDocuments(type, data);
   return await getSocket().executeAsGM('dsct.createEmbedded', parent.uuid, type, data);
 };
+
+export const safeUnsetFlag = async (document, scope, key) =>
+  safeUpdate(document, { [`flags.${scope}.-=${key}`]: null });
+
+export const safeSetFlag = async (document, scope, key, value) =>
+  safeUpdate(document, { [`flags.${scope}.${key}`]: value });
 
 export const safeToggleStatusEffect = async (actor, effectId, options = {}) => {
   if (actor.isOwner) return await actor.toggleStatusEffect(effectId, options);

@@ -1,6 +1,8 @@
 import {
-  replayUndo, safeUpdate, safeDelete, safeToggleStatusEffect, getSetting, getTokenById,
+  replayUndo, safeUpdate, safeDelete, safeToggleStatusEffect, safeUnsetFlag, safeCreateEmbedded,
+  getSetting, getTokenById, getModuleApi,
 } from '../helpers.mjs';
+import { markPendingRevival } from '../compat/dstd-compat.mjs';
 import { applyGrab } from '../conditions/grab.mjs';
 import { addPreviewToken, removePreviewToken, activateTokenLayer } from '../death-tracker/defeated-token-visibility.mjs';
 
@@ -48,6 +50,18 @@ const handleStaminaRevival = async (undoLog) => {
     }
   }
 
+  
+  
+  
+  
+  const dstdSocket = getModuleApi(false)?.socket;
+  const defeatedStatus = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+  for (const tokenDoc of tokensToRevive.values()) {
+    if (!tokenDoc?.uuid || !tokenDoc.actor?.statuses?.has(defeatedStatus)) continue;
+    markPendingRevival(tokenDoc.uuid);
+    dstdSocket?.executeForEveryone('dsct.dstdPendingRevival', tokenDoc.uuid);
+  }
+
   const processedActorIds = new Set();
 
   for (const tokenDoc of tokensToRevive.values()) {
@@ -83,12 +97,17 @@ const handleStaminaRevival = async (undoLog) => {
       const preTint = tokenDoc.getFlag('draw-steel-combat-tools', 'preDeathTint') ?? '#ffffff';
       const preAlpha = tokenDoc.getFlag('draw-steel-combat-tools', 'preDeathAlpha') ?? 1;
       const savedDisplayBars = tokenDoc.getFlag('draw-steel-combat-tools', 'savedDisplayBars');
-      const restoreData = { 'texture.tint': preTint, alpha: preAlpha };
-      if (savedDisplayBars !== undefined) restoreData.displayBars = savedDisplayBars;
+      const restoreData = {
+        'texture.tint': preTint,
+        alpha: preAlpha,
+        'flags.draw-steel-combat-tools.-=preDeathTint': null,
+        'flags.draw-steel-combat-tools.-=preDeathAlpha': null,
+      };
+      if (savedDisplayBars !== undefined) {
+        restoreData.displayBars = savedDisplayBars;
+        restoreData['flags.draw-steel-combat-tools.-=savedDisplayBars'] = null;
+      }
       await safeUpdate(tokenDoc, restoreData);
-      await tokenDoc.unsetFlag('draw-steel-combat-tools', 'preDeathTint');
-      await tokenDoc.unsetFlag('draw-steel-combat-tools', 'preDeathAlpha');
-      if (savedDisplayBars !== undefined) await tokenDoc.unsetFlag('draw-steel-combat-tools', 'savedDisplayBars');
     }
 
     
@@ -97,8 +116,8 @@ const handleStaminaRevival = async (undoLog) => {
     if (game.combat) {
       const savedGroupId = tokenDoc.getFlag('draw-steel-combat-tools', 'savedGroupId');
       if (combatantDefeated) {
-        await existingCombatant.update({ defeated: false });
-        if (savedGroupId) await tokenDoc.unsetFlag('draw-steel-combat-tools', 'savedGroupId');
+        await safeUpdate(existingCombatant, { defeated: false });
+        if (savedGroupId) await safeUnsetFlag(tokenDoc, 'draw-steel-combat-tools', 'savedGroupId');
       } else if (!existingCombatant) {
         if (savedGroupId) {
           const squadOp = staminaOps.find(op =>
@@ -116,8 +135,8 @@ const handleStaminaRevival = async (undoLog) => {
         }
         const combatantData = { tokenId: tokenDoc.id, sceneId: canvas.scene.id, actorId: tokenDoc.actorId };
         if (savedGroupId) combatantData.group = savedGroupId;
-        await game.combat.createEmbeddedDocuments('Combatant', [combatantData]);
-        if (savedGroupId) await tokenDoc.unsetFlag('draw-steel-combat-tools', 'savedGroupId');
+        await safeCreateEmbedded(game.combat, 'Combatant', [combatantData]);
+        if (savedGroupId) await safeUnsetFlag(tokenDoc, 'draw-steel-combat-tools', 'savedGroupId');
       }
     }
 
