@@ -74,13 +74,30 @@ const FLAG = 'hiddenFrom';
 const _hiddenEffect = (token) =>
   token?.actor?.appliedEffects?.find(e => e.statuses?.has(HIDDEN)) ?? null;
 
+export function enemyCombatants(token) {
+  if (!token || !game.combat) return [];
+
+  const side = token.document.disposition;
+  const out = [];
+  for (const combatant of game.combat.combatants) {
+    const other = combatant.token?.object;
+    if (!other || other.id === token.id) continue;
+    if (other.document.disposition === side) continue;
+    out.push(other.id);
+  }
+  return out;
+}
+
 export function hiddenFrom(token) {
   const effect = _hiddenEffect(token);
   if (!effect) return new Set();
 
+  
+  
+  
   const ids = effect.getFlag(M, FLAG);
   if (Array.isArray(ids)) return new Set(ids);
-  return new Set(canvas.tokens.placeables.filter(t => t.id !== token.id).map(t => t.id));
+  return new Set(enemyCombatants(token));
 }
 
 export const isHiddenFrom = (token, observer) =>
