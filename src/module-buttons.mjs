@@ -1,4 +1,4 @@
-import { getSetting } from './helpers.mjs';
+import { getSetting, STEALTH_WORKFLOW_READY } from './helpers.mjs';
 import { selectConnectedWalls } from './forced-movement/wall-builder.mjs';
 
 const addTools = (control, tools) => {
@@ -96,7 +96,7 @@ export const registerModuleButtons = () => {
         title: 'Stealth',
         icon: 'fas fa-user-ninja',
         button: true,
-        visible: S('stealthSystemEnabled') && S('showStealthButton'),
+        visible: STEALTH_WORKFLOW_READY && S('stealthSystemEnabled') && S('showStealthButton'),
         onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.stealthPanel()
       },
       'dsct-dc': {

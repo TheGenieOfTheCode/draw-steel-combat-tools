@@ -3,7 +3,7 @@ import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
-import { applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners} from './helpers.mjs';
+import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes } from './death-tracker/death-tracker.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
@@ -137,10 +137,12 @@ Hooks.once('init', () => {
   registerStatusPalette();
   registerStealthSystem();
   registerBurrowRendering();
-  registerStealthPanel();
   registerHiddenMarkers();
-  registerStealthPath();
-  registerCombatReveal();
+  if (STEALTH_WORKFLOW_READY) {
+    registerStealthPanel();
+    registerStealthPath();
+    registerCombatReveal();
+  }
   registerDCHooks();
   registerTacticalHooks();
   registerDeathTrackerHooks();

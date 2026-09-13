@@ -1,6 +1,6 @@
 import { ImNoThreatSettingsMenu } from '../ability-automation/ability-automation.mjs';
 import { WallBuilderSettingsMenu } from '../forced-movement/wall-builder.mjs';
-import { getSetting } from '../helpers.mjs';
+import { getSetting, STEALTH_WORKFLOW_READY } from '../helpers.mjs';
 import { depsFor } from './setting-deps.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -363,8 +363,7 @@ export class StealthSettingsMenu extends SettingsSubmenu {
     return [
       'stealthSystemEnabled',
       'hiddenMarkers',
-      'stealthStopsMovement',
-      'revealCombatantPositions',
+      ...(STEALTH_WORKFLOW_READY ? ['stealthStopsMovement', 'revealCombatantPositions'] : []),
       'coverBaneEnabled',
     ];
   }
@@ -702,7 +701,8 @@ export class ModuleButtonsSettingsMenu extends SettingsSubmenu {
   };
 
   static get regularKeys() {
-    const keys = ['toolboxEnabled', 'showForcedMovementButton', 'showGrabButton', 'showTeleportButton', 'showDamageConditionsButton', 'showStealthButton'];
+    const keys = ['toolboxEnabled', 'showForcedMovementButton', 'showGrabButton', 'showTeleportButton', 'showDamageConditionsButton',
+      ...(STEALTH_WORKFLOW_READY ? ['showStealthButton'] : [])];
     if (game.user.isGM) keys.push('showWallBuilderButton');
     return keys;
   }

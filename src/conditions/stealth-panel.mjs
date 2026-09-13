@@ -1,4 +1,4 @@
-import { getWindowById } from '../helpers.mjs';
+import { getWindowById, STEALTH_WORKFLOW_READY } from '../helpers.mjs';
 import { hide, reveal, setHiddenFrom, hiddenFrom, proposeHide, stealthActive } from './stealth.mjs';
 import { toggleStealthVision, stealthVisionActive, endStealthVision, markPanelExempt } from './stealth-vision.mjs';
 
@@ -82,6 +82,7 @@ export class StealthPanel extends ds.applications.api.DSApplication {
 }
 
 export function toggleStealthPanel() {
+  if (!STEALTH_WORKFLOW_READY) return;
   const existing = getWindowById('dsct-stealth-panel');
   if (existing) return existing.close();
   new StealthPanel().render(true);
