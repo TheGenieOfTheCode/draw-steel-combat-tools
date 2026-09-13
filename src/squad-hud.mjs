@@ -17,7 +17,6 @@ const GROUP_TINTS = {
   9: 0x00ff88, 10: 0xff88aa,
 };
 
-
 const _squadHuds = new Map();
 let _hudTicker   = null;
 let _moveHandler = null;
@@ -32,8 +31,8 @@ let _lastStickbugTrigger  = 0;
 const ARRANGE_DUR     = 2000;  
 const DANCE_DUR       = 7200;  
 const STICKBUG_COOLDOWN = 60000; 
-
-
+const STICKBUG_SRC = 'modules/draw-steel-combat-tools/assets/Audio/Stickbug.mp3';
+let _stickbugSound = null;
 
 const _hudScale = () => getSetting('squadHudScale') || 1;
 
@@ -101,7 +100,6 @@ function _centroid(tokens) {
   return { x: sx / tokens.length, y: sy / tokens.length };
 }
 
-
 function _hudTargetPos(tokens) {
   if (!tokens?.length) return null;
   const gs  = canvas.grid.size;
@@ -139,17 +137,13 @@ function _hudTargetPos(tokens) {
   return { x: hx, y: hy };
 }
 
-
-
 function _txt(str, style) {
   const t = new PIXI.Text(str, style);
   t.resolution = (window.devicePixelRatio || 1) * 4;
   return t;
 }
 
-
 const _easeInOutCosine = t => (1 - Math.cos(Math.PI * t)) / 2;
-
 
 function _effectivePlayerVis(tokens) {
   if (game.user.isGM) return 'all';
@@ -167,7 +161,6 @@ function _lerpColor(a, b, t) {
        |  Math.round(abl + (bbl - abl) * t);
 }
 
-
 function _drawBarGfx(barGfx, repToken, hp, maxHP, total, nativeW, nativeH) {
   if (!repToken || !barGfx || maxHP <= 0) return;
   _drawBarFromHud = true;
@@ -176,14 +169,17 @@ function _drawBarGfx(barGfx, repToken, hp, maxHP, total, nativeW, nativeH) {
   
   
   barGfx.position.set(0, 0);
-  const dsto = game.modules.get('ds-token-override');
-  if (dsto?.active && total > 1) {
+  
+  
+  if (total > 1) {
     let ticksEnabled = true, tickColor = 0x000000;
-    try {
-      ticksEnabled = game.settings.get('ds-token-override', 'enableHealthbarTicks') ?? true;
-      const hex = game.settings.get('ds-token-override', 'tickColor') ?? '#000000';
-      tickColor = parseInt(hex.replace('#', ''), 16);
-    } catch {  }
+    if (game.modules.get('ds-token-override')?.active) {
+      try {
+        ticksEnabled = game.settings.get('ds-token-override', 'enableHealthbarTicks') ?? true;
+        const hex = game.settings.get('ds-token-override', 'tickColor') ?? '#000000';
+        tickColor = parseInt(hex.replace('#', ''), 16);
+      } catch {  }
+    }
     if (ticksEnabled) {
       barGfx.lineStyle({ color: tickColor, width: 2 });
       const spacing = nativeW / total;
@@ -396,7 +392,6 @@ function _buildContainer(data, entry, vis = 'all') {
     }
   }
 
-
   let _lastTap = 0;
   c.on('pointerdown', (ev) => {
     
@@ -454,7 +449,6 @@ function _buildContainer(data, entry, vis = 'all') {
 
   return { container: c, lockGfx, barGfx, repToken, nativeW, nativeH };
 }
-
 
 function _lineExitBox(px, py, dx, dy, bx, by, bw, bh) {
   let tBest = Infinity;
@@ -577,8 +571,6 @@ function _redrawLines(lineGfx, container, tokens, tint, kneeScale = 1, captainTo
     _strokeDashed(lineGfx, captainPath.from, captainPath.knee, captainPath.to, dashLen, gapLen);
   }
 }
-
-
 
 function _destroyEntry(entry) {
   if (entry.container?.parent) entry.container.parent.removeChild(entry.container);
@@ -843,8 +835,6 @@ export function nudgeSquadHud(tokenId) {
   }
 }
 
-
-
 function _registerHandlers() {
   _moveHandler = (event) => {
     const pos = event.data.getLocalPosition(canvas.app.stage);
@@ -901,6 +891,28 @@ function _unregisterHandlers() {
   _upHandler   = null;
 }
 
+export async function preloadStickbug() {
+  if (_stickbugSound?.loaded) return _stickbugSound;
+  try {
+    _stickbugSound = await foundry.audio.AudioHelper.preloadSound(STICKBUG_SRC);
+  } catch (err) {
+    console.warn('DSCT | squad hud | could not preload the stickbug sound:', err);
+    _stickbugSound = null;
+  }
+  return _stickbugSound;
+}
+
+function _playStickbug() {
+  const sound = _stickbugSound;
+  if (!sound?.loaded) {
+    foundry.audio.AudioHelper.play({ src: STICKBUG_SRC, volume: 0.8, loop: false }, false);
+    preloadStickbug();
+    return;
+  }
+  if (sound.playing) sound.stop();
+  sound.play({ volume: 0.8, loop: false });
+}
+
 export function getStickBugged() {
   if (!getSetting('squadHudEnabled') || _squadHuds.size === 0) {
     ui.notifications?.warn('No active squads with Squad HUD enabled.');
@@ -917,12 +929,11 @@ export function getStickBugged() {
     _hudTicker = () => _tickHuds();
     canvas.app.ticker.add(_hudTicker);
   }
-  foundry.audio.AudioHelper.play({ src: 'modules/draw-steel-combat-tools/assets/Audio/Stickbug.mp3', volume: 0.8, loop: false }, false);
+  _playStickbug();
 }
 
-
-
 export function registerSquadHudHooks() {
+  Hooks.once('ready', () => { if (getSetting('squadHudEnabled')) preloadStickbug(); });
   Hooks.on('canvasReady',    () => rebuildSquadHuds());
   Hooks.on('canvasTearDown', () => { clearSquadHuds(); document.getElementById('dsct-squad-hp-editor')?.remove(); });
 
@@ -1037,7 +1048,7 @@ export function registerSquadHudHooks() {
     if (!getSetting('stickbugChatTrigger')) return;
     if (!getSetting('squadHudEnabled') || _squadHuds.size === 0) return;
     const text = message.content.replace(/<[^>]+>/g, '').toLowerCase();
-    if (!text.includes('lol get stick bugged')) return;
+    if (!text.includes('get stick bugged')) return;
     const now = Date.now();
     if (now - _lastStickbugTrigger < STICKBUG_COOLDOWN) return;
     _lastStickbugTrigger = now;

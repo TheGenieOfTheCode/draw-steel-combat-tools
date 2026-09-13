@@ -1,5 +1,6 @@
 import { MATERIAL_RULE_DEFAULTS, WALL_RESTRICTION_DEFAULTS } from '../forced-movement/wall-builder.mjs';
 import { recheckCombatReveal } from '../conditions/combat-reveal.mjs';
+import { preloadStickbug } from '../squad-hud.mjs';
 import { InstallMacrosMenu } from '../setup-macros.mjs';
 import {
   ForcedMovementSettingsMenu,
@@ -414,6 +415,7 @@ export const registerSettings = () => {
   game.settings.register(M, 'squadHudEnabled', {
     name: L('squadHudEnabled.name'), hint: L('squadHudEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
+    onChange: (on) => { if (on) preloadStickbug(); },
   });
   game.settings.register(M, 'squadHudScale', {
     name: L('squadHudScale.name'), hint: L('squadHudScale.hint'),
