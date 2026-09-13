@@ -113,6 +113,7 @@ export function endStealthVision() {
   markPanelExempt(false);
   endPickerOverlay();
   _active = null;
+  Hooks.callAll('dsct.stealthVision', false);
 }
 
 export function beginStealthVision(token) {
@@ -139,6 +140,7 @@ export function beginStealthVision(token) {
 
   _active = { tokenId: token.id, overlay, hooks };
   markPanelExempt(true);
+  Hooks.callAll('dsct.stealthVision', true);
   _paintLegend();
   _paint();
 }

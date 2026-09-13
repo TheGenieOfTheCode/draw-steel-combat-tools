@@ -1,5 +1,5 @@
 import { getWindowById } from '../helpers.mjs';
-import { hide, reveal, setHiddenFrom, hiddenFrom, proposeHide } from './stealth.mjs';
+import { hide, reveal, setHiddenFrom, hiddenFrom, proposeHide, stealthActive } from './stealth.mjs';
 import { toggleStealthVision, stealthVisionActive, endStealthVision, markPanelExempt } from './stealth-vision.mjs';
 
 const nameOf = (id) => canvas.tokens.get(id)?.name ?? id;
@@ -33,6 +33,7 @@ export class StealthPanel extends ds.applications.api.DSApplication {
   static async _onHideTargeted() {
     const token = this._token();
     if (!token) return;
+    if (!stealthActive()) return ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.outOfCombat'));
     const ids = [...game.user.targets].map(t => t.id).filter(id => id !== token.id);
     if (!ids.length) return ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.noTargets'));
     await setHiddenFrom(token, ids);
@@ -63,6 +64,7 @@ export class StealthPanel extends ds.applications.api.DSApplication {
         hiddenFrom: [...hiddenFrom(token)].map(nameOf),
         couldHideFrom: proposeHide(token).map(nameOf),
         hasTargets: game.user.targets.size > 0,
+        inCombat: stealthActive(),
         visionOn: stealthVisionActive(),
       },
     };

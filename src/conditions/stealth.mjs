@@ -58,6 +58,7 @@ export function registerStealthSystem() {
   }
 
   registerHiddenTracking();
+  Hooks.on('deleteCombat', (combat) => clearStealthEffects(combat));
   Hooks.on('updateActiveEffect', _sweepExpiredEcho);
   Hooks.on('drawToken', _syncInvisibilityFilter);
   for (const hook of ['createActiveEffect', 'deleteActiveEffect', 'updateActiveEffect']) {
@@ -85,11 +86,18 @@ export function hiddenFrom(token) {
 export const isHiddenFrom = (token, observer) =>
   !!observer && hiddenFrom(token).has(observer.id);
 
-const _canHideFrom = (observer, token) =>
+export const canHideFrom = (observer, token) =>
   isConcealed(token) || !hasSightToToken(observer, token) || hasCover(observer, token);
 
+const _canHideFrom = canHideFrom;
+
+export const stealthActive = () => !!game.combat;
+
+const _outOfCombat = () =>
+  ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.outOfCombat'));
+
 export function proposeHide(token) {
-  if (!token) return [];
+  if (!token || !stealthActive()) return [];
   const disposition = token.document.disposition;
   return canvas.tokens.placeables
     .filter(other => other.id !== token.id && other.actor)
@@ -119,6 +127,8 @@ async function _rememberEcho(token, observerIds) {
     name: game.i18n.localize('DSCT.status.wasHidden'),
     img: 'icons/svg/cowled.svg',
     type: 'base',
+    
+    showIcon: CONST.ACTIVE_EFFECT_SHOW_ICON?.NEVER ?? 0,
     system: { end: { roll: '' } },
     changes: [],
     start,
@@ -127,12 +137,14 @@ async function _rememberEcho(token, observerIds) {
   }]);
 }
 
-export const hasHiddenEcho = (token, observer) => {
-  if (!observer) return false;
+export function hiddenEchoFrom(token) {
   const effect = _echoEffect(token);
-  if (!effect || effect.duration?.expired) return false;
-  return (effect.getFlag(M, FLAG) ?? []).includes(observer.id);
-};
+  if (!effect || effect.duration?.expired) return new Set();
+  return new Set(effect.getFlag(M, FLAG) ?? []);
+}
+
+export const hasHiddenEcho = (token, observer) =>
+  !!observer && hiddenEchoFrom(token).has(observer.id);
 
 function _sweepExpiredEcho(effect) {
   if (!game.users.activeGM?.isSelf) return;
@@ -144,6 +156,10 @@ function _sweepExpiredEcho(effect) {
 export async function setHiddenFrom(token, ids) {
   const before = hiddenFrom(token);
   const list = [...new Set(ids)].filter(Boolean);
+
+  
+  if (list.length && !stealthActive()) { _outOfCombat(); return []; }
+
   const effect = _hiddenEffect(token);
 
   
@@ -163,7 +179,37 @@ export async function setHiddenFrom(token, ids) {
   return list;
 }
 
-export const hide = (token, ids = null) => setHiddenFrom(token, ids ?? proposeHide(token));
+export const hide = (token, ids = null) => {
+  if (!stealthActive()) { _outOfCombat(); return Promise.resolve([]); }
+  return setHiddenFrom(token, ids ?? proposeHide(token));
+};
+
+export async function clearStealthEffects(combat = null) {
+  if (!game.users.activeGM?.isSelf) return 0;
+
+  const actors = new Map();
+  for (const combatant of combat?.combatants ?? []) {
+    if (combatant.actor) actors.set(combatant.actor.uuid, combatant.actor);
+  }
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (token.actor) actors.set(token.actor.uuid, token.actor);
+  }
+
+  let cleared = 0;
+  for (const actor of actors.values()) {
+    const ids = actor.effects
+      .filter(e => e.statuses?.has(HIDDEN) || e.getFlag(M, 'effectType') === WAS_HIDDEN)
+      .map(e => e.id);
+    if (!ids.length) continue;
+
+    const done = await actor.deleteEmbeddedDocuments('ActiveEffect', ids)
+      .catch(err => { console.warn('DSCT | stealth | could not clear on combat end:', err); return null; });
+    if (done) cleared += ids.length;
+  }
+
+  if (cleared) Hooks.callAll('dsct.stealthChanged');
+  return cleared;
+}
 
 export async function reveal(token, observerIds = null) {
   if (!observerIds) return setHiddenFrom(token, []);
@@ -177,42 +223,61 @@ function _announceDetected(spotterId, hiderId) {
   socket?.executeForOthers?.('dsct.detected', spotterId, hiderId);
 }
 
+export function pendingSpots() {
+  const pairs = [];
+  if (!stealthActive()) return pairs;
+  for (const hider of canvas.tokens?.placeables ?? []) {
+    if (!_hiddenEffect(hider)) continue;
+    for (const id of hiddenFrom(hider)) {
+      const observer = canvas.tokens.get(id);
+      if (!observer || _canHideFrom(observer, hider)) continue;
+      pairs.push({ hiderId: hider.id, observerId: observer.id });
+    }
+  }
+  return pairs;
+}
+
+export async function confirmSpot(hiderId, observerIds = null) {
+  const hider = canvas.tokens.get(hiderId);
+  if (!hider) return [];
+
+  const pending = pendingSpots().filter(p => p.hiderId === hiderId).map(p => p.observerId);
+  const ids = (observerIds ?? pending).filter(id => pending.includes(id));
+  if (!ids.length) return [];
+
+  await reveal(hider, ids);
+  for (const id of ids) _announceDetected(id, hiderId);
+
+  const by = ids.map(id => canvas.tokens.get(id)?.name ?? id).join(', ');
+  ChatMessage.create({
+    content: game.i18n.format('DSCT.chat.stealth.spotted', { name: hider.name, by }),
+    whisper: ChatMessage.getWhisperRecipients('GM').map(u => u.id),
+  });
+
+  Hooks.callAll('dsct.stealthChanged');
+  return ids;
+}
+
 export async function recheckHidden(moved) {
-  if (!game.users.activeGM?.isSelf) return;
-  if (!moved) return;
+  if (!moved || !stealthActive()) return;
 
   const trace = [];
-  const hiders = canvas.tokens.placeables.filter(t => _hiddenEffect(t));
-  for (const hider of hiders) {
-    if (hider !== moved && !hiddenFrom(hider).has(moved.id)) { trace.push(`${hider.name}: not affected by ${moved.name} moving`); continue; }
-
+  for (const hider of canvas.tokens?.placeables ?? []) {
+    if (!_hiddenEffect(hider)) continue;
     const concealed = isConcealed(hider);
-    const spotted = [];
 
     for (const id of hiddenFrom(hider)) {
       const observer = canvas.tokens.get(id);
       if (!observer) continue;
       if (_canHideFrom(observer, hider)) {
         trace.push(`${hider.name}: still hidden from ${observer.name} (concealed=${concealed}, cover=${hasCover(observer, hider)}, noLineOfEffect=${!hasSightToToken(observer, hider)})`);
-        continue;
+      } else {
+        trace.push(`${hider.name}: would be spotted by ${observer.name}, waiting on the Director`);
       }
-      spotted.push(observer);
     }
-
-    if (!spotted.length) continue;
-    trace.push(`${hider.name}: spotted by ${spotted.map(o => o.name).join(", ")}`);
-    await reveal(hider, spotted.map(o => o.id));
-
-    for (const observer of spotted) _announceDetected(observer.id, hider.id);
-
-    ChatMessage.create({
-      content: game.i18n.format('DSCT.chat.stealth.spotted', {
-        name: hider.name,
-        by: spotted.map(o => o.name).join(', '),
-      }),
-      whisper: ChatMessage.getWhisperRecipients('GM').map(u => u.id),
-    });
   }
+
+  Hooks.callAll('dsct.stealthChanged');
   return trace;
 }
 

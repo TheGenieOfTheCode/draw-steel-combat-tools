@@ -18,6 +18,9 @@
   </section>
 
   <section class="dsct-stealth-state">
+    {{#unless ctx.inCombat}}
+    <p class="dsct-stealth-empty">{{localize "DSCT.panel.stealth.outOfCombat"}}</p>
+    {{/unless}}
     <p class="dsct-stealth-label">{{localize "DSCT.panel.stealth.couldHideFrom"}}</p>
     {{#if ctx.couldHideFrom.length}}
     <ul class="dsct-stealth-list">
@@ -32,7 +35,7 @@
     <button type="button" data-action="hide" {{#unless ctx.couldHideFrom.length}}disabled{{/unless}}>
       <i class="fa-solid fa-user-ninja"></i> {{localize "DSCT.panel.stealth.hide"}}
     </button>
-    <button type="button" data-action="hideTargeted" {{#unless ctx.hasTargets}}disabled{{/unless}}>
+    <button type="button" data-action="hideTargeted" {{#unless ctx.hasTargets}}disabled{{else}}{{#unless ctx.inCombat}}disabled{{/unless}}{{/unless}}>
       <i class="fa-solid fa-bullseye"></i> {{localize "DSCT.panel.stealth.hideTargeted"}}
     </button>
     <button type="button" data-action="reveal" {{#unless ctx.hiddenFrom.length}}disabled{{/unless}}>

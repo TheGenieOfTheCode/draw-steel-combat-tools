@@ -1,4 +1,5 @@
 import { getSetting } from '../helpers.mjs';
+import { resolveTokenVisibility } from '../conditions/combat-reveal.mjs';
 
 const M = 'draw-steel-combat-tools';
 const DBG = () => getSetting('debugMode');
@@ -36,7 +37,7 @@ export const registerDefeatedTokenVisibility = () => {
         if (!_raisedDeadVisible && !_previewTokenIds.has(id)) {
           if (isDefeatedAndHiding(this.document) && !_deathGrace.has(id)) return false;
         }
-        return wrapped(...args);
+        return resolveTokenVisibility(this, wrapped(...args));
       }, 'MIXED');
 
     const tokenProtoPath = foundry?.canvas?.placeables?.Token
@@ -72,7 +73,7 @@ export const registerDefeatedTokenVisibility = () => {
           if (!_raisedDeadVisible && !_previewTokenIds.has(id)) {
             if (isDefeatedAndHiding(this.document) && !_deathGrace.has(id)) return false;
           }
-          return _isVisibleOld.call(this);
+          return resolveTokenVisibility(this, _isVisibleOld.call(this));
         },
         configurable: true,
       });

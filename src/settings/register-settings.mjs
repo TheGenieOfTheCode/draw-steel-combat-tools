@@ -1,4 +1,5 @@
 import { MATERIAL_RULE_DEFAULTS, WALL_RESTRICTION_DEFAULTS } from '../forced-movement/wall-builder.mjs';
+import { recheckCombatReveal } from '../conditions/combat-reveal.mjs';
 import { InstallMacrosMenu } from '../setup-macros.mjs';
 import {
   ForcedMovementSettingsMenu,
@@ -695,6 +696,19 @@ export const registerSettings = () => {
   game.settings.register(M, 'stealthSystemEnabled', {
     name: L('stealthSystemEnabled.name'), hint: L('stealthSystemEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true, requiresReload: true,
+  });
+  game.settings.register(M, 'hiddenMarkers', {
+    name: L('hiddenMarkers.name'), hint: L('hiddenMarkers.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'revealCombatantPositions', {
+    name: L('revealCombatantPositions.name'), hint: L('revealCombatantPositions.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+    onChange: () => recheckCombatReveal(),
+  });
+  game.settings.register(M, 'stealthStopsMovement', {
+    name: L('stealthStopsMovement.name'), hint: L('stealthStopsMovement.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
   });
   game.settings.register(M, 'coverBaneEnabled', {
     name: L('coverBaneEnabled.name'), hint: L('coverBaneEnabled.hint'),

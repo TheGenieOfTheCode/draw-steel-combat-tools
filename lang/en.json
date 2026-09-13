@@ -688,6 +688,18 @@
         "name": "Draw Steel Stealth",
         "hint": "Stops Foundry erasing invisible and burrowing tokens from everyone's vision, which is not how either works in Draw Steel, and adds the Hidden and Concealment statuses the game has but the system does not. Needs a reload."
       },
+      "hiddenMarkers": {
+        "name": "Stealth Markers",
+        "hint": "Marks every creature a selected token is hidden from with the blinded icon: white for cannot see you, yellow and faded for lost sight of you this turn, red for would spot you. A red marker is joined to the hider by a line, shows for the Director without selecting anything, and is clicked to make the reveal official. Also ghosts any creature hiding from everything you have selected."
+      },
+      "revealCombatantPositions": {
+        "name": "Everyone Knows Where Everyone Is",
+        "hint": "Draw Steel says the position of every combatant in an encounter is known to all its participants, even without line of effect. Shows every combatant through the fog of war as a greyed out stand in, so their square is known without pretending you can see them. Targeting by hand still works, and the target pickers still leave out anyone you have no line of effect to."
+      },
+      "stealthStopsMovement": {
+        "name": "Stop Where You Are Seen",
+        "hint": "Scans the squares a hidden creature's move would cross and stops it on the first one where somebody who cannot see it right now would. Observers who can already see it are ignored, so nobody gets pinned in the open. Does not apply to forced movement."
+      },
       "showStealthButton": {
         "name": "Show Stealth Button",
         "hint": "Adds a Stealth button to the token controls, opening the panel for hiding and Stealth Vision. Per client."
@@ -1091,6 +1103,7 @@
         "notHidden": "Not hidden from anyone.",
         "couldHideFrom": "Could hide from",
         "nobody": "Nobody. Find cover, concealment, or break their line of effect.",
+        "outOfCombat": "Hiding only runs during an encounter. Anything left over is cleared when combat ends.",
         "hide": "Hide",
         "hideTargeted": "Hide from Targeted",
         "reveal": "Reveal",
@@ -1393,7 +1406,9 @@
       },
       "noSceneForTemplate": "Open a scene before configuring this ability template.",
       "stealth": {
-        "noTargets": "Target the creatures you want to be hidden from first."
+        "noTargets": "Target the creatures you want to be hidden from first.",
+        "stoppedInView": "{name} stops here, in view of somebody they were hidden from.",
+        "outOfCombat": "Hiding is a combat action. Start an encounter first."
       }
     },
     "button": {

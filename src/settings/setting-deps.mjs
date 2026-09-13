@@ -57,6 +57,8 @@ const SETTING_DEPS = {
 
   
 
+  revealCombatantPositions: [lw('reduced', 'positions are still revealed, but the visibility check is patched directly instead of politely, so another module touching it can undo it.')],
+  stealthStopsMovement: [lw('reduced', 'the path scan still runs, but it patches the movement planner directly instead of politely, so another module touching the same method can undo it.')],
   stealthSystemEnabled: [lw('reduced', 'the statuses and the hiding rules still work, but burrowing creatures keep sorting under the map and the fade that marks them as underground never appears.')],
   coverBaneEnabled:      [td('reduced', 'the bane still appears in the roll window, but there is no Target Damage panel for it to carry through to.')],
 

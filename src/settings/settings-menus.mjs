@@ -362,6 +362,9 @@ export class StealthSettingsMenu extends SettingsSubmenu {
   static get regularKeys() {
     return [
       'stealthSystemEnabled',
+      'hiddenMarkers',
+      'stealthStopsMovement',
+      'revealCombatantPositions',
       'coverBaneEnabled',
     ];
   }
