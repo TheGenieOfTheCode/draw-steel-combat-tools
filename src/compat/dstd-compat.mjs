@@ -2865,8 +2865,12 @@ async function _injectFmButtons(message, root) {
             const tok = canvas.tokens.get(mid);
             squadPills.push({ kind: 'delta', value: sqEntry.freeStrike, label: 'Free Strike', src: tok?.name ?? null, srcTokenId: mid, source: 'trigger', dstSquad: true });
           }
-          const wantKey = JSON.stringify(squadPills.map(p => [p.kind, p.value ?? null, p.srcTokenId ?? null]));
-          const haveKey = JSON.stringify((existingOverride?.dstPills ?? []).filter(p => p.dstSquad).map(p => [p.kind, p.value ?? null, p.srcTokenId ?? null]));
+          const sig = (p) => JSON.stringify([p.kind, p.value ?? null, p.srcTokenId ?? null]);
+          const wantSigs = new Set(squadPills.map(sig));
+          const isSquad = (p) => !!p.dstSquad
+            || (p.source === 'trigger' && wantSigs.has(sig(p)) && (p.label === 'Primary Attacker' || p.label === 'Free Strike'));
+          const wantKey = JSON.stringify(squadPills.map(sig));
+          const haveKey = JSON.stringify((existingOverride?.dstPills ?? []).filter(isSquad).map(sig));
           if (wantKey !== haveKey) {
             const baseText   = qdBtn?.textContent ?? nativeApplyBtn?.textContent ?? '';
             const base       = parseInt(baseText.match(/\d+/)?.[0] ?? '0');
@@ -2877,7 +2881,7 @@ async function _injectFmButtons(message, root) {
             if (base > 0 && game.users.activeGM?.isSelf) {
               const baseAmount = Number(existingOverride?.baseAmount ?? base);
               const pills = [
-                ...(existingOverride?.dstPills ?? []).filter(p => !p.dstSquad),
+                ...(existingOverride?.dstPills ?? []).filter(p => !isSquad(p)),
                 ...squadPills,
               ];
               message.update({

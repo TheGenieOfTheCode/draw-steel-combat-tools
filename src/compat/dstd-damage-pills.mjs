@@ -672,6 +672,9 @@ async function _openPillDamageEditor(message, button, fullEditor = false) {
     kind: p.kind, value: p.value ?? null, label: p.label ?? '', src: p.src ?? null,
     srcTokenId: p.srcTokenId ?? null, source: p.source ?? 'manual',
     ...(p.enabled === false ? { enabled: false } : {}),
+    
+    ...(p.dstSquad ? { dstSquad: true } : {}),
+    ...(p.lineStyle ? { lineStyle: p.lineStyle } : {}),
   }));
   if (!pills.length && !ov) return;
   const fam = ov?.dstFam ?? foundry.utils.randomID();
