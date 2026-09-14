@@ -374,7 +374,7 @@ function _diceIcons(rollLine, roll) {
   for (const face of faces) {
     const die = document.createElement('img');
     die.className = 'dsct-die';
-    die.src = `modules/${M}/icons/dice/die-${face}.png`;
+    die.src = `modules/${M}/assets/Dice/die-${face}.png`;
     die.alt = String(face);
     formula.append(die);
   }
