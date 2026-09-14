@@ -16,7 +16,6 @@ const lw = (level, why) => ({ id: LIBWRAPPER, level, why });
 const td = (level, why) => ({ id: DSTD, level, why });
 
 const SETTING_DEPS = {
-  
 
   forcedMovementEnabled: [lw('inert', 'the forced movement buttons are added by patching the system ability effect, so none appear in chat.')],
   appliedEffectEnabled:  [lw('inert', 'the applied effect buttons are added by patching the system ability effect, so none appear in chat.')],
@@ -34,12 +33,9 @@ const SETTING_DEPS = {
   squadHudPlayerVisibility: [lw('inert', 'this controls who sees the squad health bar, which is not drawn at all.')],
   stickbugMode:             [lw('inert', 'this belongs to the squad health bar, which is not drawn at all.')],
 
-  
   grabEnabled:       [lw('reduced', 'the Damage and Conditions panel still applies it, but toggling the condition from the token HUD will not run the automation.')],
   frightenedEnabled: [lw('reduced', 'the Damage and Conditions panel still applies it, but toggling the condition from the token HUD will not run the automation.')],
   tauntedEnabled:    [lw('reduced', 'the Damage and Conditions panel still applies it, but toggling the condition from the token HUD will not run the automation.')],
-
-  
 
   squadTargetBonus:        [td('inert', 'the extra free strike damage is written into the Target Damage panel, which is not there.')],
   groupActionsEnabled:     [td('inert', 'group actions coordinate their damage through the Target Damage panel.')],
@@ -55,10 +51,8 @@ const SETTING_DEPS = {
 
   flatEffectsEnabled: [td('reduced', 'flat effects still work and post their own buttons, but they do not get full per-target rows with apply, undo and edit.')],
 
-  
-
   revealCombatantPositions: [lw('reduced', 'positions are still revealed, but the visibility check is patched directly instead of politely, so another module touching it can undo it.')],
-  stealthStopsMovement: [lw('reduced', 'the path scan still runs, but it patches the movement planner directly instead of politely, so another module touching the same method can undo it.')],
+  stealthSneakHouseRule: [lw('reduced', 'the path scan still runs, but it patches the movement planner directly instead of politely, so another module touching the same method can undo it.')],
   stealthSystemEnabled: [lw('reduced', 'the statuses and the hiding rules still work, but burrowing creatures keep sorting under the map and the fade that marks them as underground never appears.')],
   coverBaneEnabled:      [td('reduced', 'the bane still appears in the roll window, but there is no Target Damage panel for it to carry through to.')],
 
@@ -68,7 +62,7 @@ const SETTING_DEPS = {
 export function depStatus(id) {
   const mod = game.modules?.get(id);
   if (mod?.active) return 'active';
-  
+
   if (id === LIBWRAPPER && globalThis.libWrapper) return 'active';
   if (mod) return 'installed';
   return 'missing';
@@ -85,8 +79,7 @@ export function depsFor(key) {
       : state === 'installed'
         ? `${label} is installed but not enabled in this world.`
         : `${label} is not installed.`;
-    
-    
+
     const tail = state === 'active'
       ? (level === 'inert' ? 'This setting needs it.' : 'It uses this module for part of what it does.')
       : (level === 'inert' ? `This setting does nothing until it is: ${why}` : `Partly unavailable: ${why}`);
@@ -110,8 +103,7 @@ export async function postFirstRunNotice() {
   if (game.settings.get(MODULE_ID, 'firstRunNoticeShown')) return;
 
   const state = depStatus(LIBWRAPPER);
-  
-  
+
   await game.settings.set(MODULE_ID, 'firstRunNoticeShown', true);
   if (state === 'active') return;
 

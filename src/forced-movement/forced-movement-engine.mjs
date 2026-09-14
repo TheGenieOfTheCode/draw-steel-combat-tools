@@ -1,3 +1,4 @@
+import { markRevealed } from '../conditions/stealth.mjs';
 import {
   hasTags, getTags, getByTag, addTags, removeTags,
   GRID as getGRID,
@@ -2543,12 +2544,14 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
       hadDamage:      collisionMsgs.length > 0,
       grabsToRestore: grabsEnded,
     };
-    if (suppressMessage) { window._dsctFMActive = false; return mainResultData; }
+    if (suppressMessage) { window._dsctFMActive = false; await markRevealed(targetToken, 'forced'); return mainResultData; }
     await ChatMessage.create({
       content: mainResultData.content,
       flags: { 'draw-steel-combat-tools': { isFmUndo: true, isUndone: false, ...mainResultData } }
     });
     window._dsctFMActive = false;
+    
+    await markRevealed(targetToken, 'forced');
 };
 
 const getTargetAndSource = () => {

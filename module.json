@@ -38,6 +38,8 @@
     { "lang": "en", "name": "English", "path": "lang/en.json" }
   ],
   "packs": [
-    { "name": "macros", "label": "DSCT: Macros", "path": "packs/macros", "type": "Macro" }
+    { "name": "macros", "label": "DSCT: Macros", "path": "packs/macros", "type": "Macro" },
+    { "name": "enhanced-abilities", "label": "DSCT: Enhanced Abilities", "path": "packs/enhanced-abilities", "type": "Item", "system": "draw-steel" },
+    { "name": "rules", "label": "DSCT: Rules", "path": "packs/rules", "type": "JournalEntry", "system": "draw-steel" }
   ]
 }

@@ -14,13 +14,13 @@ import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered
 import { registerModuleButtons } from './module-buttons.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
 import { postFirstRunNotice } from './settings/setting-deps.mjs';
-import { installMacros, distributeAbilities } from './setup-macros.mjs';
+import { installMacros, distributeAbilities, distributeEnhancedAbilities } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.mjs';
 import { registerTargetDistance } from './ability-automation/target-distance.mjs';
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
-import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects } from './conditions/stealth.mjs';
+import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons } from './conditions/stealth.mjs';
 import { registerStatusPalette } from './status-palette.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { toggleStealthPanel, registerStealthPanel } from './conditions/stealth-panel.mjs';
@@ -57,7 +57,7 @@ const api = {
   bypassNextFmGate: bypassNextFmGate,
   colorTokenPicker: runColoredTokenPicker,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
-  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects },
+  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons },
   stealthPanel:     toggleStealthPanel,
   sight:            { hasCover, visibleTargetCorners, hasSightTo: hasSightToToken },
   grab:             runGrab,
@@ -82,6 +82,7 @@ const api = {
   burstTeleport:    runBurstTeleport,
   teleportUI:       toggleTeleportPanel,
   installMacros:        installMacros,
+  distributeEnhancedAbilities,
   distributeAbilities:  distributeAbilities,
   fall:                 applyFall,
   parsePowerRollState:  parsePowerRollState,
@@ -95,8 +96,7 @@ const api = {
   monsterFilter,
   damageConditionsUI:   toggleDamageConditionsPanel,
   cleanupPixi:          cleanupPixi,
-  
-  
+
   sightLines:       sightLinesToToken,
   hasSightTo:       hasSightToToken,
   setRollDialogLock:         setBaneDialogLockWithOverlay,
@@ -184,7 +184,7 @@ Hooks.once('init', () => {
 });
 
 Hooks.once('canvasReady', () => {
-  
+
   canvas.app?.view?.addEventListener('webglcontextlost', (e) => {
     console.error('DSCT | WebGL context lost -- likely cause of DevTools disconnect', e);
     e.preventDefault();
@@ -338,6 +338,58 @@ Hooks.once('ready', async () => {
   if (doImport) await installMacros();
 });
 
+Hooks.once('ready', async () => {
+  if (!game.user.isGM) return;
+  const M = 'draw-steel-combat-tools';
+
+  const currentVersion = game.modules.get(M).version ?? '';
+  const promptMode     = game.settings.get(M, 'enhancedPromptMode');
+  const seenVersion    = game.settings.get(M, 'enhancedPromptSeenVersion') ?? '';
+
+  if (promptMode === 'never') return;
+  if (promptMode === 'skip-update' && seenVersion === currentVersion) return;
+
+  const content = `
+    ${game.i18n.localize('DSCT.dialog.enhancedAbilities.body')}
+    <div class="form-group" style="margin-top:12px;">
+      <label style="flex:0 0 auto;margin-right:8px;">${game.i18n.localize('DSCT.dialog.sampleMacros.rememberLabel')}</label>
+      <select id="dsct-enhanced-prompt-pref" style="flex:1;">
+        <option value="ask">${game.i18n.localize('DSCT.dialog.sampleMacros.optAsk')}</option>
+        <option value="skip-update">${game.i18n.localize('DSCT.dialog.sampleMacros.optSkipUpdate')}</option>
+        <option value="never">${game.i18n.localize('DSCT.dialog.sampleMacros.optNever')}</option>
+      </select>
+    </div>
+  `;
+  const getChoice = (html) => {
+    const root = html instanceof HTMLElement ? html : (html[0] ?? null);
+    return root?.querySelector('#dsct-enhanced-prompt-pref')?.value ?? 'ask';
+  };
+
+  const result = await foundry.applications.api.DialogV2.wait({
+    window: { title: game.i18n.localize('DSCT.dialog.enhancedAbilities.title') },
+    content,
+    buttons: [
+      { action: 'yes', label: game.i18n.localize('DSCT.dialog.enhancedAbilities.yes'), default: true, callback: (_e, _btn, dialog) => ({ doAdd: true,  choice: getChoice(dialog.element) }) },
+      { action: 'no',  label: game.i18n.localize('DSCT.dialog.enhancedAbilities.no'),                 callback: (_e, _btn, dialog) => ({ doAdd: false, choice: getChoice(dialog.element) }) },
+    ],
+    rejectClose: false,
+  });
+  if (!result) return;
+
+  const { doAdd, choice } = result;
+  await game.settings.set(M, 'enhancedPromptMode', choice);
+  await game.settings.set(M, 'enhancedAutoAdd', doAdd);
+  if (choice === 'skip-update') await game.settings.set(M, 'enhancedPromptSeenVersion', currentVersion);
+  if (doAdd) await distributeEnhancedAbilities();
+});
+
+Hooks.on('createActor', async (actor, _options, _userId) => {
+  if (!game.users.activeGM?.isSelf || actor.pack) return;
+  if (!game.settings.get('draw-steel-combat-tools', 'enhancedAutoAdd')) return;
+  if (['party', 'object'].includes(actor.type)) return;
+  await distributeEnhancedAbilities({ actors: [actor], silent: true });
+});
+
 Hooks.once('socketlib.ready', () => {
   const socket = socketlib.registerModule('draw-steel-combat-tools');
   api.socket = socket;
@@ -357,8 +409,7 @@ Hooks.once('socketlib.ready', () => {
     const targets = (await Promise.all(targetActorUuids.map(u => fromUuid(u)))).filter(Boolean);
     if (targets.length) await pre.applyEffect(tierKey, effectId, { targets });
   });
-  
-  
+
   socket.register('dsct.openManualModePicker', async (serializedContexts, requestId) => {
     const contexts = serializedContexts.map((ctx, i) => ({
       ...ctx,
@@ -367,7 +418,7 @@ Hooks.once('socketlib.ready', () => {
       preSelectedIds: new Set(ctx.preSelectedIds),
       poolTokenIds:   new Set(ctx.poolTokenIds),
     }));
-    
+
     if (!game.settings.get('draw-steel-combat-tools', 'pickDeathsEnabled')) {
       const autoResult = [];
       for (const ctx of contexts) {
@@ -381,7 +432,6 @@ Hooks.once('socketlib.ready', () => {
     socket.executeAsGM('dsct.manualModePickerResult', requestId, picked ? [...picked] : null);
   });
 
-  
   socket.register('dsct.manualModePickerResult', (requestId, pickedArray) => {
     const resolve = window._dsctPickerRequests?.get(requestId);
     if (!resolve) return;
@@ -389,9 +439,6 @@ Hooks.once('socketlib.ready', () => {
     resolve(pickedArray ? new Set(pickedArray) : null);
   });
 
-  
-  
-  
   socket.register('dsct.reportDamagedToken', (tokenId, userId) => {
     if (getSetting('debugMode')) console.log(`DSCT | DT | reportDamagedToken received: ${tokenId} from user ${userId}`);
     _addDamagedToken(tokenId, userId);
@@ -407,7 +454,7 @@ Hooks.once('socketlib.ready', () => {
       if (dialogActor?.id !== actorId) continue;
       if (tokenId && dialogActor.token?.id && dialogActor.token.id !== tokenId) continue;
       if (app._dsctJudgementBaneInjected) return;
-      
+
       const trackId = Hooks.on('createChatMessage', (msg) => {
         if (!msg.system?.parts) return;
         if (msg.speaker?.actor !== actorId) return;
@@ -415,7 +462,7 @@ Hooks.once('socketlib.ready', () => {
         Hooks.off('createChatMessage', trackId);
       });
       app._dsctRollTrackHookId = trackId;
-      
+
       if (injectJudgementBanePill(app)) return;
       app._dsctJudgementBaneInjected = true;
       app.options.context.modifiers.banes = (app.options.context.modifiers.banes ?? 0) + 1;

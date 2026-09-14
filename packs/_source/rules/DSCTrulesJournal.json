@@ -1,0 +1,126 @@
+{
+  "name": "Combat Tools Rules",
+  "_id": "DSCTrulesJournal",
+  "pages": [
+    {
+      "sort": 100000,
+      "name": "Hidden",
+      "type": "text",
+      "_id": "DSCTruleHidden00",
+      "system": {},
+      "title": { "show": true, "level": 1 },
+      "image": {},
+      "video": { "controls": true, "volume": 0.5 },
+      "src": null,
+      "category": null,
+      "ownership": { "default": -1 },
+      "flags": {},
+      "text": {
+        "format": 1,
+        "content": "<p>You are hidden from a creature when they cannot see or otherwise observe you and do not know where you are. To hide from a creature, you must have cover or concealment from them, and they must not be observing you: a creature is observing you if they were aware of your specific location before you attempted to hide.</p><p>During combat, using the Hide maneuver while you have cover or concealment from a creature who isn't observing you hides you from them automatically, unless the Director deems otherwise. Outside of combat, the Director might ask for a Hide test to determine how well hidden you are.</p><p><strong>While hidden from a creature</strong>, you can't be targeted by their abilities that don't have the Area keyword, and you gain an edge on ability rolls against them. The first benefit ends as soon as you are no longer hidden. The edge lasts until the end of the turn in which you are no longer hidden, so you can leave cover, use an ability against the creature, and still gain the edge as long as you use the ability before the end of that turn.</p><p><strong>You are no longer hidden</strong> from a creature if you don't have cover or concealment from them. If you use an ability, interact with an enemy, move without sneaking, or otherwise make noise or reveal yourself while hidden, you are no longer hidden once the activity that reveals you resolves. A hidden creature who makes a strike resolves the strike first, then is no longer hidden.</p><p><strong>Sneaking</strong> is possible only outside of combat. While sneaking, your speed is halved, and you make an Agility test using the Sneak skill to remain hidden as you move.</p><p><em>Combat Tools tracks Hidden per creature. Select the hiding token to see who it is hidden from.</em></p>"
+      },
+      "_key": "!journal.pages!DSCTrulesJournal.DSCTruleHidden00"
+    },
+    {
+      "sort": 150000,
+      "name": "Hidden (Sneaking in Combat)",
+      "type": "text",
+      "_id": "DSCTruleHiddenSnk",
+      "system": {},
+      "title": { "show": true, "level": 1 },
+      "image": {},
+      "video": { "controls": true, "volume": 0.5 },
+      "src": null,
+      "category": null,
+      "ownership": { "default": -1 },
+      "flags": {},
+      "text": {
+        "format": 1,
+        "content": "<p>You are hidden from a creature when they cannot see or otherwise observe you and do not know where you are. To hide from a creature, you must have cover or concealment from them, and they must not be observing you: a creature is observing you if they were aware of your specific location before you attempted to hide.</p><p>During combat, using the Hide maneuver while you have cover or concealment from a creature who isn't observing you hides you from them automatically, unless the Director deems otherwise. Outside of combat, the Director might ask for a Hide test to determine how well hidden you are.</p><p><strong>While hidden from a creature</strong>, you can't be targeted by their abilities that don't have the Area keyword, and you gain an edge on ability rolls against them. The first benefit ends as soon as you are no longer hidden. The edge lasts until the end of the turn in which you are no longer hidden, so you can leave cover, use an ability against the creature, and still gain the edge as long as you use the ability before the end of that turn.</p><p><strong>You are no longer hidden</strong> from a creature if you don't have cover or concealment from them. If you use an ability, interact with an enemy, move without sneaking, or otherwise make noise or reveal yourself while hidden, you are no longer hidden once the activity that reveals you resolves. A hidden creature who makes a strike resolves the strike first, then is no longer hidden.</p><p><strong>Sneaking in Combat (house rule).</strong> This world allows sneaking during combat. Whenever you become hidden you also gain the Sneaking condition: your speed is halved and you can move while staying hidden, as that condition describes. If you would rather move at full speed, remove Sneaking, since moving without sneaking ends Hidden anyway. Forced movement and teleports still reveal you.</p><p><em>Combat Tools tracks Hidden per creature. Select the hiding token to see who it is hidden from.</em></p>"
+      },
+      "_key": "!journal.pages!DSCTrulesJournal.DSCTruleHiddenSnk"
+    },
+    {
+      "sort": 160000,
+      "name": "Sneaking",
+      "type": "text",
+      "_id": "DSCTruleSneakPth",
+      "system": {},
+      "title": { "show": true, "level": 1 },
+      "image": {},
+      "video": { "controls": true, "volume": 0.5 },
+      "src": null,
+      "category": null,
+      "ownership": { "default": -1 },
+      "flags": {},
+      "text": {
+        "format": 1,
+        "content": "<p>While you are hidden from another creature, you can sneak, avoiding making too much noise while moving, to remain hidden. While sneaking, your speed is halved. As long as you only move by sneaking and have cover or concealment, you remain hidden.</p><p><em>House rule. Combat Tools gives you this condition whenever you become hidden and checks cover and concealment on every square of your move, stopping you on the first square where somebody you are hidden from would see you. Remove this condition to move at full speed; moving without sneaking ends Hidden.</em></p>"
+      },
+      "_key": "!journal.pages!DSCTrulesJournal.DSCTruleSneakPth"
+    },
+    {
+      "sort": 170000,
+      "name": "Sneaking (Start and End)",
+      "type": "text",
+      "_id": "DSCTruleSneakEnd",
+      "system": {},
+      "title": { "show": true, "level": 1 },
+      "image": {},
+      "video": { "controls": true, "volume": 0.5 },
+      "src": null,
+      "category": null,
+      "ownership": { "default": -1 },
+      "flags": {},
+      "text": {
+        "format": 1,
+        "content": "<p>While you are hidden from another creature, you can sneak, avoiding the senses of other creatures as you move around them in the open, to remain hidden. While sneaking, your speed is halved. As long as you are sneaking and both begin and end your move in cover or concealment, you remain hidden.</p><p><em>House rule. Combat Tools gives you this condition whenever you become hidden and only checks where your move ends: anyone you are hidden from who can see you there sees you. Remove this condition to move at full speed; moving without sneaking ends Hidden.</em></p>"
+      },
+      "_key": "!journal.pages!DSCTrulesJournal.DSCTruleSneakEnd"
+    },
+    {
+      "sort": 200000,
+      "name": "Magical Concealment",
+      "type": "text",
+      "_id": "DSCTruleConcMag0",
+      "system": {},
+      "title": { "show": true, "level": 1 },
+      "image": {},
+      "video": { "controls": true, "volume": 0.5 },
+      "src": null,
+      "category": null,
+      "ownership": { "default": -1 },
+      "flags": {},
+      "text": {
+        "format": 1,
+        "content": "<p>A creature has concealment from you if you can't see or otherwise observe them clearly, even if you have line of effect to them. Strikes against a creature with concealment take a bane, and having concealment from a creature is one of the ways you can hide from them.</p><p>Magical concealment comes from magic and supernatural effects: invisibility, magical darkness, illusions and the like. Some features see through mundane concealment but not magical concealment, or the other way around, which is why Combat Tools tracks the two separately. Invisible creatures always have magical concealment.</p><p>Having no line of effect to a creature at all also counts as concealment from them for as long as it lasts.</p>"
+      },
+      "_key": "!journal.pages!DSCTrulesJournal.DSCTruleConcMag0"
+    },
+    {
+      "sort": 300000,
+      "name": "Mundane Concealment",
+      "type": "text",
+      "_id": "DSCTruleConcMun0",
+      "system": {},
+      "title": { "show": true, "level": 1 },
+      "image": {},
+      "video": { "controls": true, "volume": 0.5 },
+      "src": null,
+      "category": null,
+      "ownership": { "default": -1 },
+      "flags": {},
+      "text": {
+        "format": 1,
+        "content": "<p>A creature has concealment from you if you can't see or otherwise observe them clearly, even if you have line of effect to them. Strikes against a creature with concealment take a bane, and having concealment from a creature is one of the ways you can hide from them.</p><p>Mundane concealment comes from the environment: fog, smoke, foliage, natural darkness and similar obscurement. Some features see through mundane concealment but not magical concealment, or the other way around, which is why Combat Tools tracks the two separately.</p><p>Having no line of effect to a creature at all also counts as concealment from them for as long as it lasts.</p>"
+      },
+      "_key": "!journal.pages!DSCTrulesJournal.DSCTruleConcMun0"
+    }
+  ],
+  "folder": null,
+  "categories": [],
+  "sort": 0,
+  "ownership": { "default": 0 },
+  "flags": {},
+  "_key": "!journal!DSCTrulesJournal"
+}

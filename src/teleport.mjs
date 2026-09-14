@@ -5,6 +5,7 @@ import {
   getTokenById, getWindowById, pickCanvasTarget, confirmFall,
 } from './helpers.mjs';
 import { endGrab, applyGrab } from './conditions/grab.mjs';
+import { markRevealed } from './conditions/stealth.mjs';
 import { runSourcePicker } from './ability-automation/target-picker.mjs';
 import { beginPickerOverlay } from './ability-automation/picker-overlay.mjs';
 
@@ -263,7 +264,9 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
    const staminaSnap = (chosenGrid.willFall && actor) ? snapStamina(actor) : null;
 
    const arrivalElev = chosenGrid.willFall ? chosenGrid.arrivalElev : targetWorld.elevation;
+   window._dsctTeleportActive = true;
    await safeUpdate(token.document, { x: targetWorld.x, y: targetWorld.y, elevation: arrivalElev }, { isUndo: true });
+   window._dsctTeleportActive = false;
 
    let fallDmg = 0, fallDist = 0, effectiveFall = 0, fallCancelled = false;
    if (chosenGrid.willFall) {
@@ -339,6 +342,9 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
            }
        }
    });
+
+   
+   await markRevealed(token, 'teleport');
 };
 
 export const executeTeleswap = async (tokenA, tokenB, maxDist, animate, colorHex, animDuration = 600) => {
@@ -391,8 +397,12 @@ export const executeTeleswap = async (tokenA, tokenB, maxDist, animate, colorHex
     await new Promise(r => setTimeout(r, animDuration));
   }
 
+  window._dsctTeleportActive = true;
   await safeUpdate(tokenA.document, { x: snapB.x, y: snapB.y, elevation: snapB.elevation }, { isUndo: true });
   await safeUpdate(tokenB.document, { x: snapA.x, y: snapA.y, elevation: snapA.elevation }, { isUndo: true });
+  window._dsctTeleportActive = false;
+  await markRevealed(tokenA, 'teleport');
+  await markRevealed(tokenB, 'teleport');
 
   if (animate) {
     await Promise.all([
@@ -839,7 +849,10 @@ export const runBurstTeleport = async ({ sourceId, radius = 2, filter = 'all', e
         claimed.add(`${dest.x + ix},${dest.y + iy}`);
 
     const destWorld = toWorld(dest);
+    window._dsctTeleportActive = true;
     await safeUpdate(moving.document, { x: destWorld.x, y: destWorld.y }, { isUndo: true });
+    window._dsctTeleportActive = false;
+    await markRevealed(moving, 'teleport');
 
     if (getSetting('debugMode')) console.log(`DSCT | BurstTeleport | Moved ${moving.name} to grid (${dest.x},${dest.y})`);
   }

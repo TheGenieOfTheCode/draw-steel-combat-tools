@@ -18,7 +18,6 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
 
   static get regularKeys() { return []; }
 
-  
   static get showDepBadges() { return true; }
   static get debugKeys()   { return []; }
   static get enableKey()   { return null; }
@@ -55,7 +54,7 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
   }
 
   _buildEntry(key) {
-    
+
     if (key && typeof key === 'object') return key;
     const def = game.settings.settings.get(`${M}.${key}`);
     if (!def) return null;
@@ -65,7 +64,7 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
     return {
       key,
       deps,
-      
+
       depsUnmet:      deps.some(d => !d.isActive),
       name:           game.i18n.localize(def.name),
       hint:           game.i18n.localize(def.hint),
@@ -160,8 +159,6 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
       await game.settings.set(M, k, value);
     }
 
-    
-    
     const changed = entries.some(({ k }) => game.settings.get(M, k) !== before.get(k));
     if (changed) SettingsConfig.reloadConfirm({ world: true });
   }
@@ -278,7 +275,6 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
   _onRender(context, options) {
     super._onRender(context, options);
 
-    
     const illegalToggles = [...this.element.querySelectorAll('[name="allowIllegalMovement"]')];
     for (const toggle of illegalToggles) {
       toggle.addEventListener('change', () => {
@@ -288,7 +284,6 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
       });
     }
 
-    
     const enableInput = this.element.querySelector(`[name="${this.constructor.enableKey}"]`);
     const iconPairs = [
       ['frightenedEnabled', 'frightenedEffectIcon'],
@@ -339,7 +334,6 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
       sync();
     }
 
-    
     if (game.modules.get('draw-steel-target-damage')?.active) {
       for (const name of ['applyDamageEnabled', 'areaDamageEnabled']) {
         const grp = this.element.querySelector(`[name="${name}"]`)?.closest('.form-group');
@@ -363,7 +357,7 @@ export class StealthSettingsMenu extends SettingsSubmenu {
     return [
       'stealthSystemEnabled',
       'hiddenMarkers',
-      ...(STEALTH_WORKFLOW_READY ? ['stealthStopsMovement', 'revealCombatantPositions'] : []),
+      ...(STEALTH_WORKFLOW_READY ? ['stealthSneakHouseRule', 'stealthAutoReveal', 'stealthRevealPromptSeconds', 'revealCombatantPositions'] : []),
       'coverBaneEnabled',
     ];
   }
@@ -426,7 +420,6 @@ export class DeathTrackerSettingsMenu extends SettingsSubmenu {
       sync();
     }
 
-    
     const overrideToggle = el.querySelector('[name="overrideMinionDefeat"]');
     const autoAssignGroup = el.querySelector('[name="autoAssignDamagedMinion"]')?.closest('.form-group');
     if (overrideToggle && autoAssignGroup) {
@@ -440,7 +433,6 @@ export class DeathTrackerSettingsMenu extends SettingsSubmenu {
       sync();
     }
 
-    
     if (game.modules.get('draw-steel-target-damage')?.active) {
       let dstdMinionOn = false;
       try { dstdMinionOn = game.settings.get('draw-steel-target-damage', 'minionDamageAutomation'); } catch {}
@@ -614,7 +606,6 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       syncTargeting();
     }
 
-    
     const judgementToggle     = this.element.querySelector('[name="judgementAutomation"]');
     const baneLockGroup       = this.element.querySelector('[name="judgementBaneLock"]')?.closest('.form-group');
     const baneLockDurGroup    = this.element.querySelector('[name="judgementBaneLockDuration"]')?.closest('.form-group');

@@ -1,5 +1,5 @@
 import { getSetting, isBurrowing } from '../helpers.mjs';
-import { hiddenFrom, hiddenEchoFrom, pendingSpots, confirmSpot } from './stealth.mjs';
+import { hiddenFrom, hiddenEchoFrom, pendingSpots, confirmSpot, dismissReveal, revealPendingSince, revealPromptMs } from './stealth.mjs';
 
 const ICON = 'icons/svg/blind.svg';
 const MARK = 'dsct-hidden-mark';
@@ -12,6 +12,7 @@ const SIZE = 0.5;
 
 const LOOK = {
   spot:  { tint: 0xd04040, disc: 0x2a0000, discAlpha: 0.65, alpha: 1,    rim: true },
+  alert: { tint: 0xd04040, disc: 0x2a0000, discAlpha: 0.65, alpha: 1,    rim: 'spiky' },
   blind: { tint: 0xf4f4f4, disc: 0x000000, discAlpha: 0.4,  alpha: 1,    rim: false },
   echo:  { tint: 0xe8c53a, disc: 0x000000, discAlpha: 0.25, alpha: 0.45, rim: false },
 };
@@ -55,10 +56,23 @@ function _buildMark(observerId, state) {
   group.alpha = look.alpha;
 
   const disc = new PIXI.Graphics();
+  
+  if (look.rim === 'spiky') {
+    const points = [];
+    const spikes = 14;
+    for (let i = 0; i < spikes * 2; i++) {
+      const r = i % 2 ? DISC - 2 : DISC + 11;
+      const a = (Math.PI * 2 * i) / (spikes * 2);
+      points.push(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    disc.beginFill(look.tint, 0.9);
+    disc.drawPolygon(points);
+    disc.endFill();
+  }
   disc.beginFill(look.disc, look.discAlpha);
   disc.drawCircle(0, 0, DISC);
   disc.endFill();
-  if (look.rim) {
+  if (look.rim === true) {
     disc.lineStyle(6, look.tint, 0.9);
     disc.drawCircle(0, 0, DISC - 3);
   }
@@ -75,11 +89,23 @@ function _buildMark(observerId, state) {
     group.eventMode = 'static';
     group.cursor = 'pointer';
     group.hitArea = new PIXI.Circle(0, 0, DISC);
-    
+
     group.on('pointerdown', (event) => {
       event.stopPropagation();
       _confirm(observerId);
     });
+  } else if (state === 'alert' && game.user.isGM) {
+    group.eventMode = 'static';
+    group.cursor = 'pointer';
+    group.hitArea = new PIXI.Circle(0, 0, DISC + 11);
+
+    
+    group.on('pointerdown', (event) => {
+      event.stopPropagation();
+      if (event.button === 2) dismissReveal(canvas.tokens.get(observerId));
+      else confirmSpot(observerId);
+    });
+    group.on('rightdown', (event) => event.stopPropagation());
   } else {
     group.eventMode = 'none';
   }
@@ -168,20 +194,60 @@ function _drawLines() {
   g.clear();
   _lineCount = 0;
 
-  for (const [observerId, entry] of _marked) {
-    if (entry.state !== 'spot') continue;
-    const observer = canvas.tokens.get(observerId);
-    if (!observer?.visible) continue;
-
-    for (const hiderId of entry.hiders) {
-      const hider = canvas.tokens.get(hiderId);
+  for (const [id, entry] of _marked) {
+    if (entry.state === 'spot') {
+      const observer = canvas.tokens.get(id);
+      if (!observer?.visible) continue;
+      for (const hiderId of entry.hiders) {
+        const hider = canvas.tokens.get(hiderId);
+        if (!hider) continue;
+        g.lineStyle(4, LOOK.spot.tint, 0.35);
+        g.moveTo(observer.center.x, observer.center.y);
+        g.lineTo(hider.center.x, hider.center.y);
+        _lineCount++;
+      }
+    } else if (entry.state === 'alert') {
+      const hider = canvas.tokens.get(id);
       if (!hider) continue;
-      g.lineStyle(4, LOOK.spot.tint, 0.35);
-      g.moveTo(observer.center.x, observer.center.y);
-      g.lineTo(hider.center.x, hider.center.y);
-      _lineCount++;
+      for (const observerId of entry.observers) {
+        const observer = canvas.tokens.get(observerId);
+        if (!observer) continue;
+        g.lineStyle(4, LOOK.spot.tint, 0.35 * (entry.alpha ?? 1));
+        g.moveTo(hider.center.x, hider.center.y);
+        g.lineTo(observer.center.x, observer.center.y);
+        _lineCount++;
+      }
     }
   }
+}
+
+let _alertTicker = null;
+
+function _alertAlpha(entry) {
+  if (entry.since == null) return 1;
+  const left = 1 - (Date.now() - entry.since) / revealPromptMs();
+  return Math.max(0.05, Math.min(1, left / 0.35));
+}
+
+function _tickAlerts() {
+  let any = false;
+  for (const [id, entry] of _marked) {
+    if (entry.state !== 'alert') continue;
+    any = true;
+    entry.alpha = _alertAlpha(entry);
+    for (const token of _tokensFor(id)) {
+      const mark = _child(token, MARK);
+      if (mark) mark.alpha = entry.alpha;
+    }
+  }
+  if (any) _drawLines();
+  else if (_alertTicker) { clearInterval(_alertTicker); _alertTicker = null; }
+}
+
+function _syncAlertTicker() {
+  const any = [..._marked.values()].some(e => e.state === 'alert');
+  if (any && !_alertTicker) _alertTicker = setInterval(_tickAlerts, 200);
+  if (any) _tickAlerts();
 }
 
 const _enabled = () =>
@@ -199,12 +265,20 @@ function _planMarks() {
   const controlled = canvas.tokens?.controlled ?? [];
   const selected = controlled.length === 1 ? controlled[0] : null;
 
-  
-  
-  for (const { hiderId, observerId } of pendingSpots()) {
+  for (const { hiderId, observerId, reason } of pendingSpots()) {
     if (!game.user.isGM && selected?.id !== hiderId) continue;
-    if (plan.has(observerId)) plan.get(observerId).hiders.push(hiderId);
-    else plan.set(observerId, { state: 'spot', hiders: [hiderId] });
+    if (reason === 'seen') {
+      const existing = plan.get(observerId);
+      if (existing?.state === 'alert') continue;
+      if (existing) existing.hiders.push(hiderId);
+      else plan.set(observerId, { state: 'spot', hiders: [hiderId] });
+      continue;
+    }
+    const entry = plan.get(hiderId);
+    if (entry?.state === 'alert') entry.observers.push(observerId);
+    else {
+      plan.set(hiderId, { state: 'alert', hiders: [], observers: [observerId], since: revealPendingSince(canvas.tokens.get(hiderId)) });
+    }
   }
 
   if (selected) {
@@ -250,6 +324,7 @@ export function refreshHiddenMarkers() {
   for (const id of ghosted) for (const token of _tokensFor(id)) _syncShroud(token);
 
   _drawLines();
+  _syncAlertTicker();
 }
 
 export function registerHiddenMarkers() {
@@ -261,8 +336,6 @@ export function registerHiddenMarkers() {
     Hooks.on(hook, refresh);
   }
 
-  
-  
   Hooks.on('drawToken', (token) => {
     if (_marked.has(token.id)) _syncMark(token);
     if (_shrouded.has(token.id)) _syncShroud(token);

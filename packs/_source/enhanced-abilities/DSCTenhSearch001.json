@@ -1,0 +1,39 @@
+{
+  "name": "Search",
+  "type": "ability",
+  "img": "icons/svg/eye.svg",
+  "system": {
+    "source": { "book": "Heroes", "page": "", "license": "Draw Steel Creator License" },
+    "_dsid": "dsct-search",
+    "keywords": [],
+    "type": "maneuver",
+    "category": "",
+    "resource": null,
+    "trigger": "",
+    "distance": { "type": "self", "primary": "1", "secondary": "1", "tertiary": "1" },
+    "damageDisplay": "melee",
+    "target": { "type": "self", "value": null, "custom": "" },
+    "story": "",
+    "power": { "roll": { "formula": "@chr", "characteristics": [], "reactive": false }, "effects": {} },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "description": "<p>You look for creatures hidden from you within 10 squares that you have line of effect to. Make an Intuition test using the Search skill. Each hidden creature within range makes an Agility test using the Hide skill to oppose it; the Director may substitute other characteristics and skills where they fit the situation. If your total is higher than a hidden creature's, they are no longer hidden from you.</p><p>As part of this maneuver, you can point out any creature you find to your allies within 10 squares, and the creature is no longer hidden from those allies either. If a creature is hidden from your allies but not from you, you can use this maneuver to point them out without making a test.</p><p><em>Combat Tools: the opposed test is not automated yet. Once the tests are resolved, reveal the creature from the Stealth panel.</em></p>",
+        "before": true,
+        "name": "",
+        "img": null,
+        "sort": 0
+      }
+    },
+    "prerequisites": { "value": "", "dsid": [], "level": null }
+  },
+  "effects": [],
+  "flags": { "draw-steel-combat-tools": { "enhanced": true } },
+  "_stats": { "compendiumSource": null, "duplicateSource": null, "exportSource": null, "coreVersion": "14", "systemId": "draw-steel", "systemVersion": "1.1.0", "createdTime": null, "modifiedTime": null, "lastModifiedBy": null },
+  "ownership": { "default": 0 },
+  "folder": null,
+  "_id": "DSCTenhSearch001",
+  "sort": 200000,
+  "_key": "!items!DSCTenhSearch001"
+}

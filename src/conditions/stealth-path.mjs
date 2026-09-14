@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
-import { hiddenFrom, canHideFrom, stealthActive } from './stealth.mjs';
+import { hiddenFrom, canHideFrom, stealthActive, sneakMode, SNEAKING } from './stealth.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -50,9 +50,10 @@ function _exposedAt(hider, observers, step) {
 
 function _cutoff(token, path) {
   if (!canvas.ready || !token?.actor || !path?.length) return null;
-  if (!getSetting('stealthSystemEnabled') || !getSetting('stealthStopsMovement')) return null;
+  if (!getSetting('stealthSystemEnabled') || sneakMode() !== 'path') return null;
+  if (!token.actor?.statuses?.has(SNEAKING)) return null;
   if (!stealthActive()) return null;
-  
+
   if (window._dsctFMActive) return null;
 
   const observers = _blindObservers(token);
@@ -64,7 +65,7 @@ function _cutoff(token, path) {
 
     const cut = steps.slice(0, i + 1);
     const last = cut[cut.length - 1];
-    
+
     last.intermediate = false;
     last.explicit = false;
     return cut;
@@ -97,8 +98,6 @@ function _announceStop(token, step) {
     y: step.y + (Math.max(1, Math.round(token.document.height)) * GS) / 2,
   };
 
-  
-  
   pingStealthStop(at);
   if (!game.user.isGM) getModuleApi(false)?.socket?.executeAsGM?.('dsct.stealthPing', at, canvas.scene?.id);
 }
@@ -109,7 +108,7 @@ function _constrain(wrapped, ...args) {
   try {
     const cut = _cutoff(this, result?.[0]);
     if (!cut) return result;
-    
+
     if (!args[1]?.preview) _announceStop(this, cut[cut.length - 1]);
     return [cut, true];
   } catch (err) {

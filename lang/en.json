@@ -27,6 +27,19 @@
         "label": "Install Macros",
         "hint": "Creates a folder of ready-to-use macros for every module API function in your Macros sidebar."
       },
+      "enhancedPromptMode": {
+        "name": "Enhanced Abilities Prompt",
+        "hint": "When to offer adding the Enhanced Abilities compendium (Hide, Search, and more to come) to every actor in the world."
+      },
+      "enhancedAutoAdd": {
+        "name": "Enhanced Abilities on New Actors",
+        "hint": "Every actor created in this world gets the Enhanced Abilities it is missing. Set by answering the prompt, or here."
+      },
+      "distributeEnhanced": {
+        "name": "Add Enhanced Abilities",
+        "label": "Add to Every Actor",
+        "hint": "Adds every ability from the DSCT: Enhanced Abilities compendium to every actor in the world that does not already have it. Hide and Search gather the scattered stealth rules into one action each."
+      },
       "macroPromptMode": {
         "name": "Sample Macro Import Prompt",
         "hint": "Controls when or if Draw Steel: Combat Tools should prompt the Director to import sample macros on load.",
@@ -696,9 +709,22 @@
         "name": "Everyone Knows Where Everyone Is",
         "hint": "Draw Steel says the position of every combatant in an encounter is known to all its participants, even without line of effect. Shows every combatant through the fog of war as a greyed out stand in, so their square is known without pretending you can see them. Targeting by hand still works, and the target pickers still leave out anyone you have no line of effect to."
       },
-      "stealthStopsMovement": {
-        "name": "Stop Where You Are Seen",
-        "hint": "Scans the squares a hidden creature's move would cross and stops it on the first one where somebody who cannot see it right now would. Observers who can already see it are ignored, so nobody gets pinned in the open. Does not apply to forced movement."
+      "stealthSneakHouseRule": {
+        "name": "Sneaking in Combat (House Rule)",
+        "hint": "By the book, any movement during combat ends hiding, and sneaking only exists outside of combat. Either house rule allows sneaking in combat: becoming hidden also makes you Sneaking, which halves your speed and lets you move while staying hidden. Every Square checks cover or concealment along the whole path and stops the move on the first exposed square; Start and End only asks that the move begins and ends in cover or concealment, closer to the book's wording. Remove Sneaking to move at full speed, which ends Hidden. Forced movement and teleports still reveal you either way.",
+        "choice": {
+          "off": "Off, by the book",
+          "path": "Every square of the move",
+          "ends": "Start and end of the move"
+        }
+      },
+      "stealthAutoReveal": {
+        "name": "Reveal Automatically",
+        "hint": "Moving, using an ability, being force moved or teleporting ends hiding by the book, and with this on it simply happens. Turn it off to be asked instead: the creature that gave itself away gets a red spiked eye with lines to everyone it was hiding from. Click the eye to make the reveal official, right click to wave it off, or let it fade and they stay hidden."
+      },
+      "stealthRevealPromptSeconds": {
+        "name": "Reveal Prompt Fades After",
+        "hint": "Seconds a red spiked eye stays before it fades away unanswered. Only matters with Reveal Automatically off."
       },
       "showStealthButton": {
         "name": "Show Stealth Button",
@@ -1174,6 +1200,12 @@
         "rename": "Rename and Apply",
         "apply": "Just Apply Labels"
       },
+      "enhancedAbilities": {
+        "title": "Draw Steel: Combat Tools - Enhanced Abilities",
+        "body": "<p>Would you like the <strong>Enhanced Abilities</strong> added to every actor in this world, and to every actor created from now on?</p><p>These are actions the game has but the system does not ship, or actions Combat Tools can automate: <strong>Hide</strong> and <strong>Search</strong> bring the scattered stealth rules together, with more to follow. Actors that already have an ability are left alone.</p>",
+        "yes": "Yes, Add Them",
+        "no": "No Thanks"
+      },
       "sampleMacros": {
         "title": "Draw Steel: Combat Tools - Sample Macros",
         "body": "<p>Would you like to import sample macros for <strong>Draw Steel: Combat Tools</strong>?</p><p>These provide ready-to-use buttons for Forced Movement, Grab, Teleport, and all other module features.</p>",
@@ -1382,6 +1414,7 @@
         "gmOnly": "Only the GM can install DSCT macros.",
         "packNotFound": "DSCT macros compendium not found.",
         "gmOnlyDistribute": "Only the GM can distribute abilities.",
+        "enhancedPackNotFound": "DSCT Enhanced Abilities compendium not found.",
         "abilitiesPackNotFound": "Could not find the draw-steel.abilities compendium.",
         "knockbackNotFound": "Could not find Knockback in the abilities pack.",
         "cancelled": "Cancelled.",
@@ -1736,7 +1769,8 @@
       "hidden": "Hidden",
       "concealedMagical": "Magical Concealment",
       "concealedMundane": "Mundane Concealment",
-      "wasHidden": "Was Hidden"
+      "wasHidden": "Was Hidden",
+      "sneaking": "Sneaking"
     },
     "statusGroup": {
       "system": "Draw Steel",

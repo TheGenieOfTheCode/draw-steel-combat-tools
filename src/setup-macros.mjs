@@ -18,7 +18,6 @@ export const installMacros = async ({ silent = false } = {}) => {
   let rootFolder = game.folders.find(f => f.type === 'Macro' && f.name === MACRO_FOLDER_NAME);
   if (!rootFolder) rootFolder = await Folder.create({ name: MACRO_FOLDER_NAME, type: 'Macro' });
 
-  
   const folderMap = new Map();
   for (const pf of (pack.folders ?? [])) {
     let wf = game.folders.find(f => f.type === 'Macro' && f.name === pf.name && f.folder?.id === rootFolder.id);
@@ -39,7 +38,6 @@ export const installMacros = async ({ silent = false } = {}) => {
     const compFolderId = doc.toObject().folder;
     const targetFolder = compFolderId ? (folderMap.get(compFolderId) ?? rootFolder) : rootFolder;
 
-    
     let exists      = game.macros.find(m => m.name === doc.name && m.folder?.id === targetFolder.id);
     const inRoot    = !exists && targetFolder.id !== rootFolder.id
       ? game.macros.find(m => m.name === doc.name && m.folder?.id === rootFolder.id)
@@ -52,7 +50,7 @@ export const installMacros = async ({ silent = false } = {}) => {
     }
 
     if (inRoot) {
-      
+
       await inRoot.update({ folder: targetFolder.id, command: doc.command, img: doc.img });
       updated++;
       continue;
@@ -116,6 +114,40 @@ export const distributeAbilities = async () => {
 
   ui.notifications.info(game.i18n.format('DSCT.notice.macros.updatedActors', { added, s: added !== 1 ? 's' : '', skipped }));
 };
+
+export const ENHANCED_PACK = 'draw-steel-combat-tools.enhanced-abilities';
+
+
+export const distributeEnhancedAbilities = async ({ actors = null, silent = false } = {}) => {
+  const none = { added: 0, skipped: 0 };
+  if (!game.user.isGM) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.gmOnlyDistribute')); return none; }
+  const pack = game.packs.get(ENHANCED_PACK);
+  if (!pack) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.enhancedPackNotFound')); return none; }
+
+  const docs = (await pack.getDocuments()).filter(d => d.system?._dsid);
+  const targets = actors ?? game.actors.filter(a => !['party', 'object'].includes(a.type));
+
+  let added = 0, skipped = 0;
+  for (const actor of targets) {
+    const have = new Set(actor.items.map(i => i.system?._dsid));
+    const missing = docs.filter(d => !have.has(d.system._dsid));
+    if (!missing.length) { skipped++; continue; }
+    await actor.createEmbeddedDocuments('Item', missing.map(d => d.toObject()));
+    added++;
+  }
+  if (!silent) ui.notifications.info(game.i18n.format('DSCT.notice.macros.updatedActors', { added, s: added !== 1 ? 's' : '', skipped }));
+  return { added, skipped };
+};
+
+export class EnhancedAbilitiesMenu extends FormApplication {
+  static get defaultOptions() {
+    return foundry.utils.mergeObject(super.defaultOptions, { title: 'Add Enhanced Abilities', template: null });
+  }
+  async _render() {
+    await distributeEnhancedAbilities();
+  }
+  async _updateObject() {}
+}
 
 export class InstallMacrosMenu extends FormApplication {
   static get defaultOptions() {

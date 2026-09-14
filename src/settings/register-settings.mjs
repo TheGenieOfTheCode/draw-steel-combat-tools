@@ -1,7 +1,8 @@
 import { MATERIAL_RULE_DEFAULTS, WALL_RESTRICTION_DEFAULTS } from '../forced-movement/wall-builder.mjs';
 import { recheckCombatReveal } from '../conditions/combat-reveal.mjs';
+import { syncHiddenRule } from '../conditions/stealth.mjs';
 import { preloadStickbug } from '../squad-hud.mjs';
-import { InstallMacrosMenu } from '../setup-macros.mjs';
+import { InstallMacrosMenu, EnhancedAbilitiesMenu } from '../setup-macros.mjs';
 import {
   ForcedMovementSettingsMenu,
   ConditionsSettingsMenu,
@@ -35,6 +36,23 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'macroPromptSeenVersion', { scope: 'world', config: false, type: String, default: '' });
   game.settings.register(M, 'macroAutoImport', { scope: 'world', config: false, type: Boolean, default: false });
+
+  game.settings.register(M, 'enhancedPromptMode', {
+    name: L('enhancedPromptMode.name'),
+    hint: L('enhancedPromptMode.hint'),
+    scope: 'world', config: true, type: String,
+    choices: {
+      'ask':          L('macroPromptMode.choice.ask'),
+      'skip-update':  L('macroPromptMode.choice.skipUpdate'),
+      'never':        L('macroPromptMode.choice.never'),
+    },
+    default: 'ask',
+  });
+  game.settings.register(M, 'enhancedPromptSeenVersion', { scope: 'world', config: false, type: String, default: '' });
+  game.settings.register(M, 'enhancedAutoAdd', {
+    name: L('enhancedAutoAdd.name'), hint: L('enhancedAutoAdd.hint'),
+    scope: 'world', config: true, type: Boolean, default: false,
+  });
 
   game.settings.register(M, 'quickStrikeCompat', {
     name: L('quickStrikeCompat.name'),
@@ -333,7 +351,7 @@ export const registerSettings = () => {
     scope: 'world', config: false, type: Boolean, default: true,
   });
   game.settings.register(M, 'deathTrackerSkullIds', { scope: 'world', config: false, type: Array, default: [] });
-  
+
   game.settings.register(M, 'skullEnabled', { scope: 'world', config: false, type: Boolean, default: false });
   game.settings.register(M, 'skullIcon',    { scope: 'world', config: false, type: String,  default: '' });
   game.settings.register(M, 'deathMarkerEnabled', {
@@ -708,9 +726,24 @@ export const registerSettings = () => {
     scope: 'world', config: false, type: Boolean, default: false,
     onChange: () => recheckCombatReveal(),
   });
-  game.settings.register(M, 'stealthStopsMovement', {
-    name: L('stealthStopsMovement.name'), hint: L('stealthStopsMovement.hint'),
+  game.settings.register(M, 'stealthSneakHouseRule', {
+    name: L('stealthSneakHouseRule.name'), hint: L('stealthSneakHouseRule.hint'),
+    scope: 'world', config: false, type: String, default: 'off',
+    choices: {
+      'off':  L('stealthSneakHouseRule.choice.off'),
+      'path': L('stealthSneakHouseRule.choice.path'),
+      'ends': L('stealthSneakHouseRule.choice.ends'),
+    },
+    onChange: () => syncHiddenRule(),
+  });
+  game.settings.register(M, 'stealthAutoReveal', {
+    name: L('stealthAutoReveal.name'), hint: L('stealthAutoReveal.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'stealthRevealPromptSeconds', {
+    name: L('stealthRevealPromptSeconds.name'), hint: L('stealthRevealPromptSeconds.hint'),
+    scope: 'world', config: false, type: Number, default: 10,
+    range: { min: 3, max: 60, step: 1 },
   });
   game.settings.register(M, 'coverBaneEnabled', {
     name: L('coverBaneEnabled.name'), hint: L('coverBaneEnabled.hint'),
@@ -781,6 +814,11 @@ export const registerSettings = () => {
     hint: L('installMacros.hint'),
     icon: 'fas fa-scroll', type: InstallMacrosMenu, restricted: true,
   });
+  game.settings.registerMenu(M, 'distributeEnhanced', {
+    name: L('distributeEnhanced.name'), label: L('distributeEnhanced.label'),
+    hint: L('distributeEnhanced.hint'),
+    icon: 'fas fa-book-sparkles', type: EnhancedAbilitiesMenu, restricted: true,
+  });
 };
 
 const _DSCT = 'draw-steel-combat-tools';
@@ -795,7 +833,7 @@ const _minionDeathConflict = () => {
   try { theirValue = game.settings.get(_DSCT_CT, _DSCT_CT_KEY); } catch { return; }
   if (!theirValue || !game.settings.get(_DSCT, _DSCT_KEY)) return;
   game.settings.set(_DSCT, _DSCT_KEY, false);
-  
+
   const menu = foundry.applications.instances?.get('dsct-death-tracker-settings');
   const cb   = menu?.element?.querySelector(`[name="${_DSCT_KEY}"]`);
   if (cb) cb.checked = false;
