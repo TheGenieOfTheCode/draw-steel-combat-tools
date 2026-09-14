@@ -20,6 +20,17 @@ export async function syncHiddenRule() {
 
   
   
+  if (game.ready) {
+    for (const id of Object.keys(STEALTH_STATUSES)) {
+      const status = CONFIG.statusEffects?.[id];
+      if (!status?.rule) continue;
+      const page = await fromUuid(status.rule).catch(() => null);
+      if (page) continue;
+      console.warn(`DSCT | stealth | rules page missing for ${id}, tooltip disabled: ${status.rule}`);
+      delete status.rule;
+    }
+  }
+
   if (!game.users.activeGM?.isSelf || !game.ready) return;
   for (const actor of game.actors) {
     const hiddenNow = actor.effects.some(e => e.statuses?.has(HIDDEN));
@@ -45,8 +56,7 @@ export const STEALTH_STATUSES = {
     img: 'icons/svg/light-off.svg',
     rule: RULES + 'DSCTruleConcMun0',
   },
-  
-  
+
   dsctSneaking: {
     name: 'DSCT.status.sneaking',
     img: 'icons/svg/walk.svg',
@@ -106,7 +116,7 @@ export function registerStealthSystem() {
   registerHiddenTracking();
   Hooks.once('ready', syncHiddenRule);
   Hooks.on('deleteCombat', (combat) => clearStealthEffects(combat));
-  
+
   Hooks.on('deleteActiveEffect', (effect) => {
     if (!game.users.activeGM?.isSelf || !effect?.statuses?.has(HIDDEN)) return;
     const actor = effect.parent;
@@ -254,7 +264,6 @@ async function _restoreFromSnapshot(token) {
   if (!snap?.hiddenFrom?.length) return false;
   const current = _hiddenEffect(token) ? [...hiddenFrom(token)] : [];
 
-  
   const echo = _echoEffect(token);
   const same = (a, b) => [...a].sort().join() === [...b].sort().join();
   if (echo && same(echo.getFlag(M, FLAG) ?? [], snap.hiddenFrom)) await safeDelete(echo);
@@ -269,8 +278,6 @@ export async function markRevealed(token, reason) {
   const effect = _hiddenEffect(token);
   if (!effect || !stealthActive() || !hiddenFrom(token).size) return false;
 
-  
-  
   if (getSetting('stealthAutoReveal')) {
     const ids = [...hiddenFrom(token)];
     if (UNDOABLE.includes(reason)) await _snapshotReveal(token, ids, reason);
@@ -480,25 +487,19 @@ async function _afterWillingMove(token, options, userId) {
   if (window._dsctFMActive || window._dsctTeleportActive) return null;
   if (!stealthActive()) return null;
 
-  
-  
   if (options?.isUndo || options?.isPaste) {
     if (_hiddenEffect(token)) await clearRevealPending(token, UNDOABLE);
     if (await _restoreFromSnapshot(token)) return 'restored';
     return _hiddenEffect(token) ? 'undone' : null;
   }
 
-  
   if (!_hiddenEffect(token)) { await _forgetSnapshot(token); return null; }
 
-  
   if (sneakMode() === 'off' || !_isSneaking(token)) {
     await markRevealed(token, 'movement');
     return 'movement';
   }
 
-  
-  
   const seers = [...hiddenFrom(token)]
     .map(id => canvas.tokens.get(id))
     .filter(observer => observer && !_canHideFrom(observer, token))
