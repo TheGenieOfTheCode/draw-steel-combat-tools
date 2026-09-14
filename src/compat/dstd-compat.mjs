@@ -16,7 +16,6 @@ const DSTD       = 'draw-steel-target-damage';
 const DSTD_PANEL = `section.${DSTD}-panel`;
 const DSTD_ROW   = `.${DSTD}-target-row[data-target-key]`;
 
-
 function _rowTargetDefeated(el) {
   const key = el?.closest(DSTD_ROW)?.dataset?.targetKey;
   if (!key || key === 'selected-token') return false;
@@ -24,7 +23,6 @@ function _rowTargetDefeated(el) {
   return !!doc?.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead');
 }
 const M          = 'draw-steel-combat-tools';
-
 
 const _fmState = new Map();
 
@@ -34,7 +32,6 @@ const _fmExecutingKeys = new Set();
 const _flatCondState = new Map();
 
 const _dsctPendingRevival = new Set();
-
 
 const _DSTD_DAMAGE_ICONS = {
   acid:       'fa-solid fa-flask-vial',
@@ -167,7 +164,6 @@ export function registerDstdCompat() {
     const msgId = message.id;
     setTimeout(() => {
 
-
       const live = root.isConnected
         ? root
         : (root.ownerDocument.querySelector(`li.chat-message[data-message-id="${msgId}"]`) ?? root);
@@ -255,7 +251,6 @@ export function registerDstdCompat() {
     });
   });
 
-
   
   Hooks.on('updateChatMessage', (msg, changes) => {
     if (!foundry.utils.hasProperty(changes, `flags.${M}.dstdFmState`)) return;
@@ -288,7 +283,6 @@ export function registerDstdCompat() {
 
 let _panelObserver = null;
 const _detachedObservers = new Map();
-
 
 const DSTD_ROW_CLS = `.${DSTD}-target-row`;
 
@@ -346,7 +340,6 @@ function _stopDetachedObserver(id) {
 }
 
 const _collapseKey = (msgId) => `dsct-dstd-collapse-${msgId}`;
-
 
 function _installUndoDeathHook(root) {
   if (root.dataset.dsctDmgUndoTracked) return;
@@ -419,13 +412,10 @@ function _installUndoDeathHook(root) {
   }, { capture: true });
 }
 
-
-
 export function markPendingRevival(tokenUuid, ttl = 8000) {
   _dsctPendingRevival.add(tokenUuid);
   setTimeout(() => _dsctPendingRevival.delete(tokenUuid), ttl);
 }
-
 
 export function queueDstdUndoRevival(tokenUuid, delay = 500) {
   markPendingRevival(tokenUuid);
@@ -452,7 +442,6 @@ export async function runDstdUndoRevival(tokenUuid) {
     _dsctPendingRevival.delete(tokenUuid);
   }
 }
-
 
 function _installGlobalDamageButtons(panel, message) {
   panel.querySelector('.dsct-dstd-global-row')?.remove();
@@ -561,7 +550,6 @@ function _getMessageParts(message) {
   return Object.values(parts);
 }
 
-
 export function _effectiveRowTier(message, targetKey, tokenUuid, fallbackTier) {
   const ov = foundry.utils.getProperty(message.flags, `${DSTD}.state.tierOverrides.${targetKey}`);
   const ovTier = Number(ov?.tier);
@@ -588,7 +576,6 @@ function _getMessageTier(message) {
   }
   return null;
 }
-
 
 function _injectMarkReminder(message, live) {
   if (!message.getFlag(M, 'markReminder')) return;
@@ -939,7 +926,6 @@ async function _buildSyntheticFlatPanel(message, root, storedTargets) {
 
   return panel;
 }
-
 
 const _soloCollapsed = new Set();
 
@@ -2845,7 +2831,7 @@ async function _injectFmButtons(message, root) {
       if (getSetting('debugMode')) console.log(`DSCT | squad Phase3 | row tokenUuid=${tokenUuid} sqEntry=`, sqEntry);
 
       
-      if (sqEntry?.extraMinions > 0 && sqEntry.freeStrike > 0) {
+      if (sqEntry?.primaryMinionId || sqEntry?.minionIds?.length) {
         const bonus          = sqEntry.extraMinions * sqEntry.freeStrike;
         const dstdMsgState   = message.flags?.[DSTD]?.state ?? null;
         const nativeApplyBtn = actions.querySelector('[data-dstd-action="applyDamage"]');
