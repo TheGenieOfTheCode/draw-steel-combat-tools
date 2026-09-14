@@ -14,12 +14,10 @@ const RULES = 'Compendium.draw-steel-combat-tools.rules.JournalEntry.DSCTrulesJo
 export async function syncHiddenRule() {
   const mode = sneakMode();
   const hidden = CONFIG.statusEffects?.dsctHidden;
-  if (hidden) hidden.rule = RULES + (mode === 'off' ? 'DSCTruleHidden00' : 'DSCTruleHiddenSnk');
+  if (hidden) hidden.rule = RULES + (mode === 'off' ? 'DSCTruleHidden00' : 'DSCTruleHiddenSk');
   const sneaking = CONFIG.statusEffects?.dsctSneaking;
   if (sneaking) sneaking.rule = RULES + (mode === 'ends' ? 'DSCTruleSneakEnd' : 'DSCTruleSneakPth');
 
-  
-  
   if (game.ready) {
     for (const id of Object.keys(STEALTH_STATUSES)) {
       const status = CONFIG.statusEffects?.[id];
@@ -117,6 +115,14 @@ export function registerStealthSystem() {
   Hooks.once('ready', syncHiddenRule);
   Hooks.on('deleteCombat', (combat) => clearStealthEffects(combat));
 
+  
+  Hooks.on('createActiveEffect', (effect) => {
+    if (!game.users.activeGM?.isSelf || !effect?.statuses?.has(HIDDEN) || sneakMode() === 'off') return;
+    const actor = effect.parent;
+    if (actor?.documentName !== 'Actor' || actor.statuses?.has(SNEAKING)) return;
+    actor.toggleStatusEffect(SNEAKING, { active: true }).catch(() => {});
+  });
+  
   Hooks.on('deleteActiveEffect', (effect) => {
     if (!game.users.activeGM?.isSelf || !effect?.statuses?.has(HIDDEN)) return;
     const actor = effect.parent;
@@ -341,8 +347,6 @@ export async function setHiddenFrom(token, ids, { keepPending = false } = {}) {
   }
   else await token.actor?.toggleStatusEffect?.(HIDDEN, { active: true })
     .then(() => safeUpdate(_hiddenEffect(token), { [`flags.${M}.${FLAG}`]: list }));
-
-  if (sneakMode() !== 'off' && !_isSneaking(token)) await token.actor?.toggleStatusEffect?.(SNEAKING, { active: true });
 
   await _rememberEcho(token, dropped);
   return list;
