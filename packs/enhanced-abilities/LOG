@@ -1,5 +1,5 @@
-2026/09/15-00:02:17.674 bfa8 Delete type=3 #1
-2026/09/15-00:02:17.681 cd6c Level-0 table #5: started
-2026/09/15-00:02:17.685 cd6c Level-0 table #5: 2564 bytes OK
-2026/09/15-00:02:17.687 cd6c Delete type=0 #3
-2026/09/15-00:02:17.688 cd6c Manual compaction at level-0 from '!items!DSCTenhHide00001' @ 72057594037927935 : 1 .. '!items!DSCTenhSearch001' @ 0 : 0; will stop at (end)
+2026/09/15-16:07:41.215 b7d8 Delete type=3 #1
+2026/09/15-16:07:41.220 8018 Level-0 table #5: started
+2026/09/15-16:07:41.223 8018 Level-0 table #5: 2573 bytes OK
+2026/09/15-16:07:41.226 8018 Delete type=0 #3
+2026/09/15-16:07:41.226 8018 Manual compaction at level-0 from '!items!DSCTenhHide00001' @ 72057594037927935 : 1 .. '!items!DSCTenhSearch001' @ 0 : 0; will stop at (end)
