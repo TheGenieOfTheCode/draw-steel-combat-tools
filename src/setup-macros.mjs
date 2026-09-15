@@ -117,7 +117,6 @@ export const distributeAbilities = async () => {
 
 export const ENHANCED_PACK = 'draw-steel-combat-tools.enhanced-abilities';
 
-
 export const distributeEnhancedAbilities = async ({ actors = null, silent = false } = {}) => {
   const none = { added: 0, skipped: 0 };
   if (!game.user.isGM) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.gmOnlyDistribute')); return none; }
@@ -125,18 +124,38 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
   if (!pack) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.enhancedPackNotFound')); return none; }
 
   const docs = (await pack.getDocuments()).filter(d => d.system?._dsid);
-  const targets = actors ?? game.actors.filter(a => !['party', 'object'].includes(a.type));
+  const wanted = (a) => a && !['party', 'object'].includes(a.type);
 
-  let added = 0, skipped = 0;
+  
+  
+  let targets = actors;
+  if (!targets) {
+    targets = game.actors.filter(wanted);
+    for (const scene of game.scenes) {
+      for (const token of scene.tokens) {
+        if (!token.actorLink && wanted(token.actor)) targets.push(token.actor);
+      }
+    }
+  }
+
+  let added = 0, skipped = 0, failed = 0;
   for (const actor of targets) {
     const have = new Set(actor.items.map(i => i.system?._dsid));
     const missing = docs.filter(d => !have.has(d.system._dsid));
     if (!missing.length) { skipped++; continue; }
-    await actor.createEmbeddedDocuments('Item', missing.map(d => d.toObject()));
-    added++;
+    try {
+      await actor.createEmbeddedDocuments('Item', missing.map(d => d.toObject()));
+      added++;
+    } catch (err) {
+      failed++;
+      console.warn(`DSCT | enhanced abilities | could not add to ${actor.name}:`, err);
+    }
   }
-  if (!silent) ui.notifications.info(game.i18n.format('DSCT.notice.macros.updatedActors', { added, s: added !== 1 ? 's' : '', skipped }));
-  return { added, skipped };
+  if (!silent) {
+    ui.notifications.info(game.i18n.format('DSCT.notice.macros.updatedActors', { added, s: added !== 1 ? 's' : '', skipped }));
+    if (failed) ui.notifications.warn(game.i18n.format('DSCT.notice.macros.enhancedFailed', { failed }));
+  }
+  return { added, skipped, failed };
 };
 
 export class EnhancedAbilitiesMenu extends FormApplication {

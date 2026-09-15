@@ -1415,6 +1415,7 @@
         "packNotFound": "DSCT macros compendium not found.",
         "gmOnlyDistribute": "Only the GM can distribute abilities.",
         "enhancedPackNotFound": "DSCT Enhanced Abilities compendium not found.",
+        "enhancedFailed": "{failed} actor(s) could not take the Enhanced Abilities; see the console.",
         "abilitiesPackNotFound": "Could not find the draw-steel.abilities compendium.",
         "knockbackNotFound": "Could not find Knockback in the abilities pack.",
         "cancelled": "Cancelled.",
