@@ -310,12 +310,10 @@ Hooks.once('ready', async () => {
 
   const content = `
     ${game.i18n.localize('DSCT.dialog.sampleMacros.body')}
-    <div class="form-group" style="margin-top:12px;">
-      <label style="flex:0 0 auto;margin-right:8px;">${game.i18n.localize('DSCT.dialog.sampleMacros.rememberLabel')}</label>
-      <select id="dsct-macro-prompt-pref" style="flex:1;">
-        <option value="ask">${game.i18n.localize('DSCT.dialog.sampleMacros.optAsk')}</option>
-        <option value="skip-update">${game.i18n.localize('DSCT.dialog.sampleMacros.optSkipUpdate')}</option>
-        <option value="never">${game.i18n.localize('DSCT.dialog.sampleMacros.optNever')}</option>
+    <div class="form-group dsct-prompt-remember">
+      <label>${game.i18n.localize('DSCT.dialog.sampleMacros.rememberLabel')}</label>
+      <select id="dsct-macro-prompt-pref">
+        ${['ask', 'skip-update', 'never'].map(v => `<option value="${v}"${v === promptMode ? ' selected' : ''}>${game.i18n.localize(`DSCT.dialog.sampleMacros.${{ 'ask': 'optAsk', 'skip-update': 'optSkipUpdate', 'never': 'optNever' }[v]}`)}</option>`).join('')}
       </select>
     </div>
   `;
@@ -327,6 +325,7 @@ Hooks.once('ready', async () => {
 
   const result = await foundry.applications.api.DialogV2.wait({
     window: { title: game.i18n.localize('DSCT.dialog.sampleMacros.title') },
+    position: { width: 480 },
     content,
     buttons: [
       { action: "yes", label: game.i18n.localize('DSCT.dialog.sampleMacros.yes'), default: true, callback: (_e, _btn, dialog) => ({ doImport: true,  choice: getChoice(dialog.element) }) },
@@ -352,17 +351,22 @@ Hooks.once('ready', async () => {
   const promptMode     = game.settings.get(M, 'enhancedPromptMode');
   const seenVersion    = game.settings.get(M, 'enhancedPromptSeenVersion') ?? '';
 
-  if (promptMode === 'never') return;
-  if (promptMode === 'skip-update' && seenVersion === currentVersion) return;
+  const remembered = promptMode === 'never' || (promptMode === 'skip-update' && seenVersion === currentVersion);
+  if (remembered) {
+    if (game.settings.get(M, 'enhancedAutoAdd')) {
+      const r = await distributeEnhancedAbilities({ silent: true });
+      const touched = (r?.added ?? 0) + (r?.refreshed ?? 0);
+      if (touched) ui.notifications.info(game.i18n.format('DSCT.notice.macros.enhancedKeptCurrent', { count: touched }));
+    }
+    return;
+  }
 
   const content = `
     ${game.i18n.localize('DSCT.dialog.enhancedAbilities.body')}
-    <div class="form-group" style="margin-top:12px;">
-      <label style="flex:0 0 auto;margin-right:8px;">${game.i18n.localize('DSCT.dialog.sampleMacros.rememberLabel')}</label>
-      <select id="dsct-enhanced-prompt-pref" style="flex:1;">
-        <option value="ask">${game.i18n.localize('DSCT.dialog.sampleMacros.optAsk')}</option>
-        <option value="skip-update">${game.i18n.localize('DSCT.dialog.sampleMacros.optSkipUpdate')}</option>
-        <option value="never">${game.i18n.localize('DSCT.dialog.sampleMacros.optNever')}</option>
+    <div class="form-group dsct-prompt-remember">
+      <label>${game.i18n.localize('DSCT.dialog.sampleMacros.rememberLabel')}</label>
+      <select id="dsct-enhanced-prompt-pref">
+        ${['ask', 'skip-update', 'never'].map(v => `<option value="${v}"${v === promptMode ? ' selected' : ''}>${game.i18n.localize(`DSCT.dialog.sampleMacros.${{ 'ask': 'optAsk', 'skip-update': 'optSkipUpdate', 'never': 'optNever' }[v]}`)}</option>`).join('')}
       </select>
     </div>
   `;
@@ -373,6 +377,7 @@ Hooks.once('ready', async () => {
 
   const result = await foundry.applications.api.DialogV2.wait({
     window: { title: game.i18n.localize('DSCT.dialog.enhancedAbilities.title') },
+    position: { width: 480 },
     content,
     buttons: [
       { action: 'yes', label: game.i18n.localize('DSCT.dialog.enhancedAbilities.yes'), default: true, callback: (_e, _btn, dialog) => ({ doAdd: true,  choice: getChoice(dialog.element) }) },

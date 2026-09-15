@@ -32,8 +32,8 @@
         "hint": "When to offer adding the Enhanced Abilities compendium (Hide, Search, and more to come) to every actor in the world."
       },
       "enhancedAutoAdd": {
-        "name": "Enhanced Abilities on New Actors",
-        "hint": "Every actor created in this world gets the Enhanced Abilities it is missing. Set by answering the prompt, or here."
+        "name": "Keep Enhanced Abilities Current",
+        "hint": "On every load, and for every actor created, adds the Enhanced Abilities an actor is missing and brings older copies up to date. Answering the prompt sets this; switch it off here."
       },
       "distributeEnhanced": {
         "name": "Add Enhanced Abilities",
@@ -836,6 +836,12 @@
         }
       }
     },
+    "specialEffectGroups": {
+      "system": "Draw Steel",
+      "dsct": "Combat Tools",
+      "dsctFlat": "Combat Tools: Flat Effects",
+      "dsd": "Dealer"
+    },
     "FlatEffect": {
       "displayText": {
         "label": "Preview Text",
@@ -1295,7 +1301,7 @@
       },
       "enhancedAbilities": {
         "title": "Draw Steel: Combat Tools - Enhanced Abilities",
-        "body": "<p>Would you like the <strong>Enhanced Abilities</strong> added to every actor in this world, and to every actor created from now on?</p><p>These are actions the game has but the system does not ship, or actions Combat Tools can automate: <strong>Hide</strong> and <strong>Search</strong> bring the scattered stealth rules together, with more to follow. Actors that already have an ability are left alone.</p>",
+        "body": "<p>Would you like the <strong>Enhanced Abilities</strong> added to every actor in this world, and to every actor created from now on?</p><p>These are actions the game has but the system does not ship, or actions Combat Tools can automate: <strong>Hide</strong> and <strong>Search</strong> bring the scattered stealth rules together, with more to follow. Actors that already have an ability are left alone.</p><p>With <em>Don't ask again</em>, your answer stands on every load: Yes keeps every actor current from now on, No never adds anything. Change it later under Keep Enhanced Abilities Current in the module settings.</p>",
         "yes": "Yes, Add Them",
         "no": "No Thanks"
       },
@@ -1510,6 +1516,7 @@
         "enhancedPackNotFound": "DSCT Enhanced Abilities compendium not found.",
         "enhancedFailed": "{failed} actor(s) could not take the Enhanced Abilities; see the console.",
         "enhancedRefreshed": "{refreshed} actor(s) had an existing Enhanced Ability brought up to date.",
+        "enhancedKeptCurrent": "Enhanced Abilities: {count} actor(s) brought up to date on load.",
         "abilitiesPackNotFound": "Could not find the draw-steel.abilities compendium.",
         "knockbackNotFound": "Could not find Knockback in the abilities pack.",
         "cancelled": "Cancelled.",

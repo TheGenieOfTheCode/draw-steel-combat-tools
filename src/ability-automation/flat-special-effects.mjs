@@ -1149,8 +1149,6 @@ function _installFlatEffectChatHook() {
     const item = fromUuidSync(part.abilityUuid);
     if (!item?.system?.effects) return;
 
-    
-    
     const chooseKeeps = chooseMessageFilter(message, item);
     const flatEffects = item.system.effects.contents
       .filter(e => FLAT_TYPES.has(e.type))
@@ -1212,6 +1210,43 @@ function _installCreateDialogFilter() {
       if (opt.value?.startsWith('dsct.flat')) { opt.remove(); removed = true; }
     }
     if (removed && select.value?.startsWith('dsct.flat')) select.value = select.options[0]?.value ?? '';
+  });
+}
+
+function _installTypeGroups() {
+  const groupOf = (value) => {
+    if (!value.includes('.')) return 'system';
+    if (value.startsWith('dsct.flat')) return 'dsctFlat';
+    return value.split('.')[0];
+  };
+  Hooks.on('renderApplicationV2', (_app, element) => {
+    const select = element.querySelector?.('select[name="type"]');
+    if (!select || select.dataset.dsctGrouped) return;
+    const options = Array.from(select.options ?? []);
+    if (!options.some(o => o.value.startsWith('dsct.') || o.value.startsWith('dsd.'))) return;
+    if (!options.some(o => o.value === 'base')) return;
+
+    const groups = new Map();
+    for (const opt of options) {
+      const g = groupOf(opt.value);
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(opt);
+    }
+    const order = ['system', 'dsct', 'dsctFlat', ...[...groups.keys()].filter(g => !['system', 'dsct', 'dsctFlat'].includes(g)).sort()];
+    const current = select.value;
+    select.innerHTML = '';
+    for (const g of order) {
+      const list = groups.get(g);
+      if (!list?.length) continue;
+      const key = `DSCT.specialEffectGroups.${g}`;
+      const label = game.i18n.has(key) ? game.i18n.localize(key) : (game.modules.get(g)?.title ?? g);
+      const og = document.createElement('optgroup');
+      og.label = label;
+      for (const opt of list) og.appendChild(opt);
+      select.appendChild(og);
+    }
+    select.value = current;
+    select.dataset.dsctGrouped = '1';
   });
 }
 
@@ -1431,6 +1466,7 @@ export function registerFlatEffects() {
   _installFlatEffectChatHook();
   _installFlatTypeSelection();
   _installCreateDialogFilter();
+  _installTypeGroups();
   _installDisplayTextAutofill();
   _installPotencyCustomToggle();
   _installHealToggleListeners();
