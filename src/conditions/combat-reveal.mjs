@@ -51,6 +51,10 @@ function _bakedTexture(texture) {
     baked = canvas.app.renderer.generateTexture(source, {
       resolution: texture.baseTexture.resolution,
     });
+    
+    
+    baked.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
+    baked.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
   } catch (err) {
     console.warn('DSCT | combat reveal | could not bake a black and white texture:', err);
   }
