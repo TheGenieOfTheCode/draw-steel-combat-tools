@@ -20,7 +20,7 @@ import { registerTargetDistance } from './ability-automation/target-distance.mjs
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
-import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons } from './conditions/stealth.mjs';
+import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
 import { registerStatusPalette } from './status-palette.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { toggleStealthPanel, registerStealthPanel } from './conditions/stealth-panel.mjs';
@@ -50,6 +50,9 @@ import { registerAbilityHudCompat } from './compat/ability-hud-compat.mjs';
 import { registerCombatLogHooks } from './combat-logs.mjs';
 import { registerFlatEffects } from './ability-automation/flat-special-effects.mjs';
 import { registerChooseEffect } from './ability-automation/choose-effect.mjs';
+import { registerHideEffect } from './ability-automation/hide-effect.mjs';
+import { registerStealthTraits, stealthTraits } from './conditions/stealth-traits.mjs';
+import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
 
 const api = {
@@ -57,7 +60,7 @@ const api = {
   bypassNextFmGate: bypassNextFmGate,
   colorTokenPicker: runColoredTokenPicker,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
-  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons },
+  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits },
   stealthPanel:     toggleStealthPanel,
   sight:            { hasCover, visibleTargetCorners, hasSightTo: hasSightToToken },
   grab:             runGrab,
@@ -138,6 +141,8 @@ Hooks.once('init', () => {
   registerStealthSystem();
   registerBurrowRendering();
   registerHiddenMarkers();
+  registerStealthTraits();
+  registerEffectFlagPicker();
   if (STEALTH_WORKFLOW_READY) {
     registerStealthPanel();
     registerStealthPath();
@@ -168,6 +173,7 @@ Hooks.once('init', () => {
   registerMaliceInjectors();
   registerFlatEffects();
   registerChooseEffect();
+  registerHideEffect();
   registerDstdCompat();
   registerDstdRollPills();
   registerDstdDamagePills();

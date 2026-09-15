@@ -39,11 +39,26 @@
       "before0000000000": {
         "_id": "before0000000000",
         "type": "base",
-        "description": "<p>You attempt to hide from one or more creatures. To hide from a creature, you must have cover or concealment from them, and they must not be observing you: a creature is observing you if they were aware of your specific location before you attempted to hide.</p><p>During combat, if you use this maneuver while you have cover or concealment from a creature who isn't observing you, you are automatically hidden from them unless the Director deems otherwise. Outside of combat, the Director might ask for a Hide test to determine how well hidden you are.</p><p><strong>While hidden</strong> from a creature, you can't be targeted by their abilities that don't have the Area keyword, and you gain an edge on ability rolls against them. The first benefit ends as soon as you are no longer hidden. The edge lasts until the end of the turn in which you are no longer hidden.</p><p><strong>You are no longer hidden</strong> from a creature if you don't have cover or concealment from them, or once an activity that reveals you resolves: using an ability, interacting with an enemy, moving without sneaking, or otherwise making noise or revealing yourself. By the book, sneaking is only possible outside of combat, at half speed, with an Agility test using the Sneak skill; with the Sneaking in Combat house rule, becoming hidden also makes you Sneaking: your speed is halved and you can move while staying hidden, and you can remove Sneaking to move at full speed, which ends Hidden.</p><p><em>Combat Tools: during an encounter this maneuver hides you from every enemy you have cover, concealment or no line of effect from. Use the Stealth panel to narrow the list.</em></p>",
+        "description": "<p>You attempt to hide from one or more creatures. To hide from a creature, you must have cover or concealment from them, and they must not be observing you: a creature is observing you if they were aware of your specific location before you attempted to hide.</p><p>During combat, if you use this maneuver while you have cover or concealment from a creature who isn't observing you, you are automatically hidden from them unless the Director deems otherwise. Outside of combat, the Director might ask for a Hide test to determine how well hidden you are.</p><p><strong>While hidden</strong> from a creature, you can't be targeted by their abilities that don't have the Area keyword, and you gain an edge on ability rolls against them. The first benefit ends as soon as you are no longer hidden. The edge lasts until the end of the turn in which you are no longer hidden.</p><p><strong>You are no longer hidden</strong> from a creature if you don't have cover or concealment from them, or once an activity that reveals you resolves: using an ability, interacting with an enemy, moving without sneaking, or otherwise making noise or revealing yourself. By the book, sneaking is only possible outside of combat, at half speed, with an Agility test using the Sneak skill; with the Sneaking in Combat house rule, becoming hidden also makes you Sneaking: your speed is halved and you can move while staying hidden, and you can remove Sneaking to move at full speed, which ends Hidden.</p><p><em>Combat Tools: the Hide button on this card hides you from every enemy you have concealment or no line of effect from. Cover alone only works against a creature who is not observing you; the Stealth panel lists who still is, and Hide from Targeted adds them once the Director agrees.</em></p>",
         "before": true,
         "name": "",
         "img": null,
         "sort": 0
+      },
+      "dsctHideEffect00": {
+        "_id": "dsctHideEffect00",
+        "type": "dsct.hide",
+        "name": "Hide",
+        "img": null,
+        "sort": 100000,
+        "description": "",
+        "before": false,
+        "hide": {
+          "from": "enemies",
+          "whileObserved": false,
+          "coverCounts": "",
+          "display": ""
+        }
       }
     },
     "prerequisites": {

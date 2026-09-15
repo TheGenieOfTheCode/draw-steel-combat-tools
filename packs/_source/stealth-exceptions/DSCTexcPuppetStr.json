@@ -1,0 +1,48 @@
+{
+  "name": "Puppet Strings",
+  "img": "icons/magic/control/hypnosis-mesmerism-eye.webp",
+  "type": "base",
+  "_id": "DSCTexcPuppetStr",
+  "system": {
+    "changes": [
+      {
+        "key": "flags.draw-steel-combat-tools.stealth.keepsHidden",
+        "value": "true",
+        "priority": null,
+        "type": "add",
+        "phase": "initial"
+      }
+    ]
+  },
+  "changes": [],
+  "disabled": false,
+  "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+  },
+  "description": "<p>You choose the new targets for the original target’s free strike or ability. Additionally, if you are hidden or disguised, using this ability doesn’t cause you to be revealed.</p><p><strong>Combat Tools:</strong> Testing stand-in: while this effect is on, NO ability reveals you. The real feature exempts only Puppet Strings; that per-ability form is the keepsHidden flag on the ability item.</p><p><em>Draw Steel: Heroes p. 169.</em></p>",
+  "origin": null,
+  "tint": "#ffffff",
+  "transfer": false,
+  "statuses": [],
+  "sort": 300000,
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.0",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "folder": null,
+  "ownership": {
+    "default": 0
+  },
+  "_key": "!effects!DSCTexcPuppetStr"
+}

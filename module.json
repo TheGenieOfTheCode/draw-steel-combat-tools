@@ -40,6 +40,7 @@
   "packs": [
     { "name": "macros", "label": "DSCT: Macros", "path": "packs/macros", "type": "Macro" },
     { "name": "enhanced-abilities", "label": "DSCT: Enhanced Abilities", "path": "packs/enhanced-abilities", "type": "Item", "system": "draw-steel" },
-    { "name": "rules", "label": "DSCT: Rules", "path": "packs/rules", "type": "JournalEntry", "system": "draw-steel" }
+    { "name": "rules", "label": "DSCT: Rules", "path": "packs/rules", "type": "JournalEntry", "system": "draw-steel" },
+    { "name": "stealth-exceptions", "label": "DSCT: Stealth Exceptions", "path": "packs/stealth-exceptions", "type": "ActiveEffect", "system": "draw-steel" }
   ]
 }

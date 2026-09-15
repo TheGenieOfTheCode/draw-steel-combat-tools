@@ -1,5 +1,6 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
-import { hiddenFrom, canHideFrom, stealthActive, sneakMode, SNEAKING } from './stealth.mjs';
+import { hiddenFrom, canHideFrom, stealthActive, sneakMode, SNEAKING, squareOccupied } from './stealth.mjs';
+import { stealthTraits } from './stealth-traits.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -27,23 +28,26 @@ function _ghostAt(token, step) {
 const _cache = new Map();
 export const clearStealthPathCache = () => _cache.clear();
 
-function _blindObservers(hider) {
+function _blindObservers(hider, traits) {
   const out = [];
   for (const id of hiddenFrom(hider)) {
     if (id === hider.id) continue;
     const observer = canvas.tokens.get(id);
-    if (observer && canHideFrom(observer, hider)) out.push(observer);
+    if (observer && canHideFrom(observer, hider, traits)) out.push(observer);
   }
   return out;
 }
 
-function _exposedAt(hider, observers, step) {
+function _exposedAt(hider, observers, step, traits) {
   const key = `${hider.id}|${step.x},${step.y},${step.elevation ?? 0}`;
   const cached = _cache.get(key);
   if (cached !== undefined) return cached;
 
-  const ghost = _ghostAt(hider, step);
-  const exposed = observers.some(observer => !canHideFrom(observer, ghost));
+  let exposed = false;
+  if (!(traits.movementKeeps.has('occupied') && squareOccupied(hider, step))) {
+    const ghost = _ghostAt(hider, step);
+    exposed = observers.some(observer => !canHideFrom(observer, ghost, traits));
+  }
   _cache.set(key, exposed);
   return exposed;
 }
@@ -56,12 +60,15 @@ function _cutoff(token, path) {
 
   if (window._dsctFMActive) return null;
 
-  const observers = _blindObservers(token);
+  const traits = stealthTraits(token);
+  if (traits.movementKeeps.has('any')) return null;
+
+  const observers = _blindObservers(token, traits);
   if (!observers.length) return null;
 
   const steps = token.document.getCompleteMovementPath(path);
   for (let i = 1; i < steps.length; i++) {
-    if (!_exposedAt(token, observers, steps[i])) continue;
+    if (!_exposedAt(token, observers, steps[i], traits)) continue;
 
     const cut = steps.slice(0, i + 1);
     const last = cut[cut.length - 1];

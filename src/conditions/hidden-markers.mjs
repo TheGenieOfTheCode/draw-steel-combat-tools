@@ -10,6 +10,8 @@ const DISC = 50;
 const GLYPH = 76;
 const SIZE = 0.5;
 
+const MASS_SPOT = 3;
+
 const LOOK = {
   spot:  { tint: 0xd04040, disc: 0x2a0000, discAlpha: 0.65, alpha: 1,    rim: true },
   alert: { tint: 0xd04040, disc: 0x2a0000, discAlpha: 0.65, alpha: 1,    rim: 'spiky' },
@@ -56,7 +58,7 @@ function _buildMark(observerId, state) {
   group.alpha = look.alpha;
 
   const disc = new PIXI.Graphics();
-  
+
   if (look.rim === 'spiky') {
     const points = [];
     const spikes = 14;
@@ -99,7 +101,6 @@ function _buildMark(observerId, state) {
     group.cursor = 'pointer';
     group.hitArea = new PIXI.Circle(0, 0, DISC + 11);
 
-    
     group.on('pointerdown', (event) => {
       event.stopPropagation();
       if (event.button === 2) dismissReveal(canvas.tokens.get(observerId));
@@ -206,7 +207,7 @@ function _drawLines() {
         g.lineTo(hider.center.x, hider.center.y);
         _lineCount++;
       }
-    } else if (entry.state === 'alert') {
+    } else if (entry.state === 'alert' && entry.lines !== false) {
       const hider = canvas.tokens.get(id);
       if (!hider) continue;
       for (const observerId of entry.observers) {
@@ -265,19 +266,32 @@ function _planMarks() {
   const controlled = canvas.tokens?.controlled ?? [];
   const selected = controlled.length === 1 ? controlled[0] : null;
 
+  const seen = new Map();
   for (const { hiderId, observerId, reason } of pendingSpots()) {
     if (!game.user.isGM && selected?.id !== hiderId) continue;
     if (reason === 'seen') {
-      const existing = plan.get(observerId);
-      if (existing?.state === 'alert') continue;
-      if (existing) existing.hiders.push(hiderId);
-      else plan.set(observerId, { state: 'spot', hiders: [hiderId] });
+      if (!seen.has(hiderId)) seen.set(hiderId, []);
+      seen.get(hiderId).push(observerId);
       continue;
     }
     const entry = plan.get(hiderId);
     if (entry?.state === 'alert') entry.observers.push(observerId);
     else {
       plan.set(hiderId, { state: 'alert', hiders: [], observers: [observerId], since: revealPendingSince(canvas.tokens.get(hiderId)) });
+    }
+  }
+
+  for (const [hiderId, observers] of seen) {
+    
+    
+    for (const observerId of observers) {
+      const existing = plan.get(observerId);
+      if (existing?.state === 'alert') continue;
+      if (existing) existing.hiders.push(hiderId);
+      else plan.set(observerId, { state: 'spot', hiders: [hiderId] });
+    }
+    if (observers.length > MASS_SPOT && plan.get(hiderId)?.state !== 'alert') {
+      plan.set(hiderId, { state: 'alert', hiders: [], observers: [...observers], since: null, lines: false });
     }
   }
 

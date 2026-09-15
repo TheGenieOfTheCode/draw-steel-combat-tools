@@ -31,6 +31,16 @@
     {{/if}}
   </section>
 
+  {{#if ctx.observingYou.length}}
+  <section class="dsct-stealth-state">
+    <p class="dsct-stealth-label">{{localize "DSCT.panel.stealth.observingYou"}}</p>
+    <ul class="dsct-stealth-list">
+      {{#each ctx.observingYou}}<li>{{this}}</li>{{/each}}
+    </ul>
+    <p class="dsct-stealth-empty">{{localize "DSCT.panel.stealth.observingHint"}}</p>
+  </section>
+  {{/if}}
+
   <div class="dsct-stealth-buttons">
     <button type="button" data-action="hide" {{#unless ctx.couldHideFrom.length}}disabled{{/unless}}>
       <i class="fa-solid fa-user-ninja"></i> {{localize "DSCT.panel.stealth.hide"}}

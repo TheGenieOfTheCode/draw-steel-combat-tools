@@ -745,6 +745,97 @@
         "IgnoreSize": "Ignore Size"
       }
     },
+    "HideEffect": {
+      "button": "Hide",
+      "from": {
+        "label": "Hide from",
+        "hint": "Every enemy you qualify against, or only the creatures the clicker has targeted.",
+        "choice": { "enemies": "Every enemy", "targets": "Targeted creatures" }
+      },
+      "whileObserved": {
+        "label": "Even while observed",
+        "hint": "Skips the rule that the creature must not be observing you. Cover alone is then enough."
+      },
+      "coverCounts": {
+        "label": "Creatures count as cover",
+        "hint": "Solid objects normally give cover; this lets creatures stand in for them while hiding.",
+        "choice": { "none": "Solid objects only", "allies": "Allies too", "creatures": "Any creature" }
+      },
+      "display": {
+        "label": "Button label",
+        "hint": "Leave blank for Hide."
+      },
+      "labelBits": { "targets": "targets", "observed": "while observed" },
+      "noToken": "No token on the scene for that creature.",
+      "notOwner": "Only the creature's owner or the Director can hide it.",
+      "nobody": "{name} has nobody to hide from here.",
+      "hiddenFrom": "{name} is now hidden from {count} creature(s)."
+    },
+    "effectFlags": {
+      "button": "Combat Tools flags",
+      "title": "Combat Tools flag",
+      "pick": "Flag",
+      "key": "Key",
+      "type": "Type",
+      "values": "Accepted values",
+      "apply": "Apply",
+      "cancel": "Cancel",
+      "groups": { "stealth": "Stealth", "grab": "Grabbing" },
+      "grab": {
+        "maxGrabs": {
+          "label": "Simultaneous grabs",
+          "description": "How many creatures the bearer can keep grabbed at once. The highest of this, the ability’s own count and known traits applies (e.g. Multilimb, Growing Ferocity, Boren).",
+          "values": "A whole number, with the Upgrade type."
+        }
+      },
+      "stealth": {
+        "hideWhileObserved": {
+          "label": "Can hide while observed",
+          "description": "Hiding no longer needs the enemy to have lost track of you; cover or concealment is enough (e.g. Smoke Bomb, Defensive Roll, Black Ash Teleport).",
+          "values": "true"
+        },
+        "keepsHidden": {
+          "label": "Abilities do not reveal you",
+          "description": "Using an ability while hidden keeps you hidden (e.g. Puppet Strings, Ventriloquist, Sticky Bomb).",
+          "values": "true"
+        },
+        "moveFreely": {
+          "label": "Movement does not reveal you",
+          "description": "Any willing move keeps you hidden, whatever the sneaking house rule says. Losing cover or concealment still counts.",
+          "values": "true"
+        },
+        "moveThroughOccupied": {
+          "label": "Stay hidden through occupied squares",
+          "description": "A move whose every square is occupied by another creature does not reveal you (e.g. Raden).",
+          "values": "true"
+        },
+        "alliesAreCover": {
+          "label": "Allies count as cover",
+          "description": "Your allies stand in for solid objects when hiding and when staying hidden (e.g. Corven, Raden).",
+          "values": "true"
+        },
+        "creaturesAreCover": {
+          "label": "Any creature counts as cover",
+          "description": "Every creature stands in for solid objects when hiding and when staying hidden (e.g. One with the Crowd).",
+          "values": "true"
+        },
+        "staysHiddenAnywhere": {
+          "label": "No cover needed to stay hidden",
+          "description": "Once hidden, losing cover or concealment does not reveal you (e.g. Camouflage Hunter).",
+          "values": "true"
+        },
+        "cannotBeHiddenFrom": {
+          "label": "Nobody can hide from this creature",
+          "description": "Creatures cannot hide from the bearer, and anyone already hidden from them is spotted. Add the range flag to limit it (e.g. Soulsight, Apex Predator).",
+          "values": "true"
+        },
+        "cannotBeHiddenRange": {
+          "label": "Range for nobody can hide",
+          "description": "Squares within which the flag above applies. Leave it out, or 0, for any distance (e.g. Soulsight uses 2).",
+          "values": "A whole number of squares, with the Override type."
+        }
+      }
+    },
     "FlatEffect": {
       "displayText": {
         "label": "Preview Text",
@@ -1128,7 +1219,9 @@
         "hiddenFrom": "Hidden from",
         "notHidden": "Not hidden from anyone.",
         "couldHideFrom": "Could hide from",
-        "nobody": "Nobody. Find cover, concealment, or break their line of effect.",
+        "observingYou": "Observing you",
+        "observingHint": "Cover alone does not hide you from a creature who can see you. If the Director rules they lost track of you, target them and use Hide from Targeted.",
+        "nobody": "Nobody. Get concealment or break their line of effect; cover alone only works against a creature who is not observing you.",
         "outOfCombat": "Hiding only runs during an encounter. Anything left over is cleared when combat ends.",
         "hide": "Hide",
         "hideTargeted": "Hide from Targeted",
@@ -1416,6 +1509,7 @@
         "gmOnlyDistribute": "Only the GM can distribute abilities.",
         "enhancedPackNotFound": "DSCT Enhanced Abilities compendium not found.",
         "enhancedFailed": "{failed} actor(s) could not take the Enhanced Abilities; see the console.",
+        "enhancedRefreshed": "{refreshed} actor(s) had an existing Enhanced Ability brought up to date.",
         "abilitiesPackNotFound": "Could not find the draw-steel.abilities compendium.",
         "knockbackNotFound": "Could not find Knockback in the abilities pack.",
         "cancelled": "Cancelled.",
@@ -1543,7 +1637,16 @@
         "illusionShatters": "<strong>I'm No Threat</strong> <em>{name}'s illusion shatters, the enemy never saw it coming!</em> {name} gains a <strong>Surge</strong>."
       },
       "stealth": {
-        "spotted": "<p><strong>{name}</strong> is no longer hidden from {by}.</p>"
+        "spotted": "<p><strong>{name}</strong> is no longer hidden from {by}{why}.</p>",
+        "reason": {
+          "movement": "after moving",
+          "sneaking": "after sneaking into view",
+          "ability": "after using an ability",
+          "abilityNamed": "after using {detail}",
+          "forced": "after being force moved",
+          "teleport": "after teleporting",
+          "seen": "after losing cover and concealment"
+        }
       }
     },
     "label": {
@@ -1791,7 +1894,8 @@
         "flatHeal": "Heal",
         "flatCleanse": "Cleanse",
         "flatTeleport": "Teleport",
-        "choose": "Choose"
+        "choose": "Choose",
+        "hide": "Hide"
       }
     },
     "RegionBehavior": {

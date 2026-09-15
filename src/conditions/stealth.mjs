@@ -1,6 +1,7 @@
 import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken, getModuleApi } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
 import { playDetected } from './detected-flash.mjs';
+import { stealthTraits, observerBlocksHiding, coverCountingCreatures, widestCover } from './stealth-traits.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -115,14 +116,13 @@ export function registerStealthSystem() {
   Hooks.once('ready', syncHiddenRule);
   Hooks.on('deleteCombat', (combat) => clearStealthEffects(combat));
 
-  
   Hooks.on('createActiveEffect', (effect) => {
     if (!game.users.activeGM?.isSelf || !effect?.statuses?.has(HIDDEN) || sneakMode() === 'off') return;
     const actor = effect.parent;
     if (actor?.documentName !== 'Actor' || actor.statuses?.has(SNEAKING)) return;
     actor.toggleStatusEffect(SNEAKING, { active: true }).catch(() => {});
   });
-  
+
   Hooks.on('deleteActiveEffect', (effect) => {
     if (!game.users.activeGM?.isSelf || !effect?.statuses?.has(HIDDEN)) return;
     const actor = effect.parent;
@@ -169,8 +169,18 @@ export function hiddenFrom(token) {
 export const isHiddenFrom = (token, observer) =>
   !!observer && hiddenFrom(token).has(observer.id);
 
-export const canHideFrom = (observer, token) =>
-  isConcealed(token) || !hasSightToToken(observer, token) || hasCover(observer, token);
+export const isObserving = (observer, token) =>
+  !!observer && !!token && !isConcealed(token) && hasSightToToken(observer, token);
+
+export const canHideFrom = (observer, token, traits = null) => {
+  if (!observer || !token) return false;
+  if (observerBlocksHiding(observer, token)) return false;
+  traits ??= stealthTraits(token);
+  if (traits.maintain === 'always') return true;
+  if (isConcealed(token) || !hasSightToToken(observer, token)) return true;
+  if (hasCover(observer, token)) return true;
+  return !!traits.coverCounts && coverCountingCreatures(observer, token, traits.coverCounts);
+};
 
 const _canHideFrom = canHideFrom;
 
@@ -179,13 +189,38 @@ export const stealthActive = () => !!game.combat;
 const _outOfCombat = () =>
   ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.outOfCombat'));
 
-export function proposeHide(token) {
-  if (!token || !stealthActive()) return [];
+const _enemiesOnScene = (token) => {
   const disposition = token.document.disposition;
   return canvas.tokens.placeables
     .filter(other => other.id !== token.id && other.actor)
-    .filter(other => other.document.disposition !== disposition)
-    .filter(other => _canHideFrom(other, token))
+    .filter(other => other.document.disposition !== disposition);
+};
+
+const _hideTraits = (token, opts = {}) => {
+  const traits = stealthTraits(token);
+  return {
+    ...traits,
+    hideWhileObserved: traits.hideWhileObserved || !!opts.whileObserved,
+    coverCounts: widestCover(traits.coverCounts, opts.coverCounts),
+  };
+};
+
+export function proposeHide(token, opts = {}) {
+  if (!token || !stealthActive()) return [];
+  const traits = _hideTraits(token, opts);
+  return _enemiesOnScene(token)
+    .filter(other => _canHideFrom(other, token, traits))
+    .filter(other => traits.hideWhileObserved || !isObserving(other, token))
+    .map(other => other.id);
+}
+
+export function observingEnemies(token, opts = {}) {
+  if (!token || !stealthActive()) return [];
+  const traits = _hideTraits(token, opts);
+  if (traits.hideWhileObserved) return [];
+  return _enemiesOnScene(token)
+    .filter(other => _canHideFrom(other, token, traits))
+    .filter(other => isObserving(other, token))
     .map(other => other.id);
 }
 
@@ -242,6 +277,7 @@ function _sweepExpiredEcho(effect) {
 }
 
 const PENDING = 'revealPending';
+const DETAIL = 'revealDetail';
 export const EVENT_REASONS = ['movement', 'ability', 'forced', 'teleport'];
 
 export const revealPendingReasons = (token) =>
@@ -280,19 +316,21 @@ async function _restoreFromSnapshot(token) {
   return true;
 }
 
-export async function markRevealed(token, reason) {
+export async function markRevealed(token, reason, detail = null) {
   const effect = _hiddenEffect(token);
   if (!effect || !stealthActive() || !hiddenFrom(token).size) return false;
 
   if (getSetting('stealthAutoReveal')) {
     const ids = [...hiddenFrom(token)];
     if (UNDOABLE.includes(reason)) await _snapshotReveal(token, ids, reason);
-    await _finishReveal(token, ids);
+    await _finishReveal(token, ids, reason, detail);
     return true;
   }
 
   if (effect.getFlag(M, PENDING)?.[reason]) return true;
-  await safeUpdate(effect, { [`flags.${M}.${PENDING}.${reason}`]: Date.now() });
+  const update = { [`flags.${M}.${PENDING}.${reason}`]: Date.now() };
+  if (detail) update[`flags.${M}.${DETAIL}.${reason}`] = detail;
+  await safeUpdate(effect, update);
   Hooks.callAll('dsct.stealthChanged');
   return true;
 }
@@ -316,7 +354,10 @@ export async function clearRevealPending(token, reasons) {
   const drop = reasons.filter(r => r in pending);
   if (!drop.length) return;
   const update = {};
-  for (const r of drop) update[`flags.${M}.${PENDING}.-=${r}`] = null;
+  for (const r of drop) {
+    update[`flags.${M}.${PENDING}.-=${r}`] = null;
+    if (effect.getFlag(M, DETAIL)?.[r]) update[`flags.${M}.${DETAIL}.-=${r}`] = null;
+  }
   await safeUpdate(effect, update);
   Hooks.callAll('dsct.stealthChanged');
 }
@@ -343,6 +384,7 @@ export async function setHiddenFrom(token, ids, { keepPending = false } = {}) {
     const update = { [`flags.${M}.${FLAG}`]: list };
 
     if (!keepPending && effect.getFlag(M, PENDING)) update[`flags.${M}.-=${PENDING}`] = null;
+    if (!keepPending && effect.getFlag(M, DETAIL)) update[`flags.${M}.-=${DETAIL}`] = null;
     await safeUpdate(effect, update);
   }
   else await token.actor?.toggleStatusEffect?.(HIDDEN, { active: true })
@@ -352,9 +394,9 @@ export async function setHiddenFrom(token, ids, { keepPending = false } = {}) {
   return list;
 }
 
-export const hide = (token, ids = null) => {
+export const hide = (token, ids = null, opts = {}) => {
   if (!stealthActive()) { _outOfCombat(); return Promise.resolve([]); }
-  return setHiddenFrom(token, ids ?? proposeHide(token));
+  return setHiddenFrom(token, ids ?? proposeHide(token, opts));
 };
 
 export async function clearStealthEffects(combat = null) {
@@ -406,10 +448,11 @@ export function pendingSpots() {
   for (const hider of canvas.tokens?.placeables ?? []) {
     if (!_hiddenEffect(hider)) continue;
     const reasons = revealPendingReasons(hider);
+    const traits = stealthTraits(hider);
     for (const id of hiddenFrom(hider)) {
       const observer = canvas.tokens.get(id);
       if (!observer) continue;
-      const reason = reasons[0] ?? (_canHideFrom(observer, hider) ? null : 'seen');
+      const reason = reasons[0] ?? (_canHideFrom(observer, hider, traits) ? null : 'seen');
       if (!reason) continue;
       pairs.push({ hiderId: hider.id, observerId: observer.id, reason });
     }
@@ -417,14 +460,25 @@ export function pendingSpots() {
   return pairs;
 }
 
-async function _finishReveal(hider, ids) {
+function _revealWhy(reason, detail) {
+  if (!reason) return '';
+  const key = `DSCT.chat.stealth.reason.${reason}`;
+  if (!game.i18n.has(key)) return '';
+  const withDetail = `${key}Named`;
+  const text = detail && game.i18n.has(withDetail)
+    ? game.i18n.format(withDetail, { detail })
+    : game.i18n.localize(key);
+  return ` ${text}`;
+}
+
+async function _finishReveal(hider, ids, reason = null, detail = null) {
   if (!ids.length) return [];
   await reveal(hider, ids);
   for (const id of ids) _announceDetected(id, hider.id);
 
   const by = ids.map(id => canvas.tokens.get(id)?.name ?? id).join(', ');
   ChatMessage.create({
-    content: game.i18n.format('DSCT.chat.stealth.spotted', { name: hider.name, by }),
+    content: game.i18n.format('DSCT.chat.stealth.spotted', { name: hider.name, by, why: _revealWhy(reason, detail) }),
     whisper: ChatMessage.getWhisperRecipients('GM').map(u => u.id),
   });
 
@@ -436,9 +490,12 @@ export async function confirmSpot(hiderId, observerIds = null) {
   const hider = canvas.tokens.get(hiderId);
   if (!hider) return [];
 
-  const pending = pendingSpots().filter(p => p.hiderId === hiderId).map(p => p.observerId);
+  const pairs = pendingSpots().filter(p => p.hiderId === hiderId);
+  const pending = pairs.map(p => p.observerId);
   const ids = (observerIds ?? pending).filter(id => pending.includes(id));
-  return _finishReveal(hider, ids);
+  const reason = pairs.find(p => ids.includes(p.observerId))?.reason ?? null;
+  const detail = reason ? (_hiddenEffect(hider)?.getFlag(M, DETAIL)?.[reason] ?? null) : null;
+  return _finishReveal(hider, ids, reason, detail);
 }
 
 export async function recheckHidden(moved) {
@@ -448,11 +505,12 @@ export async function recheckHidden(moved) {
   for (const hider of canvas.tokens?.placeables ?? []) {
     if (!_hiddenEffect(hider)) continue;
     const concealed = isConcealed(hider);
+    const traits = stealthTraits(hider);
 
     for (const id of hiddenFrom(hider)) {
       const observer = canvas.tokens.get(id);
       if (!observer) continue;
-      if (_canHideFrom(observer, hider)) {
+      if (_canHideFrom(observer, hider, traits)) {
         trace.push(`${hider.name}: still hidden from ${observer.name} (concealed=${concealed}, cover=${hasCover(observer, hider)}, noLineOfEffect=${!hasSightToToken(observer, hider)})`);
       } else {
         trace.push(`${hider.name}: would be spotted by ${observer.name}, waiting on the Director`);
@@ -471,7 +529,8 @@ function _watchQualifyingStatuses() {
   const qualifying = (effect) =>
     effect?.statuses?.has('invisible')
     || effect?.statuses?.has('burrow')
-    || CONCEALED.some(id => effect?.statuses?.has(id));
+    || CONCEALED.some(id => effect?.statuses?.has(id))
+    || !!effect?.flags?.[M]?.stealth;
 
   for (const hook of ['createActiveEffect', 'deleteActiveEffect', 'updateActiveEffect']) {
     Hooks.on(hook, (effect) => {
@@ -483,8 +542,45 @@ function _watchQualifyingStatuses() {
   }
 }
 
-const _abilityKeepsHidden = (item) =>
-  !!item?.getFlag?.(M, 'keepsHidden') || item?.name?.trim().toLowerCase() === 'hide';
+const _abilityKeepsHidden = (item, token) =>
+  !!item?.getFlag?.(M, 'keepsHidden')
+  || !!item?.system?.effects?.contents?.some(e => e.type === 'dsct.hide')
+  || item?.name?.trim().toLowerCase() === 'hide'
+  || stealthTraits(token).keepsHidden;
+
+const _footprintCentres = (token, step) => {
+  const GS = canvas.grid.size;
+  const w = Math.max(1, Math.round(token.document.width));
+  const h = Math.max(1, Math.round(token.document.height));
+  const out = [];
+  for (let i = 0; i < w; i++) for (let j = 0; j < h; j++) out.push({ x: step.x + (i + 0.5) * GS, y: step.y + (j + 0.5) * GS });
+  return out;
+};
+
+export const squareOccupied = (token, step) => {
+  const GS = canvas.grid.size;
+  const others = canvas.tokens.placeables.filter(t => t.id !== token.id && t.actor && !t.document.hidden);
+  const inside = (p, d) =>
+    p.x > d.x && p.x < d.x + Math.max(1, Math.round(d.width)) * GS
+    && p.y > d.y && p.y < d.y + Math.max(1, Math.round(d.height)) * GS;
+  return _footprintCentres(token, step).every(p => others.some(t => inside(p, t.document)));
+};
+
+function _movementKept(token, options) {
+  const keeps = stealthTraits(token).movementKeeps;
+  if (!keeps.size) return null;
+  if (keeps.has('any')) return 'kept';
+  if (!keeps.has('occupied')) return null;
+
+  const movement = options?._movement?.[token.id];
+  const passed = movement?.passed?.waypoints ?? [];
+  if (!passed.length) return null;
+  const origin = movement.origin ?? {};
+  const walked = token.document.getCompleteMovementPath(passed)
+    .filter(step => !(step.x === origin.x && step.y === origin.y));
+  if (!walked.length) return null;
+  return walked.every(step => squareOccupied(token, step)) ? 'kept:occupied' : null;
+}
 
 async function _afterWillingMove(token, options, userId) {
   if (userId !== game.userId) return null;
@@ -499,6 +595,9 @@ async function _afterWillingMove(token, options, userId) {
 
   if (!_hiddenEffect(token)) { await _forgetSnapshot(token); return null; }
 
+  const kept = _movementKept(token, options);
+  if (kept) return kept;
+
   if (sneakMode() === 'off' || !_isSneaking(token)) {
     await markRevealed(token, 'movement');
     return 'movement';
@@ -511,7 +610,7 @@ async function _afterWillingMove(token, options, userId) {
   if (!seers.length) return 'sneaking';
   if (!getSetting('stealthAutoReveal')) return 'sneaking';
   await _snapshotReveal(token, seers, 'movement');
-  await _finishReveal(token, seers);
+  await _finishReveal(token, seers, 'sneaking');
   return 'seen';
 }
 
@@ -527,9 +626,8 @@ function _watchAbilityUse() {
 
     const item = await fromUuid(use.abilityUuid).catch(() => null);
     if (!item) return;
-    if (item.system?._dsid === 'dsct-hide') { await hide(token); return; }
-    if (_abilityKeepsHidden(item)) return;
-    await markRevealed(token, 'ability');
+    if (_abilityKeepsHidden(item, token)) return;
+    await markRevealed(token, 'ability', item.name);
   });
 }
 

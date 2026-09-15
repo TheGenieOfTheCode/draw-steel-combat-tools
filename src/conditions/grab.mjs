@@ -7,6 +7,7 @@ import { toggleDamageConditionsPanel } from './damage-conditions.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore, isNullSpeedExemptActive } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { _effectiveRowTier } from '../compat/dstd-compat.mjs';
+import { registerEffectFlag } from '../effect-flag-picker.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -181,6 +182,16 @@ const rehydrateGrabs = () => {
 };
 
 export const registerGrabHooks = () => {
+  registerEffectFlag('actor', {
+    key: 'flags.draw-steel-combat-tools.maxGrabs',
+    category: 'grab',
+    label: 'DSCT.effectFlags.grab.maxGrabs.label',
+    description: 'DSCT.effectFlags.grab.maxGrabs.description',
+    values: 'DSCT.effectFlags.grab.maxGrabs.values',
+    type: 'upgrade',
+    value: '2',
+  });
+
   if (!getSetting('conditionsEnabled')) return;
   Hooks.on('canvasReady', rehydrateGrabs);
   

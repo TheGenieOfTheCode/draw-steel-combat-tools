@@ -126,8 +126,6 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
   const docs = (await pack.getDocuments()).filter(d => d.system?._dsid);
   const wanted = (a) => a && !['party', 'object'].includes(a.type);
 
-  
-  
   let targets = actors;
   if (!targets) {
     targets = game.actors.filter(wanted);
@@ -138,12 +136,34 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
     }
   }
 
-  let added = 0, skipped = 0, failed = 0;
+  
+  
+  const refresh = async (actor) => {
+    let touched = false;
+    for (const doc of docs) {
+      const mine = actor.items.find(i => i.system?._dsid === doc.system._dsid);
+      if (!mine?.system?.effects) continue;
+      const src = doc.toObject().system?.effects ?? {};
+      const update = {};
+      for (const [id, data] of Object.entries(src)) {
+        if (!String(data?.type ?? '').startsWith('dsct.')) continue;
+        if (mine.system.effects.get?.(id) ?? mine.system.effects[id]) continue;
+        update[`system.effects.${id}`] = data;
+      }
+      if (!Object.keys(update).length) continue;
+      await mine.update(update);
+      touched = true;
+    }
+    return touched;
+  };
+
+  let added = 0, skipped = 0, failed = 0, refreshed = 0;
   for (const actor of targets) {
     const have = new Set(actor.items.map(i => i.system?._dsid));
     const missing = docs.filter(d => !have.has(d.system._dsid));
-    if (!missing.length) { skipped++; continue; }
     try {
+      if (await refresh(actor)) refreshed++;
+      if (!missing.length) { skipped++; continue; }
       await actor.createEmbeddedDocuments('Item', missing.map(d => d.toObject()));
       added++;
     } catch (err) {
@@ -153,9 +173,10 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
   }
   if (!silent) {
     ui.notifications.info(game.i18n.format('DSCT.notice.macros.updatedActors', { added, s: added !== 1 ? 's' : '', skipped }));
+    if (refreshed) ui.notifications.info(game.i18n.format('DSCT.notice.macros.enhancedRefreshed', { refreshed }));
     if (failed) ui.notifications.warn(game.i18n.format('DSCT.notice.macros.enhancedFailed', { failed }));
   }
-  return { added, skipped, failed };
+  return { added, skipped, failed, refreshed };
 };
 
 export class EnhancedAbilitiesMenu extends FormApplication {

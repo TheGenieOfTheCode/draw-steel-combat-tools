@@ -2560,3 +2560,24 @@ body #token-hud .status-effects.palette section.effect-pane .dsct-status-header:
   font-weight: bold;
   white-space: nowrap;
 }
+
+.dsct-has-flag-pick { display: flex; align-items: center; gap: 4px; }
+.dsct-has-flag-pick > input { flex: 1; min-width: 0; }
+.dsct-flag-pick {
+  flex: 0 0 auto;
+  width: var(--input-height, 1.75rem);
+  height: var(--input-height, 1.75rem);
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+}
+.dsct-flag-pick i { margin: 0; }
+.dsct-flag-picker-dialog { max-width: 400px; }
+.dsct-flag-picker { max-width: 100%; }
+.dsct-flag-picker code { white-space: normal; overflow-wrap: anywhere; }
+.dsct-flag-picker .dsct-flag-info { margin-top: 8px; padding: 8px; border: 1px solid var(--color-border-light-2, #7a7971); border-radius: 4px; }
+.dsct-flag-picker .dsct-flag-desc { margin: 0 0 6px; }
+.dsct-flag-picker dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; margin: 0; }
+.dsct-flag-picker dt { font-weight: bold; }
+.dsct-flag-picker dd { margin: 0; overflow-wrap: anywhere; }
+

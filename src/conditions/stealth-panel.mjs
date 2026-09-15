@@ -1,5 +1,5 @@
 import { getWindowById, STEALTH_WORKFLOW_READY } from '../helpers.mjs';
-import { hide, reveal, setHiddenFrom, hiddenFrom, proposeHide, stealthActive } from './stealth.mjs';
+import { hide, reveal, setHiddenFrom, hiddenFrom, proposeHide, observingEnemies, stealthActive } from './stealth.mjs';
 import { toggleStealthVision, stealthVisionActive, endStealthVision, markPanelExempt } from './stealth-vision.mjs';
 
 const nameOf = (id) => canvas.tokens.get(id)?.name ?? id;
@@ -63,6 +63,7 @@ export class StealthPanel extends ds.applications.api.DSApplication {
         img: token.document.texture?.src ?? token.actor?.img ?? '',
         hiddenFrom: [...hiddenFrom(token)].map(nameOf),
         couldHideFrom: proposeHide(token).map(nameOf),
+        observingYou: observingEnemies(token).map(nameOf),
         hasTargets: game.user.targets.size > 0,
         inCombat: stealthActive(),
         visionOn: stealthVisionActive(),
@@ -90,7 +91,7 @@ export function toggleStealthPanel() {
 
 export function registerStealthPanel() {
   const refresh = () => getWindowById('dsct-stealth-panel')?.render();
-  for (const hook of ['controlToken', 'targetToken', 'updateToken', 'createActiveEffect', 'deleteActiveEffect']) {
+  for (const hook of ['controlToken', 'targetToken', 'updateToken', 'createActiveEffect', 'deleteActiveEffect', 'updateActiveEffect']) {
     Hooks.on(hook, refresh);
   }
 }

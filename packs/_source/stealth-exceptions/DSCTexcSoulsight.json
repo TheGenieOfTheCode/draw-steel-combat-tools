@@ -1,0 +1,55 @@
+{
+  "name": "Soulsight",
+  "img": "icons/magic/perception/eye-ringed-glow-angry-small-red.webp",
+  "type": "base",
+  "_id": "DSCTexcSoulsight",
+  "system": {
+    "changes": [
+      {
+        "key": "flags.draw-steel-combat-tools.stealth.cannotBeHiddenFrom",
+        "value": "true",
+        "priority": null,
+        "type": "add",
+        "phase": "initial"
+      },
+      {
+        "key": "flags.draw-steel-combat-tools.stealth.cannotBeHiddenRange",
+        "value": "2",
+        "priority": null,
+        "type": "override",
+        "phase": "initial"
+      }
+    ]
+  },
+  "changes": [],
+  "disabled": false,
+  "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+  },
+  "description": "<p>Any creature within 2 squares can’t be hidden from you.</p><p><strong>Combat Tools:</strong> Goes on the observer. Hiders within 2 squares are struck off every proposal and spotted at once if they were already hidden.</p><p><em>Draw Steel: Heroes p. 346.</em></p>",
+  "origin": null,
+  "tint": "#ffffff",
+  "transfer": false,
+  "statuses": [],
+  "sort": 900000,
+  "flags": {},
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.0",
+    "createdTime": null,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+  },
+  "folder": null,
+  "ownership": {
+    "default": 0
+  },
+  "_key": "!effects!DSCTexcSoulsight"
+}

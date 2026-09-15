@@ -1,5 +1,3 @@
-2026/09/15-16:07:41.215 b7d8 Delete type=3 #1
-2026/09/15-16:07:41.220 8018 Level-0 table #5: started
-2026/09/15-16:07:41.223 8018 Level-0 table #5: 2573 bytes OK
-2026/09/15-16:07:41.226 8018 Delete type=0 #3
-2026/09/15-16:07:41.226 8018 Manual compaction at level-0 from '!items!DSCTenhHide00001' @ 72057594037927935 : 1 .. '!items!DSCTenhSearch001' @ 0 : 0; will stop at (end)
+2026/09/15-17:10:44.034 107c Recovering log #4
+2026/09/15-17:10:44.041 107c Delete type=0 #4
+2026/09/15-17:10:44.041 107c Delete type=3 #2
