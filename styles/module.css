@@ -2763,28 +2763,26 @@ details[open] > .dsct-search-section-hdr .dsct-search-chevron { transform: rotat
 .dsct-search-ally { font-weight: 600; }
 .dsct-search-rerolled { font-size: 0.7em; opacity: 0.8; }
 
-.dsct-has-enh-badge { display: flex; align-items: center; gap: 6px; }
-.dsct-has-enh-badge > input { flex: 1; min-width: 0; }
-.dsct-enh-badge {
+.window-header > .dsct-enh-bubble {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   flex: 0 0 auto;
-  padding: 1px 7px;
-  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-  border-radius: 999px;
-  background: rgba(128, 128, 128, 0.12);
-  font-size: 0.66rem;
-  font-weight: 700;
-  line-height: 1.5;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  white-space: nowrap;
+  width: 20px;
+  height: 20px;
+  margin-right: 3px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.16);
+  font-size: 11px;
+  line-height: 1;
+  text-decoration: none;
   cursor: pointer;
 }
-.dsct-enh-badge.is-static { cursor: default; }
-.dsct-enh-badge.is-enhanced { border-color: rgba(46, 204, 113, 0.5); background: rgba(46, 204, 113, 0.16); }
-.dsct-enh-badge.is-available { border-color: rgba(255, 193, 7, 0.5); background: rgba(255, 193, 7, 0.14); }
-.dsct-enh-badge.is-ignored { border-color: rgba(214, 88, 88, 0.5); background: rgba(214, 88, 88, 0.16); }
-.dsct-enh-badge.is-none { opacity: 0.55; }
-.dsct-enh-badge:not(.is-static):hover { filter: brightness(1.2); }
+.dsct-enh-bubble > i { margin: 0; }
+.dsct-enh-bubble.is-static { cursor: default; }
+.dsct-enh-bubble.is-enhanced { border-color: rgba(46, 204, 113, 0.7); background: rgba(46, 204, 113, 0.22); color: #2ecc71; }
+.dsct-enh-bubble.is-available { border-color: rgba(224, 168, 15, 0.7); background: rgba(224, 168, 15, 0.22); color: #e0a80f; }
+.dsct-enh-bubble.is-ignored { border-color: rgba(214, 88, 88, 0.7); background: rgba(214, 88, 88, 0.22); color: #d65858; }
+.dsct-enh-bubble.is-none { opacity: 0.4; }
+.dsct-enh-bubble:not(.is-static):hover { filter: brightness(1.25); }

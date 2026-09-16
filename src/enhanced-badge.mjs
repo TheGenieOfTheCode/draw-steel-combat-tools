@@ -22,44 +22,46 @@ export function enhancedState(item) {
   return 'none';
 }
 
+const _ICONS = { enhanced: 'fa-toolbox', available: 'fa-wand-magic-sparkles', ignored: 'fa-lock', none: 'fa-toolbox' };
+
 function _badge(item) {
   const state = enhancedState(item);
   const L = (k) => game.i18n.localize(`DSCT.enhancedBadge.${k}`);
+  const canToggle = state !== 'none' && item.isOwner;
   const a = document.createElement('a');
-  a.className = `dsct-enh-badge is-${state}`;
+  a.className = `dsct-enh-bubble is-${state}${canToggle ? '' : ' is-static'}`;
   a.dataset.state = state;
-  const icon = { enhanced: 'fa-toolbox', available: 'fa-wand-magic-sparkles', ignored: 'fa-lock', none: 'fa-toolbox' }[state];
-  a.innerHTML = `<i class="fas ${icon}"></i><span>${L(`${state}.label`)}</span>`;
-  const hint = L(`${state}.hint`);
-  const click = state !== 'none' && item.isOwner ? ` ${L(state === 'ignored' ? 'unlockHint' : 'lockHint')}` : '';
-  a.dataset.tooltip = `${hint}${click}`;
+  a.innerHTML = `<i class="fas ${_ICONS[state]}"></i>`;
+  const click = canToggle ? ` ${L(state === 'ignored' ? 'unlockHint' : 'lockHint')}` : '';
+  a.dataset.tooltip = `<strong>${L(`${state}.label`)}</strong><br>${L(`${state}.hint`)}${click}`;
 
-  if (state !== 'none' && item.isOwner) {
+  if (canToggle) {
+    
+    a.addEventListener('pointerdown', (ev) => ev.stopPropagation());
     a.addEventListener('click', async (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
       if (isEnhancedLocked(item)) await item.unsetFlag(M, LOCK);
       else await item.setFlag(M, LOCK, true);
     });
-  } else {
-    a.classList.add('is-static');
   }
   return a;
 }
 
-function _inject(app, element) {
+function _inject(app) {
   const item = app.document;
   if (item?.documentName !== 'Item' || item.type !== 'ability') return;
-  const root = element instanceof HTMLElement ? element : element?.[0];
-  const host = root?.querySelector('.sheet-header .document-name');
-  if (!host || host.querySelector('.dsct-enh-badge')) return;
-  host.classList.add('dsct-has-enh-badge');
-  host.append(_badge(item));
+  const header = app.element?.querySelector?.('.window-header');
+  if (!header) return;
+  
+  header.querySelector('.dsct-enh-bubble')?.remove();
+  header.insertBefore(_badge(item), header.querySelector('.window-title'));
 }
 
 export function registerEnhancedBadge() {
   Hooks.once('ready', () => { _loadIndex().catch(() => { _dsids = new Set(); }); });
-  Hooks.on('renderDrawSteelItemSheet', (app, element) => {
-    try { _inject(app, element); }
+  Hooks.on('renderDrawSteelItemSheet', (app) => {
+    try { _inject(app); }
     catch (err) { console.warn('DSCT | enhanced badge |', err); }
   });
 }
