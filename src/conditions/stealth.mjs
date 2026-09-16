@@ -16,8 +16,6 @@ export async function syncHiddenRule() {
   const mode = sneakMode();
   const hidden = CONFIG.statusEffects?.dsctHidden;
   if (hidden) hidden.rule = RULES + (mode === 'off' ? 'DSCTruleHidden00' : 'DSCTruleHiddenSk');
-  const sneaking = CONFIG.statusEffects?.dsctSneaking;
-  if (sneaking) sneaking.rule = RULES + (mode === 'ends' ? 'DSCTruleSneakEnd' : 'DSCTruleSneakPth');
 
   if (game.ready) {
     for (const id of Object.keys(STEALTH_STATUSES)) {
@@ -33,9 +31,14 @@ export async function syncHiddenRule() {
   if (!game.users.activeGM?.isSelf || !game.ready) return;
   for (const actor of game.actors) {
     const hiddenNow = actor.effects.some(e => e.statuses?.has(HIDDEN));
-    const sneakingNow = actor.effects.some(e => e.statuses?.has(SNEAKING));
-    if (mode === 'off' && sneakingNow) await _dropSneaking(actor);
-    else if (mode !== 'off' && hiddenNow && !sneakingNow) await actor.toggleStatusEffect(SNEAKING, { active: true });
+    const sneakingNow = actor.effects.filter(e => e.statuses?.has(SNEAKING));
+    if (mode === 'off' && sneakingNow.length) await _dropSneaking(actor);
+    else if (mode !== 'off' && hiddenNow && !sneakingNow.length) await _grantSneaking(actor);
+    else {
+      
+      const description = _sneakingDescription();
+      for (const effect of sneakingNow) if (effect.description !== description) await safeUpdate(effect, { description });
+    }
   }
 }
 
@@ -55,16 +58,27 @@ export const STEALTH_STATUSES = {
     img: 'icons/svg/light-off.svg',
     rule: RULES + 'DSCTruleConcMun0',
   },
-
-  dsctSneaking: {
-    name: 'DSCT.status.sneaking',
-    img: 'icons/svg/walk.svg',
-    rule: RULES + 'DSCTruleSneakPth',
-    system: { changes: [{ key: 'system.movement.multiplier', type: 'multiply', value: 0.5, phase: 'initial', priority: null }] },
-  },
 };
 
 export const SNEAKING = 'dsctSneaking';
+
+const _sneakingDescription = () =>
+  `@Embed[${RULES}${sneakMode() === 'ends' ? 'DSCTruleSneakEnd' : 'DSCTruleSneakPth'} inline]`;
+
+const _sneakingData = () => ({
+  name: game.i18n.localize('DSCT.status.sneaking'),
+  img: 'icons/svg/walk.svg',
+  type: 'base',
+  statuses: [SNEAKING],
+  description: _sneakingDescription(),
+  system: { changes: [{ key: 'system.movement.multiplier', type: 'multiply', value: 0.5, phase: 'initial', priority: null }] },
+  flags: { [M]: { effectType: 'sneaking' } },
+});
+
+async function _grantSneaking(actor) {
+  if (!actor || actor.statuses?.has(SNEAKING)) return;
+  await safeCreateEmbedded(actor, 'ActiveEffect', [_sneakingData()]);
+}
 
 export function sneakMode() {
   const v = getSetting('stealthSneakHouseRule');
@@ -119,8 +133,8 @@ export function registerStealthSystem() {
   Hooks.on('createActiveEffect', (effect) => {
     if (!game.users.activeGM?.isSelf || !effect?.statuses?.has(HIDDEN) || sneakMode() === 'off') return;
     const actor = effect.parent;
-    if (actor?.documentName !== 'Actor' || actor.statuses?.has(SNEAKING)) return;
-    actor.toggleStatusEffect(SNEAKING, { active: true }).catch(() => {});
+    if (actor?.documentName !== 'Actor') return;
+    _grantSneaking(actor).catch(() => {});
   });
 
   Hooks.on('deleteActiveEffect', (effect) => {
