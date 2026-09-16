@@ -722,6 +722,10 @@
         "name": "Reveal Automatically",
         "hint": "Moving, using an ability, being force moved or teleporting ends hiding by the book, and with this on it simply happens. Turn it off to be asked instead: the creature that gave itself away gets a red spiked eye with lines to everyone it was hiding from. Click the eye to make the reveal official, right click to wave it off, or let it fade and they stay hidden."
       },
+      "stealthTrueHidden": {
+        "name": "Fully Hide Hidden Creatures",
+        "hint": "Keeps hidden creatures from the players: the Search card masks a creature's name and art until it is found, and no warning gives away that nobody is hiding. The Director always sees everything."
+      },
       "stealthRevealPromptSeconds": {
         "name": "Reveal Prompt Fades After",
         "hint": "Seconds a red spiked eye stays before it fades away unanswered. Only matters with Reveal Automatically off."
@@ -835,6 +839,37 @@
           "values": "A whole number of squares, with the Override type."
         }
       }
+    },
+    "search": {
+      "title": "Search",
+      "button": "Search",
+      "testLabel": "Intuition test (Search)",
+      "sectionHidden": "Hidden creatures",
+      "sectionKnown": "Already seen",
+      "badgePending": "{done} of {total}",
+      "badgeFound": "{found} of {total} found",
+      "badgeFoundOnly": "{found} found",
+      "badgeLocked": "??? of ???",
+      "heroReroll": "Spend a hero token to reroll this test. The new roll must be used.",
+      "doubleEdge": "Double edge (opposed roll: +4 instead of a tier)",
+      "doubleBane": "Double bane (opposed roll: -4 instead of a tier)",
+      "unknownOutcome": "Unknown",
+      "quiet": "Nothing you can see.",
+      "rolling": "Rolling",
+      "roll": "Roll",
+      "rerolled": "Rerolled {n} time(s) with a hero token",
+      "awaitingGM": "Roll each hidden creature at your own pace.",
+      "found": "Found",
+      "stillHidden": "Still hidden",
+      "known": "Seen by you",
+      "unknown": "Unknown creature",
+      "awaiting": "Waiting on the Director's rolls",
+      "nothing": "Nothing found within 10 squares.",
+      "pointOut": "Point Out to Allies",
+      "pointedTo": "Pointed out to {names}.",
+      "pointedNone": "Nobody within 10 squares needed pointing.",
+      "nobody": "Nobody is hidden from {name} within 10 squares with line of effect.",
+      "notOwner": "Only the searcher's owner or the Director can search."
     },
     "specialEffectGroups": {
       "system": "Draw Steel",
@@ -1652,7 +1687,11 @@
           "abilityNamed": "after using {detail}",
           "forced": "after being force moved",
           "teleport": "after teleporting",
-          "seen": "after losing cover and concealment"
+          "seen": "after losing cover and concealment",
+          "search": "after being found by a search",
+          "searchNamed": "after being found by {detail}'s search",
+          "pointedOut": "after being pointed out",
+          "pointedOutNamed": "after being pointed out by {detail}"
         }
       }
     },

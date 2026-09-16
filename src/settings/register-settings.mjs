@@ -745,6 +745,10 @@ export const registerSettings = () => {
     scope: 'world', config: false, type: Number, default: 10,
     range: { min: 3, max: 60, step: 1 },
   });
+  game.settings.register(M, 'stealthTrueHidden', {
+    name: L('stealthTrueHidden.name'), hint: L('stealthTrueHidden.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
   game.settings.register(M, 'coverBaneEnabled', {
     name: L('coverBaneEnabled.name'), hint: L('coverBaneEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

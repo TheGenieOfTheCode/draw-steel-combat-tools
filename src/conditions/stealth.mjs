@@ -486,6 +486,9 @@ async function _finishReveal(hider, ids, reason = null, detail = null) {
   return ids;
 }
 
+export const revealWithReason = (hider, ids, reason, detail = null) =>
+  _finishReveal(hider, ids.filter(id => hiddenFrom(hider).has(id)), reason, detail);
+
 export async function confirmSpot(hiderId, observerIds = null) {
   const hider = canvas.tokens.get(hiderId);
   if (!hider) return [];

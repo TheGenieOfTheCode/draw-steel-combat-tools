@@ -1,5 +1,0 @@
-2026/09/15-17:10:02.663 b120 Delete type=3 #1
-2026/09/15-17:10:02.670 5bac Level-0 table #5: started
-2026/09/15-17:10:02.676 5bac Level-0 table #5: 2741 bytes OK
-2026/09/15-17:10:02.681 5bac Delete type=0 #3
-2026/09/15-17:10:02.681 5bac Manual compaction at level-0 from '!items!DSCTenhHide00001' @ 72057594037927935 : 1 .. '!items!DSCTenhSearch001' @ 0 : 0; will stop at (end)

@@ -24,6 +24,7 @@ import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeH
 import { registerStatusPalette } from './status-palette.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { toggleStealthPanel, registerStealthPanel } from './conditions/stealth-panel.mjs';
+import { registerSearch, pointOut, runSearch, spendHeroToken } from './conditions/search.mjs';
 import { registerHiddenMarkers } from './conditions/hidden-markers.mjs';
 import { registerStealthPath, pingStealthStop } from './conditions/stealth-path.mjs';
 import { registerCombatReveal } from './conditions/combat-reveal.mjs';
@@ -60,7 +61,7 @@ const api = {
   bypassNextFmGate: bypassNextFmGate,
   colorTokenPicker: runColoredTokenPicker,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
-  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits },
+  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits, search: runSearch },
   stealthPanel:     toggleStealthPanel,
   sight:            { hasCover, visibleTargetCorners, hasSightTo: hasSightToToken },
   grab:             runGrab,
@@ -146,6 +147,7 @@ Hooks.once('init', () => {
   if (STEALTH_WORKFLOW_READY) {
     registerStealthPanel();
     registerStealthPath();
+    registerSearch();
     registerCombatReveal();
   }
   registerDCHooks();
@@ -411,6 +413,8 @@ Hooks.once('socketlib.ready', () => {
   socket.register('dsct.toggleStatusEffect',async (uuid, effectId, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.toggleStatusEffect(effectId, options); });
   socket.register('dsct.detected',          (spotterId, hiderId) => playDetected(spotterId, hiderId));
   socket.register('dsct.stealthPing',       (at, sceneId) => { if (game.user.isGM) pingStealthStop(at, sceneId); });
+  socket.register('dsct.searchPointOut',    (messageId) => pointOut(messageId));
+  socket.register('dsct.spendHeroToken',    () => spendHeroToken());
   socket.register('dsct.takeDamage',        async (uuid, amount, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.system.takeDamage(amount, options); });
   socket.register('dsct.rollFreeStrike',    async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });
   socket.register('dsct.executeHIWTurn',    async (actorUuid, msgId) => await executeHIWTurn(actorUuid, msgId));
