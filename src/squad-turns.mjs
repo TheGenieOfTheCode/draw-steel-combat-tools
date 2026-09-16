@@ -473,6 +473,9 @@ export function registerSquadTurnHooks() {
       const isNativeActive = !!myCombatant && myCombatant.id === game.combat?.combatant?.id;
       const inActiveGroup  = !!activeGroupId && myCombatant?.group?.id === activeGroupId;
       const inActivePair   = !!myCombatant && !!window._dsctActivePairIds?.has?.(myCombatant.id);
+      _mdbg('decide', this.name, 'native=', isNativeActive, 'group=', inActiveGroup, 'pair=', inActivePair,
+        'activeGroup=', activeGroupId, 'pairLeader=', window._dsctActivePairLeaderId ?? null,
+        'pairIds=', [...(window._dsctActivePairIds ?? [])].join(','), 'combatant=', game.combat?.combatant?.name ?? null);
 
       if (getSetting('squadGlowMarker') && (isNativeActive || inActiveGroup || inActivePair)) {
         if (!this._dsctGlowGraphic) {

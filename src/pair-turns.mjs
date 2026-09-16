@@ -7,13 +7,16 @@ window._dsctActivePairIds = window._dsctActivePairIds ?? new Set();
 function getPairPartners(combatant, combat) {
   const actor = combatant?.actor;
   if (!actor) return [];
+  
+  
   const ownMentorId = actor.system?.retainer?.mentor?.id ?? null;
   const mentorActorId = ownMentorId ?? actor.id;
-  return combat.combatants.filter(c =>
-    c.id !== combatant.id &&
-    (c.actor?.id === mentorActorId ||
-      (c.actor?.system?.retainer?.mentor?.id ?? null) === mentorActorId)
-  );
+  return combat.combatants.filter(c => {
+    if (c.id === combatant.id) return false;
+    const theirMentorId = c.actor?.system?.retainer?.mentor?.id ?? null;
+    if (theirMentorId && theirMentorId === mentorActorId) return true;
+    return !!ownMentorId && c.actor?.id === ownMentorId;
+  });
 }
 
 function _clearPairState() {
