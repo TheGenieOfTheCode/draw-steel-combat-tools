@@ -130,6 +130,70 @@ const _stamped = (doc) => {
   return data;
 };
 
+const _prereqDsids = (doc) => {
+  const raw = doc?.system?.prerequisites?.dsid;
+  if (!raw) return [];
+  return Array.isArray(raw) ? raw : Array.from(raw);
+};
+
+export function isUniversalEnhanced(doc) {
+  const p = doc?.system?.prerequisites ?? {};
+  return !_prereqDsids(doc).length && !String(p.value ?? '').trim() && !p.level;
+}
+
+const _meetsPrereq = (actor, dsids) => {
+  if (!dsids.length) return true;
+  const owned = new Set(actor.items.map(i => i.system?._dsid).filter(Boolean));
+  return dsids.some(d => owned.has(d));
+};
+
+export const cleanupEnhancedAbilities = async ({ apply = false } = {}) => {
+  const empty = { removed: 0, kept: 0, actors: [], keptActors: [] };
+  if (!game.user.isGM) { ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.gmOnlyDistribute')); return empty; }
+  const pack = game.packs.get(ENHANCED_PACK);
+  if (!pack) { ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.enhancedPackNotFound')); return empty; }
+
+  const gated = (await pack.getDocuments())
+    .filter(d => d.system?._dsid && !isUniversalEnhanced(d))
+    .map(d => ({ dsid: d.system._dsid, name: d.name, prereq: _prereqDsids(d) }));
+  if (!gated.length) return empty;
+
+  const seen = new Set();
+  const targets = [];
+  for (const actor of game.actors) if (!seen.has(actor.id) && seen.add(actor.id)) targets.push(actor);
+  for (const scene of game.scenes) {
+    for (const token of scene.tokens) {
+      const actor = token.actorLink ? null : token.actor;
+      if (actor && !seen.has(actor.uuid) && seen.add(actor.uuid)) targets.push(actor);
+    }
+  }
+
+  const out = { removed: 0, kept: 0, actors: [], keptActors: [] };
+  for (const actor of targets) {
+    const doomed = [];
+    for (const entry of gated) {
+      const mine = actor.items.filter(i => i.system?._dsid === entry.dsid && i.getFlag('draw-steel-combat-tools', 'enhanced'));
+      if (!mine.length) continue;
+      if (_meetsPrereq(actor, entry.prereq)) { out.kept += mine.length; out.keptActors.push(`${actor.name}: ${entry.name}`); continue; }
+      doomed.push(...mine.map(i => i.id));
+      out.actors.push(`${actor.name}: ${entry.name}`);
+    }
+    if (!doomed.length) continue;
+    out.removed += doomed.length;
+    if (apply) {
+      try { await actor.deleteEmbeddedDocuments('Item', doomed); }
+      catch (err) { console.warn(`DSCT | enhanced cleanup | could not clean ${actor.name}:`, err); }
+    }
+  }
+
+  const head = apply ? 'DSCT | enhanced cleanup | removed' : 'DSCT | enhanced cleanup | would remove';
+  console.log(`${head} ${out.removed} item(s) from ${new Set(out.actors.map(a => a.split(':')[0])).size} actor(s); kept ${out.kept} on actors that qualify.`);
+  if (out.actors.length) console.log('DSCT | enhanced cleanup | affected:', out.actors);
+  if (out.keptActors.length) console.log('DSCT | enhanced cleanup | kept (actor qualifies):', out.keptActors);
+  ui.notifications.info(`DSCT: ${apply ? 'removed' : 'found'} ${out.removed} misplaced enhanced ability copies, kept ${out.kept} on actors that qualify. See the console for the list.`);
+  return out;
+};
+
 export const distributeEnhancedAbilities = async ({ actors = null, silent = false } = {}) => {
   const none = { added: 0, skipped: 0 };
   if (!game.user.isGM) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.gmOnlyDistribute')); return none; }
@@ -138,6 +202,8 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
 
   const docs = (await pack.getDocuments()).filter(d => d.system?._dsid);
   const wanted = (a) => a && !['party', 'object'].includes(a.type);
+
+  const givenOut = docs.filter(isUniversalEnhanced);
 
   let targets = actors;
   if (!targets) {
@@ -170,7 +236,7 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
   let added = 0, skipped = 0, failed = 0, refreshed = 0;
   for (const actor of targets) {
     const have = new Set(actor.items.map(i => i.system?._dsid));
-    const missing = docs.filter(d => !have.has(d.system._dsid));
+    const missing = givenOut.filter(d => !have.has(d.system._dsid));
     try {
       if (await refresh(actor)) refreshed++;
       if (!missing.length) { skipped++; continue; }
