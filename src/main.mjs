@@ -14,7 +14,7 @@ import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered
 import { registerModuleButtons } from './module-buttons.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
 import { postFirstRunNotice } from './settings/setting-deps.mjs';
-import { installMacros, distributeAbilities, distributeEnhancedAbilities } from './setup-macros.mjs';
+import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.mjs';
 import { registerTargetDistance } from './ability-automation/target-distance.mjs';
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
@@ -50,6 +50,7 @@ import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mj
 import { registerAbilityHudCompat } from './compat/ability-hud-compat.mjs';
 import { registerCombatLogHooks } from './combat-logs.mjs';
 import { registerFlatEffects } from './ability-automation/flat-special-effects.mjs';
+import { registerTieredEffects } from './ability-automation/tiered-effects.mjs';
 import { registerChooseEffect } from './ability-automation/choose-effect.mjs';
 import { registerHideEffect } from './ability-automation/hide-effect.mjs';
 import { registerStealthTraits, stealthTraits } from './conditions/stealth-traits.mjs';
@@ -88,6 +89,7 @@ const api = {
   teleportUI:       toggleTeleportPanel,
   installMacros:        installMacros,
   distributeEnhancedAbilities,
+  cleanupEnhancedAbilities,
   distributeAbilities:  distributeAbilities,
   fall:                 applyFall,
   parsePowerRollState:  parsePowerRollState,
@@ -176,6 +178,7 @@ Hooks.once('init', () => {
   registerSquadTargetingHooks();
   registerMaliceInjectors();
   registerFlatEffects();
+  registerTieredEffects();
   registerChooseEffect();
   registerHideEffect();
   registerDstdCompat();

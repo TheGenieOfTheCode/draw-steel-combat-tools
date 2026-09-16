@@ -336,7 +336,7 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
        content: game.i18n.format('DSCT.chat.tp.teleported', { name: token.name, dist: actualDist, s: actualDist !== 1 ? 's' : '' }) + `${adjNote}${elevNote}.${fallNote}`,
        flags: {
            'draw-steel-combat-tools': {
-               isTpUndo: true, isUndone: false, undoLog, moveId,
+               isTpUndo: true, isUndone: false, undoLog, moveId, tpDistance: actualDist,
                targetTokenId: token.id, targetSceneId: canvas.scene.id, finalPos: targetWorld,
                grabsToRestore: removedGrabs,
            }
@@ -444,7 +444,7 @@ export const executeTeleswap = async (tokenA, tokenB, maxDist, animate, colorHex
     content: game.i18n.format('DSCT.chat.tp.teleswapped', { a: tokenA.name, b: tokenB.name, dist: distApart, s: distApart !== 1 ? 's' : '' }),
     flags: {
       'draw-steel-combat-tools': {
-        isTpUndo: true, isUndone: false, undoLog, moveId,
+        isTpUndo: true, isUndone: false, undoLog, moveId, tpDistance: distApart,
         targetTokenId: tokenA.id, targetSceneId: canvas.scene.id,
         finalPos: { x: snapB.x, y: snapB.y, elevation: snapB.elevation },
         grabsToRestore: allGrabs,

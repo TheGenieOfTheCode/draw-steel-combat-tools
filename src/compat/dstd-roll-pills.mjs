@@ -387,6 +387,66 @@ function _diceIcons(rollLine, roll) {
   }
 }
 
+function _baseAbility(message) {
+  const uuid = Array.from(message.system?.parts?.contents ?? []).find(part => part.abilityUuid)?.abilityUuid;
+  return uuid ? fromUuidSync(uuid) : null;
+}
+
+function _tierLineText(preview) {
+  if (preview.isCritical) return game.i18n.format('DSTD.Chat.TierLineCritical', { tier: preview.tier ?? '?' });
+  const e = Number(preview.edges) || 0;
+  const b = Number(preview.banes) || 0;
+  const bonus = Number(preview.bonuses) || 0;
+  let modifiers = '';
+  if (e && !b) modifiers = ` (${e} Edge${e === 1 ? '' : 's'})`;
+  else if (b && !e) modifiers = ` (${b} Bane${b === 1 ? '' : 's'})`;
+  else if (e && b) modifiers = ` (${e} Edge${e === 1 ? '' : 's'}, ${b} Bane${b === 1 ? '' : 's'})`;
+  if (bonus) modifiers += `${modifiers ? ' ' : ' ('}${bonus > 0 ? '+' : ''}${bonus} ${bonus > 0 ? 'Bonus' : 'Penalty'}${modifiers ? '' : ')'}`;
+  return game.i18n.format('DSTD.Chat.TierLine', { tier: preview.tier ?? '?', modifiers });
+}
+
+export async function syncBaseRollTier(message, root) {
+  if (!getSetting('dstdRollPills')) return;
+  if (!game.modules.get(DSTD)?.active) return;
+  const state = message.getFlag(DSTD, 'state');
+  if (!state) return;
+  const summary = root.querySelector(`.${DSTD}-base-roll-summary`);
+  if (!summary) return;
+  const ctx = _rollCtx(message, state, message.getFlag(M, 'rollPills') ?? null);
+  if (!ctx.grouped) return;
+  const baseRoll = _findBaseRoll(message);
+  if (!baseRoll) return;
+  const shownTier = Number(Array.from(message.system?.parts?.contents ?? []).find(part => part.type === 'abilityResult')?.tier)
+    || Number(baseRoll.product) || null;
+  const basis = _rollBasis(baseRoll);
+  const eff = _effectiveFrom(basis, { basePills: ctx.globalBase, baseOff: ctx.globalBaseOff, session: ctx.globalPills });
+  const preview = _buildOverride(basis, eff, ctx.globalPills, [...ctx.globalBaseOff]);
+
+  const display = summary.querySelector(`.${DSTD}-roll-display`);
+  if (!display) return;
+  display.classList.toggle('is-critical', !!preview.isCritical);
+  const tierLine = display.querySelector(`.${DSTD}-tier-line`);
+  if (tierLine) tierLine.textContent = _tierLineText(preview);
+  const totalEl = display.querySelector(`.${DSTD}-roll-total`);
+  if (totalEl) totalEl.textContent = String(preview.total ?? '');
+  if (!preview.tier || preview.tier === shownTier) return;
+
+  const glyph = display.querySelector(`.${DSTD}-tier-glyph`);
+  if (glyph) {
+    glyph.classList.remove('tier1', 'tier2', 'tier3');
+    glyph.classList.add(`tier${preview.tier}`);
+    const glyphText = glyph.querySelector('p') ?? glyph;
+    glyphText.textContent = ds.rolls?.PowerRoll?.RESULT_TIERS?.[`tier${preview.tier}`]?.glyph ?? glyphText.textContent;
+  }
+  const tierText = display.querySelector(`.${DSTD}-tier-text`);
+  const ability = _baseAbility(message);
+  if (!tierText || !ability?.system?.powerRollText) return;
+  try {
+    const html = await ability.system.powerRollText(preview.tier);
+    if (html) tierText.innerHTML = html;
+  } catch {  }
+}
+
 export function injectRollPills(message, root) {
   if (!getSetting('dstdRollPills')) return;
   if (!game.modules.get(DSTD)?.active) return;

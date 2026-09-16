@@ -1,0 +1,12 @@
+<section class="{{tabs.details.cssClass}}" data-tab="{{tabs.details.id}}" data-group="{{tabs.details.group}}">
+  {{> "templates/generic/tab-navigation.hbs" tabs=tabTiers}}
+  {{#if dsctPartial}}
+  {{> (lookup @root "dsctPartial") tab=tabTiers.tier1 tierFields=fields.tier1 tierNumber=1}}
+  {{> (lookup @root "dsctPartial") tab=tabTiers.tier2 tierFields=fields.tier2 tierNumber=2}}
+  {{> (lookup @root "dsctPartial") tab=tabTiers.tier3 tierFields=fields.tier3 tierNumber=3}}
+  {{else}}
+  {{> "systems/draw-steel/templates/sheets/pseudo-documents/power-roll-effect-sheet/details-tiers.hbs" tab=tabTiers.tier1 tierFields=fields.tier1}}
+  {{> "systems/draw-steel/templates/sheets/pseudo-documents/power-roll-effect-sheet/details-tiers.hbs" tab=tabTiers.tier2 tierFields=fields.tier2}}
+  {{> "systems/draw-steel/templates/sheets/pseudo-documents/power-roll-effect-sheet/details-tiers.hbs" tab=tabTiers.tier3 tierFields=fields.tier3}}
+  {{/if}}
+</section>

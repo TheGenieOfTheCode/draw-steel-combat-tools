@@ -883,7 +883,18 @@
       "system": "Draw Steel",
       "dsct": "Combat Tools",
       "dsctFlat": "Combat Tools: Flat Effects",
+      "dsctTiered": "Combat Tools: Power Roll Effects",
       "dsd": "Dealer"
+    },
+    "TieredEffect": {
+      "enabled": {
+        "label": "Enabled on this Tier",
+        "hint": "Uncheck to leave this tier without the effect: the tier line stays empty and no button is offered."
+      },
+      "displayText": {
+        "hint": "Text shown on the tier line of the ability. Leave blank to use the auto-generated description."
+      },
+      "teleportAnimationNote": "The phase animation settings on tier 1 apply to every tier."
     },
     "FlatEffect": {
       "displayText": {
@@ -900,6 +911,18 @@
       },
       "Teleport": {
         "defaultLabel": "Teleport {distance}",
+        "targetLabel": "Teleport Target {distance}",
+        "applied": "Teleported",
+        "appliedDist": "Teleported {distance}",
+        "undo": "Undo",
+        "mover": {
+          "label": "Who Teleports",
+          "hint": "Self moves the user's own token. Target moves the targeted token instead, asking for one if none is targeted. Only applies to the plain Teleport mode."
+        },
+        "Mover": {
+          "self": "Self",
+          "target": "Target"
+        },
         "swapLabel": "Teleswap {distance}",
         "adjacentLabel": "Teleport {distance} (Adjacent)",
         "mode": {
@@ -1543,6 +1566,8 @@
         "swapTooFar": "DSCT | {a} and {b} are {dist} squares apart, beyond the teleswap range of {max}.",
         "swapBlocked": "DSCT | Teleswap blocked: one of the two destinations is occupied.",
         "sourceNotFound": "DSCT | Source token not found.",
+      "needMover": "DSCT | Target the token that teleports, then press the button again.",
+      "undoNotInLog": "DSCT | Could not find the teleport undo button in the chat log.",
         "mustSelectOne": "DSCT | You must select exactly 1 token to teleport.",
         "noShiftTarget": "DSCT | No targeted token to teleport. Target a token first, then Shift+click.",
         "noValidBurst": "DSCT | Burst Teleport | No valid destinations for {name}.",
@@ -1951,6 +1976,10 @@
         "choose": "Choose",
         "hide": "Hide"
       }
+    },
+    "PowerRollEffect": {
+      "dsctHeal": "Heal",
+      "dsctTeleport": "Teleport"
     },
     "RegionBehavior": {
       "draw-steel-combat-tools.statusEffect": "[DSCT] Status Effect",

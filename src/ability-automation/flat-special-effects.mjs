@@ -15,12 +15,13 @@ function _setField(opts = {}) {
   return new StringField({ ...opts, required: true, blank: false });
 }
 
-function _flatDefault(key, fallback) {
+export function flatSetting(key, fallback) {
   try {
     const v = game.settings.get('draw-steel-combat-tools', key);
     return (v === undefined || v === null || v === "") ? fallback : v;
   } catch { return fallback; }
 }
+const _flatDefault = flatSetting;
 
 function _registerPartials() {
   Handlebars.registerPartial("dsct.flat-damage", `
@@ -124,14 +125,14 @@ function _registerPartials() {
   Handlebars.registerPartial("dsct.flat-heal", `
     {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatHeal.displayText" localize=true}}
     {{formGroup ctx.spendRecovery.field value=ctx.spendRecovery.src name="flatHeal.spendRecovery" localize=true}}
-    <div data-dsct-heal-recovery-source {{#unless ctx.spendRecovery.src}}hidden{{/unless}}>
+    <div data-dsct-heal-recovery-source="flatHeal" {{#unless ctx.spendRecovery.src}}hidden{{/unless}}>
       {{formGroup ctx.recoverySource.field value=ctx.recoverySource.src name="flatHeal.recoverySource" options=ctx.sourceOptions localize=true}}
     </div>
     {{formGroup ctx.amountType.field value=ctx.amountType.src name="flatHeal.amountType" options=ctx.amountTypeOptions localize=true}}
-    <div data-dsct-heal-custom {{#unless ctx.isCustomAmount}}hidden{{/unless}}>
+    <div data-dsct-heal-custom="flatHeal" {{#unless ctx.isCustomAmount}}hidden{{/unless}}>
       {{formGroup ctx.amountFormula.field value=ctx.amountFormula.src name="flatHeal.amountFormula" localize=true}}
     </div>
-    <div data-dsct-heal-rv-source {{#unless ctx.isRecoveryValueAmount}}hidden{{/unless}}>
+    <div data-dsct-heal-rv-source="flatHeal" {{#unless ctx.isRecoveryValueAmount}}hidden{{/unless}}>
       {{formGroup ctx.recoveryValueSource.field value=ctx.recoveryValueSource.src name="flatHeal.recoveryValueSource" options=ctx.sourceOptions localize=true}}
     </div>
     {{formGroup ctx.tempStamina.field value=ctx.tempStamina.src name="flatHeal.tempStamina" localize=true}}
@@ -146,6 +147,7 @@ function _registerPartials() {
   Handlebars.registerPartial("dsct.flat-teleport", `
     {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatTeleport.displayText" localize=true}}
     {{formGroup ctx.mode.field value=ctx.mode.src name="flatTeleport.mode" options=ctx.modeOptions localize=true}}
+    {{formGroup ctx.mover.field value=ctx.mover.src name="flatTeleport.mover" options=ctx.moverOptions localize=true}}
     {{formGroup ctx.distance.field value=ctx.distance.src name="flatTeleport.distance" localize=true}}
     {{formGroup ctx.animate.field value=ctx.animate.src name="flatTeleport.animate" localize=true}}
     {{formGroup ctx.color.field value=ctx.color.src name="flatTeleport.color" localize=true}}
@@ -452,25 +454,10 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
   showUse() { return false; }
 
   get label() {
-    const { display, displayText, spendRecovery, amountType, amountFormula, recoveryValueSource, tempStamina } = this.flatHeal;
+    const { display, displayText } = this.flatHeal;
     if (display) return display;
     if (displayText) return displayText;
-    const sourceActor = this.document?.actor ?? null;
-    let amountStr;
-    if (amountType === "recoveryValue") {
-      amountStr = recoveryValueSource === "self" && sourceActor
-        ? String(sourceActor.system.recoveries?.recoveryValue ?? "?")
-        : game.i18n.localize("DSCT.FlatEffect.Heal.rvPlaceholder");
-    } else {
-      try {
-        const rd = sourceActor?.getRollData?.();
-        amountStr = rd ? ds.utils.simplifyRollFormula(amountFormula, rd) : amountFormula;
-      } catch { amountStr = amountFormula; }
-    }
-    if (tempStamina && spendRecovery) return game.i18n.format("DSCT.FlatEffect.Heal.spendTempLabel",  { amount: amountStr });
-    if (tempStamina)                  return game.i18n.format("DSCT.FlatEffect.Heal.tempLabel",        { amount: amountStr });
-    if (spendRecovery)                return game.i18n.format("DSCT.FlatEffect.Heal.spendHealLabel",   { amount: amountStr });
-    return game.i18n.format("DSCT.FlatEffect.Heal.healLabel", { amount: amountStr });
+    return healAutoLabel(this.flatHeal, this.document?.actor ?? null);
   }
 
   async getSheetContext() {
@@ -575,6 +562,7 @@ class FlatTeleportSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
         displayText: new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.displayText.label", hint: "DSCT.FlatEffect.displayText.hint" }),
         display:     new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",     hint: "DSCT.FlatEffect.display.hint" }),
         mode:     new StringField({ required: true, blank: false, initial: "normal", label: "DSCT.FlatEffect.Teleport.mode.label", hint: "DSCT.FlatEffect.Teleport.mode.hint" }),
+        mover:    new StringField({ required: true, blank: false, initial: "self", label: "DSCT.FlatEffect.Teleport.mover.label", hint: "DSCT.FlatEffect.Teleport.mover.hint" }),
         distance: new ds.data.fields.FormulaField({ deterministic: true, initial: "5", label: "DSCT.FlatEffect.Teleport.distance.label" }),
         animate:  new BooleanField({ initial: true, label: "DSCT.FlatEffect.Teleport.animate.label" }),
         color:    new StringField({ required: true, blank: false, initial: "#a030ff", label: "DSCT.FlatEffect.Teleport.color.label" }),
@@ -594,15 +582,8 @@ class FlatTeleportSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
     const tv = this.flatTeleport;
     if (tv.display) return tv.display;
     if (tv.displayText) return tv.displayText;
-    try {
-      const rollData = this.document.getRollData?.();
-      const baseFormula = String(tv.distance).replace(/@spend/gi, '0');
-      const dist = rollData ? ds.utils.evaluateFormula(baseFormula, rollData, { contextName: this.uuid }) : baseFormula;
-      const key = tv.mode === 'swap' ? 'DSCT.FlatEffect.Teleport.swapLabel'
-        : tv.mode === 'adjacent' ? 'DSCT.FlatEffect.Teleport.adjacentLabel'
-        : 'DSCT.FlatEffect.Teleport.defaultLabel';
-      return game.i18n.format(key, { distance: dist });
-    } catch { return this.name; }
+    try { return teleportAutoLabel(tv, teleportDistance(tv, this.document, 0)); }
+    catch { return this.name; }
   }
 
   async getSheetContext() {
@@ -611,21 +592,107 @@ class FlatTeleportSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
       displayText: { field: this.schema.getField("flatTeleport.displayText"), src: src.displayText },
       display:     { field: this.schema.getField("flatTeleport.display"),     src: src.display },
       mode:        { field: this.schema.getField("flatTeleport.mode"),        src: src.mode },
+      mover:       { field: this.schema.getField("flatTeleport.mover"),       src: src.mover },
       distance:    { field: this.schema.getField("flatTeleport.distance"),    src: src.distance },
       animate:     { field: this.schema.getField("flatTeleport.animate"),     src: src.animate },
       color:       { field: this.schema.getField("flatTeleport.color"),       src: src.color },
       duration:    { field: this.schema.getField("flatTeleport.duration"),    src: src.duration },
-      modeOptions: [
-        { value: "normal",   label: game.i18n.localize("DSCT.FlatEffect.Teleport.Mode.normal") },
-        { value: "swap",     label: game.i18n.localize("DSCT.FlatEffect.Teleport.Mode.swap") },
-        { value: "adjacent", label: game.i18n.localize("DSCT.FlatEffect.Teleport.Mode.adjacent") },
-      ],
+      modeOptions:  teleportModeOptions(),
+      moverOptions: teleportMoverOptions(),
       spend: {
         enabled: { field: this.schema.getField("flatTeleport.spend.enabled"), src: src.spend.enabled },
         value:   { field: this.schema.getField("flatTeleport.spend.value"),   src: src.spend.value },
       },
     };
   }
+}
+
+export function healAutoLabel(h, sourceActor) {
+  const { spendRecovery, amountType, amountFormula, recoveryValueSource, tempStamina } = h;
+  let amountStr;
+  if (amountType === "recoveryValue") {
+    amountStr = recoveryValueSource === "self" && sourceActor
+      ? String(sourceActor.system.recoveries?.recoveryValue ?? "?")
+      : game.i18n.localize("DSCT.FlatEffect.Heal.rvPlaceholder");
+  } else {
+    try {
+      const rd = sourceActor?.getRollData?.();
+      amountStr = rd ? ds.utils.simplifyRollFormula(amountFormula, rd) : amountFormula;
+    } catch { amountStr = amountFormula; }
+  }
+  if (tempStamina && spendRecovery) return game.i18n.format("DSCT.FlatEffect.Heal.spendTempLabel",  { amount: amountStr });
+  if (tempStamina)                  return game.i18n.format("DSCT.FlatEffect.Heal.tempLabel",        { amount: amountStr });
+  if (spendRecovery)                return game.i18n.format("DSCT.FlatEffect.Heal.spendHealLabel",   { amount: amountStr });
+  return game.i18n.format("DSCT.FlatEffect.Heal.healLabel", { amount: amountStr });
+}
+
+export function teleportDistance(tv, item, spent = 0) {
+  const formula = String(tv.distance ?? "5").replace(/@spend/gi, String(spent));
+  const fallback = parseInt(formula) || 5;
+  try {
+    const rollData = item?.getRollData?.() ?? item?.actor?.getRollData?.() ?? {};
+    const dist = ds.utils.evaluateFormula(formula, rollData, { contextName: item?.uuid });
+    return Number.isFinite(dist) ? dist : fallback;
+  } catch { return fallback; }
+}
+
+export function teleportAutoLabel(tv, dist) {
+  const key = tv.mode === "swap" ? "DSCT.FlatEffect.Teleport.swapLabel"
+    : tv.mode === "adjacent" ? "DSCT.FlatEffect.Teleport.adjacentLabel"
+    : tv.mover === "target" ? "DSCT.FlatEffect.Teleport.targetLabel"
+    : "DSCT.FlatEffect.Teleport.defaultLabel";
+  return game.i18n.format(key, { distance: dist });
+}
+
+const _tokenOfActor = (actor) => (actor?.isToken
+  ? actor.token?.object
+  : canvas.tokens.placeables.find(t => t.actor?.id === actor?.id)) ?? null;
+
+export async function runTeleportEffect(tv, item, { sourceActor = null, partnerToken = null, spent = 0, allowShiftTarget = false, shiftKey = false } = {}) {
+  const actor = sourceActor ?? item.actor;
+  const dist = teleportDistance(tv, item, spent);
+  const { mode = "normal", mover = "self", animate = true, color = "#a030ff", duration = 600 } = tv;
+  const userToken = _tokenOfActor(actor) ?? (canvas.tokens.controlled.length === 1 ? canvas.tokens.controlled[0] : null);
+
+  const pickOther = async (exclude) => {
+    if (partnerToken && partnerToken.id !== exclude?.id) return partnerToken;
+    const targets = [...game.user.targets].filter(t => t.id !== exclude?.id);
+    if (targets.length === 1) return targets[0];
+    if (!getSetting("abilityAutomationEnabled")) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.needTarget")); return null; }
+    const picked = await runSourcePicker();
+    if (picked && picked.id === exclude?.id) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.sameToken")); return null; }
+    return picked;
+  };
+
+  if (mode === "swap" || mode === "adjacent") {
+    if (!userToken) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.sourceNotFound")); return; }
+    const partner = await pickOther(userToken);
+    if (!partner) return;
+    if (mode === "swap") await executeTeleswap(userToken, partner, dist, animate, color, duration);
+    else await executeTeleport(userToken, dist, animate, color, duration, { adjacentTo: partner });
+    return;
+  }
+
+  let token = userToken;
+  if (mover === "target" || (allowShiftTarget && shiftKey)) {
+    token = partnerToken ?? null;
+    if (!token) {
+      const targets = [...game.user.targets];
+      if (targets.length === 1) token = targets[0];
+      else if (getSetting("abilityAutomationEnabled")) token = await runSourcePicker();
+    }
+    if (!token) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.needMover")); return; }
+  }
+  if (!token) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.sourceNotFound")); return; }
+  await executeTeleport(token, dist, animate, color, duration);
+}
+
+export function teleportModeOptions() {
+  return ["normal", "swap", "adjacent"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Teleport.Mode.${value}`) }));
+}
+
+export function teleportMoverOptions() {
+  return ["self", "target"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Teleport.Mover.${value}`) }));
 }
 
 function _buildDamageButton(effect, item, chosenType = null) {
@@ -758,22 +825,7 @@ function _buildHealButton(effect, item) {
   const { display, spendRecovery, recoverySource, amountType, amountFormula, recoveryValueSource, tempStamina, repeatable, spend } = effect.flatHeal;
   const sourceActor = item.actor;
 
-  let amountStr;
-  if (amountType === "recoveryValue") {
-    amountStr = recoveryValueSource === "self" && sourceActor
-      ? String(sourceActor.system.recoveries?.recoveryValue ?? "?")
-      : game.i18n.localize("DSCT.FlatEffect.Heal.rvPlaceholder");
-  } else {
-    const rd = sourceActor?.getRollData?.() ?? {};
-    try { amountStr = ds.utils.simplifyRollFormula(amountFormula, rd); }
-    catch { amountStr = amountFormula; }
-  }
-
-  let defaultLabel;
-  if (tempStamina && spendRecovery) defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.spendTempLabel",  { amount: amountStr });
-  else if (tempStamina)             defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.tempLabel",        { amount: amountStr });
-  else if (spendRecovery)           defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.spendHealLabel",   { amount: amountStr });
-  else                              defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.healLabel",        { amount: amountStr });
+  const defaultLabel = healAutoLabel(effect.flatHeal, sourceActor);
 
   const btn = document.createElement("button");
   btn.type = "button";
@@ -796,9 +848,14 @@ function _buildHealButton(effect, item) {
 }
 
 export function buildCleanseAutoLabel(flatCleanse) {
-  const { display, displayText, expiryFilter, statusFilter } = flatCleanse;
+  const { display, displayText } = flatCleanse;
   if (display) return display;
   if (displayText) return displayText;
+  return cleanseAutoLabel(flatCleanse);
+}
+
+export function cleanseAutoLabel(flatCleanse) {
+  const { expiryFilter, statusFilter } = flatCleanse;
   const parts = [];
   const efSet = expiryFilter instanceof Set ? expiryFilter : new Set(expiryFilter ?? []);
   for (const ev of efSet) {
@@ -836,25 +893,20 @@ function _buildCleanseButton(effect, item) {
 }
 
 function _buildTeleportButton(effect, item, message) {
-  const { mode, distance, animate, color, duration, display, spend } = effect.flatTeleport;
-  const rollData = item.actor?.getRollData?.() ?? {};
+  const tv = effect.flatTeleport;
+  const { mode, mover, animate, color, duration, display, spend } = tv;
   const spentMatch = message?.flavor?.match(/^Spent (\d+)/i);
   const spent = spentMatch ? parseInt(spentMatch[1]) : 0;
-  const formula = String(distance).replace(/@spend/gi, String(spent));
-  let dist;
-  try { dist = rollData ? ds.utils.evaluateFormula(formula, rollData, { contextName: item.uuid }) : (parseInt(formula) || 5); }
-  catch { dist = parseInt(formula) || 5; }
-
-  const key = mode === 'swap' ? 'DSCT.FlatEffect.Teleport.swapLabel'
-    : mode === 'adjacent' ? 'DSCT.FlatEffect.Teleport.adjacentLabel'
-    : 'DSCT.FlatEffect.Teleport.defaultLabel';
-  const defaultLabel = game.i18n.format(key, { distance: dist });
+  const dist = teleportDistance(tv, item, spent);
+  const defaultLabel = teleportAutoLabel(tv, dist);
   const spendSuffix = spend?.enabled ? ` ${game.i18n.format("DSCT.FlatEffect.spend.costSuffix", { cost: spend.value })}` : "";
 
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "dsct-flat-teleport-btn";
   btn.dataset.mode         = mode;
+  btn.dataset.mover        = mover || "self";
+  btn.dataset.tv           = JSON.stringify({ mode, mover: mover || "self", animate, color, duration });
   btn.dataset.distance     = String(dist);
   btn.dataset.animate      = String(animate);
   btn.dataset.color        = color || "#a030ff";
@@ -880,7 +932,7 @@ async function _spendResource(actor, cost) {
   return true;
 }
 
-function _addFlatEffectListeners(section, item, message) {
+export function addFlatEffectListeners(section, item, message) {
   section.querySelectorAll(".dsct-flat-damage-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       const formula = btn.dataset.formula;
@@ -940,42 +992,12 @@ function _addFlatEffectListeners(section, item, message) {
   section.querySelectorAll(".dsct-flat-teleport-btn").forEach(btn => {
     btn.addEventListener("click", async (e) => {
       const sourceActor = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : item.actor;
-      const mode     = btn.dataset.mode || "normal";
-      const dist     = parseInt(btn.dataset.distance) || 5;
-      const animate  = btn.dataset.animate === "true";
-      const color    = btn.dataset.color || "#a030ff";
-      const duration = parseInt(btn.dataset.duration) || 600;
-
-      let token = (sourceActor?.isToken
-        ? sourceActor.token?.object
-        : canvas.tokens.placeables.find(t => t.actor?.id === sourceActor?.id)
-      ) ?? (canvas.tokens.controlled.length === 1 ? canvas.tokens.controlled[0] : null);
-      if (mode === "normal" && e.shiftKey) {
-        const targets = [...game.user.targets];
-        if (targets.length === 1) token = targets[0];
-      }
-      if (!token) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.sourceNotFound")); return; }
-
       if (btn.dataset.spendEnabled === "true") {
         const ok = await _spendResource(sourceActor ?? item.actor, parseInt(btn.dataset.spendValue) || 1);
         if (!ok) return;
       }
-
-      if (mode === "swap" || mode === "adjacent") {
-        const targets = [...game.user.targets].filter(t => t.id !== token.id);
-        let partner = targets.length === 1 ? targets[0] : null;
-        if (!partner) {
-          if (!getSetting("abilityAutomationEnabled")) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.needTarget")); return; }
-          partner = await runSourcePicker();
-          if (!partner) return;
-          if (partner.id === token.id) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.sameToken")); return; }
-        }
-        if (mode === "swap") { await executeTeleswap(token, partner, dist, animate, color, duration); return; }
-        await executeTeleport(token, dist, animate, color, duration, { adjacentTo: partner });
-        return;
-      }
-
-      await executeTeleport(token, dist, animate, color, duration);
+      const tv = { ...btn.dataset.tv ? JSON.parse(btn.dataset.tv) : {}, distance: btn.dataset.distance };
+      await runTeleportEffect(tv, item, { sourceActor, allowShiftTarget: true, shiftKey: e.shiftKey });
     });
   });
 
@@ -1139,6 +1161,25 @@ function _addFlatEffectListeners(section, item, message) {
   });
 }
 
+export function buildFlatEffectButtons(flatEffects, item, message) {
+  const chosenTypes = message?.getFlag(MODULE_ID, "flatDmgTypes") ?? {};
+  const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage") .map(e => _buildDamageButton(e, item, chosenTypes[e.id] ?? null));
+  const fmRows      = flatEffects.filter(e => e.type === "dsct.flatForced") .map(e => _buildForcedRow(e, item));
+  const condButtons = flatEffects.filter(e => e.type === "dsct.flatApplied").map(e => _buildAppliedButton(e, item)).filter(Boolean);
+  const healButtons = flatEffects.filter(e => e.type === "dsct.flatHeal").map(e => {
+    const btn = _buildHealButton(e, item);
+    if (!e.flatHeal.repeatable && message && _nonDstdHealUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
+    return btn;
+  });
+  const cleanseButtons = flatEffects.filter(e => e.type === "dsct.flatCleanse").map(e => {
+    const btn = _buildCleanseButton(e, item);
+    if (!e.flatCleanse.repeatable && message && _nonDstdCleanseUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
+    return btn;
+  });
+  const teleButtons = flatEffects.filter(e => e.type === "dsct.flatTeleport").map(e => _buildTeleportButton(e, item, message));
+  return [...dmgButtons, ...fmRows, ...teleButtons, ...condButtons, ...healButtons, ...cleanseButtons];
+}
+
 function _installFlatEffectChatHook() {
   Hooks.on("renderChatMessageHTML", async (message, html) => {
     if (!getSetting('flatEffectsEnabled')) return;
@@ -1158,22 +1199,7 @@ function _installFlatEffectChatHook() {
     const partSection = html.querySelector(`section[data-message-part="${ABILITY_PART_ID}"]`);
     if (!partSection) return;
 
-    const chosenTypes = message.getFlag(MODULE_ID, "flatDmgTypes") ?? {};
-    const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage") .map(e => _buildDamageButton(e, item, chosenTypes[e.id] ?? null));
-    const fmRows      = flatEffects.filter(e => e.type === "dsct.flatForced") .map(e => _buildForcedRow(e, item));
-    const condButtons = flatEffects.filter(e => e.type === "dsct.flatApplied").map(e => _buildAppliedButton(e, item)).filter(Boolean);
-    const healButtons = flatEffects.filter(e => e.type === "dsct.flatHeal").map(e => {
-      const btn = _buildHealButton(e, item);
-      if (!e.flatHeal.repeatable && _nonDstdHealUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
-      return btn;
-    });
-    const cleanseButtons = flatEffects.filter(e => e.type === "dsct.flatCleanse").map(e => {
-      const btn = _buildCleanseButton(e, item);
-      if (!e.flatCleanse.repeatable && _nonDstdCleanseUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
-      return btn;
-    });
-    const teleButtons = flatEffects.filter(e => e.type === "dsct.flatTeleport").map(e => _buildTeleportButton(e, item, message));
-    const buttons = [...dmgButtons, ...fmRows, ...teleButtons, ...condButtons, ...healButtons, ...cleanseButtons];
+    const buttons = buildFlatEffectButtons(flatEffects, item, message);
     if (!buttons.length) return;
 
     let footer = partSection.querySelector("footer.message-part-buttons");
@@ -1184,7 +1210,7 @@ function _installFlatEffectChatHook() {
     }
     for (const btn of buttons) footer.appendChild(btn);
 
-    _addFlatEffectListeners(partSection, item, message);
+    addFlatEffectListeners(partSection, item, message);
   });
 }
 
@@ -1207,14 +1233,15 @@ function _installCreateDialogFilter() {
     if (!select) return;
     let removed = false;
     for (const opt of Array.from(select.options ?? [])) {
-      if (opt.value?.startsWith('dsct.flat')) { opt.remove(); removed = true; }
+      if (/^dsct(\.flat|[A-Z])/.test(opt.value ?? '')) { opt.remove(); removed = true; }
     }
-    if (removed && select.value?.startsWith('dsct.flat')) select.value = select.options[0]?.value ?? '';
+    if (removed && /^dsct(\.flat|[A-Z])/.test(select.value ?? '')) select.value = select.options[0]?.value ?? '';
   });
 }
 
 function _installTypeGroups() {
   const groupOf = (value) => {
+    if (/^dsct[A-Z]/.test(value)) return 'dsctTiered';
     if (!value.includes('.')) return 'system';
     if (value.startsWith('dsct.flat')) return 'dsctFlat';
     return value.split('.')[0];
@@ -1223,8 +1250,8 @@ function _installTypeGroups() {
     const select = element.querySelector?.('select[name="type"]');
     if (!select || select.dataset.dsctGrouped) return;
     const options = Array.from(select.options ?? []);
-    if (!options.some(o => o.value.startsWith('dsct.') || o.value.startsWith('dsd.'))) return;
-    if (!options.some(o => o.value === 'base')) return;
+    if (!options.some(o => o.value.startsWith('dsct.') || o.value.startsWith('dsd.') || /^dsct[A-Z]/.test(o.value))) return;
+    if (!options.some(o => o.value === 'base' || o.value === 'damage')) return;
 
     const groups = new Map();
     for (const opt of options) {
@@ -1232,7 +1259,7 @@ function _installTypeGroups() {
       if (!groups.has(g)) groups.set(g, []);
       groups.get(g).push(opt);
     }
-    const order = ['system', 'dsct', 'dsctFlat', ...[...groups.keys()].filter(g => !['system', 'dsct', 'dsctFlat'].includes(g)).sort()];
+    const order = ['system', 'dsct', 'dsctFlat', 'dsctTiered', ...[...groups.keys()].filter(g => !['system', 'dsct', 'dsctFlat', 'dsctTiered'].includes(g)).sort()];
     const current = select.value;
     select.innerHTML = '';
     for (const g of order) {
@@ -1275,29 +1302,19 @@ function _installDisplayTextAutofill() {
 }
 
 function _installHealToggleListeners() {
+  
   Hooks.on('renderApplicationV2', (_app, element) => {
-    const spendToggle = element.querySelector?.('input[name="flatHeal.spendRecovery"]');
-    const amountSel   = element.querySelector?.('select[name="flatHeal.amountType"]');
-    if (!spendToggle && !amountSel) return;
-
-    const recSourceDiv = element.querySelector('[data-dsct-heal-recovery-source]');
-    const customDiv    = element.querySelector('[data-dsct-heal-custom]');
-    const rvSourceDiv  = element.querySelector('[data-dsct-heal-rv-source]');
-
-    const syncSpend = () => {
-      if (!recSourceDiv) return;
-      if (spendToggle?.checked) recSourceDiv.removeAttribute('hidden');
-      else recSourceDiv.setAttribute('hidden', '');
-    };
-    const syncAmount = () => {
-      const isCustom = amountSel?.value === 'custom';
-      const isRV     = amountSel?.value === 'recoveryValue';
-      if (customDiv)   { if (isCustom) customDiv.removeAttribute('hidden');   else customDiv.setAttribute('hidden', ''); }
-      if (rvSourceDiv) { if (isRV)     rvSourceDiv.removeAttribute('hidden'); else rvSourceDiv.setAttribute('hidden', ''); }
-    };
-
-    if (spendToggle) { spendToggle.addEventListener('change', syncSpend); syncSpend(); }
-    if (amountSel)   { amountSel.addEventListener('change', syncAmount); syncAmount(); }
+    const controls = element.querySelectorAll?.('input[name$=".spendRecovery"], select[name$=".amountType"]');
+    if (!controls?.length) return;
+    for (const control of controls) {
+      const prefix = control.name.replace(/\.(spendRecovery|amountType)$/, '');
+      const show = (attr, on) => element.querySelector(`[${attr}="${prefix}"]`)?.toggleAttribute('hidden', !on);
+      const sync = control.name.endsWith('.spendRecovery')
+        ? () => show('data-dsct-heal-recovery-source', control.checked)
+        : () => { show('data-dsct-heal-custom', control.value === 'custom'); show('data-dsct-heal-rv-source', control.value === 'recoveryValue'); };
+      control.addEventListener('change', sync);
+      sync();
+    }
   });
 }
 
@@ -1362,20 +1379,15 @@ function _installCleanseTagPickers() {
 }
 
 function _installSpendToggleListeners() {
-  const PREFIXES = ["flatDamage", "flatForced", "flatApplied", "flatResource", "flatHeal", "flatCleanse", "flatTeleport"];
   Hooks.on('renderApplicationV2', (_app, element) => {
-    for (const prefix of PREFIXES) {
-      const toggle = element.querySelector?.(`input[name="${prefix}.spend.enabled"]`);
-      if (!toggle) continue;
+    element.querySelectorAll?.('input[name$=".spend.enabled"]').forEach(toggle => {
+      const prefix = toggle.name.slice(0, -'.spend.enabled'.length);
       const costDiv = element.querySelector(`[data-dsct-flat-spend-cost="${prefix}"]`);
-      if (!costDiv) continue;
-      const sync = () => {
-        if (toggle.checked) costDiv.removeAttribute('hidden');
-        else costDiv.setAttribute('hidden', '');
-      };
+      if (!costDiv) return;
+      const sync = () => costDiv.toggleAttribute('hidden', !toggle.checked);
       toggle.addEventListener('change', sync);
       sync();
-    }
+    });
   });
 }
 
