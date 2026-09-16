@@ -117,6 +117,19 @@ export const distributeAbilities = async () => {
 
 export const ENHANCED_PACK = 'draw-steel-combat-tools.enhanced-abilities';
 
+export function enhancedStamp(data) {
+  const text = JSON.stringify({ n: data.name, i: data.img, s: data.system });
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+const _stamped = (doc) => {
+  const data = doc.toObject();
+  foundry.utils.setProperty(data, 'flags.draw-steel-combat-tools.enhancedHash', enhancedStamp(data));
+  return data;
+};
+
 export const distributeEnhancedAbilities = async ({ actors = null, silent = false } = {}) => {
   const none = { added: 0, skipped: 0 };
   if (!game.user.isGM) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.gmOnlyDistribute')); return none; }
@@ -138,20 +151,17 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
 
   
   
+  
   const refresh = async (actor) => {
     let touched = false;
     for (const doc of docs) {
       const mine = actor.items.find(i => i.system?._dsid === doc.system._dsid);
-      if (!mine?.system?.effects) continue;
-      const src = doc.toObject().system?.effects ?? {};
-      const update = {};
-      for (const [id, data] of Object.entries(src)) {
-        if (!String(data?.type ?? '').startsWith('dsct.')) continue;
-        if (mine.system.effects.get?.(id) ?? mine.system.effects[id]) continue;
-        update[`system.effects.${id}`] = data;
-      }
-      if (!Object.keys(update).length) continue;
-      await mine.update(update);
+      if (!mine || !mine.getFlag('draw-steel-combat-tools', 'enhanced') || mine.getFlag('draw-steel-combat-tools', 'enhancedLock')) continue;
+      const data = doc.toObject();
+      const hash = enhancedStamp(data);
+      if (mine.getFlag('draw-steel-combat-tools', 'enhancedHash') === hash) continue;
+      await mine.update({ name: data.name, img: data.img, system: data.system }, { recursive: false });
+      await mine.setFlag('draw-steel-combat-tools', 'enhancedHash', hash);
       touched = true;
     }
     return touched;
@@ -164,7 +174,7 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
     try {
       if (await refresh(actor)) refreshed++;
       if (!missing.length) { skipped++; continue; }
-      await actor.createEmbeddedDocuments('Item', missing.map(d => d.toObject()));
+      await actor.createEmbeddedDocuments('Item', missing.map(_stamped));
       added++;
     } catch (err) {
       failed++;

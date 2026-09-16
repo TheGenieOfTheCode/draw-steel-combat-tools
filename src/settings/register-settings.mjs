@@ -748,6 +748,7 @@ export const registerSettings = () => {
   game.settings.register(M, 'stealthTrueHidden', {
     name: L('stealthTrueHidden.name'), hint: L('stealthTrueHidden.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
+    onChange: () => recheckCombatReveal(),
   });
   game.settings.register(M, 'coverBaneEnabled', {
     name: L('coverBaneEnabled.name'), hint: L('coverBaneEnabled.hint'),

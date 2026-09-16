@@ -724,7 +724,7 @@
       },
       "stealthTrueHidden": {
         "name": "Fully Hide Hidden Creatures",
-        "hint": "Keeps hidden creatures from the players: the Search card masks a creature's name and art until it is found, and no warning gives away that nobody is hiding. The Director always sees everything."
+        "hint": "A player stops seeing any creature that is hidden from every token they look through, the way invisible tokens vanish in plain Foundry, and the Search card masks such creatures until they are found. The Director always sees everything, and nobody loses sight of their own creatures."
       },
       "stealthRevealPromptSeconds": {
         "name": "Reveal Prompt Fades After",
@@ -774,6 +774,14 @@
       "notOwner": "Only the creature's owner or the Director can hide it.",
       "nobody": "{name} has nobody to hide from here.",
       "hiddenFrom": "{name} is now hidden from {count} creature(s)."
+    },
+    "enhancedBadge": {
+      "enhanced": { "label": "Combat Tools Enhanced", "hint": "This ability comes from the Combat Tools compendium and is kept current by Add Enhanced Abilities." },
+      "available": { "label": "Enhancement Available", "hint": "The Combat Tools compendium carries an enhanced version of this ability; Add Enhanced Abilities can bring it in." },
+      "ignored": { "label": "Combat Tools Ignored", "hint": "Locked: Add Enhanced Abilities leaves this copy exactly as it is." },
+      "none": { "label": "No Enhancement", "hint": "Combat Tools has nothing to add to this ability." },
+      "lockHint": "Click to lock it against the importer.",
+      "unlockHint": "Click to unlock it."
     },
     "effectFlags": {
       "button": "Combat Tools flags",

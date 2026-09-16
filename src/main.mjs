@@ -54,6 +54,7 @@ import { registerChooseEffect } from './ability-automation/choose-effect.mjs';
 import { registerHideEffect } from './ability-automation/hide-effect.mjs';
 import { registerStealthTraits, stealthTraits } from './conditions/stealth-traits.mjs';
 import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
+import { registerEnhancedBadge } from './enhanced-badge.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
 
 const api = {
@@ -144,6 +145,7 @@ Hooks.once('init', () => {
   registerHiddenMarkers();
   registerStealthTraits();
   registerEffectFlagPicker();
+  registerEnhancedBadge();
   if (STEALTH_WORKFLOW_READY) {
     registerStealthPanel();
     registerStealthPath();

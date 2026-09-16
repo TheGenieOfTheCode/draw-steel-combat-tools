@@ -1,4 +1,5 @@
 import { getSetting } from '../helpers.mjs';
+import { hiddenFrom, HIDDEN } from './stealth.mjs';
 
 let _combatants = new Set();
 
@@ -15,7 +16,28 @@ const _forced = (token) => {
   return !!id && _combatants.has(id) && getSetting('revealCombatantPositions');
 };
 
+function _viewers() {
+  const layer = canvas.tokens;
+  if (!layer) return [];
+  const sighted = (t) => t.hasSight && !t.document.hidden;
+  const controlled = layer.controlled.filter(sighted);
+  return controlled.length ? controlled : layer.placeables.filter(t => sighted(t) && t.isOwner);
+}
+
+function _fullyHidden(token) {
+  if (game.user.isGM || !token?.id || token.isOwner) return false;
+  if (!getSetting('stealthSystemEnabled') || !getSetting('stealthTrueHidden')) return false;
+  const from = hiddenFrom(token);
+  if (!from.size) return false;
+  const viewers = _viewers();
+  return viewers.length > 0 && viewers.every(v => from.has(v.id));
+}
+
 export function resolveTokenVisibility(token, real) {
+  if (_fullyHidden(token)) {
+    if (token) token.dsctForcedVisible = false;
+    return false;
+  }
   const forced = !real && _forced(token);
   if (token) token.dsctForcedVisible = forced;
   return real || forced;
@@ -51,8 +73,7 @@ function _bakedTexture(texture) {
     baked = canvas.app.renderer.generateTexture(source, {
       resolution: texture.baseTexture.resolution,
     });
-    
-    
+
     baked.baseTexture.mipmap = PIXI.MIPMAP_MODES.ON;
     baked.baseTexture.scaleMode = PIXI.SCALE_MODES.LINEAR;
   } catch (err) {
@@ -81,7 +102,6 @@ export function syncPositionGhost(token) {
   const source = mesh.dsctColourTexture ?? token.texture ?? mesh.texture;
   if (!source) return;
 
-  
   const baked = _bakedTexture(source);
   if (!baked || mesh.texture === baked) return;
 
@@ -119,12 +139,20 @@ export function registerCombatReveal() {
     Hooks.on(hook, () => recheckCombatReveal());
   }
 
-  
   Hooks.on('canvasTearDown', _dropBaked);
   Hooks.on('canvasReady', () => { _rebuild(); });
 
   
   
+  
+  Hooks.on('dsct.stealthChanged', () => recheckCombatReveal());
+  Hooks.on('controlToken', () => recheckCombatReveal());
+  for (const hook of ['createActiveEffect', 'updateActiveEffect', 'deleteActiveEffect']) {
+    Hooks.on(hook, (effect) => {
+      if (effect?.statuses?.has?.(HIDDEN) || effect?.getFlag?.('draw-steel-combat-tools', 'hiddenFrom')) recheckCombatReveal();
+    });
+  }
+
   Hooks.on('drawToken', syncPositionGhost);
   Hooks.on('refreshToken', syncPositionGhost);
 }
