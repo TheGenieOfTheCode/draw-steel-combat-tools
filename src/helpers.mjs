@@ -205,15 +205,49 @@ export function burrowBlocksLineOfEffect(fromToken, toToken) {
   return !isOnGround(fromToken) || !touchesGround(toToken);
 }
 
+export const LOE_KEY = 'loe';
+
+export function loeRangeCap(token) {
+  const actor = token?.actor ?? (token?.documentName === 'Actor' ? token : null);
+  const raw = actor?.flags?.['draw-steel-combat-tools']?.[LOE_KEY]?.rangeCap;
+  return Math.max(0, Math.floor(Number(raw) || 0));
+}
+
+export function blocksLoeForEnemies(token) {
+  const actor = token?.actor ?? (token?.documentName === 'Actor' ? token : null);
+  const raw = actor?.flags?.['draw-steel-combat-tools']?.[LOE_KEY]?.blocksForEnemies;
+  return raw === true || raw === 1 || /^(true|1|yes|on)$/i.test(String(raw ?? '').trim());
+}
+
+export function loeBlockersFor(fromToken, toToken) {
+  if (!canvas?.tokens?.placeables?.length) return [];
+  const viewerDisp = fromToken?.document?.disposition;
+  return canvas.tokens.placeables.filter(t =>
+    t !== fromToken && t !== toToken
+    && blocksLoeForEnemies(t)
+    && t.document.disposition !== viewerDisp);
+}
+
+export function loeRangeBlocked(fromToken, toToken) {
+  const cap = loeRangeCap(fromToken);
+  if (!cap) return false;
+  
+  return tokFootprintDist(fromToken, toToken) >= cap * (canvas.grid.distance || 1);
+}
+
 export const hasSightToToken = (fromToken, token) => {
   if (!fromToken || !token) return false;
   if (burrowBlocksLineOfEffect(fromToken, token)) return false;
+  if (loeRangeBlocked(fromToken, token)) return false;
   const { origins, targets } = _sightEnds(fromToken, token);
 
-  
+  const blockers = loeBlockersFor(fromToken, token);
+
   for (const p of targets) {
     for (const origin of origins) {
-      if (!segmentBlocksSight(origin, p)) return true;
+      if (segmentBlocksSight(origin, p)) continue;
+      if (blockers.some(b => _segCrossesToken(origin, p, b))) continue;
+      return true;
     }
   }
   return false;
@@ -230,6 +264,15 @@ const _spaceRect = (token) => {
   };
 };
 
+function _segCrossesToken(a, b, token) {
+  const { x, y, w, h } = _spaceRect(token);
+  const corners = [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }];
+  for (let i = 0; i < 4; i++) {
+    if (foundry.utils.lineSegmentIntersects(a, b, corners[i], corners[(i + 1) % 4])) return true;
+  }
+  return false;
+}
+
 const _spaceCorners = (token) => {
   const { x, y, w, h } = _spaceRect(token);
   return SIGHT_SAMPLES.slice(1).map(([fx, fy]) => ({ x: x + fx * w, y: y + fy * h }));
@@ -245,11 +288,16 @@ export const visibleTargetCorners = (fromToken, token) => {
 
   const origins = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [_spaceCentre(fromToken)];
   const corners = _spaceCorners(token);
+  const blockers = loeBlockersFor(fromToken, token);
 
   let best = 0;
   for (const origin of origins) {
     let seen = 0;
-    for (const corner of corners) if (!segmentBlocksSight(origin, corner)) seen++;
+    for (const corner of corners) {
+      if (segmentBlocksSight(origin, corner)) continue;
+      if (blockers.some(b => _segCrossesToken(origin, corner, b))) continue;
+      seen++;
+    }
     if (seen > best) best = seen;
   }
   return best;
@@ -260,30 +308,116 @@ export const hasCover = (fromToken, token) => {
   return seen >= 1 && seen <= 2;
 };
 
+const COVER_IMMUNITY_FLAG = 'coverImmunity';
+
+const _on = (v) => v === true || v === 1 || /^(true|1|yes|on)$/i.test(String(v ?? '').trim());
+
+export const grantsCoverImmunity = (token) =>
+  _on(token?.actor?.flags?.['draw-steel-combat-tools']?.[LOE_KEY]?.coverGrantsImmunity);
+
+export function highestCharacteristic(actor) {
+  let best = 0;
+  for (const c of Object.values(actor?.system?.characteristics ?? {})) {
+    best = Math.max(best, Number(c?.value ?? 0));
+  }
+  return best;
+}
+
+export function coverImmunityGrantor(sourceToken, targetToken) {
+  if (!sourceToken || !targetToken) return null;
+  if (!hasCover(sourceToken, targetToken)) return null;
+  return loeBlockersFor(sourceToken, targetToken)
+    .filter(grantsCoverImmunity)
+    .find(b => b === targetToken || b.document.disposition === targetToken.document.disposition)
+    ?? null;
+}
+
+async function _setCoverImmunityDisabled(effect, disabled) {
+  if (!effect || effect.disabled === disabled) return;
+  await effect.update({ disabled });
+}
+
+export async function armCoverImmunity(actor, sourceToken) {
+  const existing = actor?.effects?.find(e => e.getFlag('draw-steel-combat-tools', COVER_IMMUNITY_FLAG)) ?? null;
+  const targetToken = actor?.token?.object ?? actor?.getActiveTokens?.()[0] ?? null;
+  const grantor = (sourceToken && targetToken) ? coverImmunityGrantor(sourceToken, targetToken) : null;
+  if (!grantor) return _setCoverImmunityDisabled(existing, true);
+
+  const amount = highestCharacteristic(grantor.actor);
+  if (!amount) return _setCoverImmunityDisabled(existing, true);
+
+  const changes = [{ key: 'system.damage.immunities.all', mode: 2, value: String(amount), priority: null }];
+  const name = game.i18n.format('DSCT.coverImmunity.name', { name: grantor.name });
+
+  if (existing) await existing.update({ disabled: false, name, changes });
+  else await actor.createEmbeddedDocuments('ActiveEffect', [{
+    name,
+    img: 'icons/equipment/shield/heater-steel-worn.webp',
+    changes,
+    disabled: false,
+    transfer: false,
+    flags: { 'draw-steel-combat-tools': { [COVER_IMMUNITY_FLAG]: true } },
+  }]);
+}
+
+export async function disarmCoverImmunity(actor) {
+  const e = actor?.effects?.find(x => x.getFlag('draw-steel-combat-tools', COVER_IMMUNITY_FLAG)) ?? null;
+  await _setCoverImmunityDisabled(e, true);
+}
+
+function _blockerHitPoint(from, to, blockers) {
+  let best = null;
+  for (const b of blockers) {
+    const { x, y, w, h } = _spaceRect(b);
+    const corners = [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }];
+    for (let i = 0; i < 4; i++) {
+      const hit = foundry.utils.lineSegmentIntersection(from, to, corners[i], corners[(i + 1) % 4]);
+      if (hit && (!best || hit.t0 < best.t)) best = { t: hit.t0, x: hit.x, y: hit.y, blocker: b };
+    }
+  }
+  return best;
+}
+
 export const sightLinesToToken = (fromToken, token) => {
   if (!fromToken || !token) return [];
   const { origins, targets } = _sightEnds(fromToken, token);
   if (!origins.length) return [];
 
-  
-  
   const buried = burrowBlocksLineOfEffect(fromToken, token);
+  const blockers = loeBlockersFor(fromToken, token);
+
+  
+  
+  const cap = loeRangeCap(fromToken);
+  const capped = cap > 0 && loeRangeBlocked(fromToken, token);
+  const capPixels = cap * (canvas.grid?.size ?? 0);
 
   return targets.map(p => {
     const to = { x: p.x, y: p.y };
     let blocked = null;
     for (const from of origins) {
+      if (capped) {
+        const len = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+        const t = Math.min(1, capPixels / len);
+        const at = { t, x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
+        blocked ??= { from, to, cell: p.cell, sample: p.sample, blocked: true, hit: at, capped: true };
+        continue;
+      }
+
       const hit = sightBlockPoint(from, to);
-      if (!hit) {
-        
-        
+      const body = hit ? null : _blockerHitPoint(from, to, blockers);
+
+      if (!hit && !body) {
         if (buried) {
           const at = { t: 1, x: to.x, y: to.y };
           return { from, to, cell: p.cell, sample: p.sample, blocked: true, hit: at, burrowed: true };
         }
         return { from, to, cell: p.cell, sample: p.sample, blocked: false, hit: null };
       }
-      blocked ??= { from, to, cell: p.cell, sample: p.sample, blocked: true, hit, burrowed: buried };
+
+      blocked ??= body
+        ? { from, to, cell: p.cell, sample: p.sample, blocked: true, hit: body, blockedBy: body.blocker?.name ?? null }
+        : { from, to, cell: p.cell, sample: p.sample, blocked: true, hit, burrowed: buried };
     }
     return blocked;
   });
@@ -409,7 +543,7 @@ export const replayUndo = async (ops) => {
   }
 };
 
-export const STEALTH_WORKFLOW_READY = false;
+export const STEALTH_WORKFLOW_READY = true;
 
 export const safeUpdate = async (document, data, options = {}) => {
   if (options.teleport) {

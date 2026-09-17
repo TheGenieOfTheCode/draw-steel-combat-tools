@@ -54,6 +54,7 @@ import { registerTieredEffects } from './ability-automation/tiered-effects.mjs';
 import { registerChooseEffect } from './ability-automation/choose-effect.mjs';
 import { registerHideEffect } from './ability-automation/hide-effect.mjs';
 import { registerStealthTraits, stealthTraits } from './conditions/stealth-traits.mjs';
+import { registerLineOfEffectFlags, registerCoverImmunity } from './conditions/line-of-effect.mjs';
 import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
 import { registerEnhancedBadge } from './enhanced-badge.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
@@ -146,6 +147,8 @@ Hooks.once('init', () => {
   registerBurrowRendering();
   registerHiddenMarkers();
   registerStealthTraits();
+  registerLineOfEffectFlags();
+  registerCoverImmunity();
   registerEffectFlagPicker();
   registerEnhancedBadge();
   if (STEALTH_WORKFLOW_READY) {
