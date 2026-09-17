@@ -56,6 +56,7 @@ function _registerPartials() {
       {{formGroup ctx.potencyCustom.field value=ctx.potencyCustom.src name="flatApplied.potency.custom" localize=true}}
     </div>
     {{formGroup ctx.statusId.field value=ctx.statusId.src name="flatApplied.statusId" options=ctx.effectOptions localize=true}}
+    {{formGroup ctx.exclusiveSelf.field value=ctx.exclusiveSelf.src name="flatApplied.exclusiveSelf" localize=true}}
     {{formGroup ctx.end.field value=ctx.end.src name="flatApplied.end" options=ctx.endOptions localize=true}}
     {{formGroup ctx.properties.field value=ctx.properties.src name="flatApplied.properties" options=ctx.propertyOptions localize=true}}
     {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatApplied.spend.enabled" localize=true}}
@@ -289,6 +290,7 @@ class FlatAppliedSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
           custom:         new StringField({ required: false, blank: true, initial: "",        label: "DSCT.FlatEffect.Applied.potency.custom.label",         hint: "DSCT.FlatEffect.Applied.potency.custom.hint" }),
         }),
         statusId:   new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.Applied.statusId.label",    hint: "DSCT.FlatEffect.Applied.statusId.hint" }),
+        exclusiveSelf: new BooleanField({ label: "DSCT.FlatEffect.Applied.exclusiveSelf.label", hint: "DSCT.FlatEffect.Applied.exclusiveSelf.hint" }),
         end:        new StringField({ required: false, blank: true, initial: () => _flatDefault('flatDefaultAppliedEnd', ''), label: "DSCT.FlatEffect.Applied.end.label",         hint: "DSCT.FlatEffect.Applied.end.hint" }),
         properties: new SetField(_setField(), { initial: [], label: "DSCT.FlatEffect.Applied.properties.label" }),
         spend: new SchemaField({
@@ -361,6 +363,7 @@ class FlatAppliedSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
       potencyChar:     { field: this.schema.getField("flatApplied.potency.characteristic"),   src: this._source.flatApplied.potency.characteristic },
       potencyStrength: { field: this.schema.getField("flatApplied.potency.strength"),         src: this._source.flatApplied.potency.strength },
       potencyCustom:   { field: this.schema.getField("flatApplied.potency.custom"),           src: this._source.flatApplied.potency.custom },
+      exclusiveSelf:   { field: this.schema.getField("flatApplied.exclusiveSelf"), src: this._source.flatApplied.exclusiveSelf },
       statusId:        { field: this.schema.getField("flatApplied.statusId"),                 src: this._source.flatApplied.statusId },
       end:             { field: this.schema.getField("flatApplied.end"),                      src: this._source.flatApplied.end },
       properties:      { field: this.schema.getField("flatApplied.properties"),               src: this._source.flatApplied.properties },
@@ -1141,6 +1144,55 @@ async function _spendResource(actor, cost) {
   return true;
 }
 
+const FLAT_APPLIED_FROM = 'flatAppliedFrom';
+
+export const isRegisteredStatus = (statusId) =>
+  !!CONFIG.statusEffects.find(s => s.id === statusId);
+
+export function flatAppliedSource(item, statusId) {
+  return item?.effects?.get?.(statusId) ?? null;
+}
+
+export function flatAppliedLabel(item, statusId) {
+  const status = CONFIG.statusEffects.find(s => s.id === statusId);
+  if (status) return { name: status.name ?? statusId, img: status.img ?? status.icon ?? null };
+  const ae = flatAppliedSource(item, statusId);
+  return { name: ae?.name ?? statusId, img: ae?.img ?? null };
+}
+
+export async function applyFlatAppliedEffect(actor, statusId, item) {
+  if (!actor || !statusId) return false;
+  if (isRegisteredStatus(statusId)) {
+    await actor.toggleStatusEffect(statusId, { active: true });
+    return true;
+  }
+  const source = flatAppliedSource(item, statusId);
+  if (!source) {
+    ui.notifications.warn(game.i18n.format("DSCT.notice.flatApplied.noEffect", { id: statusId }));
+    return false;
+  }
+  if (actor.effects.some(e => e.getFlag(MODULE_ID, FLAT_APPLIED_FROM) === statusId)) return true;
+
+  const data = source.toObject();
+  delete data._id;
+  data.transfer = false;
+  data.disabled = false;
+  data.origin = item?.uuid ?? null;
+  foundry.utils.setProperty(data, `flags.${MODULE_ID}.${FLAT_APPLIED_FROM}`, statusId);
+  await actor.createEmbeddedDocuments('ActiveEffect', [data]);
+  return true;
+}
+
+export async function removeFlatAppliedEffect(actor, statusId) {
+  if (!actor || !statusId) return;
+  if (isRegisteredStatus(statusId)) {
+    await actor.toggleStatusEffect(statusId, { active: false });
+    return;
+  }
+  const ids = actor.effects.filter(e => e.getFlag(MODULE_ID, FLAT_APPLIED_FROM) === statusId).map(e => e.id);
+  if (ids.length) await actor.deleteEmbeddedDocuments('ActiveEffect', ids);
+}
+
 export function addFlatEffectListeners(section, item, message) {
   section.querySelectorAll(".dsct-flat-damage-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
@@ -1225,7 +1277,7 @@ export function addFlatEffectListeners(section, item, message) {
 
       for (const target of targets) {
         if (!target.actor) continue;
-        await target.actor.toggleStatusEffect(statusId, { active: true });
+        await applyFlatAppliedEffect(target.actor, statusId, item);
       }
     });
   });

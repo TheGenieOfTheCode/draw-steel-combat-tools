@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank } from '../helpers.mjs';
-import { buildCleanseAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel } from '../ability-automation/flat-special-effects.mjs';
+import { buildCleanseAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, removeFlatAppliedEffect, flatAppliedLabel } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
@@ -1513,6 +1513,41 @@ async function _injectFmButtons(message, root) {
     }
   }
 
+  
+  
+  const selfApplied = flatAppliedEffects.filter(e => e.flatApplied?.exclusiveSelf && e.flatApplied?.statusId);
+  if (selfApplied.length && sourceToken) {
+    const selfKey = sourceToken.document.uuid.replace(/\./g, '__');
+    if (!activePanel.querySelector(`${DSTD_ROW}[data-target-key="${selfKey}"]`)
+      && !activePanel.querySelector('[data-dsct-self-only]')) {
+      const list = activePanel.querySelector(`.${DSTD}-target-list`) ?? activePanel;
+      const row = document.createElement('div');
+      row.className = `${DSTD}-target-row`;
+      row.dataset.targetKey = selfKey;
+      row.dataset.dsctSelfOnly = '1';
+
+      const head = document.createElement('div');
+      head.className = `${DSTD}-target-head`;
+      const img = document.createElement('img');
+      img.className = `${DSTD}-portrait`;
+      img.src = sourceToken.document.texture?.src ?? sourceToken.actor?.img ?? 'icons/svg/mystery-man.svg';
+      img.alt = sourceToken.name ?? '';
+      const nameDiv = document.createElement('div');
+      nameDiv.className = `${DSTD}-target-name`;
+      nameDiv.textContent = sourceToken.name ?? '';
+      head.append(img, nameDiv);
+
+      const body = document.createElement('div');
+      body.className = `${DSTD}-target-body`;
+      const acts = document.createElement('div');
+      acts.className = `${DSTD}-target-actions`;
+      body.append(acts);
+
+      row.append(head, body);
+      list.append(row);
+    }
+  }
+
   const targetRows = activePanel.querySelectorAll(DSTD_ROW);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons found ${targetRows.length} target rows`);
 
@@ -1523,16 +1558,17 @@ async function _injectFmButtons(message, root) {
     const tokenUuid = targetKey === 'selected-token' ? null : targetKey.replace(/__/g, '.');
     const rowTier = _effectiveRowTier(message, targetKey, tokenUuid, tier);
     const rowTiered = _flatOn ? tieredAsFlat(ability, rowTier) : [];
-    const rowHealEffects    = [...flatHealEffects,    ...rowTiered.filter(e => e.type === 'dsct.flatHeal')];
-    const rowCleanseEffects = flatCleanseEffects;
-    const rowTeleportEffects = [...flatTeleportEffects, ...rowTiered.filter(e => e.type === 'dsct.flatTeleport')];
+    const selfOnlyRow = row.dataset.dsctSelfOnly === '1';
+    const rowHealEffects    = selfOnlyRow ? [] : [...flatHealEffects,    ...rowTiered.filter(e => e.type === 'dsct.flatHeal')];
+    const rowCleanseEffects = selfOnlyRow ? [] : flatCleanseEffects;
+    const rowTeleportEffects = selfOnlyRow ? [] : [...flatTeleportEffects, ...rowTiered.filter(e => e.type === 'dsct.flatTeleport')];
 
     const body = row.querySelector(`.${DSTD}-target-body`);
     if (!body) continue;
     const actions = body.querySelector(`.${DSTD}-target-actions`) ?? body;
 
     for (const effect of fmEffects) {
-      if (!doFm) break;
+      if (!doFm || selfOnlyRow) break;
       const tierData = effect.forced?.[`tier${rowTier}`];
       if (!tierData) continue;
       const movementSet = tierData.movement instanceof Set ? tierData.movement : new Set(tierData.movement ?? []);
@@ -2604,7 +2640,12 @@ async function _injectFmButtons(message, root) {
     for (const effect of flatAppliedEffects) {
       const { statusId, display, potency } = effect.flatApplied;
       if (!statusId) continue;
+      const userKey = sourceToken ? sourceToken.document.uuid.replace(/./g, '__') : null;
+      const isUserRow = selfOnlyRow || (userKey && targetKey === userKey);
+      if (selfOnlyRow && !effect.flatApplied.exclusiveSelf) continue;
+      if (effect.flatApplied.exclusiveSelf && !isUserRow) continue;
       const statusEntry  = CONFIG.statusEffects.find(s => s.id === statusId);
+      const appliedInfo  = flatAppliedLabel(ability, statusId);
       const condStateKey = `${message.id}:${targetKey}:flatCond:${effect.id}`;
       if (actions.querySelector(`[data-dsct-flat-cond-key="${condStateKey}"]`)) continue;
 
@@ -2616,8 +2657,8 @@ async function _injectFmButtons(message, root) {
       const charVal    = charKey ? (_condTargetActor?.system?.characteristics?.[charKey]?.value ?? null) : null;
       const potencyTag = charAbbrev && charVal != null ? ` (${charAbbrev}: ${charVal})` : '';
 
-      const baseName   = statusEntry?.name || statusId;
-      const statusIconSrc = statusEntry?.img ?? statusEntry?.icon ?? null;
+      const baseName   = appliedInfo.name || statusEntry?.name || statusId;
+      const statusIconSrc = appliedInfo.img ?? statusEntry?.img ?? statusEntry?.icon ?? null;
       const applyLbl   = (display || `Apply ${baseName}`) + potencyTag;
       const _makeCondIcon = () => _makeStatusIcon(statusIconSrc);
 
@@ -2675,7 +2716,7 @@ async function _injectFmButtons(message, root) {
         const td    = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
         const actor = td?.actor ?? null;
         if (!actor) return;
-        await actor.toggleStatusEffect(statusId, { active: true });
+        await applyFlatAppliedEffect(actor, statusId, ability);
         condState = { applied: true };
         _flatCondState.set(condStateKey, condState);
         _syncCondRow();
@@ -2687,7 +2728,7 @@ async function _injectFmButtons(message, root) {
         const td    = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
         const actor = td?.actor ?? null;
         if (!actor) return;
-        await actor.toggleStatusEffect(statusId, { active: false });
+        await removeFlatAppliedEffect(actor, statusId);
         condState = { applied: false };
         _flatCondState.set(condStateKey, condState);
         _syncCondRow();
@@ -2962,6 +3003,7 @@ async function _injectFmButtons(message, root) {
     }
 
     for (const effect of flatResourceEffects) {
+      if (selfOnlyRow) break;
       const { amount, type, display } = effect.flatResource ?? {};
       if (!amount) continue;
 
