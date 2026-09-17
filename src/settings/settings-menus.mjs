@@ -715,6 +715,7 @@ export class HomeRulesSettingsMenu extends SettingsSubmenu {
       'cancelOnRightClick',
       'targetDistanceLines',
       'trueDrawSteelLos',
+      'greyscaleNoLos',
       header('Forced Movement'),
       'fallDamageCap',
       'cornerCutMode',

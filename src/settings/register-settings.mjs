@@ -1,5 +1,5 @@
 import { MATERIAL_RULE_DEFAULTS, WALL_RESTRICTION_DEFAULTS } from '../forced-movement/wall-builder.mjs';
-import { recheckCombatReveal } from '../conditions/combat-reveal.mjs';
+import { recheckCombatReveal, recheckNoLos } from '../conditions/combat-reveal.mjs';
 import { syncHiddenRule } from '../conditions/stealth.mjs';
 import { preloadStickbug } from '../squad-hud.mjs';
 import { InstallMacrosMenu, EnhancedAbilitiesMenu } from '../setup-macros.mjs';
@@ -189,6 +189,11 @@ export const registerSettings = () => {
   game.settings.register(M, 'cancelOnRightClick', {
     name: L('cancelOnRightClick.name'), hint: L('cancelOnRightClick.hint'),
     scope: 'client', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'greyscaleNoLos', {
+    name: L('greyscaleNoLos.name'), hint: L('greyscaleNoLos.hint'),
+    scope: 'client', config: false, type: Boolean, default: true,
+    onChange: () => recheckNoLos(),
   });
   game.settings.register(M, 'targetDistanceLines', {
     name: L('targetDistanceLines.name'), hint: L('targetDistanceLines.hint'),

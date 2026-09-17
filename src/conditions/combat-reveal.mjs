@@ -1,7 +1,9 @@
-import { getSetting } from '../helpers.mjs';
+import { getSetting, hasSightToToken } from '../helpers.mjs';
 import { hiddenFrom, HIDDEN } from './stealth.mjs';
 
 let _combatants = new Set();
+
+let _noLos = new Set();
 
 const _baked = new Map();
 
@@ -91,7 +93,9 @@ export function syncPositionGhost(token) {
   const mesh = token.mesh;
   if (!mesh || mesh.destroyed) return;
 
-  if (!token.dsctForcedVisible) {
+  const greyed = token.dsctForcedVisible || _noLos.has(token.id);
+
+  if (!greyed) {
     if (_live(mesh.dsctColourTexture)) {
       mesh.texture = mesh.dsctColourTexture;
       delete mesh.dsctColourTexture;
@@ -107,6 +111,31 @@ export function syncPositionGhost(token) {
 
   mesh.dsctColourTexture = source;
   mesh.texture = baked;
+}
+
+function _computeNoLos() {
+  const next = new Set();
+  if (!canvas.ready || !getSetting('greyscaleNoLos')) return next;
+
+  const viewers = (canvas.tokens?.controlled ?? []).filter(t => !t.document.hidden);
+  if (!viewers.length) return next;
+
+  for (const token of canvas.tokens?.placeables ?? []) {
+    if (viewers.includes(token)) continue;
+    if (token.document.hidden && !game.user.isGM) continue;
+    if (!viewers.some(v => hasSightToToken(v, token))) next.add(token.id);
+  }
+  return next;
+}
+
+const _sameSet = (a, b) => a.size === b.size && [...a].every(v => b.has(v));
+
+export function recheckNoLos() {
+  if (!canvas.ready) return;
+  const next = _computeNoLos();
+  if (_sameSet(next, _noLos)) return;
+  _noLos = next;
+  for (const token of canvas.tokens?.placeables ?? []) syncPositionGhost(token);
 }
 
 export function recheckCombatReveal() {
@@ -139,14 +168,22 @@ export function registerCombatReveal() {
     Hooks.on(hook, () => recheckCombatReveal());
   }
 
-  Hooks.on('canvasTearDown', _dropBaked);
-  Hooks.on('canvasReady', () => { _rebuild(); });
+  Hooks.on('canvasTearDown', () => { _noLos = new Set(); _dropBaked(); });
+  Hooks.on('canvasReady', () => { _rebuild(); _noLos = new Set(); recheckNoLos(); });
 
   
   
   
-  Hooks.on('dsct.stealthChanged', () => recheckCombatReveal());
-  Hooks.on('controlToken', () => recheckCombatReveal());
+  Hooks.on('dsct.stealthChanged', () => { recheckCombatReveal(); recheckNoLos(); });
+  Hooks.on('controlToken', () => { recheckCombatReveal(); recheckNoLos(); });
+
+  
+  Hooks.on('updateToken', (doc, changed) => {
+    if (['x', 'y', 'elevation', 'hidden', 'width', 'height'].some(k => k in changed)) recheckNoLos();
+  });
+  for (const hook of ['createWall', 'updateWall', 'deleteWall', 'createToken', 'deleteToken']) {
+    Hooks.on(hook, () => recheckNoLos());
+  }
   for (const hook of ['createActiveEffect', 'updateActiveEffect', 'deleteActiveEffect']) {
     Hooks.on(hook, (effect) => {
       if (effect?.statuses?.has?.(HIDDEN) || effect?.getFlag?.('draw-steel-combat-tools', 'hiddenFrom')) recheckCombatReveal();
