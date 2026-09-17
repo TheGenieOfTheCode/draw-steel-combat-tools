@@ -588,6 +588,18 @@
         "name": "Cover Bane",
         "hint": "Shows a Cover bane in the roll dialog for damage dealing abilities when the target has at least half their form blocked from you, meaning no corner of your space can see more than two corners of theirs. Like every modifier, it can be toggled off."
       },
+      "abilityTemplateConfigEnabled": {
+        "name": "Configure Ability Templates",
+        "hint": "Adds a Configure Template button to any ability with an area, where its colour, visibility, highlighting and region behaviours can be set once and reused every time that ability places its area. Owners can configure their own abilities without the Director."
+      },
+      "abilityTemplateCleanup": {
+        "name": "Clear Placed Areas",
+        "hint": "Removes an ability’s placed area once it has stopped mattering, rather than leaving it on the map. An area is cleared five seconds after it lands, or at the end of the turn if that comes first. Abilities marked Ongoing instead keep theirs until the chosen moment, tracked by a hidden effect on the one who placed it."
+      },
+      "abilityTemplateSeconds": {
+        "name": "Seconds Before Clearing",
+        "hint": "How long a placed area stays before it is cleared, when the ability is not marked Ongoing. The end of the turn still clears it sooner."
+      },
       "enforceAbilityRange": {
         "name": "Enforce Ability Range",
         "hint": "Prevents Ability Roll UI from opening if target is out of range."
@@ -1696,6 +1708,17 @@
       },
       "flatApplied": {
         "noEffect": "DSCT | That applied effect is no longer on the ability, so nothing was applied."
+      }
+    },
+    "templateLifetime": {
+      "effectName": "{name} (Area)",
+      "ongoing": {
+        "label": "Ongoing",
+        "hint": "Keeps this ability’s area on the map until the moment below, rather than clearing it shortly after it is placed."
+      },
+      "ends": {
+        "label": "Area Expiry",
+        "hint": "When an ongoing area is cleared."
       }
     },
     "button": {

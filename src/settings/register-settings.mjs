@@ -767,6 +767,18 @@ export const registerSettings = () => {
     name: L('gmBypassRangeEnforcement.name'), hint: L('gmBypassRangeEnforcement.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'abilityTemplateConfigEnabled', {
+    name: L('abilityTemplateConfigEnabled.name'), hint: L('abilityTemplateConfigEnabled.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'abilityTemplateCleanup', {
+    name: L('abilityTemplateCleanup.name'), hint: L('abilityTemplateCleanup.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'abilityTemplateSeconds', {
+    name: L('abilityTemplateSeconds.name'), hint: L('abilityTemplateSeconds.hint'),
+    scope: 'world', config: false, type: Number, default: 5,
+  });
   game.settings.register(M, 'intAnimals', { scope: 'world', config: false, type: Array, default: [] });
 
   game.settings.register(M, 'teleportEnabled', {

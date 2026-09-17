@@ -1,4 +1,5 @@
-import { getModuleApi, safeDelete } from '../helpers.mjs';
+import { getModuleApi, safeDelete, getSetting } from '../helpers.mjs';
+import { ONGOING, ENDS, defaultEnd, expiryOptions } from './template-lifetime.mjs';
 
 const M  = 'draw-steel-combat-tools';
 const DS = 'draw-steel';
@@ -73,9 +74,57 @@ async function _openTemplateConfig(item) {
   region.sheet.render(true);
 }
 
+
+function _injectLifetimeFields(app, root, item, typeGroup) {
+  if (!getSetting('abilityTemplateCleanup')) return;
+  if (app.isPlayMode) return;
+  if (root.querySelector('.dsct-template-lifetime')) return;
+
+  const ongoing = !!item.getFlag(M, ONGOING);
+  const end = item.getFlag(M, ENDS) || defaultEnd();
+  const locked = app.isEditable === false;
+
+  const options = expiryOptions()
+    .map(o => `<option value="${o.value}"${o.value === end ? ' selected' : ''}>${foundry.utils.escapeHTML(o.label)}</option>`)
+    .join('');
+
+  const holder = document.createElement('template');
+  holder.innerHTML = `
+    <div class="form-group dsct-template-lifetime">
+      <label>${game.i18n.localize('DSCT.templateLifetime.ongoing.label')}</label>
+      <div class="form-fields">
+        <input type="checkbox" class="dsct-template-ongoing"${ongoing ? ' checked' : ''}${locked ? ' disabled' : ''}>
+      </div>
+      <p class="hint">${game.i18n.localize('DSCT.templateLifetime.ongoing.hint')}</p>
+    </div>
+    <div class="form-group dsct-template-lifetime">
+      <label>${game.i18n.localize('DSCT.templateLifetime.ends.label')}</label>
+      <div class="form-fields">
+        <select class="dsct-template-ends"${(locked || !ongoing) ? ' disabled' : ''}>${options}</select>
+      </div>
+      <p class="hint">${game.i18n.localize('DSCT.templateLifetime.ends.hint')}</p>
+    </div>`;
+
+  const groups = [...holder.content.children];
+  (typeGroup.closest('fieldset') ?? typeGroup.parentElement).append(...groups);
+
+  const find = (selector) => groups.map(g => g.querySelector(selector)).find(Boolean) ?? null;
+  const select = find('.dsct-template-ends');
+  find('.dsct-template-ongoing')?.addEventListener('change', async (event) => {
+    const on = event.currentTarget.checked;
+    if (select) select.disabled = !on;
+    if (on) await item.setFlag(M, ONGOING, true);
+    else await item.update({ [`flags.${M}.-=${ONGOING}`]: null });
+  });
+
+  select?.addEventListener('change', (event) => {
+    item.setFlag(M, ENDS, event.currentTarget.value);
+  });
+}
+
 function _injectConfigButton(app, html) {
   const root = html instanceof HTMLElement ? html : html[0];
-  if (!root || root.querySelector('.dsct-template-config-btn-wrap')) return;
+  if (!root) return;
   if (!app.document?.isOwner) return;
 
   const item = app.document;
@@ -85,6 +134,11 @@ function _injectConfigButton(app, html) {
   if (!typeField) return;
   const typeGroup = typeField.closest('.form-group');
   if (!typeGroup) return;
+
+  _injectLifetimeFields(app, root, item, typeGroup);
+
+  if (!getSetting('abilityTemplateConfigEnabled')) return;
+  if (root.querySelector('.dsct-template-config-btn-wrap')) return;
 
   const wrap = document.createElement('div');
   wrap.className = 'dsct-template-config-btn-wrap';
@@ -106,7 +160,7 @@ function _registerPlaceRegionPatch() {
     'foundry.canvas.layers.RegionLayer.prototype.placeRegion',
     async function(wrapped, regionData, options) {
       const abilitySourceUuid = regionData?.flags?.[DS]?.abilitySource;
-      if (abilitySourceUuid) {
+      if (abilitySourceUuid && getSetting('abilityTemplateConfigEnabled')) {
         try {
           const item         = await fromUuid(abilitySourceUuid);
           const templateData = item?.getFlag(M, 'templateRegionData');
