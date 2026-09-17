@@ -754,7 +754,10 @@
       "from": {
         "label": "Hide from",
         "hint": "Every enemy you qualify against, or only the creatures the clicker has targeted.",
-        "choice": { "enemies": "Every enemy", "targets": "Targeted creatures" }
+        "choice": {
+          "enemies": "Every enemy",
+          "targets": "Targeted creatures"
+        }
       },
       "whileObserved": {
         "label": "Even while observed",
@@ -763,25 +766,48 @@
       "coverCounts": {
         "label": "Creatures count as cover",
         "hint": "Solid objects normally give cover; this lets creatures stand in for them while hiding.",
-        "choice": { "none": "Solid objects only", "allies": "Allies too", "creatures": "Any creature" }
+        "choice": {
+          "none": "Solid objects only",
+          "allies": "Allies too",
+          "creatures": "Any creature"
+        }
       },
       "display": {
         "label": "Button label",
         "hint": "Leave blank for Hide."
       },
-      "labelBits": { "targets": "targets", "observed": "while observed" },
+      "labelBits": {
+        "targets": "targets",
+        "observed": "while observed"
+      },
       "noToken": "No token on the scene for that creature.",
       "notOwner": "Only the creature's owner or the Director can hide it.",
       "nobody": "{name} has nobody to hide from here.",
       "hiddenFrom": "{name} is now hidden from {count} creature(s)."
     },
     "enhancedBadge": {
-      "enhanced": { "label": "Combat Tools Enhanced", "hint": "This ability comes from the Combat Tools compendium and is kept current by Add Enhanced Abilities." },
-      "available": { "label": "Enhancement Available", "hint": "The Combat Tools compendium carries an enhanced version of this ability; Add Enhanced Abilities can bring it in." },
-      "ignored": { "label": "Combat Tools Ignored", "hint": "Locked: Add Enhanced Abilities leaves this copy exactly as it is." },
-      "none": { "label": "No Enhancement", "hint": "Combat Tools has nothing to add to this ability." },
+      "enhanced": {
+        "label": "Combat Tools Enhanced",
+        "hint": "This ability comes from the Combat Tools compendium and is kept current by Add Enhanced Abilities."
+      },
+      "available": {
+        "label": "Enhancement Available",
+        "hint": "The Combat Tools compendium carries an enhanced version of this ability; Add Enhanced Abilities can bring it in."
+      },
+      "ignored": {
+        "label": "Combat Tools Ignored",
+        "hint": "Locked: Add Enhanced Abilities leaves this copy exactly as it is."
+      },
+      "none": {
+        "label": "No Enhancement",
+        "hint": "Combat Tools has nothing to add to this ability."
+      },
       "lockHint": "Click to lock it against the importer.",
-      "unlockHint": "Click to unlock it."
+      "unlockHint": "Click to unlock it.",
+      "automated": {
+        "label": "Combat Tools Automated",
+        "hint": "This ability carries Combat Tools effects, so its automation runs here even though the ability itself came from somewhere else."
+      }
     },
     "effectFlags": {
       "button": "Combat Tools flags",
@@ -792,7 +818,10 @@
       "values": "Accepted values",
       "apply": "Apply",
       "cancel": "Cancel",
-      "groups": { "stealth": "Stealth", "grab": "Grabbing" },
+      "groups": {
+        "stealth": "Stealth",
+        "grab": "Grabbing"
+      },
       "grab": {
         "maxGrabs": {
           "label": "Simultaneous grabs",
@@ -1070,6 +1099,23 @@
         },
         "Properties": {
           "ignoreSize": "Ignore Size"
+        }
+      },
+      "Resource": {
+        "gained": "Gained {amount} {resource}",
+        "undo": "Undo the gain",
+        "preApplied": {
+          "label": "Pre-Applied",
+          "hint": "Grant the resource the moment the ability is posted, rather than waiting for the button. It can still be undone."
+        },
+        "gainedMany": "Gained {amount} {resource} x{count}",
+        "recipient": {
+          "label": "Goes To",
+          "hint": "Who gains the resource. The user is the default, since most gains read \"you gain a surge\". Targets only works on heroes, who are the only ones with these pools."
+        },
+        "Recipient": {
+          "self": "The User",
+          "target": "Each Target"
         }
       }
     },
@@ -1566,8 +1612,8 @@
         "swapTooFar": "DSCT | {a} and {b} are {dist} squares apart, beyond the teleswap range of {max}.",
         "swapBlocked": "DSCT | Teleswap blocked: one of the two destinations is occupied.",
         "sourceNotFound": "DSCT | Source token not found.",
-      "needMover": "DSCT | Target the token that teleports, then press the button again.",
-      "undoNotInLog": "DSCT | Could not find the teleport undo button in the chat log.",
+        "needMover": "DSCT | Target the token that teleports, then press the button again.",
+        "undoNotInLog": "DSCT | Could not find the teleport undo button in the chat log.",
         "mustSelectOne": "DSCT | You must select exactly 1 token to teleport.",
         "noShiftTarget": "DSCT | No targeted token to teleport. Target a token first, then Shift+click.",
         "noValidBurst": "DSCT | Burst Teleport | No valid destinations for {name}.",
@@ -1612,6 +1658,14 @@
         "noTargets": "Target the creatures you want to be hidden from first.",
         "stoppedInView": "{name} stops here, in view of somebody they were hidden from.",
         "outOfCombat": "Hiding is a combat action. Start an encounter first."
+      },
+      "flatResource": {
+        "noActor": "DSCT | No actor to gain the resource. Select the token that used the ability.",
+        "gained": "{name}: {label}",
+        "noPool": "{name} has no pool for that resource, so nothing was gained."
+      },
+      "dstd": {
+        "noTargetUtils": "DSCT | Could not reach the Target Damage targeting helpers, so targets were not updated."
       }
     },
     "button": {

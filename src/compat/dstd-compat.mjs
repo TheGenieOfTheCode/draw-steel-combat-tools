@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank } from '../helpers.mjs';
-import { buildCleanseAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance } from '../ability-automation/flat-special-effects.mjs';
+import { buildCleanseAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
@@ -17,6 +17,7 @@ import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/
 const DSTD       = 'draw-steel-target-damage';
 const DSTD_PANEL = `section.${DSTD}-panel`;
 const DSTD_ROW   = `.${DSTD}-target-row[data-target-key]`;
+const PANEL_ANCHOR = 'dsct-panel-anchor';
 
 function _rowTargetDefeated(el) {
   const key = el?.closest(DSTD_ROW)?.dataset?.targetKey;
@@ -164,13 +165,17 @@ export function registerDstdCompat() {
     const root = html instanceof HTMLElement ? html : html?.[0];
     if (getSetting('debugMode')) console.log(`DSCT | DSTD compat | renderChatMessageHTML msgId=${message.id} hasPanel=${!!root?.querySelector(DSTD_PANEL)}`);
     if (!root) return;
+    
+    
+    try { _seedPanelAnchor(message, root); }
+    catch (err) { if (getSetting('debugMode')) console.warn('DSCT | panel anchor |', err); }
     const msgId = message.id;
     setTimeout(() => {
 
       const live = root.isConnected
         ? root
         : (root.ownerDocument.querySelector(`li.chat-message[data-message-id="${msgId}"]`) ?? root);
-      _injectFmButtons(message, live);
+      _injectFmButtons(message, live).catch(err => console.error('DSCT | DSTD compat | inject failed:', err));
       _injectMarkReminder(message, live);
     }, 0);
   });
@@ -316,7 +321,7 @@ function _makePanelCallback() {
     }
     for (const li of toInject) {
       const message = game.messages.get(li.dataset.messageId);
-      if (message) _injectFmButtons(message, li);
+      if (message) _injectFmButtons(message, li).catch(err => console.error('DSCT | DSTD compat | inject failed:', err));
     }
   };
 }
@@ -559,6 +564,42 @@ function _getMessageParts(message) {
   return Object.values(parts);
 }
 
+async function _restoreGainResource(message, root, ability, tier) {
+  if (!tier || !ability) return;
+  if (!document.body.classList.contains(`${DSTD}-hide-system`)) return;
+  const effects = ability.system?.power?.effects?.documentsByType?.resource ?? [];
+  if (!effects.length) return;
+
+  const section = root.querySelector(`section[data-message-part="${'abilityUse'.padEnd(16, '0')}"]`);
+  if (!section) return;
+  let footer = section.querySelector('footer.message-part-buttons');
+  if (!footer) {
+    footer = document.createElement('footer');
+    footer.className = 'message-part-buttons';
+    section.appendChild(footer);
+  }
+
+  for (const effect of effects) {
+    const { amount, type } = effect.resource?.[`tier${tier}`] ?? {};
+    if (!amount || !type) continue;
+    const key = `dsct-gain-${effect.id}`;
+    if (footer.querySelector(`[data-dsct-gain="${key}"]`)) continue;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'dsct-flat-resource-btn';
+    btn.dataset.dsctGain = key;
+    btn.innerHTML = `<i class="fa-solid fa-bolt"></i> ${effect.constructButtons(tier)?.[0]?.textContent?.trim() ?? `${amount} ${type}`}`;
+    btn.addEventListener('click', async () => {
+      const live = await fromUuid(effect.uuid).catch(() => null);
+      if (!live?.applyGain) return;
+      try { await live.applyGain(`tier${tier}`); }
+      catch (err) { ui.notifications.warn(err.message); }
+    });
+    footer.appendChild(btn);
+  }
+}
+
 export function _effectiveRowTier(message, targetKey, tokenUuid, fallbackTier) {
   const ov = foundry.utils.getProperty(message.flags, `${DSTD}.state.tierOverrides.${targetKey}`);
   const ovTier = Number(ov?.tier);
@@ -586,6 +627,38 @@ function _getMessageTier(message) {
   return null;
 }
 
+function _seedPanelAnchor(message, root) {
+  if (!getSetting('flatEffectsEnabled')) return;
+  if (root.querySelector(DSTD_PANEL)) return;
+  if (message.getFlag(DSTD, 'state')) return;
+  if (root.querySelector(`.${PANEL_ANCHOR}`)) return;
+
+  const abilityUuid = _getMessageParts(message).find(p => p.abilityUuid)?.abilityUuid;
+  if (!abilityUuid) return;
+  const ability = fromUuidSync(abilityUuid);
+  const effects = ability?.system?.effects?.contents ?? [];
+  if (!effects.some(e => String(e?.type ?? '').startsWith('dsct.'))) return;
+
+  const anchor = document.createElement('a');
+  anchor.className = `roll-link ${PANEL_ANCHOR}`;
+  anchor.dataset.type = 'custom';
+  anchor.dataset.uuid = PANEL_ANCHOR;
+  anchor.hidden = true;
+  anchor.style.display = 'none';
+
+  const section = root.querySelector(`section[data-message-part="${'abilityUse'.padEnd(16, '0')}"]`)
+    ?? root.querySelector('.message-content')
+    ?? root;
+  section.appendChild(anchor);
+}
+
+function _hideAnchorRows(panel) {
+  for (const btn of panel.querySelectorAll(`[data-effect-id="${PANEL_ANCHOR}"]`)) {
+    const row = btn.closest(`.${DSTD}-action-row`);
+    if (row) row.remove();
+  }
+}
+
 function _injectMarkReminder(message, live) {
   if (!message.getFlag(M, 'markReminder')) return;
   const panel = live.querySelector(DSTD_PANEL);
@@ -593,6 +666,18 @@ function _injectMarkReminder(message, live) {
   for (const row of panel.querySelectorAll(`.${DSTD}-status-row`)) {
     row.style.display = 'none';
   }
+}
+
+function _syncResourceRow({ resRow, resBtn, undoBtn, label, compact }, state) {
+  const applied = !!state?.applied;
+  resBtn.disabled = applied;
+  resRow.classList.toggle('is-applied', applied);
+  if (compact) resBtn.dataset.dsctCompact = compact;
+  const text = applied ? resourceAppliedLabel(state) : label;
+  resBtn.dataset.tooltip = text;
+  const span = resBtn.querySelector('span');
+  if (span) span.textContent = text;
+  undoBtn.disabled = !applied;
 }
 
 function _syncTeleportRow({ tpRow, tpBtn, undoBtn, label }, state) {
@@ -903,10 +988,77 @@ function _installAreaDamageHook(panel, message) {
   }, { capture: true });
 }
 
-async function _buildSyntheticFlatPanel(message, root, storedTargets) {
+const _dstdLoc = (key, data) => {
+  const full = `DSTD.${key}`;
+  const out = data ? game.i18n.format(full, data) : game.i18n.localize(full);
+  return out === full ? null : out;
+};
+
+async function _updateSyntheticTargets(message) {
+  let collect = null;
+  try {
+    ({ collectCurrentTargets: collect } = await import('/modules/draw-steel-target-damage/src/target-utils.mjs'));
+  } catch { collect = null; }
+  if (!collect) { ui.notifications.warn(game.i18n.localize('DSCT.notice.dstd.noTargetUtils')); return; }
+  const targets = collect();
+  if (!targets.length) { ui.notifications.warn(game.i18n.localize('DSCT.notice.noTargets')); return; }
+  await message.update({ [`flags.${DSTD}.state.targets`]: targets });
+}
+
+function _buildSyntheticHeader(message, ability) {
+  const title = _dstdLoc('Chat.TargetPanelTitle');
+  if (!title) return null;
+
+  const header = document.createElement('header');
+  header.className = `${DSTD}-header`;
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = `${DSTD}-header-text`;
+  const strong = document.createElement('strong');
+  strong.textContent = title;
+  titleWrap.appendChild(strong);
+
+  const name = (message.getFlag(DSTD, 'state') ?? {}).sourceActorName
+    ?? ability?.actor?.name
+    ?? game.users.get(message.author?.id)?.name
+    ?? '';
+  const line = _dstdLoc('Chat.TargetingLine', { name });
+  if (line) {
+    const span = document.createElement('span');
+    span.textContent = line;
+    titleWrap.appendChild(span);
+  }
+  header.appendChild(titleWrap);
+
+  
+  
+  const label = _dstdLoc('Chat.UpdateTargets');
+  if (label && message.getFlag(DSTD, 'state') && message.isOwner) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `${DSTD}-icon-button ${DSTD}-update-targets`;
+    btn.dataset.dsctUpdateTargets = '1';
+    btn.dataset.tooltip = label;
+    btn.append(_makeIcon('fa-solid fa-bullseye'), _makeSpan(label));
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      btn.disabled = true;
+      try { await _updateSyntheticTargets(message); }
+      finally { btn.disabled = false; }
+    });
+    header.appendChild(btn);
+  }
+
+  return header;
+}
+
+async function _buildSyntheticFlatPanel(message, root, storedTargets, { allowEmpty = false, ability = null } = {}) {
   const panel = document.createElement('section');
   panel.className = `${DSTD}-panel`;
   panel.dataset.messageId = message.id;
+
+  const header = _buildSyntheticHeader(message, ability);
+  if (header) panel.appendChild(header);
 
   const list = document.createElement('div');
   list.className = `${DSTD}-target-list`;
@@ -941,7 +1093,7 @@ async function _buildSyntheticFlatPanel(message, root, storedTargets) {
     list.append(row);
   }
 
-  if (!list.children.length) return null;
+  if (!list.children.length && !allowEmpty) return null;
   panel.append(list);
 
   const footer = root.querySelector('footer.message-part-buttons');
@@ -952,6 +1104,23 @@ async function _buildSyntheticFlatPanel(message, root, storedTargets) {
 }
 
 const _soloCollapsed = new Set();
+
+const _COMPACT_VERBS = /^(?:apply|applied|applying|deal|deals|gain|gained|undo)\s*:?\s+/i;
+
+function _compactText(text) {
+  return String(text ?? '')
+    .replace(_COMPACT_VERBS, '')
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .trim();
+}
+
+function _compactify(button, applied) {
+  if (applied) return;
+  const span = button.querySelector('span');
+  if (!span) return;
+  const short = button.dataset.dsctCompact || _compactText(span.textContent);
+  if (short) span.textContent = short;
+}
 
 function _allowSoloCollapse(message, panel) {
   const rows = panel.querySelectorAll(`.${DSTD}-target-row[data-target-key]`);
@@ -971,9 +1140,16 @@ function _allowSoloCollapse(message, panel) {
     const source = row.querySelector(`.${DSTD}-target-body .${DSTD}-action-button`);
     const toggle = head.querySelector(`.${DSTD}-target-toggle`);
     if (source && toggle) {
+      
+      
+      const sourceRow = source.closest(`.${DSTD}-action-row`);
+      const applied = !!sourceRow?.classList.contains('is-applied');
       const quick = source.cloneNode(true);
       quick.classList.remove(`${DSTD}-stretch-button`);
       quick.classList.add('dsct-solo-quick');
+      quick.classList.toggle('is-applied', applied);
+      quick.classList.toggle('is-undone', !!sourceRow?.classList.contains('is-undone'));
+      _compactify(quick, applied);
       head.insertBefore(quick, toggle);
     }
   }
@@ -998,6 +1174,7 @@ async function _injectFmButtons(message, root) {
   const panel = root?.querySelector(DSTD_PANEL);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons msgId=${message.id} hasPanel=${!!panel}`);
   if (panel) {
+    _hideAnchorRows(panel);
     _installAreaDamageHook(panel, message);
     _installUndoDeathHook(root);
     _installSquadHoverListeners(panel, message);
@@ -1050,7 +1227,7 @@ async function _injectFmButtons(message, root) {
   const flatCleanseEffects  = _flatOfType('dsct.flatCleanse');
   const flatTeleportEffects = _flatOfType('dsct.flatTeleport');
   const tieredTypes = _flatOn ? new Set(tieredEffectsOf(ability).map(e => e.type)) : new Set();
-  const doFlatEffects = flatDamageEffects.length > 0 || flatForcedEffects.length > 0 || flatAppliedEffects.length > 0 || flatHealEffects.length > 0 || flatCleanseEffects.length > 0
+  const doFlatEffects = flatDamageEffects.length > 0 || flatForcedEffects.length > 0 || flatAppliedEffects.length > 0 || flatHealEffects.length > 0 || flatCleanseEffects.length > 0 || flatResourceEffects.length > 0
     || flatTeleportEffects.length > 0
     || tieredTypes.has('dsctHeal') || tieredTypes.has('dsctTeleport');
 
@@ -1152,22 +1329,30 @@ async function _injectFmButtons(message, root) {
   const doPf         = holyRolls.length > 0;
 
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons fmEffects=${fmEffects.length} appliedEffects=${appliedEffects.length} tier=${tier} doFm=${doFm} doConditions=${doConditions} doMark=${doMark} doJudgement=${doJudgement} doPf=${doPf}`);
+  await _restoreGainResource(message, root, ability, tier);
+
   if (!doFm && !doConditions && !doPf && !doMark && !doJudgement && !descEnrichers.length && !doSquad && !doFlatEffects) return;
+
+  
+  
+  const selfOnlyFlat = flatResourceEffects.some(e => resourceJobs(e, message, ability).length > 0);
 
   let activePanel = panel;
   if (!activePanel) {
     const dstdTargets = (message.getFlag(DSTD, 'state') ?? {}).targets ?? [];
-    if (!dstdTargets.length) return;
     const storedKeys = dstdTargets.map(t => t.tokenUuid?.replace(/\./g, '__')).filter(Boolean);
-    if (!storedKeys.length) return;
-    activePanel = await _buildSyntheticFlatPanel(message, root, storedKeys);
+    if (!storedKeys.length && !selfOnlyFlat) return;
+    activePanel = await _buildSyntheticFlatPanel(message, root, storedKeys, { allowEmpty: selfOnlyFlat, ability });
     if (!activePanel) return;
   }
 
   if (doFlatEffects) {
     
     
-    for (const btn of root.querySelectorAll('.dsct-flat-damage-btn, .dsct-flat-forced-btn, .dsct-flat-applied-btn, .dsct-flat-heal-btn, .dsct-flat-cleanse-btn')) {
+    
+    
+    
+    for (const btn of root.querySelectorAll('.dsct-flat-damage-btn, .dsct-flat-forced-row, .dsct-flat-applied-btn, .dsct-flat-heal-btn, .dsct-flat-cleanse-btn, .dsct-flat-teleport-btn, .dsct-flat-resource-row')) {
       btn.hidden = true;
       const footer = btn.closest('footer.message-part-buttons');
       if (footer && [...footer.children].every(c => c.hidden)) footer.hidden = true;
@@ -1213,13 +1398,18 @@ async function _injectFmButtons(message, root) {
 
     const stHead = document.createElement('div');
     stHead.className = `${DSTD}-target-head`;
+    const selfActor = selfOnlyFlat && !flatDamageEffects.length && !flatForcedEffects.length
+      && !flatAppliedEffects.length && !flatHealEffects.length && !flatCleanseEffects.length
+      ? ability.actor : null;
+
     const stImg = document.createElement('img');
     stImg.className = `${DSTD}-portrait`;
-    stImg.src = 'icons/svg/target.svg';
-    stImg.alt = '';
+    stImg.src = selfActor?.prototypeToken?.texture?.src ?? selfActor?.img ?? 'icons/svg/target.svg';
+    stImg.alt = selfActor?.name ?? '';
     const stName = document.createElement('div');
     stName.className  = `${DSTD}-target-name`;
-    stName.textContent = game.i18n.localize('DSTD.Chat.SelectedToken') || 'Apply to Selected Token';
+    stName.textContent = selfActor?.name
+      ?? (game.i18n.localize('DSTD.Chat.SelectedToken') || 'Apply to Selected Token');
     stHead.append(stImg, stName);
 
     const stBody = document.createElement('div');
@@ -1266,8 +1456,10 @@ async function _injectFmButtons(message, root) {
       previewParts.push(previewText);
     }
     for (const effect of flatResourceEffects) {
-      const { amount: resAmt, type: resType } = effect.flatResource ?? {};
-      if (resAmt) previewParts.push(`${resAmt} ${resType ?? 'Surge'}${resAmt !== 1 ? 's' : ''}`);
+      const rv = effect.flatResource ?? {};
+      if (!rv.amount) continue;
+      if (rv.displayText) { previewParts.push(rv.displayText); continue; }
+      previewParts.push(rv.display || effect.label);
     }
     for (const effect of flatCleanseEffects) {
       previewParts.push(buildCleanseAutoLabel(effect.flatCleanse));
@@ -1301,14 +1493,22 @@ async function _injectFmButtons(message, root) {
           }
         }
       } else if (!activePanel.querySelector('.dsct-flat-preview')) {
-        const preview = document.createElement('p');
-        preview.className = 'dsct-flat-preview';
-        preview.style.cssText = 'padding: 0 0.5rem 0.25rem; margin: 0;';
         const rawText = previewParts.join('; ');
-        TextEditor.enrichHTML(rawText, { async: true }).then(html => { preview.innerHTML = html; }).catch(() => { preview.textContent = rawText; });
-        const dstdPanelHeader = activePanel.querySelector(`.${DSTD}-header`);
-        if (dstdPanelHeader) dstdPanelHeader.after(preview);
-        else activePanel.prepend(preview);
+        for (const previewRow of activePanel.querySelectorAll(DSTD_ROW)) {
+          const previewBody = previewRow.querySelector(`.${DSTD}-target-body`);
+          if (!previewBody) continue;
+          
+          const dl = document.createElement('dl');
+          dl.className = `${DSTD}-tier-result power-roll-display dsct-flat-preview`;
+          const dd = document.createElement('dd');
+          dd.className = `${DSTD}-tier-text`;
+          
+          dd.dataset.dsctFlatPreview = '1';
+          dd.textContent = rawText;
+          TextEditor.enrichHTML(rawText, { async: true }).then(html => { dd.innerHTML = html; }).catch(() => {});
+          dl.appendChild(dd);
+          previewBody.insertBefore(dl, previewBody.querySelector(`.${DSTD}-target-actions`));
+        }
       }
     }
   }
@@ -2531,6 +2731,7 @@ async function _injectFmButtons(message, root) {
       const appliedHealAmt = isApplied ? (cur.granted?.[netUsed - 1] ?? cur.healed?.[netUsed - 1] ?? null) : null;
       const healLabel = appliedHealAmt != null ? `Applied ${appliedHealAmt}` : applyLbl;
       healBtn.dataset.tooltip = healLabel;
+      healBtn.dataset.dsctCompact = `${appliedHealAmt ?? amountStr} ${tempStamina ? 'Temp' : 'Healing'}`;
       healBtn.disabled = isApplied;
       const healIcon = tempStamina ? 'fa-solid fa-shield-halved' : 'fa-solid fa-heart-pulse';
       healBtn.append(_makeIcon(healIcon), _makeSpan(healLabel));
@@ -2758,6 +2959,69 @@ async function _injectFmButtons(message, root) {
       });
 
       actions.appendChild(tpRow);
+    }
+
+    for (const effect of flatResourceEffects) {
+      const { amount, type, display } = effect.flatResource ?? {};
+      if (!amount) continue;
+
+      
+      
+      const toTarget = resourceRecipient(effect) === 'target';
+      const perRow = toTarget && targetKey !== 'selected-token';
+      if (!perRow && activePanel.querySelector('[data-dsct-flat-res-key]')) break;
+      const resKey = resourceFlagKey(effect, perRow ? targetKey : null);
+      if (actions.querySelector(`[data-dsct-flat-res-key="${resKey}"]`)) continue;
+
+      const resTargetActor = perRow ? _condTargetActor : null;
+
+      const resLabel = display || effect.label;
+
+      const resBtn = document.createElement('button');
+      resBtn.type = 'button';
+      resBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
+      resBtn.dataset.dsctFlatResKey = resKey;
+      resBtn.dataset.dsctCompact = resourceShortLabel({ amount, type });
+      resBtn.append(_makeIcon(resourceIcon(type)), _makeSpan(resLabel));
+
+      const undoResBtn = document.createElement('button');
+      undoResBtn.type = 'button';
+      undoResBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
+      undoResBtn.dataset.tooltip = game.i18n.localize('DSCT.FlatEffect.Resource.undo');
+      undoResBtn.append(_makeIcon('fa-solid fa-rotate-left'));
+
+      const resRow = document.createElement('div');
+      resRow.className = `${DSTD}-action-row`;
+      resRow.dataset.dsctFlatResKey = resKey;
+      resRow.append(resBtn, undoResBtn);
+
+      const resHandle = { resRow, resBtn, undoBtn: undoResBtn, label: resLabel, compact: resourceShortLabel({ amount, type }) };
+      _syncResourceRow(resHandle, message.getFlag(M, resKey) ?? null);
+
+      
+      
+      if (perRow && resTargetActor && !canGainResource(resTargetActor, type)) {
+        resBtn.disabled = true;
+        resBtn.dataset.tooltip = game.i18n.format('DSCT.notice.flatResource.noPool', { name: resTargetActor.name });
+      }
+
+      resBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (resBtn.disabled) return;
+        const state = await applyFlatResource(effect, ability, message, {
+          actors: perRow ? [resTargetActor].filter(Boolean) : null,
+          targetKey: perRow ? targetKey : null,
+        });
+        if (state) _syncResourceRow(resHandle, state);
+      });
+
+      undoResBtn.addEventListener('click', async (e) => {
+        e.stopPropagation(); e.preventDefault();
+        if (undoResBtn.disabled) return;
+        if (await undoFlatResource(effect, message, perRow ? targetKey : null)) _syncResourceRow(resHandle, null);
+      });
+
+      actions.appendChild(resRow);
     }
 
     for (const effect of rowCleanseEffects) {

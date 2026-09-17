@@ -74,6 +74,8 @@ function _registerPartials() {
       {{formGroup ctx.spend.value.field value=ctx.spend.value.src name="flatResource.spend.value" localize=true}}
     </div>
     {{formGroup ctx.display.field value=ctx.display.src name="flatResource.display" localize=true}}
+    {{formGroup ctx.recipient.field value=ctx.recipient.src name="flatResource.recipient" options=ctx.recipientOptions localize=true}}
+    {{formGroup ctx.preApplied.field value=ctx.preApplied.src name="flatResource.preApplied" localize=true}}
   `);
 
   Handlebars.registerPartial("dsct.flat-cleanse", `
@@ -394,6 +396,8 @@ class FlatResourceSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
           enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
           value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
         }),
+        recipient: new StringField({ required: false, blank: false, initial: "self", label: "DSCT.FlatEffect.Resource.recipient.label", hint: "DSCT.FlatEffect.Resource.recipient.hint" }),
+        preApplied: new BooleanField({ label: "DSCT.FlatEffect.Resource.preApplied.label", hint: "DSCT.FlatEffect.Resource.preApplied.hint" }),
       }),
     });
   }
@@ -423,6 +427,9 @@ class FlatResourceSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
         enabled: { field: this.schema.getField("flatResource.spend.enabled"), src: this._source.flatResource.spend.enabled },
         value:   { field: this.schema.getField("flatResource.spend.value"),   src: this._source.flatResource.spend.value },
       },
+      recipient: { field: this.schema.getField("flatResource.recipient"), src: this._source.flatResource.recipient },
+      recipientOptions: ["self", "target"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Resource.Recipient.${value}`) })),
+      preApplied: { field: this.schema.getField("flatResource.preApplied"), src: this._source.flatResource.preApplied },
     };
   }
 }
@@ -873,6 +880,208 @@ export function cleanseAutoLabel(flatCleanse) {
   });
 }
 
+const RESOURCE_PATHS = { surge: "hero.surges", heroic: "hero.primary.value", epic: "hero.epic.value" };
+
+export function resourceIcon(type) {
+  return type === "heroic" ? "fa-solid fa-bolt" : type === "epic" ? "fa-solid fa-crown" : "fa-solid fa-circle-bolt";
+}
+
+export const resourceRecipient = (effect) => effect?.flatResource?.recipient ?? "self";
+
+export const resourceFlagKey = (effect, targetKey = null) =>
+  (targetKey ? `fres_${effect.id}_${targetKey}` : `fres_${effect.id}`);
+
+export function resourceActorFor(item) {
+  const uuid = item?.actor?.uuid;
+  return (uuid ? fromUuidSync(uuid) : null) ?? canvas.tokens.controlled[0]?.actor ?? null;
+}
+
+export function canGainResource(actor, type) {
+  if (!actor) return false;
+  const path = RESOURCE_PATHS[type] ?? RESOURCE_PATHS.surge;
+  return foundry.utils.getProperty(actor.system ?? {}, path) !== undefined;
+}
+
+export function resourceShortLabel({ amount = 0, type = "surge" } = {}) {
+  let resource = type;
+  try {
+    const rt = ds.data.pseudoDocuments.powerRollEffects.GainResourcePowerRollEffect.resourceTypes;
+    resource = game.i18n.localize(`${rt[type]?.plural ?? ""}.${game.i18n.pluralRules.select(amount)}`);
+  } catch {  }
+  return `${amount} ${resource}`;
+}
+
+export function resourceAppliedLabel(state) {
+  const amount = state?.amount ?? 0;
+  const type = state?.type ?? "surge";
+  const resource = resourceShortLabel({ amount, type }).replace(/^\S+\s*/, "");
+  const count = (state?.actorUuids ?? (state?.actorUuid ? [state.actorUuid] : [])).length;
+  if (count > 1) return game.i18n.format("DSCT.FlatEffect.Resource.gainedMany", { amount, resource, count });
+  return game.i18n.format("DSCT.FlatEffect.Resource.gained", { amount, resource });
+}
+
+export async function applyFlatResource(effect, item, message, { actors = null, targetKey = null } = {}) {
+  const { amount, type, spend } = effect.flatResource ?? {};
+  if (!amount) return null;
+
+  let recipients = actors;
+  if (!recipients) {
+    recipients = resourceRecipient(effect) === "target"
+      ? resourceJobs(effect, message, item).flatMap(j => j.actors ?? [])
+      : [resourceActorFor(item)].filter(Boolean);
+  }
+  if (!recipients.length) {
+    ui.notifications.warn(game.i18n.localize(resourceRecipient(effect) === "target"
+      ? "DSCT.notice.noTargets"
+      : "DSCT.notice.flatResource.noActor"));
+    return null;
+  }
+
+  const eligible = recipients.filter(a => canGainResource(a, type));
+  for (const skipped of recipients.filter(a => !eligible.includes(a))) {
+    ui.notifications.warn(game.i18n.format("DSCT.notice.flatResource.noPool", { name: skipped.name }));
+  }
+  if (!eligible.length) return null;
+
+  
+  if (spend?.enabled) {
+    const spendKey = `flatSpend_${effect.id}`;
+    if (!message?.getFlag(MODULE_ID, spendKey)) {
+      const payer = resourceActorFor(item);
+      if (!await _spendResource(payer, spend.value || 1)) return null;
+      if (message) await message.setFlag(MODULE_ID, spendKey, true);
+    }
+  }
+
+  const path = RESOURCE_PATHS[type] ?? RESOURCE_PATHS.surge;
+  for (const actor of eligible) await actor.modifyTokenAttribute(path, amount, true, false);
+
+  const state = { applied: true, amount, type, actorUuids: eligible.map(a => a.uuid) };
+  if (message) await message.setFlag(MODULE_ID, resourceFlagKey(effect, targetKey), state);
+  return state;
+}
+
+export async function undoFlatResource(effect, message, targetKey = null) {
+  const key = resourceFlagKey(effect, targetKey);
+  const cur = message?.getFlag(MODULE_ID, key);
+  if (!cur?.applied) return false;
+  const path = RESOURCE_PATHS[cur.type] ?? RESOURCE_PATHS.surge;
+  
+  const uuids = cur.actorUuids ?? (cur.actorUuid ? [cur.actorUuid] : []);
+  for (const uuid of uuids) {
+    const doc = await fromUuid(uuid).catch(() => null);
+    const actor = doc?.actor ?? doc ?? null;
+    if (actor) await actor.modifyTokenAttribute(path, -(cur.amount ?? 0), true, false);
+  }
+  await message.setFlag(MODULE_ID, key, { ...cur, applied: false });
+  return true;
+}
+
+const _preApplying = new Set();
+
+function _shouldAutoApply(message) {
+  const author = message.author;
+  if (author?.active) return author.id === game.user.id;
+  return game.users.activeGM?.isSelf === true;
+}
+
+export async function runPreAppliedResources(flatEffects, item, message) {
+  if (!message) return;
+  for (const effect of flatEffects) {
+    if (effect.type !== "dsct.flatResource" || !effect.flatResource?.preApplied) continue;
+    if (!_shouldAutoApply(message)) continue;
+
+    
+    
+    const jobs = resourceJobs(effect, message, item);
+
+    for (const job of jobs) {
+      if (message.getFlag(MODULE_ID, resourceFlagKey(effect, job.targetKey))) continue;
+      const guard = `${message.id}:${resourceFlagKey(effect, job.targetKey)}`;
+      if (_preApplying.has(guard)) continue;
+      _preApplying.add(guard);
+      try { await applyFlatResource(effect, item, message, job); }
+      finally { _preApplying.delete(guard); }
+    }
+  }
+}
+
+const DSTD_ID = "draw-steel-target-damage";
+
+function _recordedTargets(message) {
+  const stored = message?.getFlag?.(DSTD_ID, "state")?.targets;
+  if (!Array.isArray(stored) || !stored.length) return null;
+  const jobs = [];
+  for (const entry of stored) {
+    const uuid = entry?.tokenUuid ?? entry?.actorUuid;
+    if (!uuid) continue;
+    const doc = fromUuidSync(uuid);
+    const actor = doc?.actor ?? doc ?? null;
+    if (!actor) continue;
+    jobs.push({ actors: [actor], targetKey: String(uuid).replace(/\./g, "__") });
+  }
+  return jobs.length ? jobs : null;
+}
+
+export function resourceJobs(effect, message = null, item = null) {
+  if (resourceRecipient(effect) !== "target") return [{ actors: null, targetKey: null }];
+
+  const jobs = _recordedTargets(message) ?? [...game.user.targets]
+    .filter(t => t.actor)
+    .map(t => ({ actors: [t.actor], targetKey: t.document.uuid.replace(/\./g, "__") }));
+  if (jobs.length) return jobs;
+
+  if (item?.system?.target?.type === "self") {
+    const actor = resourceActorFor(item);
+    if (actor) return [{ actors: [actor], targetKey: null }];
+  }
+  return [];
+}
+
+function _resourceStateFor(effect, message, item = null) {
+  const jobs = resourceJobs(effect, message, item);
+  if (!message || !jobs.length) return null;
+  const states = jobs.map(j => message.getFlag(MODULE_ID, resourceFlagKey(effect, j.targetKey))).filter(st => st?.applied);
+  
+  if (states.length !== jobs.length) return null;
+  return {
+    applied: true,
+    amount: states[0].amount,
+    type: states[0].type,
+    actorUuids: states.flatMap(st => st.actorUuids ?? (st.actorUuid ? [st.actorUuid] : [])),
+  };
+}
+
+function _buildResourceRow(effect, item, message) {
+  const { type, display, spend } = effect.flatResource;
+  const state = _resourceStateFor(effect, message, item);
+  const applied = !!state?.applied;
+  const spendSuffix = spend?.enabled ? ` ${game.i18n.format("DSCT.FlatEffect.spend.costSuffix", { cost: spend.value })}` : "";
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "dsct-flat-resource-btn";
+  btn.style.flex = "1 1 auto";
+  btn.dataset.effectId = effect.id;
+  btn.disabled = applied;
+  btn.innerHTML = `<i class="${resourceIcon(type)}"></i> ${applied ? resourceAppliedLabel(state) : (display || effect.label) + spendSuffix}`;
+
+  const undoBtn = document.createElement("button");
+  undoBtn.type = "button";
+  undoBtn.className = "dsct-flat-resource-undo-btn";
+  undoBtn.dataset.effectId = effect.id;
+  undoBtn.disabled = !applied;
+  undoBtn.title = game.i18n.localize("DSCT.FlatEffect.Resource.undo");
+  undoBtn.style.cssText = "flex:0 0 auto;width:2.25em;padding:0;display:flex;align-items:center;justify-content:center;";
+  undoBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i>';
+
+  const row = document.createElement("div");
+  row.className = "dsct-flat-resource-row";
+  row.style.cssText = "display:flex;gap:2px;";
+  row.append(btn, undoBtn);
+  return row;
+}
+
 function _buildCleanseButton(effect, item) {
   const { expiryFilter, statusFilter, repeatable, spend } = effect.flatCleanse;
   const label = buildCleanseAutoLabel(effect.flatCleanse);
@@ -1091,6 +1300,35 @@ export function addFlatEffectListeners(section, item, message) {
     });
   });
 
+  section.querySelectorAll(".dsct-flat-resource-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (btn.disabled) return;
+      const effect = item.system.effects.get(btn.dataset.effectId);
+      if (!effect) return;
+      const jobs = resourceJobs(effect, message, item);
+      if (!jobs.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
+      for (const job of jobs) {
+        if (message?.getFlag(MODULE_ID, resourceFlagKey(effect, job.targetKey))?.applied) continue;
+        await applyFlatResource(effect, item, message, job);
+      }
+      const state = _resourceStateFor(effect, message, item);
+      if (!state) return;
+      const names = (state.actorUuids ?? []).map(u => fromUuidSync(u)?.name).filter(Boolean).join(", ");
+      ui.notifications.info(game.i18n.format("DSCT.notice.flatResource.gained", {
+        name: names, label: resourceAppliedLabel(state),
+      }));
+    });
+  });
+
+  section.querySelectorAll(".dsct-flat-resource-undo-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (btn.disabled) return;
+      const effect = item.system.effects.get(btn.dataset.effectId);
+      if (!effect) return;
+      for (const job of resourceJobs(effect, message, item)) await undoFlatResource(effect, message, job.targetKey);
+    });
+  });
+
   section.querySelectorAll(".dsct-flat-cleanse-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       const targets = [...game.user.targets];
@@ -1177,7 +1415,8 @@ export function buildFlatEffectButtons(flatEffects, item, message) {
     return btn;
   });
   const teleButtons = flatEffects.filter(e => e.type === "dsct.flatTeleport").map(e => _buildTeleportButton(e, item, message));
-  return [...dmgButtons, ...fmRows, ...teleButtons, ...condButtons, ...healButtons, ...cleanseButtons];
+  const resourceButtons = flatEffects.filter(e => e.type === "dsct.flatResource").map(e => _buildResourceRow(e, item, message));
+  return [...dmgButtons, ...fmRows, ...teleButtons, ...condButtons, ...healButtons, ...cleanseButtons, ...resourceButtons];
 }
 
 function _installFlatEffectChatHook() {
@@ -1198,6 +1437,8 @@ function _installFlatEffectChatHook() {
 
     const partSection = html.querySelector(`section[data-message-part="${ABILITY_PART_ID}"]`);
     if (!partSection) return;
+
+    await runPreAppliedResources(flatEffects, item, message);
 
     const buttons = buildFlatEffectButtons(flatEffects, item, message);
     if (!buttons.length) return;
