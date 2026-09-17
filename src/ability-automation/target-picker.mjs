@@ -27,7 +27,15 @@ const _hidingDefeated = () => (game.user.getFlag(M, 'hideDefeated') ?? false) ==
 function _isSelfOnly(ability, view) {
   const target = view?.target ?? ability.system?.target;
   const distance = view?.distance ?? ability.system?.distance;
-  return target?.type === 'self' && distance?.type === 'self';
+  if (target?.type !== 'self' || distance?.type !== 'self') return false;
+
+  const keywords = view?.keywords ?? ability.system?.keywords;
+  if (keywords?.has?.('strike') ?? Array.from(keywords ?? []).includes('strike')) return false;
+
+  const powerEffects = ability.system?.power?.effects;
+  const damage = powerEffects?.documentsByType?.damage
+    ?? Array.from(powerEffects ?? []).filter(e => e?.type === 'damage');
+  return !damage?.length;
 }
 
 function _isPickerEligible(ability, view) {
