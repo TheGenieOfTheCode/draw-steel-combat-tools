@@ -2,12 +2,14 @@ import { registerRegionOpacityHooks } from './region-opacity.mjs';
 import { registerRegionVisibilityHooks } from './region-visibility.mjs';
 import { registerAbilityTemplateConfigHooks } from './ability-template-config.mjs';
 import { registerRegionEffectBehaviors } from './region-effects.mjs';
+import { registerTemplateLifetime } from './template-lifetime.mjs';
 
 Hooks.once('init', () => {
   registerRegionOpacityHooks();
   registerRegionVisibilityHooks();
   registerAbilityTemplateConfigHooks();
   registerRegionEffectBehaviors();
+  registerTemplateLifetime();
 });
 
 
