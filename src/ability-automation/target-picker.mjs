@@ -23,6 +23,13 @@ const _hidingDefeated = () => (game.user.getFlag(M, 'hideDefeated') ?? false) ==
 
 
 
+
+function _isSelfOnly(ability, view) {
+  const target = view?.target ?? ability.system?.target;
+  const distance = view?.distance ?? ability.system?.distance;
+  return target?.type === 'self' && distance?.type === 'self';
+}
+
 function _isPickerEligible(ability, view) {
   const target = view?.target ?? ability.system?.target;
   const keywords = view?.keywords ?? ability.system?.keywords;
@@ -640,6 +647,17 @@ export function checkAndRunTargetPicker(dialog) {
 
   if (!getSetting('abilityTargetingEnabled')) return null;
   const view = chooseTargeting(ability);
+
+  if (_isSelfOnly(ability, view)) {
+    const self = _getCasterToken(ability);
+    if (!self) return null;
+    if (game.user.targets.size === 1 && game.user.targets.first()?.id === self.id) return null;
+    _dsctPreTargeted.add(ability.uuid);
+    setFoundryTargets([self]);
+    ds.helpers.macros.rollItemMacro(ability.uuid);
+    return 'block';
+  }
+
   if (!_isPickerEligible(ability, view)) return null;
 
   const casterToken = _getCasterToken(ability);
