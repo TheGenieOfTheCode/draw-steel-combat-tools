@@ -14,20 +14,30 @@ async function _loadIndex() {
 
 export const isEnhancedLocked = (item) => !!item?.getFlag?.(M, LOCK);
 
+export function hasDsctEffects(item) {
+  const special = item?.system?.effects?.contents ?? [];
+  if (special.some(e => String(e?.type ?? '').startsWith('dsct'))) return true;
+  const power = item?.system?.power?.effects?.contents ?? [];
+  return power.some(e => String(e?.type ?? '').startsWith('dsct'));
+}
+
 export function enhancedState(item) {
   if (isEnhancedLocked(item)) return 'ignored';
   if (item.getFlag(M, 'enhanced')) return 'enhanced';
   const dsid = item.system?._dsid;
   if (dsid && _dsids?.has(dsid)) return 'available';
+  if (hasDsctEffects(item)) return 'automated';
   return 'none';
 }
 
-const _ICONS = { enhanced: 'fa-toolbox', available: 'fa-wand-magic-sparkles', ignored: 'fa-lock', none: 'fa-toolbox' };
+const _ICONS = { enhanced: 'fa-toolbox', available: 'fa-wand-magic-sparkles', ignored: 'fa-lock', automated: 'fa-gears', none: 'fa-toolbox' };
+
+const _TOGGLEABLE = new Set(['enhanced', 'available', 'ignored']);
 
 function _badge(item) {
   const state = enhancedState(item);
   const L = (k) => game.i18n.localize(`DSCT.enhancedBadge.${k}`);
-  const canToggle = state !== 'none' && item.isOwner;
+  const canToggle = _TOGGLEABLE.has(state) && item.isOwner;
   const a = document.createElement('a');
   a.className = `dsct-enh-bubble is-${state}${canToggle ? '' : ' is-static'}`;
   a.dataset.state = state;

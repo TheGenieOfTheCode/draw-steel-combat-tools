@@ -2457,6 +2457,8 @@ body .draw-steel-target-damage-panel.draw-steel-target-damage-single-target .dra
   flex: 1 1 auto;
 }
 
+body .draw-steel-target-damage-panel .dsct-solo-quick.is-applied { background: rgba(46, 204, 113, 0.18); }
+body .draw-steel-target-damage-panel .dsct-solo-quick.is-undone { background: rgba(128, 128, 128, 0.10); }
 body .draw-steel-target-damage-panel .dsct-solo-quick {
   flex: 0 0 auto;
   max-width: 45%;
@@ -2784,5 +2786,6 @@ details[open] > .dsct-search-section-hdr .dsct-search-chevron { transform: rotat
 .dsct-enh-bubble.is-enhanced { border-color: rgba(46, 204, 113, 0.7); background: rgba(46, 204, 113, 0.22); color: #2ecc71; }
 .dsct-enh-bubble.is-available { border-color: rgba(224, 168, 15, 0.7); background: rgba(224, 168, 15, 0.22); color: #e0a80f; }
 .dsct-enh-bubble.is-ignored { border-color: rgba(214, 88, 88, 0.7); background: rgba(214, 88, 88, 0.22); color: #d65858; }
+.dsct-enh-bubble.is-automated { border-color: rgba(90, 160, 220, 0.7); background: rgba(90, 160, 220, 0.22); color: #5aa0dc; }
 .dsct-enh-bubble.is-none { opacity: 0.4; }
 .dsct-enh-bubble:not(.is-static):hover { filter: brightness(1.25); }
