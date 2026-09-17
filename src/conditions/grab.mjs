@@ -1,4 +1,4 @@
-import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride } from '../helpers.mjs';
+import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
 import { stackedPrompt } from '../ability-automation/stacked-prompt.mjs';
@@ -625,6 +625,8 @@ function _checkAbilityRange(dialog) {
   const keywords = view?.keywords ?? ability.system?.keywords;
   if (keywords?.has('area')) return null;
   if (ability.system?.type === 'triggered') return null;
+  
+  if (isSelfAndSelf(ability, view)) return null;
 
   const _actor = ability.actor ?? ability.parent;
   if (_actor?.system?.isMinion && ability.system?.category === 'signature') return null;

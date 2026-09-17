@@ -307,6 +307,7 @@ export function registerChooseEffect() {
   _registerDamageRollFilter();
   _registerRollSuppression();
   _registerPreviewOverride();
+  _registerTemplateOverride();
 }
 
 const _chosen = new Map();
@@ -647,6 +648,7 @@ function _registerChooseMessageHooks() {
   Hooks.on('renderChatMessageHTML', (message, html) => {
     try {
       _applyToCard(message, html);
+      _armTemplate(message, html);
     } catch (err) {
       console.warn('DSCT | Choose | applying choice to card failed:', err);
     }
@@ -724,6 +726,75 @@ function _rewriteDstdTierText(message, panel) {
     const cell = result.querySelector(`dd.${DSTD_ID}-tier-text`);
     if (cell) cell.innerHTML = kept.map(e => e.toText(tier)).filter(Boolean).join('; ');
   }
+}
+
+const DISTANCE_FIELDS = ['primary', 'secondary', 'tertiary'];
+
+const _armedTemplates = new Map();
+
+function _armTemplate(message, html) {
+  const picks = message.getFlag(M, FLAG);
+  if (!picks || !Object.keys(picks).length) return;
+
+  const part = _abilityUsePart(message);
+  const uuid = part?.part?.abilityUuid;
+  if (!uuid) return;
+
+  for (const button of html.querySelectorAll('[data-action="placeTemplate"]')) {
+    button.addEventListener('click', () => {
+      const item = fromUuidSync(uuid);
+      if (item) _armedTemplates.set(uuid, resolveChoice(item, picks).distance);
+    }, { capture: true });
+  }
+}
+
+const _asNumber = (value, item) => {
+  if (typeof value === 'number') return value;
+  if (value === null || value === undefined || value === '') return value;
+  const evaluate = ds.utils?.evaluateFormula;
+  if (typeof evaluate !== 'function') return Number(value);
+  try {
+    return evaluate(String(value), item.parent?.getRollData?.() ?? {}, { contextName: item.parent?.uuid });
+  } catch {
+    return Number(value);
+  }
+};
+
+function _onPlaceTemplate(wrapped, ...args) {
+  const chosen = _armedTemplates.get(this.parent?.uuid);
+  if (!chosen) return wrapped(...args);
+  _armedTemplates.delete(this.parent.uuid);
+
+  const before = { type: this.distance.type };
+  for (const field of DISTANCE_FIELDS) before[field] = this.distance[field];
+
+  if (chosen.type) this.distance.type = chosen.type;
+  for (const field of DISTANCE_FIELDS) {
+    if (chosen[field] !== undefined && chosen[field] !== '') this.distance[field] = _asNumber(chosen[field], this);
+  }
+
+  try {
+    return wrapped(...args);
+  } finally {
+    Object.assign(this.distance, before);
+  }
+}
+
+function _registerTemplateOverride() {
+  const path = 'CONFIG.Item.dataModels.ability.prototype.placeTemplate';
+  if (game.modules.get('lib-wrapper')?.active) {
+    libWrapper.register(M, path, _onPlaceTemplate, 'WRAPPER');
+    return;
+  }
+  const proto = CONFIG.Item?.dataModels?.ability?.prototype;
+  const original = proto?.placeTemplate;
+  if (typeof original !== 'function') {
+    console.warn('DSCT | Choose | placeTemplate unavailable, a chosen area is not placed');
+    return;
+  }
+  proto.placeTemplate = function (...args) {
+    return _onPlaceTemplate.call(this, original.bind(this), ...args);
+  };
 }
 
 function _registerDamageRollFilter() {

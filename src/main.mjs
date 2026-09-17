@@ -58,12 +58,14 @@ import { registerLineOfEffectFlags, registerCoverImmunity } from './conditions/l
 import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
 import { registerEnhancedBadge } from './enhanced-badge.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
+import { stackedPrompt } from './ability-automation/stacked-prompt.mjs';
 
 const api = {
   forcedMovement:   runForcedMovement,
   bypassNextFmGate: bypassNextFmGate,
   colorTokenPicker: runColoredTokenPicker,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
+  stackedPrompt:    stackedPrompt,
   stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits, search: runSearch },
   stealthPanel:     toggleStealthPanel,
   sight:            { hasCover, visibleTargetCorners, hasSightTo: hasSightToToken },

@@ -1064,6 +1064,12 @@ export const MULTI_GRAB_LIMITS = {
   'ribcage-chomp': 4,
 };
 
+export const isSelfAndSelf = (ability, view = null) => {
+  const target = view?.target ?? ability?.system?.target;
+  const distance = view?.distance ?? ability?.system?.distance;
+  return target?.type === 'self' && distance?.type === 'self';
+};
+
 export const getItemRange = (item, distanceOverride = null) => {
   const dist = distanceOverride ?? item.system?.distance;
   if (!dist) return 0;

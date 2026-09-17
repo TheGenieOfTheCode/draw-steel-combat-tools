@@ -1,4 +1,4 @@
-import { getSetting, tokFootprintDist, getItemRange, hasSightToToken } from '../helpers.mjs';
+import { getSetting, tokFootprintDist, getItemRange, hasSightToToken, isSelfAndSelf } from '../helpers.mjs';
 import { chooseTargeting } from './choose-effect.mjs';
 import { isHiddenFrom } from '../conditions/stealth.mjs';
 import { burrowBlocksLineOfEffect } from '../conditions/burrow.mjs';
@@ -25,9 +25,7 @@ const _hidingDefeated = () => (game.user.getFlag(M, 'hideDefeated') ?? false) ==
 
 
 function _isSelfOnly(ability, view) {
-  const target = view?.target ?? ability.system?.target;
-  const distance = view?.distance ?? ability.system?.distance;
-  if (target?.type !== 'self' || distance?.type !== 'self') return false;
+  if (!isSelfAndSelf(ability, view)) return false;
 
   const keywords = view?.keywords ?? ability.system?.keywords;
   if (keywords?.has?.('strike') ?? Array.from(keywords ?? []).includes('strike')) return false;

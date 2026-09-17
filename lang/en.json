@@ -931,7 +931,8 @@
       "dsct": "Combat Tools",
       "dsctFlat": "Combat Tools: Flat Effects",
       "dsctTiered": "Combat Tools: Power Roll Effects",
-      "dsd": "Dealer"
+      "dsd": "Dealer",
+      "gsk": "Gunslinger Kits"
     },
     "TieredEffect": {
       "enabled": {
