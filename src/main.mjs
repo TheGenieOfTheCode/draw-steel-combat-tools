@@ -200,7 +200,11 @@ Hooks.once('init', () => {
   registerDstdDamagePills();
   registerHealthEstimateCompat();
   registerAbilityHudCompat();
-  import('./test-features.mjs').then(m => { m.registerTestFeaturesSettings(); m.registerTestFeatureHooks(); }).catch(() => {});
+  
+  
+  if (game.modules.get('draw-steel-combat-tools')?.flags?.['draw-steel-combat-tools']?.testFeatures) {
+    import('./test-features.mjs').then(m => { m.registerTestFeaturesSettings(); m.registerTestFeatureHooks(); }).catch(() => {});
+  }
   console.log('DSCT | Initialized');
 
   game.keybindings.register('draw-steel-combat-tools', 'refreshChatInjections', {
