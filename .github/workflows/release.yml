@@ -30,7 +30,7 @@ jobs:
           jq \
             --arg version "${{ steps.version.outputs.version }}" \
             --arg download "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ env.MODULE_ID }}.zip" \
-            '.version = $version | .download = $download | del(.documentTypes) | .flags["draw-steel-combat-tools"].testFeatures = false | .esmodules = [.esmodules[] | select(. != "src/regions/index.mjs")]' \
+            '.version = $version | .download = $download | .flags["draw-steel-combat-tools"].testFeatures = false' \
             module.json > module.json.tmp && mv module.json.tmp module.json
 
       - name: Create module zip
@@ -44,8 +44,7 @@ jobs:
             lang/ \
             assets/ \
             templates/ \
-            packs/ \
-            -x 'src/regions/*'
+            packs/
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
