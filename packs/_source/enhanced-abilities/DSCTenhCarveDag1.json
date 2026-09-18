@@ -1,0 +1,247 @@
+{
+ "name": "Carving Dagger",
+ "type": "ability",
+ "img": "icons/skills/melee/strike-polearm-glowing-white.webp",
+ "system": {
+  "type": "main",
+  "category": "signature",
+  "keywords": [
+   "ranged",
+   "strike",
+   "weapon"
+  ],
+  "distance": {
+   "type": "ranged",
+   "primary": "8",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "target": {
+   "type": "creatureObject",
+   "value": 2,
+   "custom": ""
+  },
+  "damageDisplay": "melee",
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [
+     "might"
+    ],
+    "reactive": false
+   },
+   "effects": {
+    "UDsHlK9Mq2X3mepB": {
+     "_id": "UDsHlK9Mq2X3mepB",
+     "type": "damage",
+     "name": "",
+     "img": null,
+     "damage": {
+      "tier1": {
+       "value": "7",
+       "types": [],
+       "potency": {
+        "value": "@potency.weak",
+        "characteristic": "none"
+       },
+       "ignoredImmunities": []
+      },
+      "tier2": {
+       "value": "11",
+       "types": [],
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": ""
+       },
+       "ignoredImmunities": []
+      },
+      "tier3": {
+       "value": "14",
+       "types": [],
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": ""
+       },
+       "ignoredImmunities": []
+      }
+     },
+     "sort": 0
+    },
+    "N7TSQDSkn5Z3pcAY": {
+     "_id": "N7TSQDSkn5Z3pcAY",
+     "type": "applied",
+     "name": "Bleeding",
+     "img": null,
+     "applied": {
+      "tier1": {
+       "display": "{{potency}} bleeding (save ends)",
+       "potency": {
+        "value": "@potency.weak",
+        "characteristic": "might"
+       },
+       "effects": {
+        "bleeding": {
+         "condition": "failure",
+         "end": "save",
+         "properties": []
+        }
+       }
+      },
+      "tier2": {
+       "display": "",
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": "might"
+       },
+       "effects": {
+        "bleeding": {
+         "condition": "failure",
+         "end": "save",
+         "properties": []
+        }
+       }
+      },
+      "tier3": {
+       "display": "",
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": "might"
+       },
+       "effects": {
+        "bleeding": {
+         "condition": "failure",
+         "end": "save",
+         "properties": []
+        }
+       }
+      }
+     },
+     "sort": 0
+    }
+   }
+  },
+  "source": {
+   "book": "Monsters",
+   "license": "Draw Steel Creator License",
+   "page": "54"
+  },
+  "_dsid": "carving-dagger",
+  "story": "",
+  "resource": null,
+  "trigger": "",
+  "effects": {
+   "after00000000000": {
+    "_id": "after00000000000",
+    "type": "base",
+    "description": "<p>While bleeding this way, the target can't hide from the sneak or their allies.</p>",
+    "name": "",
+    "img": null,
+    "sort": 0,
+    "before": false
+   },
+   "dsctNote00000001": {
+    "_id": "dsctNote00000001",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 100000,
+    "before": false,
+    "description": "<p><strong>Combat Tools:</strong> The target is barred from hiding while it bleeds. The book stops it hiding from the sneak and their allies only; this stops it hiding from anyone, so take the effect off if that matters.</p>"
+   },
+   "dsctApplied000001": {
+    "_id": "dsctApplied000001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctCarveDagger1",
+     "exclusiveSelf": false,
+     "end": "turn",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     },
+     "display": "Cannot Hide"
+    }
+   }
+  },
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [
+  {
+   "name": "Carving Dagger",
+   "img": "icons/skills/melee/strike-polearm-glowing-white.webp",
+   "type": "base",
+   "_id": "dsctCarveDagger1",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.cannotHide",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "turnEnd",
+    "expired": false
+   },
+   "description": "<p>The target is barred from hiding while it bleeds. The book stops it hiding from the sneak and their allies only; this stops it hiding from anyone, so take the effect off if that matters.</p><p><em>Draw Steel: Monsters p. 54.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhCarveDag1.dsctCarveDagger1"
+  }
+ ],
+ "folder": "DSCTfldBugbears1",
+ "sort": 0,
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.365",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "lastModifiedBy": null,
+  "modifiedTime": null,
+  "createdTime": 1779886286188
+ },
+ "_id": "DSCTenhCarveDag1",
+ "ownership": {
+  "default": 0
+ },
+ "_key": "!items!DSCTenhCarveDag1"
+}

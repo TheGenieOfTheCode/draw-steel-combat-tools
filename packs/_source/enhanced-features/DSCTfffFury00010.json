@@ -1,10 +1,10 @@
 {
  "type": "Item",
- "folder": "DSCTfffFury0001",
- "name": "Stormwight Kits",
+ "folder": "DSCTfffHeroes010",
+ "name": "Fury",
  "color": null,
  "sorting": "m",
- "_id": "DSCTfffFuryKit1",
+ "_id": "DSCTfffFury00010",
  "description": "",
  "sort": 1000,
  "flags": {},
@@ -18,5 +18,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!folders!DSCTfffFuryKit1"
+ "_key": "!folders!DSCTfffFury00010"
 }

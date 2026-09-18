@@ -22,6 +22,9 @@ export function stealthTraits(subject) {
     coverCounts: '',
     maintain: '',
     cannotBeHiddenFrom: [],
+    cannotHide: false,
+    ignoresConcealmentBane: false,
+    concealmentBaneDoubled: false,
     any: false,
   };
   const f = _actorOf(subject)?.flags?.[M]?.[TRAIT_KEY];
@@ -35,11 +38,17 @@ export function stealthTraits(subject) {
   else if (on(f.alliesAreCover)) out.coverCounts = 'allies';
   if (on(f.staysHiddenAnywhere)) out.maintain = 'always';
   if (on(f.cannotBeHiddenFrom)) out.cannotBeHiddenFrom.push(Math.max(0, Number(f.cannotBeHiddenRange) || 0));
+  if (on(f.cannotHide)) out.cannotHide = true;
+  if (on(f.ignoresConcealmentBane)) out.ignoresConcealmentBane = true;
+  if (on(f.concealmentBaneDoubled)) out.concealmentBaneDoubled = true;
 
   out.any = out.hideWhileObserved || out.keepsHidden || out.movementKeeps.size > 0
-    || !!out.coverCounts || !!out.maintain || out.cannotBeHiddenFrom.length > 0;
+    || !!out.coverCounts || !!out.maintain || out.cannotBeHiddenFrom.length > 0
+    || out.cannotHide || out.ignoresConcealmentBane || out.concealmentBaneDoubled;
   return out;
 }
+
+export const forbiddenToHide = (subject) => stealthTraits(subject).cannotHide;
 
 export function observerBlocksHiding(observer, hider) {
   const ranges = stealthTraits(observer).cannotBeHiddenFrom;
@@ -112,6 +121,7 @@ export function coverCountingCreatures(observer, hider, mode) {
 const FLAGS = [
   'hideWhileObserved', 'keepsHidden', 'moveFreely', 'moveThroughOccupied',
   'alliesAreCover', 'creaturesAreCover', 'staysHiddenAnywhere', 'cannotBeHiddenFrom',
+  'cannotHide', 'ignoresConcealmentBane', 'concealmentBaneDoubled',
 ];
 
 export function registerStealthTraits() {

@@ -1,0 +1,159 @@
+{
+ "folder": "DSCTfldTroubL030",
+ "name": "“Fire Up the Night”",
+ "type": "ability",
+ "_id": "DSCTenhFireUpNt1",
+ "img": "icons/magic/light/torch-fire-orange.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "209",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "fire-up-the-night",
+  "story": "\"Maybe you and I ~ We can still bring the light! ~\"",
+  "keywords": [
+   "area",
+   "magic",
+   "performance"
+  ],
+  "type": "none",
+  "category": "",
+  "resource": null,
+  "trigger": "",
+  "distance": {
+   "type": "aura",
+   "primary": "5",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "selfAlly",
+   "value": null,
+   "custom": ""
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "prerequisites": {
+   "dsid": [
+    "virtuoso"
+   ],
+   "value": "",
+   "level": null
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "description": "<p>While this performance is active, each target who starts their turn in the area doesn’t take a bane on strikes against creatures with concealment. Once during their turn, they can search for hidden creatures as a free maneuver</p>",
+    "before": true,
+    "name": "",
+    "img": null,
+    "sort": 0
+   },
+   "dsctNote00000001": {
+    "_id": "dsctNote00000001",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 100000,
+    "before": false,
+    "description": "<p><strong>Combat Tools:</strong> Each target ignores the concealment bane. The book keeps it running while the performance does and refreshes it on each of their turns, so reapply it as the performance continues. Searching as a free maneuver stays yours to call.</p>"
+   },
+   "dsctApplied000001": {
+    "_id": "dsctApplied000001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctFireUpNight1",
+     "exclusiveSelf": false,
+     "end": "turn",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     },
+     "display": "Ignores Concealment"
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "name": "“Fire Up the Night”",
+   "img": "icons/magic/light/torch-fire-orange.webp",
+   "type": "base",
+   "_id": "dsctFireUpNight1",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.ignoresConcealmentBane",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "turnEnd",
+    "expired": false
+   },
+   "description": "<p>Each target ignores the concealment bane. The book keeps it running while the performance does and refreshes it on each of their turns, so reapply it as the performance continues. Searching as a free maneuver stays yours to call.</p><p><em>Draw Steel: Heroes p. 209.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhFireUpNt1.dsctFireUpNight1"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.365",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": 1756690602077,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhFireUpNt1"
+}

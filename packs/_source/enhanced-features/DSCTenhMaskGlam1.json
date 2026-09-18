@@ -1,19 +1,18 @@
 {
- "name": "Slip Away",
+ "name": "Masking Glamor",
  "type": "feature",
- "_id": "DSCTenhSlipAway1",
  "img": "icons/creatures/unholy/demon-hairy-winged-pink.webp",
  "system": {
   "description": {
-   "value": "<p>The assassin can attempt to hide even while observed.</p><p><strong>Combat Tools:</strong> Being observed no longer stops this creature using the Hide maneuver.</p>",
+   "value": "<p>Abilities targeting the green seer that would take a bane from cover or concealment have a double bane instead.</p><p><strong>Combat Tools:</strong> Any bane an ability takes from this creature’s cover or concealment is doubled, in the roll window and in the chat card.</p>",
    "director": ""
   },
   "source": {
    "book": "Monsters",
-   "page": "162",
-   "license": "Draw Steel Creator License"
+   "license": "Draw Steel Creator License",
+   "page": "138"
   },
-  "_dsid": "slip-away",
+  "_dsid": "masking-glamor",
   "advancements": {},
   "prerequisites": {
    "value": "",
@@ -21,16 +20,17 @@
    "level": null
   }
  },
+ "_id": "DSCTenhMaskGlam1",
  "effects": [
   {
-   "name": "Slip Away",
+   "name": "Masking Glamor",
    "img": "icons/creatures/unholy/demon-hairy-winged-pink.webp",
    "type": "base",
-   "_id": "dsctSlipAway0001",
+   "_id": "dsctMaskGlamor01",
    "system": {
     "changes": [
      {
-      "key": "flags.draw-steel-combat-tools.stealth.hideWhileObserved",
+      "key": "flags.draw-steel-combat-tools.stealth.concealmentBaneDoubled",
       "value": "true",
       "priority": null,
       "type": "add",
@@ -46,7 +46,7 @@
     "expiry": null,
     "expired": false
    },
-   "description": "<p>Being observed no longer stops this creature using the Hide maneuver.</p><p><em>Draw Steel: Monsters p. 162.</em></p>",
+   "description": "<p>Any bane an ability takes from this creature’s cover or concealment is doubled, in the roll window and in the chat card.</p><p><em>Draw Steel: Monsters p. 138.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": true,
@@ -57,10 +57,10 @@
      "enhanced": true
     }
    },
-   "_key": "!items.effects!DSCTenhSlipAway1.dsctSlipAway0001"
+   "_key": "!items.effects!DSCTenhMaskGlam1.dsctMaskGlamor01"
   }
  ],
- "folder": "DSCTfffGoblins10",
+ "folder": "DSCTfffWodeElf10",
  "sort": 0,
  "ownership": {
   "default": 0
@@ -75,12 +75,12 @@
   "compendiumSource": null,
   "duplicateSource": null,
   "exportSource": null,
-  "coreVersion": "14.361",
+  "coreVersion": "14.362",
   "systemId": "draw-steel",
   "systemVersion": "1.1.0",
   "lastModifiedBy": null,
   "modifiedTime": null,
-  "createdTime": 1778620826994
+  "createdTime": 1779886276369
  },
- "_key": "!items!DSCTenhSlipAway1"
+ "_key": "!items!DSCTenhMaskGlam1"
 }

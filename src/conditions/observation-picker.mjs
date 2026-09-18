@@ -4,6 +4,7 @@ import { suggestObserving } from './observation.mjs';
 import { setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { suppressHealthEstimate } from '../compat/health-estimate-compat.mjs';
 import { hideCandidates, hideTraitsOf } from './stealth.mjs';
+import { forbiddenToHide } from './stealth-traits.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -389,6 +390,11 @@ export async function handleObservationRequest(hiderId, observerIds) {
 }
 
 export async function proposeHideAsked(token, opts = {}) {
+  
+  if (forbiddenToHide(token)) {
+    ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.cannotHide'));
+    return null;
+  }
   const traits = hideTraitsOf(token, opts);
   const candidates = hideCandidates(token);
   if (!candidates.length) return [];

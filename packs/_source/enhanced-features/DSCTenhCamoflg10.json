@@ -1,8 +1,8 @@
 {
- "folder": "DSCTfffAnimals1",
+ "folder": "DSCTfffAnimals10",
  "name": "Camouflage",
  "type": "feature",
- "_id": "DSCTenhCamoflg1",
+ "_id": "DSCTenhCamoflg10",
  "img": "icons/creatures/abilities/bull-head-horns-glowing.webp",
  "system": {
   "description": {
@@ -58,7 +58,7 @@
      "enhanced": true
     }
    },
-   "_key": "!items.effects!DSCTenhCamoflg1.dsctCamouflage01"
+   "_key": "!items.effects!DSCTenhCamoflg10.dsctCamouflage01"
   }
  ],
  "sort": 0,
@@ -82,5 +82,5 @@
   "modifiedTime": null,
   "lastModifiedBy": null
  },
- "_key": "!items!DSCTenhCamoflg1"
+ "_key": "!items!DSCTenhCamoflg10"
 }

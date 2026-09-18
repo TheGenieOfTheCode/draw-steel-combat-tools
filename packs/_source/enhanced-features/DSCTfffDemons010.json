@@ -1,12 +1,12 @@
 {
  "type": "Item",
- "folder": "DSCTfffMonster1",
- "name": "Animals",
+ "folder": "DSCTfffMonster10",
+ "name": "Demons",
  "color": null,
  "sorting": "m",
- "_id": "DSCTfffAnimals1",
+ "_id": "DSCTfffDemons010",
  "description": "",
- "sort": 1000,
+ "sort": 2000,
  "flags": {},
  "_stats": {
   "compendiumSource": null,
@@ -18,5 +18,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!folders!DSCTfffAnimals1"
+ "_key": "!folders!DSCTfffDemons010"
 }

@@ -1,0 +1,86 @@
+{
+ "folder": "DSCTfffCensorL20",
+ "name": "Saint's Vigilance",
+ "type": "feature",
+ "_id": "DSCTenhSaintVig1",
+ "img": "icons/creatures/eyes/humanoid-single-blind.webp",
+ "system": {
+  "description": {
+   "value": "<p>You have honed your ability to detect sin and can use it to find those who hide from justice. Any creature judged by you can’t use the Hide maneuver. Additionally, you gain an edge when searching for hidden creatures. If you find a hidden creature, you can use your Judgment ability against them as a free triggered action.</p><p><strong>Combat Tools:</strong> Carries an effect to put on whoever you judge, which stops them hiding at all. It does not transfer to you, because the prohibition belongs to your quarry. The edge when searching stays an ordinary roll.</p>",
+   "director": ""
+  },
+  "source": {
+   "book": "Heroes",
+   "page": "84",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "saints-vigilance",
+  "advancements": {},
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [
+  {
+   "name": "Judged: Cannot Hide",
+   "img": "icons/creatures/eyes/humanoid-single-blind.webp",
+   "type": "base",
+   "_id": "dsctJudgedNoHide",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.cannotHide",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "description": "<p>Carries an effect to put on whoever you judge, which stops them hiding at all. It does not transfer to you, because the prohibition belongs to your quarry. The edge when searching stays an ordinary roll.</p><p><em>Draw Steel: Heroes p. 84.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhSaintVig1.dsctJudgedNoHide"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.361",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": 1756091612209,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhSaintVig1"
+}

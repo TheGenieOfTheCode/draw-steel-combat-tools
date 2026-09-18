@@ -1,7 +1,7 @@
 import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken, getModuleApi } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
 import { playDetected } from './detected-flash.mjs';
-import { stealthTraits, observerBlocksHiding, coverCountingCreatures, widestCover } from './stealth-traits.mjs';
+import { stealthTraits, observerBlocksHiding, coverCountingCreatures, widestCover, forbiddenToHide } from './stealth-traits.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -254,6 +254,7 @@ export const canHideFrom = (observer, token, traits = null) => {
   if (!observer || !token) return false;
   if (observerBlocksHiding(observer, token)) return false;
   traits ??= stealthTraits(token);
+  if (traits.cannotHide) return false;
   if (traits.maintain === 'always') return true;
   if (isConcealed(token) || !hasSightToToken(observer, token)) return true;
   if (hasCover(observer, token)) return true;
@@ -305,6 +306,7 @@ export function proposeHide(token, opts = {}) {
 
 export function hideCandidates(token) {
   if (!token || !stealthActive()) return [];
+  if (forbiddenToHide(token)) return [];
   return _enemiesOnScene(token).filter(other => !observerBlocksHiding(other, token));
 }
 

@@ -1,12 +1,12 @@
 {
  "type": "Item",
- "folder": "DSCTfffHeroes01",
- "name": "Shadow",
+ "folder": null,
+ "name": "Abilities (Monsters)",
  "color": null,
  "sorting": "m",
- "_id": "DSCTfffShadow01",
+ "_id": "DSCTfldMonsters1",
  "description": "",
- "sort": 2000,
+ "sort": 3000,
  "flags": {},
  "_stats": {
   "compendiumSource": null,
@@ -18,5 +18,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!folders!DSCTfffShadow01"
+ "_key": "!folders!DSCTfldMonsters1"
 }

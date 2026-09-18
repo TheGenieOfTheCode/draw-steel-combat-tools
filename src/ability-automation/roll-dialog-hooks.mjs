@@ -1,6 +1,7 @@
 import { getSetting, getItemDsid } from '../helpers.mjs';
 import { isHiddenFrom, isConcealed, hasHiddenEcho } from '../conditions/stealth.mjs';
 import { isCompletelyBeneath, coverWithBurrow } from '../conditions/burrow.mjs';
+import { stealthTraits } from '../conditions/stealth-traits.mjs';
 import { getFrightenedData, getTauntedData, sightBlockedBetweenTokens } from '../conditions/conditions.mjs';
 import { sizeRankG } from '../conditions/grab.mjs';
 import { getStrikeType, isCrossfadeStrike, getCrossfadeEdgeForAbility } from './class-shadow/crossfade.mjs';
@@ -273,16 +274,20 @@ function _buildTargetPills(app, tokenId) {
     }
   }
 
+  
+  const _doubled = stealthTraits(targetToken).concealmentBaneDoubled ? 2 : 1;
+
   if (getSetting('coverBaneEnabled') && casterToken && _dealsDamage(ability)) {
-    const p = pill(mkId(`cov-${tokenId}`), 'bane', 1, 'Cover', null, tokenId, false);
+    const p = pill(mkId(`cov-${tokenId}`), 'bane', _doubled, 'Cover', null, tokenId, false);
     p.enabled = coverWithBurrow(casterToken, targetToken);
     pills.push(p);
   }
 
   
   
-  if (getSetting('stealthSystemEnabled') && casterToken && abilityKeywords.has('strike')) {
-    const p = pill(mkId(`conc-${tokenId}`), 'bane', 1, 'Concealment', null, tokenId, false);
+  if (getSetting('stealthSystemEnabled') && casterToken && abilityKeywords.has('strike')
+      && !stealthTraits(casterToken).ignoresConcealmentBane) {
+    const p = pill(mkId(`conc-${tokenId}`), 'bane', _doubled, 'Concealment', null, tokenId, false);
     p.enabled = isConcealed(targetToken);
     pills.push(p);
   }

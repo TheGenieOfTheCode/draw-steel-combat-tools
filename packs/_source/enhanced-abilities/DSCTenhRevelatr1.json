@@ -1,0 +1,158 @@
+{
+ "folder": "DSCTfldCensorL02",
+ "name": "Revelator",
+ "type": "ability",
+ "_id": "DSCTenhRevelatr1",
+ "img": "icons/magic/light/beam-strike-village-yellow.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "84",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "revelator",
+  "story": "You channel holy energy to harm unbelievers and reveal those hidden from your judgment.",
+  "keywords": [
+   "area",
+   "magic"
+  ],
+  "type": "maneuver",
+  "category": "heroic",
+  "resource": 5,
+  "trigger": "",
+  "distance": {
+   "type": "burst",
+   "primary": "3",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "enemy",
+   "value": null,
+   "custom": "Each enemy in the area"
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "prerequisites": {
+   "dsid": [
+    "exorcist"
+   ],
+   "value": "",
+   "level": null
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "description": "<p>Each target takes [[/damage 2*@P holy]]{holy damage} equal to twice your Presence score. Additionally, each hidden target is automatically revealed and can’t become hidden again until the start of your next turn. You can then use your Judgment ability against one target as a free triggered action.</p>",
+    "before": true,
+    "name": "",
+    "img": null,
+    "sort": 0
+   },
+   "dsctNote00000001": {
+    "_id": "dsctNote00000001",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 100000,
+    "before": false,
+    "description": "<p><strong>Combat Tools:</strong> Each target is barred from hiding until the end of the turn. Revealing those already hidden stays a thing you do from the Hide card.</p>"
+   },
+   "dsctApplied000001": {
+    "_id": "dsctApplied000001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctRevelator001",
+     "exclusiveSelf": false,
+     "end": "turn",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     },
+     "display": "Cannot Hide"
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "name": "Revelator",
+   "img": "icons/magic/light/beam-strike-village-yellow.webp",
+   "type": "base",
+   "_id": "dsctRevelator001",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.cannotHide",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "turnEnd",
+    "expired": false
+   },
+   "description": "<p>Each target is barred from hiding until the end of the turn. Revealing those already hidden stays a thing you do from the Hide card.</p><p><em>Draw Steel: Heroes p. 84.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhRevelatr1.dsctRevelator001"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.365",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": 1756092396681,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhRevelatr1"
+}

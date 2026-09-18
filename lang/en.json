@@ -903,7 +903,22 @@
           "description": "Creatures cannot hide from the bearer, and anyone already hidden from them is spotted. Add the range flag to limit it (e.g. Soulsight, Apex Predator).",
           "values": "true"
         },
-        "cannotBeHiddenRange": {
+        "cannotHide": {
+        "label": "Cannot hide",
+        "description": "This creature cannot use the Hide maneuver at all, so it is never offered the option and no enemy can lose track of it (e.g. a creature judged by a Censor with Saint’s Vigilance, a target bleeding from a Carving Dagger).",
+        "values": "true"
+      },
+      "ignoresConcealmentBane": {
+        "label": "Ignores the concealment bane",
+        "description": "Strikes by this creature take no bane against a concealed target, so the Concealment pill never appears in its roll window (e.g. Foresight, a target of Fire Up the Night).",
+        "values": "true"
+      },
+      "concealmentBaneDoubled": {
+        "label": "Doubles the cover and concealment bane",
+        "description": "Any bane an ability takes from this creature’s cover or concealment is doubled (e.g. Masking Glamor).",
+        "values": "true"
+      },
+      "cannotBeHiddenRange": {
           "label": "Range for nobody can hide",
           "description": "Squares within which the flag above applies. Leave it out, or 0, for any distance (e.g. Soulsight uses 2).",
           "values": "A whole number of squares, with the Override type."
@@ -1712,6 +1727,7 @@
       "stealth": {
         "noTargets": "Target the creatures you want to be hidden from first.",
         "stoppedInView": "{name} stops here, in view of somebody they were hidden from.",
+        "cannotHide": "Something is stopping this creature from hiding at all.",
         "outOfCombat": "Hiding is a combat action. Start an encounter first."
       },
       "flatResource": {

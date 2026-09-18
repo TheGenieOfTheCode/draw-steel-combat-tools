@@ -1,19 +1,18 @@
 {
- "name": "Slip Away",
+ "name": "Foresight",
  "type": "feature",
- "_id": "DSCTenhSlipAway1",
  "img": "icons/creatures/unholy/demon-hairy-winged-pink.webp",
  "system": {
   "description": {
-   "value": "<p>The assassin can attempt to hide even while observed.</p><p><strong>Combat Tools:</strong> Being observed no longer stops this creature using the Hide maneuver.</p>",
+   "value": "<p>The vertex doesn't take a bane on strikes against creatures with concealment.</p><p><strong>Combat Tools:</strong> Strikes by this creature take no bane against a concealed target, so the Concealment pill stops appearing in its roll window.</p>",
    "director": ""
   },
   "source": {
    "book": "Monsters",
-   "page": "162",
-   "license": "Draw Steel Creator License"
+   "license": "Draw Steel Creator License",
+   "page": "252"
   },
-  "_dsid": "slip-away",
+  "_dsid": "foresight",
   "advancements": {},
   "prerequisites": {
    "value": "",
@@ -21,16 +20,17 @@
    "level": null
   }
  },
+ "_id": "DSCTenhForesigh1",
  "effects": [
   {
-   "name": "Slip Away",
+   "name": "Foresight",
    "img": "icons/creatures/unholy/demon-hairy-winged-pink.webp",
    "type": "base",
-   "_id": "dsctSlipAway0001",
+   "_id": "dsctForesight001",
    "system": {
     "changes": [
      {
-      "key": "flags.draw-steel-combat-tools.stealth.hideWhileObserved",
+      "key": "flags.draw-steel-combat-tools.stealth.ignoresConcealmentBane",
       "value": "true",
       "priority": null,
       "type": "add",
@@ -46,7 +46,7 @@
     "expiry": null,
     "expired": false
    },
-   "description": "<p>Being observed no longer stops this creature using the Hide maneuver.</p><p><em>Draw Steel: Monsters p. 162.</em></p>",
+   "description": "<p>Strikes by this creature take no bane against a concealed target, so the Concealment pill stops appearing in its roll window.</p><p><em>Draw Steel: Monsters p. 252.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": true,
@@ -57,10 +57,10 @@
      "enhanced": true
     }
    },
-   "_key": "!items.effects!DSCTenhSlipAway1.dsctSlipAway0001"
+   "_key": "!items.effects!DSCTenhForesigh1.dsctForesight001"
   }
  ],
- "folder": "DSCTfffGoblins10",
+ "folder": "DSCTfffTimeRaid1",
  "sort": 0,
  "ownership": {
   "default": 0
@@ -80,7 +80,7 @@
   "systemVersion": "1.1.0",
   "lastModifiedBy": null,
   "modifiedTime": null,
-  "createdTime": 1778620826994
+  "createdTime": 1778620826242
  },
- "_key": "!items!DSCTenhSlipAway1"
+ "_key": "!items!DSCTenhForesigh1"
 }

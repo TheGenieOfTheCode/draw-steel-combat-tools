@@ -1,10 +1,10 @@
 {
  "type": "Item",
- "folder": null,
- "name": "Features (Monsters)",
+ "folder": "DSCTfffCensor010",
+ "name": "Level 2",
  "color": null,
  "sorting": "m",
- "_id": "DSCTfffMonster1",
+ "_id": "DSCTfffCensorL20",
  "description": "",
  "sort": 2000,
  "flags": {},
@@ -18,5 +18,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!folders!DSCTfffMonster1"
+ "_key": "!folders!DSCTfffCensorL20"
 }
