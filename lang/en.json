@@ -699,6 +699,10 @@
         "name": "Distance Lines to Targets",
         "hint": "While controlling a single token, targeting other tokens draws a dashed line in your player color to each target with the distance in squares. Per client."
       },
+      "greyscaleNoLos": {
+        "name": "Grey Out What You Cannot See",
+        "hint": "While a token is selected, any creature it has no line of effect to is drawn in black and white, the way an unseen combatant is. A quick read of who is actually reachable. Per client."
+      },
       "trueDrawSteelLos": {
         "name": "True Line of Effect",
         "hint": "Judge targeting by the book’s corner to corner line of effect, and apply the same rule to Foundry’s vision and fog."
@@ -1444,10 +1448,6 @@
         "addAnimal": "Add Animal",
         "resetDefaults": "Reset Defaults",
         "saveChanges": "Save Changes"
-      },
-      "greyscaleNoLos": {
-        "name": "Grey Out What You Cannot See",
-        "hint": "While a token is selected, any creature it has no line of effect to is drawn in black and white, the way an unseen combatant is. A quick read of who is actually reachable. Per client."
       }
     },
     "tooltip": {
