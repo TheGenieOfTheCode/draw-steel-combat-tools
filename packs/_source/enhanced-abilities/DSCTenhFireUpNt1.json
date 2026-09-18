@@ -52,20 +52,11 @@
    "before0000000000": {
     "_id": "before0000000000",
     "type": "base",
-    "description": "<p>While this performance is active, each target who starts their turn in the area doesn’t take a bane on strikes against creatures with concealment. Once during their turn, they can search for hidden creatures as a free maneuver</p>",
+    "description": "<p>While this performance is active, each target who starts their turn in the area doesn’t take a bane on strikes against creatures with concealment. Once during their turn, they can search for hidden creatures as a free maneuver</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
     "before": true,
     "name": "",
     "img": null,
     "sort": 0
-   },
-   "dsctNote00000001": {
-    "_id": "dsctNote00000001",
-    "type": "base",
-    "name": "",
-    "img": null,
-    "sort": 100000,
-    "before": false,
-    "description": "<p><strong>Combat Tools:</strong> Each target ignores the concealment bane. The book keeps it running while the performance does and refreshes it on each of their turns, so reapply it as the performance continues. Searching as a free maneuver stays yours to call.</p>"
    },
    "dsctApplied000001": {
     "_id": "dsctApplied000001",
@@ -120,7 +111,7 @@
     "expiry": "turnEnd",
     "expired": false
    },
-   "description": "<p>Each target ignores the concealment bane. The book keeps it running while the performance does and refreshes it on each of their turns, so reapply it as the performance continues. Searching as a free maneuver stays yours to call.</p><p><em>Draw Steel: Heroes p. 209.</em></p>",
+   "description": "<p>Each target ignores the concealment bane until the end of the turn. The book keeps it running while the performance does, so reapply it as the performance continues. Searching as a free maneuver is yours to call.</p><p><em>Draw Steel: Heroes p. 209.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,

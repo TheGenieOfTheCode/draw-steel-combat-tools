@@ -6,7 +6,7 @@
  "img": "icons/creatures/birds/corvid-call-sound-blue.webp",
  "system": {
   "description": {
-   "value": "<p>With this stormwight kit, you channel your primordial ferocity into the form of a crow, becoming stealthy and quick. Corven are tied to the mountain passes and the hot winds that flow through them. This aspect is associated with the warm and fast-rising anabatic wind.</p><h4>Aspect Benefits</h4><p>You gain an edge on tests made to hide and sneak. Additionally, whenever you fall, you can use a free triggered action to use your Aspect of the Wild ability.</p><h4>Animal Form: Crow</h4><p>While you are in your crow form, your size is 1T and you can fly. You can use the Hide maneuver as a free maneuver, and you can use your allies as cover when you hide. You can’t use any abilities while in this form except for Aspect of the Wild.</p><h4>Hybrid Form: Crow</h4><p>While you are in your hybrid form, your size is your choice of 1S or 1M. At 4th level, you can fly.</p><h4>Primordial Storm: Anabatic Wind</h4><p>Your primordial damage type is fire.</p><p><strong>Combat Tools:</strong> Switch this on while you are in crow form and your allies count as cover for hiding. It does not transfer on its own, because the benefit belongs to the form rather than the kit.</p>",
+   "value": "<p>With this stormwight kit, you channel your primordial ferocity into the form of a crow, becoming stealthy and quick. Corven are tied to the mountain passes and the hot winds that flow through them. This aspect is associated with the warm and fast-rising anabatic wind.</p><h4>Aspect Benefits</h4><p>You gain an edge on tests made to hide and sneak. Additionally, whenever you fall, you can use a free triggered action to use your Aspect of the Wild ability.</p><h4>Animal Form: Crow</h4><p>While you are in your crow form, your size is 1T and you can fly. You can use the Hide maneuver as a free maneuver, and you can use your allies as cover when you hide. You can’t use any abilities while in this form except for Aspect of the Wild.</p><h4>Hybrid Form: Crow</h4><p>While you are in your hybrid form, your size is your choice of 1S or 1M. At 4th level, you can fly.</p><h4>Primordial Storm: Anabatic Wind</h4><p>Your primordial damage type is fire.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
    "director": ""
   },
   "source": {
@@ -188,7 +188,7 @@
     "expiry": null,
     "expired": false
    },
-   "description": "<p>Switch this on while you are in crow form and your allies count as cover for hiding. It does not transfer on its own, because the benefit belongs to the form rather than the kit.</p><p><em>Draw Steel: Heroes p. 144.</em></p>",
+   "description": "<p>Switch this on while you are in crow form and your allies count as cover for hiding. It does not transfer on its own, because the benefit belongs to the form.</p><p><em>Draw Steel: Heroes p. 144.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,

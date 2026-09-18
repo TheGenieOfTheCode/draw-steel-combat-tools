@@ -4,7 +4,7 @@
  "img": "icons/creatures/unholy/demon-hairy-winged-pink.webp",
  "system": {
   "description": {
-   "value": "<p>The vertex doesn't take a bane on strikes against creatures with concealment.</p><p><strong>Combat Tools:</strong> Strikes by this creature take no bane against a concealed target, so the Concealment pill stops appearing in its roll window.</p>",
+   "value": "<p>The vertex doesn't take a bane on strikes against creatures with concealment.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
    "director": ""
   },
   "source": {

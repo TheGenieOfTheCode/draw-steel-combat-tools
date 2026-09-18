@@ -51,20 +51,11 @@
    "before0000000000": {
     "_id": "before0000000000",
     "type": "base",
-    "description": "<p>Each target takes [[/damage 2*@P holy]]{holy damage} equal to twice your Presence score. Additionally, each hidden target is automatically revealed and can’t become hidden again until the start of your next turn. You can then use your Judgment ability against one target as a free triggered action.</p>",
+    "description": "<p>Each target takes [[/damage 2*@P holy]]{holy damage} equal to twice your Presence score. Additionally, each hidden target is automatically revealed and can’t become hidden again until the start of your next turn. You can then use your Judgment ability against one target as a free triggered action.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
     "before": true,
     "name": "",
     "img": null,
     "sort": 0
-   },
-   "dsctNote00000001": {
-    "_id": "dsctNote00000001",
-    "type": "base",
-    "name": "",
-    "img": null,
-    "sort": 100000,
-    "before": false,
-    "description": "<p><strong>Combat Tools:</strong> Each target is barred from hiding until the end of the turn. Revealing those already hidden stays a thing you do from the Hide card.</p>"
    },
    "dsctApplied000001": {
     "_id": "dsctApplied000001",
@@ -119,7 +110,7 @@
     "expiry": "turnEnd",
     "expired": false
    },
-   "description": "<p>Each target is barred from hiding until the end of the turn. Revealing those already hidden stays a thing you do from the Hide card.</p><p><em>Draw Steel: Heroes p. 84.</em></p>",
+   "description": "<p>Each target cannot hide until the end of the turn. Revealing creatures that are already hidden is done from the Hide card.</p><p><em>Draw Steel: Heroes p. 84.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,

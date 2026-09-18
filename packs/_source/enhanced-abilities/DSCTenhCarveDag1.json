@@ -133,20 +133,11 @@
    "after00000000000": {
     "_id": "after00000000000",
     "type": "base",
-    "description": "<p>While bleeding this way, the target can't hide from the sneak or their allies.</p>",
+    "description": "<p>While bleeding this way, the target can't hide from the sneak or their allies.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
     "name": "",
     "img": null,
     "sort": 0,
     "before": false
-   },
-   "dsctNote00000001": {
-    "_id": "dsctNote00000001",
-    "type": "base",
-    "name": "",
-    "img": null,
-    "sort": 100000,
-    "before": false,
-    "description": "<p><strong>Combat Tools:</strong> The target is barred from hiding while it bleeds. The book stops it hiding from the sneak and their allies only; this stops it hiding from anyone, so take the effect off if that matters.</p>"
    },
    "dsctApplied000001": {
     "_id": "dsctApplied000001",
@@ -206,7 +197,7 @@
     "expiry": "turnEnd",
     "expired": false
    },
-   "description": "<p>The target is barred from hiding while it bleeds. The book stops it hiding from the sneak and their allies only; this stops it hiding from anyone, so take the effect off if that matters.</p><p><em>Draw Steel: Monsters p. 54.</em></p>",
+   "description": "<p>The target cannot hide until the end of the turn. The book stops it hiding from the sneak and their allies; this stops it hiding from anyone.</p><p><em>Draw Steel: Monsters p. 54.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,

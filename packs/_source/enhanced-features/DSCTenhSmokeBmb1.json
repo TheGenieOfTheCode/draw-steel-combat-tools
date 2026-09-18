@@ -6,7 +6,7 @@
  "img": "icons/weapons/thrown/bomb-fuse-black.webp",
  "system": {
   "description": {
-   "value": "<p>You always carry a supply of smoke bombs to use for distractions and easy getaways. You can use the Hide maneuver even if you are observed and don’t initially have cover or concealment. When you do so, you can shift a number of squares equal to [[lookup @A]]{your Agility score}. If you end this movement with cover or concealment, you are automatically hidden.</p><p><strong>Combat Tools:</strong> Throwing a bomb is a thing you do, not a thing you always are, so this ships as an effect on the feature rather than a standing one. Switch it on when you use a bomb and you can Hide while observed with no cover or concealment; it clears itself at the end of the turn. The shift and the automatic hide at the end of it stay yours to make.</p>",
+   "value": "<p>You always carry a supply of smoke bombs to use for distractions and easy getaways. You can use the Hide maneuver even if you are observed and don’t initially have cover or concealment. When you do so, you can shift a number of squares equal to [[lookup @A]]{your Agility score}. If you end this movement with cover or concealment, you are automatically hidden.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
    "director": ""
   },
   "source": {
@@ -54,7 +54,7 @@
     "expiry": "turnEnd",
     "expired": false
    },
-   "description": "<p>Throwing a bomb is a thing you do, not a thing you always are, so this ships as an effect on the feature rather than a standing one. Switch it on when you use a bomb and you can Hide while observed with no cover or concealment; it clears itself at the end of the turn. The shift and the automatic hide at the end of it stay yours to make.</p><p><em>Draw Steel: Heroes p. 162.</em></p>",
+   "description": "<p>Switch this on when you throw a bomb: you can hide while observed with no cover or concealment, and it clears itself at the end of the turn. It does not transfer on its own. The shift, and the hide at the end of it, are yours to make.</p><p><em>Draw Steel: Heroes p. 162.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,

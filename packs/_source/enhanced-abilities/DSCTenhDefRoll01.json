@@ -61,20 +61,11 @@
    "before0000000000": {
     "_id": "before0000000000",
     "type": "base",
-    "description": "<p>You take half the triggering damage, then can shift up to 2 squares after the triggering effect resolves. If you end this shift with concealment or cover, you can use the Hide maneuver even if you are observed.</p>",
+    "description": "<p>You take half the triggering damage, then can shift up to 2 squares after the triggering effect resolves. If you end this shift with concealment or cover, you can use the Hide maneuver even if you are observed.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
     "before": true,
     "name": "",
     "img": null,
     "sort": 0
-   },
-   "dsctNote00000001": {
-    "_id": "dsctNote00000001",
-    "type": "base",
-    "name": "",
-    "img": null,
-    "sort": 100000,
-    "before": false,
-    "description": "<p><strong>Combat Tools:</strong> Grants you the ability to Hide while observed until the end of the turn, for the Hide maneuver this ability offers after the shift.</p>"
    },
    "dsctApplied000001": {
     "_id": "dsctApplied000001",
@@ -129,7 +120,7 @@
     "expiry": null,
     "expired": false
    },
-   "description": "<p>Grants you the ability to Hide while observed until the end of the turn, for the Hide maneuver this ability offers after the shift.</p><p><em>Draw Steel: Heroes p. 163.</em></p>",
+   "description": "<p>You can hide while observed until the end of the turn, for the Hide maneuver this ability offers after the shift.</p><p><em>Draw Steel: Heroes p. 163.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,

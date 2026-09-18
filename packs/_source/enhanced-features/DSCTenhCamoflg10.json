@@ -6,7 +6,7 @@
  "img": "icons/creatures/abilities/bull-head-horns-glowing.webp",
  "system": {
   "description": {
-   "value": "<p>(1 Point)</p><p>The animal can attempt to hide even while observed. While no enemy has line of effect to the animal, they can automatically hide at the end of their turn. </p><ul><li><p>Typically Used By: Chameleons, foxes, tigers.</p></li></ul><p><strong>Combat Tools:</strong> The animal can Hide while observed. Hiding automatically at the end of a turn with no enemy line of effect stays a thing you do rather than something the module does for you.</p>",
+   "value": "<p>(1 Point)</p><p>The animal can attempt to hide even while observed. While no enemy has line of effect to the animal, they can automatically hide at the end of their turn. </p><ul><li><p>Typically Used By: Chameleons, foxes, tigers.</p></li></ul><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
    "director": ""
   },
   "source": {
@@ -47,7 +47,7 @@
     "expiry": null,
     "expired": false
    },
-   "description": "<p>The animal can Hide while observed. Hiding automatically at the end of a turn with no enemy line of effect stays a thing you do rather than something the module does for you.</p><p><em>Draw Steel: Monsters p. 39.</em></p>",
+   "description": "<p>The animal can hide while observed. Hiding automatically at the end of a turn with no enemy line of effect is yours to do.</p><p><em>Draw Steel: Monsters p. 39.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": true,

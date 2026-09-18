@@ -4,7 +4,7 @@
  "img": "icons/creatures/unholy/demon-hairy-winged-pink.webp",
  "system": {
   "description": {
-   "value": "<p>Abilities targeting the green seer that would take a bane from cover or concealment have a double bane instead.</p><p><strong>Combat Tools:</strong> Any bane an ability takes from this creature’s cover or concealment is doubled, in the roll window and in the chat card.</p>",
+   "value": "<p>Abilities targeting the green seer that would take a bane from cover or concealment have a double bane instead.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
    "director": ""
   },
   "source": {

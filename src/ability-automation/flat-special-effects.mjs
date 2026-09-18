@@ -1160,7 +1160,13 @@ export function flatAppliedLabel(item, statusId) {
   return { name: ae?.name ?? statusId, img: ae?.img ?? null };
 }
 
-export async function applyFlatAppliedEffect(actor, statusId, item) {
+export function flatAppliedSourceToken(item, message) {
+  const fromSpeaker = message?.speaker?.token;
+  if (fromSpeaker) return fromSpeaker;
+  return item?.actor?.getActiveTokens?.()?.[0]?.id ?? null;
+}
+
+export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenId = null) {
   if (!actor || !statusId) return false;
   if (isRegisteredStatus(statusId)) {
     await actor.toggleStatusEffect(statusId, { active: true });
@@ -1179,6 +1185,12 @@ export async function applyFlatAppliedEffect(actor, statusId, item) {
   data.disabled = false;
   data.origin = item?.uuid ?? null;
   foundry.utils.setProperty(data, `flags.${MODULE_ID}.${FLAT_APPLIED_FROM}`, statusId);
+  if (sourceTokenId) {
+    foundry.utils.setProperty(data, `flags.${MODULE_ID}.flatAppliedSource`, {
+      tokenId: sourceTokenId,
+      actorId: item?.actor?.id ?? null,
+    });
+  }
   await actor.createEmbeddedDocuments('ActiveEffect', [data]);
   return true;
 }
@@ -1276,7 +1288,7 @@ export function addFlatEffectListeners(section, item, message) {
 
       for (const target of targets) {
         if (!target.actor) continue;
-        await applyFlatAppliedEffect(target.actor, statusId, item);
+        await applyFlatAppliedEffect(target.actor, statusId, item, flatAppliedSourceToken(item, message));
       }
     });
   });

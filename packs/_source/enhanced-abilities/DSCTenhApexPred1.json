@@ -142,20 +142,11 @@
    "after00000000000": {
     "_id": "after00000000000",
     "type": "base",
-    "description": "<p>The target can’t be hidden from you for 24 hours. Until the end of the encounter, whenever the target willingly moves, you can use a free triggered action to move.</p>",
+    "description": "<p>The target can’t be hidden from you for 24 hours. Until the end of the encounter, whenever the target willingly moves, you can use a free triggered action to move.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
     "name": "",
     "img": null,
     "sort": 0,
     "before": false
-   },
-   "dsctNote00000001": {
-    "_id": "dsctNote00000001",
-    "type": "base",
-    "name": "",
-    "img": null,
-    "sort": 100000,
-    "before": false,
-    "description": "<p><strong>Combat Tools:</strong> Nobody can be hidden from you until the encounter ends. The book names a single target; this applies to everyone, so take it off if that matters at your table.</p>"
    },
    "dsctApplied000001": {
     "_id": "dsctApplied000001",
@@ -173,28 +164,28 @@
       "custom": ""
      },
      "statusId": "dsctApexPred0001",
-     "exclusiveSelf": true,
-     "end": "encounter",
+     "exclusiveSelf": false,
+     "end": "respite",
      "properties": [],
      "spend": {
       "enabled": false,
       "value": 1
      },
-     "display": "Nothing Can Hide From You"
+     "display": "Hunted"
     }
    }
   }
  },
  "effects": [
   {
-   "name": "Apex Predator",
+   "name": "Hunted",
    "img": "icons/skills/targeting/crosshair-pointed-orange.webp",
    "type": "base",
    "_id": "dsctApexPred0001",
    "system": {
     "changes": [
      {
-      "key": "flags.draw-steel-combat-tools.stealth.cannotBeHiddenFrom",
+      "key": "flags.draw-steel-combat-tools.stealth.observedBy",
       "value": "true",
       "priority": null,
       "type": "add",
@@ -210,7 +201,7 @@
     "expiry": null,
     "expired": false
    },
-   "description": "<p>Nobody can be hidden from you until the encounter ends. The book names a single target; this applies to everyone, so take it off if that matters at your table.</p><p><em>Draw Steel: Heroes p. 145.</em></p>",
+   "description": "<p>The hunter who used Apex Predator is always observing you, so you cannot hide from them until your next respite. Everyone else is unaffected.</p><p><em>Draw Steel: Heroes p. 145.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,

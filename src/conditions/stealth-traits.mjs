@@ -50,11 +50,26 @@ export function stealthTraits(subject) {
 
 export const forbiddenToHide = (subject) => stealthTraits(subject).cannotHide;
 
+export function huntedBy(hider) {
+  const actor = _actorOf(hider);
+  const out = [];
+  for (const effect of (actor?.effects ?? [])) {
+    if (effect.disabled) continue;
+    const changes = [...(effect.system?.changes ?? []), ...(effect.changes ?? [])];
+    if (!changes.some(c => String(c?.key ?? '').endsWith(`${TRAIT_KEY}.observedBy`) && on(c.value))) continue;
+    const tokenId = effect.getFlag?.(M, 'flatAppliedSource')?.tokenId;
+    if (tokenId) out.push(tokenId);
+  }
+  return out;
+}
+
 export function observerBlocksHiding(observer, hider) {
+  if (observer?.id && huntedBy(hider).includes(observer.id)) return true;
+
   const ranges = stealthTraits(observer).cannotBeHiddenFrom;
   if (!ranges.length) return false;
   if (ranges.includes(0)) return true;
-  
+
   const dist = tokFootprintDist(observer, hider);
   return ranges.some(r => dist < r * canvas.grid.distance);
 }
@@ -121,7 +136,7 @@ export function coverCountingCreatures(observer, hider, mode) {
 const FLAGS = [
   'hideWhileObserved', 'keepsHidden', 'moveFreely', 'moveThroughOccupied',
   'alliesAreCover', 'creaturesAreCover', 'staysHiddenAnywhere', 'cannotBeHiddenFrom',
-  'cannotHide', 'ignoresConcealmentBane', 'concealmentBaneDoubled',
+  'cannotHide', 'ignoresConcealmentBane', 'concealmentBaneDoubled', 'observedBy',
 ];
 
 export function registerStealthTraits() {

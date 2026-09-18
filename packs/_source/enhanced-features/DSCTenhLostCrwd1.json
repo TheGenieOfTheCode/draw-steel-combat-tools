@@ -5,7 +5,7 @@
  "img": "icons/creatures/unholy/demon-hairy-winged-pink.webp",
  "system": {
   "description": {
-   "value": "<p>While the venator is adjacent to any ally who is not hiding, the venator can attempt to hide as if they had concealment, even if observed.</p><p><strong>Combat Tools:</strong> Lets this creature hide while observed and without cover or concealment. The book asks for an adjacent ally who is not hiding, which stays your call at the table.</p>",
+   "value": "<p>While the venator is adjacent to any ally who is not hiding, the venator can attempt to hide as if they had concealment, even if observed.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
    "director": ""
   },
   "source": {
@@ -53,7 +53,7 @@
     "expiry": null,
     "expired": false
    },
-   "description": "<p>Lets this creature hide while observed and without cover or concealment. The book asks for an adjacent ally who is not hiding, which stays your call at the table.</p><p><em>Draw Steel: Monsters p. 193.</em></p>",
+   "description": "<p>This creature can hide while observed and without cover or concealment. The book asks for an adjacent ally who is not hiding, which the module does not check.</p><p><em>Draw Steel: Monsters p. 193.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": true,

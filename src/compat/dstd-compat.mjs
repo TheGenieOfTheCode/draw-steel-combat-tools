@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank } from '../helpers.mjs';
-import { buildCleanseAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, removeFlatAppliedEffect, flatAppliedLabel } from '../ability-automation/flat-special-effects.mjs';
+import { buildCleanseAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
@@ -2718,7 +2718,7 @@ async function _injectFmButtons(message, root) {
         const td    = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
         const actor = td?.actor ?? null;
         if (!actor) return;
-        await applyFlatAppliedEffect(actor, statusId, ability);
+        await applyFlatAppliedEffect(actor, statusId, ability, flatAppliedSourceToken(ability, message));
         condState = { applied: true };
         _flatCondState.set(condStateKey, condState);
         _syncCondRow();

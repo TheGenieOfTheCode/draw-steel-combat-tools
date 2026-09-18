@@ -122,20 +122,11 @@
    "after00000000000": {
     "_id": "after00000000000",
     "type": "base",
-    "description": "<p>You choose the new targets for the original target’s free strike or ability. Additionally, if you are hidden or disguised, using this ability doesn’t cause you to be revealed.</p>",
+    "description": "<p>You choose the new targets for the original target’s free strike or ability. Additionally, if you are hidden or disguised, using this ability doesn’t cause you to be revealed.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
     "name": "",
     "img": null,
     "sort": 0,
     "before": false
-   },
-   "dsctNote00000001": {
-    "_id": "dsctNote00000001",
-    "type": "base",
-    "name": "",
-    "img": null,
-    "sort": 100000,
-    "before": false,
-    "description": "<p><strong>Combat Tools:</strong> Using this ability no longer reveals you, so being hidden survives pulling the strings.</p>"
    },
    "dsctApplied000001": {
     "_id": "dsctApplied000001",
@@ -190,7 +181,7 @@
     "expiry": "turnEnd",
     "expired": false
    },
-   "description": "<p>Using this ability no longer reveals you, so being hidden survives pulling the strings.</p><p><em>Draw Steel: Heroes p. 169.</em></p>",
+   "description": "<p>Until the end of the turn, using an ability no longer reveals you.</p><p><em>Draw Steel: Heroes p. 169.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,

@@ -95,20 +95,11 @@
    "before0000000000": {
     "_id": "before0000000000",
     "type": "base",
-    "description": "<p>You attach a small bomb to a creature. If you are hidden from the creature, they don’t notice the bomb and you remain hidden. The creature otherwise notices the bomb and can disarm and re move it as a main action. If they don’t, at the end of your next turn, the bomb detonates. When the bomb detonates, you make a power roll targeting each enemy within 2 squares of it.</p>",
+    "description": "<p>You attach a small bomb to a creature. If you are hidden from the creature, they don’t notice the bomb and you remain hidden. The creature otherwise notices the bomb and can disarm and re move it as a main action. If they don’t, at the end of your next turn, the bomb detonates. When the bomb detonates, you make a power roll targeting each enemy within 2 squares of it.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Stealth-Effect-Flags\">What it does, and what it leaves to you</a></em></p></section>",
     "before": true,
     "name": "",
     "img": null,
     "sort": 0
-   },
-   "dsctNote00000001": {
-    "_id": "dsctNote00000001",
-    "type": "base",
-    "name": "",
-    "img": null,
-    "sort": 100000,
-    "before": false,
-    "description": "<p><strong>Combat Tools:</strong> Keeps you hidden through the attachment, so planting the bomb does not reveal you.</p>"
    },
    "dsctApplied000001": {
     "_id": "dsctApplied000001",
@@ -163,7 +154,7 @@
     "expiry": null,
     "expired": false
    },
-   "description": "<p>Keeps you hidden through the attachment, so planting the bomb does not reveal you.</p><p><em>Draw Steel: Heroes p. 165.</em></p>",
+   "description": "<p>Until the end of the turn, using an ability no longer reveals you, so planting the bomb leaves you hidden.</p><p><em>Draw Steel: Heroes p. 165.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,
