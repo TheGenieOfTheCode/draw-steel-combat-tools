@@ -1665,7 +1665,7 @@
       },
       "noCompatModules": "No compatible modules detected. Enable a supported module (like DS Quick Strike or DS Terrain Designer) to see compatibility settings.",
       "conflict": {
-        "minionDeath": "Conflict: Draw Steel: Target Damage's Minion Damage Automation is enabled. Override Minion Defeat has been disabled to prevent double-processing.",
+        "minionDeath": "Conflict: the Alternative Minion Defeat UI handles defeated minions, so Draw Steel: Target Damage's Minion Damage Automation has been turned off. Running both processes every defeated minion twice.",
         "dstdQuickStrike": "Conflict: Draw Steel: Target Damage and Quick Strike are both enabled. Quick Strike compatibility has been turned off to prevent conflicts."
       },
       "ta": {
@@ -2051,7 +2051,7 @@
       },
       "dsTargetDamage": {
         "name": "Draw Steel: Target Damage",
-        "hint": "DSCT cedes damage automation and moves all its buttons to the per-target collapsible boxes, minion defeat automation has a warning and safety automation if conflicting options are enabled."
+        "hint": "DSCT cedes damage automation and moves all its buttons to the per-target collapsible boxes, and if Target Damage's Minion Damage Automation is on while the Alternative Minion Defeat UI is, that one is switched off so defeated minions are only processed once."
       },
       "dsTokenOverride": {
         "name": "DS Token Override",

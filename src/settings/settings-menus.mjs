@@ -163,7 +163,7 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
     
     const needsReload = entries.some(({ k, def }) =>
       def.requiresReload && game.settings.get(M, k) !== before.get(k));
-    if (needsReload) SettingsConfig.reloadConfirm({ world: true });
+    if (needsReload) foundry.applications.settings.SettingsConfig.reloadConfirm({ world: true });
   }
 }
 
@@ -450,19 +450,6 @@ export class DeathTrackerSettingsMenu extends SettingsSubmenu {
       overrideToggle.addEventListener('change', sync);
       dtEnableInput?.addEventListener('change', sync);
       sync();
-    }
-
-    if (game.modules.get('draw-steel-target-damage')?.active) {
-      let dstdMinionOn = false;
-      try { dstdMinionOn = game.settings.get('draw-steel-target-damage', 'minionDamageAutomation'); } catch {}
-      if (dstdMinionOn) {
-        for (const name of ['overrideMinionDefeat', 'autoAssignDamagedMinion']) {
-          const grp = el.querySelector(`[name="${name}"]`)?.closest('.form-group');
-          if (!grp) continue;
-          grp.classList.add('dsct-sub-disabled');
-          grp.querySelectorAll('input, select').forEach(i => { i.disabled = true; });
-        }
-      }
     }
   }
 }

@@ -897,18 +897,21 @@ const _DSCT_KEY = 'overrideMinionDefeat';
 const _DSCT_CT = 'draw-steel-target-damage';
 const _DSCT_CT_KEY = 'minionDamageAutomation';
 
-const _minionDeathConflict = () => {
+const _minionDeathConflict = async () => {
   if (!game.users.activeGM?.isSelf) return;
   if (!game.modules.get(_DSCT_CT)?.active) return;
+  if (!game.settings.get(_DSCT, 'deathTrackerEnabled')) return;
+  if (!game.settings.get(_DSCT, _DSCT_KEY)) return;
   let theirValue;
   try { theirValue = game.settings.get(_DSCT_CT, _DSCT_CT_KEY); } catch { return; }
-  if (!theirValue || !game.settings.get(_DSCT, _DSCT_KEY)) return;
-  game.settings.set(_DSCT, _DSCT_KEY, false);
+  if (!theirValue) return;
 
-  const menu = foundry.applications.instances?.get('dsct-death-tracker-settings');
-  const cb   = menu?.element?.querySelector(`[name="${_DSCT_KEY}"]`);
+  await game.settings.set(_DSCT_CT, _DSCT_CT_KEY, false);
+
+  const cb = document.querySelector(`[name="${_DSCT_CT}.${_DSCT_CT_KEY}"]`);
   if (cb) cb.checked = false;
   ui.notifications.warn(game.i18n.localize('DSCT.notice.conflict.minionDeath'));
+  foundry.applications.settings.SettingsConfig.reloadConfirm({ world: true });
 };
 
 const _dstdQuickStrikeConflict = () => {
@@ -933,7 +936,10 @@ export const registerCompatibilityChecks = () => {
       if (!setting.value) return;
       _minionDeathConflict();
     }
-    if (setting.key === `${_DSCT}.overrideMinionDefeat` && setting.value) {
+    if (setting.key === `${_DSCT}.${_DSCT_KEY}` && setting.value) {
+      _minionDeathConflict();
+    }
+    if (setting.key === `${_DSCT}.deathTrackerEnabled` && setting.value) {
       _minionDeathConflict();
     }
   });
