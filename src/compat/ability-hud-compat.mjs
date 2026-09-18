@@ -17,9 +17,62 @@ const _hudActor = () => {
   return tokenActor;
 };
 
+const OURS = new Set(['dsct-hide', 'dsct-search']);
+
+const _sectionsOf = (root, buttonId) =>
+  [...(root.querySelector(`.dsahud-button[data-button-id="${buttonId}"] .dsahud-popup`)?.querySelectorAll('.dsahud-section') ?? [])];
+
+const _titled = (sections, key) => {
+  const label = game.i18n.localize(key);
+  return sections.find(s => s.querySelector('.dsahud-section-title')?.textContent?.trim() === label) ?? null;
+};
+
+const _isOurs = (button) => {
+  const uuid = button.dataset.tooltipUuid;
+  if (!uuid) return false;
+  try { return OURS.has(fromUuidSync(uuid)?.system?._dsid); }
+  catch { return false; }
+};
+
+function _regroupManeuvers(root) {
+  const sections = _sectionsOf(root, 'maneuver');
+  if (!sections.length) return;
+
+  const special = _titled(sections, 'DSAHUD.Sections.SpecialManeuver');
+  if (!special) return;
+
+  const moving = [...special.querySelectorAll('.dsahud-action')].filter(_isOurs);
+  if (!moving.length) return;
+
+  let basic = _titled(sections, 'DSAHUD.Sections.BasicManeuver');
+  if (!basic) {
+    basic = document.createElement('div');
+    basic.className = 'dsahud-section';
+    basic.innerHTML = `<div class="dsahud-section-title">${game.i18n.localize('DSAHUD.Sections.BasicManeuver')}</div><div class="dsahud-section-items"></div>`;
+
+    const homebrew = _titled(sections, 'DSAHUD.Sections.HomebrewManeuver');
+    const free     = _titled(sections, 'DSAHUD.Sections.FreeManeuver');
+    if (homebrew) homebrew.before(basic);
+    else (free ?? special).after(basic);
+  }
+
+  const items = basic.querySelector('.dsahud-section-items');
+  if (!items) return;
+  for (const button of moving) items.prepend(button);
+
+  if (!special.querySelector('.dsahud-action')) special.remove();
+}
+
 export const registerAbilityHudCompat = () => {
   Hooks.once('ready', () => {
     if (!game.modules.get(HUD_ID)?.active) return;
+
+    Hooks.on('renderAbilityHud', (_app, html) => {
+      const root = html instanceof HTMLElement ? html : html?.[0];
+      if (!root) return;
+      try { _regroupManeuvers(root); }
+      catch (err) { console.warn('DSCT | abilityHud compat | could not regroup the maneuvers:', err); }
+    });
 
     
     
