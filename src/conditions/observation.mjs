@@ -1,4 +1,4 @@
-import { hasSightToToken, coveredInSquare, seenPlainlyInSquare, getSetting } from '../helpers.mjs';
+import { hasSightToToken, coveredInSquare, seenPlainlyInSquare, concealingRegions, getSetting } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
 import { isConcealed } from './stealth.mjs';
 
@@ -85,6 +85,7 @@ function _sampleAlongPath(target, options) {
   const cellsH = Math.max(1, Math.round(target.document.height));
   const concealed = isConcealed(target);
   const disposition = target.document.disposition;
+  const regions = concealingRegions();
 
   for (const observer of canvas.tokens.placeables) {
     if (observer.id === target.id || !observer.actor) continue;
@@ -96,7 +97,7 @@ function _sampleAlongPath(target, options) {
       for (const step of walked) {
         const gx = Math.floor(step.x / size);
         const gy = Math.floor(step.y / size);
-        if (seenPlainlyInSquare(observer, gx, gy, cellsW, cellsH)) clearAt = { x: gx, y: gy };
+        if (seenPlainlyInSquare(observer, gx, gy, cellsW, cellsH, regions)) clearAt = { x: gx, y: gy };
       }
     }
 
@@ -191,9 +192,10 @@ export function obscuredNear(observer, target, radius = null) {
   const r = Number.isFinite(radius) ? radius : (Number(getSetting('observationRadius')) || 3);
   const cellsW = Math.max(1, Math.round(target.document.width));
   const cellsH = Math.max(1, Math.round(target.document.height));
+  const regions = concealingRegions();
   for (const sq of _reachable(target, r)) {
     out.total++;
-    if (!coveredInSquare(observer, sq.x, sq.y, cellsW, cellsH)) continue;
+    if (!coveredInSquare(observer, sq.x, sq.y, cellsW, cellsH, regions)) continue;
     out.obscured++;
     out.squares.push(sq);
   }
