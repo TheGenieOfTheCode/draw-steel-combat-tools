@@ -738,18 +738,10 @@ export const safeTakeDamage = async (actor, amount, options = {}) => {
   return await getSocket().executeAsGM('dsct.takeDamage', actor.uuid, amount, options);
 };
 
-const getQuickStrikeSocket = () => {
-  if (!getSetting('quickStrikeCompat')) return null;
-  if (!game.modules.get('ds-quick-strike')?.active) return null;
-  return socketlib.registerModule('ds-quick-strike');
-};
-
 export const applyDamage = async (actor, amount, squadGroupOverride = undefined, {
   damageType     = 'untyped',
   ignoreImmunity = false,
-  sourceToken    = null,
   isArea         = false,
-  sourceItemName = 'Draw Steel: Combat Tools',
 } = {}) => {
   const prevValue   = actor.system.stamina.value;
   const prevTemp    = actor.system.stamina.temporary;
@@ -773,26 +765,7 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   const type              = damageType || 'untyped';
   const ignoredImmunities = ignoreImmunity ? [type] : [];
   const effectiveAmt      = (isArea && squadGroup) ? Math.min(amount, actor.system.stamina.max ?? amount) : amount;
-  const qsSocket = getQuickStrikeSocket();
-  if (qsSocket && !squadGroup) {
-    const tokenId = actor.isToken
-      ? actor.token?.id
-      : canvas.tokens.placeables.find(t => t.actor?.id === actor.id)?.id;
-    await qsSocket.executeAsGM('applyDamageToTarget', {
-      tokenId,
-      amount: effectiveAmt,
-      type,
-      ignoredImmunities,
-      sourceActorName:  sourceToken?.actor?.name ?? sourceToken?.name ?? game.user.character?.name ?? game.user.name,
-      sourceActorId:    sourceToken?.actor?.id ?? game.user.character?.id ?? null,
-      sourceItemName,
-      sourcePlayerName: game.user.name,
-      sourceItemId:     null,
-      eventId:          `dsct-${foundry.utils.randomID()}`,
-    });
-  } else {
-    await safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities });
-  }
+  await safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities });
   return { prevTemp, prevValue, prevSquadHP, squadGroup, squadCombatantIds, squadTokenIds };
 };
 

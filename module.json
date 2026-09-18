@@ -14,10 +14,9 @@
     "systems": [{ "id": "draw-steel", "type": "system", "compatibility": {} }],
     "requires": [
       { "id": "socketlib", "type": "module", "compatibility": { "minimum": "1.1.3" } },
-      { "id": "color-picker", "type": "module", "compatibility": { "minimum": "1.7" } }
-    ],
-    "optional": [
-      { "id": "lib-wrapper", "type": "module", "compatibility": { "minimum": "1.12.0" } }
+      { "id": "color-picker", "type": "module", "compatibility": { "minimum": "1.7" } },
+      { "id": "lib-wrapper", "type": "module", "compatibility": { "minimum": "1.12.0" } },
+      { "id": "draw-steel-target-damage", "type": "module", "compatibility": { "minimum": "1.0.8" } }
     ]
   },
   "documentTypes": {

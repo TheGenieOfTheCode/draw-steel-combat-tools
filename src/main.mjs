@@ -13,7 +13,6 @@ import { registerPairTurnHooks } from './pair-turns.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
-import { postFirstRunNotice } from './settings/setting-deps.mjs';
 import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.mjs';
 import { registerTargetDistance } from './ability-automation/target-distance.mjs';
@@ -314,8 +313,6 @@ Hooks.once('ready', async () => {
   if (!game.user.isGM) return;
 
   const M              = 'draw-steel-combat-tools';
-
-  await postFirstRunNotice().catch(err => console.error('DSCT | first run notice failed:', err));
 
   if (!game.modules.get('draw-steel-target-damage')?.active && game.settings.get(M, 'squadTargetBonus')) {
     await game.settings.set(M, 'squadTargetBonus', false);

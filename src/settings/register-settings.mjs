@@ -60,12 +60,6 @@ export const registerSettings = () => {
     scope: 'world', config: true, type: Boolean, default: false,
   });
 
-  game.settings.register(M, 'quickStrikeCompat', {
-    name: L('quickStrikeCompat.name'),
-    hint: L('quickStrikeCompat.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
-  });
-
   game.settings.register(M, 'dstdQuickFmButton', {
     name: L('dstdQuickFmButton.name'), hint: L('dstdQuickFmButton.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
@@ -205,9 +199,6 @@ export const registerSettings = () => {
   game.settings.register(M, 'targetDistanceLines', {
     name: L('targetDistanceLines.name'), hint: L('targetDistanceLines.hint'),
     scope: 'client', config: false, type: Boolean, default: true,
-  });
-  game.settings.register(M, 'firstRunNoticeShown', {
-    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'trueDrawSteelLos', {
     name: L('trueDrawSteelLos.name'), hint: L('trueDrawSteelLos.hint'),
@@ -914,22 +905,9 @@ const _minionDeathConflict = async () => {
   foundry.applications.settings.SettingsConfig.reloadConfirm({ world: true });
 };
 
-const _dstdQuickStrikeConflict = () => {
-  if (!game.users.activeGM?.isSelf) return;
-  if (!game.modules.get('draw-steel-target-damage')?.active) return;
-  if (!game.modules.get('ds-quick-strike')?.active) return;
-  if (!game.settings.get(_DSCT, 'quickStrikeCompat')) return;
-  game.settings.set(_DSCT, 'quickStrikeCompat', false);
-  const menu = foundry.applications.instances?.get('dsct-compatibility-settings');
-  const cb   = menu?.element?.querySelector('[name="quickStrikeCompat"]');
-  if (cb) cb.checked = false;
-  ui.notifications.warn(game.i18n.localize('DSCT.notice.conflict.dstdQuickStrike'));
-};
-
 export const registerCompatibilityChecks = () => {
   Hooks.once('ready', () => {
     _minionDeathConflict();
-    _dstdQuickStrikeConflict();
   });
   Hooks.on('updateSetting', (setting) => {
     if (setting.key === `${_DSCT_CT}.${_DSCT_CT_KEY}`) {

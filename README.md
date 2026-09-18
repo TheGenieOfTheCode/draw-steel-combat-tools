@@ -61,16 +61,15 @@ Install via the Foundry module browser, or paste this manifest URL directly:
 https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest/download/module.json
 ```
 
-**Required dependencies:** [socketlib](https://foundryvtt.com/packages/socketlib), [color-picker](https://foundryvtt.com/packages/color-picker)
+**Required dependencies:** [socketlib](https://foundryvtt.com/packages/socketlib), [color-picker](https://foundryvtt.com/packages/color-picker), [lib-wrapper](https://foundryvtt.com/packages/lib-wrapper), [Draw Steel: Target Damage](https://foundryvtt.com/packages/draw-steel-target-damage)
 
-**Optional:** [lib-wrapper](https://foundryvtt.com/packages/lib-wrapper) (recommended for best compatibility with other modules)
+Foundry offers to install all four alongside DSCT. They are requirements rather than suggestions: most of the module either patches something through libWrapper or presents itself inside the Target Damage panel.
 
 ---
 
 ## Compatibility
 
 - [Draw Steel Plus](https://github.com/featureJosh/draw-steel-plus)
-- [Draw Steel Target Damage](https://github.com/OmerCora/draw-steel-target-damage)
 - [DS Token Override](https://github.com/nelizzy/ds-token-override)
 - [Health Estimate](https://github.com/mclemente/healthEstimate)
 

@@ -657,7 +657,7 @@ export function registerChatHooks() {
                   }},
                 },
               });
-              await applyDamage(actor, dmg, undefined, { damageType: 'untyped', sourceItemName: 'Bleeding' });
+              await applyDamage(actor, dmg, undefined, { damageType: 'untyped' });
               await msg.setFlag('draw-steel-combat-tools', 'bleedingApplied', { dmg, rollMsgId: rollMsg?.id });
               if (getSetting('debugMode')) console.log(`DSCT | Bleeding | Auto-applied ${dmg} damage to ${actor.name}`);
               _bleedingInFlight.delete(msg.id);

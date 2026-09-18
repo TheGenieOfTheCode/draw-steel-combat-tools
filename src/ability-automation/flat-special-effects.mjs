@@ -1218,7 +1218,6 @@ export function addFlatEffectListeners(section, item, message) {
         await applyDamage(target.actor, amount, undefined, {
           damageType: typeList[0] ?? "untyped",
           ignoreImmunity: immunities.includes("all"),
-          sourceItemName: item.name,
         });
       }
     });

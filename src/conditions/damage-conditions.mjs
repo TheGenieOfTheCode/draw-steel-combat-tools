@@ -455,7 +455,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       if (!actor) continue;
 
       if (this._amount > 0) {
-        await applyDamage(actor, this._amount, undefined, { damageType: this._damageType, ignoreImmunity: this._ignoreImmunity, sourceToken, isArea });
+        await applyDamage(actor, this._amount, undefined, { damageType: this._damageType, ignoreImmunity: this._ignoreImmunity, isArea });
       }
       if (this._condition) {
         switch (this._condition) {
