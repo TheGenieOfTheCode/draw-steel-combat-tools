@@ -1,6 +1,7 @@
 import { getSetting } from '../helpers.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
 import { hide, proposeHide, stealthActive } from '../conditions/stealth.mjs';
+import { proposeHideAsked } from '../conditions/observation-picker.mjs';
 import { COVER_COUNTS } from '../conditions/stealth-traits.mjs';
 
 const { SchemaField, StringField, BooleanField } = foundry.data.fields;
@@ -88,7 +89,8 @@ async function _runHide(effect, item, message) {
     ids = [...game.user.targets].map(t => t.id).filter(id => id !== token.id);
     if (!ids.length) return ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.noTargets'));
   } else {
-    ids = proposeHide(token, opts);
+    ids = await proposeHideAsked(token, opts);
+    if (ids === null) return;
     if (!ids.length) return ui.notifications.warn(game.i18n.format('DSCT.HideEffect.nobody', { name: token.name }));
   }
 

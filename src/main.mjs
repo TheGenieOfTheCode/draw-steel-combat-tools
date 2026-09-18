@@ -59,6 +59,8 @@ import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
 import { registerEnhancedBadge } from './enhanced-badge.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
 import { stackedPrompt } from './ability-automation/stacked-prompt.mjs';
+import { handleObservationRequest } from './conditions/observation-picker.mjs';
+import { registerObservationMemory, suggestObserving, obscuredNear, lastSeenOf, lastHarmOf, seesClearly, clearObservationMemory } from './conditions/observation.mjs';
 
 const api = {
   forcedMovement:   runForcedMovement,
@@ -66,6 +68,7 @@ const api = {
   colorTokenPicker: runColoredTokenPicker,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
   stackedPrompt:    stackedPrompt,
+  observation:      { suggest: suggestObserving, obscuredNear, lastSeen: lastSeenOf, lastHarm: lastHarmOf, seesClearly, clear: clearObservationMemory },
   stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits, search: runSearch },
   stealthPanel:     toggleStealthPanel,
   sight:            { hasCover, visibleTargetCorners, hasSightTo: hasSightToToken },
@@ -146,6 +149,7 @@ Hooks.once('init', () => {
   registerConditionHooks();
   registerStatusPalette();
   registerStealthSystem();
+  registerObservationMemory();
   registerBurrowRendering();
   registerHiddenMarkers();
   registerStealthTraits();
@@ -424,6 +428,7 @@ Hooks.once('socketlib.ready', () => {
   socket.register('dsct.detected',          (spotterId, hiderId) => playDetected(spotterId, hiderId));
   socket.register('dsct.stealthPing',       (at, sceneId) => { if (game.user.isGM) pingStealthStop(at, sceneId); });
   socket.register('dsct.searchPointOut',    (messageId) => pointOut(messageId));
+  socket.register('dsct.askObservation',    (hiderId, observerIds) => handleObservationRequest(hiderId, observerIds));
   socket.register('dsct.spendHeroToken',    () => spendHeroToken());
   socket.register('dsct.takeDamage',        async (uuid, amount, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.system.takeDamage(amount, options); });
   socket.register('dsct.rollFreeStrike',    async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });

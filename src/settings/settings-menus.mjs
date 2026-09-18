@@ -357,6 +357,9 @@ export class StealthSettingsMenu extends SettingsSubmenu {
     return [
       'stealthSystemEnabled',
       'hiddenMarkers',
+      header('Observation'),
+      'observationRadius',
+      'observationAdjacentThreshold',
       ...(STEALTH_WORKFLOW_READY ? ['stealthSneakHouseRule', 'stealthAutoReveal', 'stealthRevealPromptSeconds', 'stealthTrueHidden', 'revealCombatantPositions'] : []),
       'coverBaneEnabled',
     ];

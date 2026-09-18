@@ -759,6 +759,14 @@ export const registerSettings = () => {
     name: L('coverBaneEnabled.name'), hint: L('coverBaneEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'observationRadius', {
+    name: L('observationRadius.name'), hint: L('observationRadius.hint'),
+    scope: 'world', config: false, type: Number, default: 3,
+  });
+  game.settings.register(M, 'observationAdjacentThreshold', {
+    name: L('observationAdjacentThreshold.name'), hint: L('observationAdjacentThreshold.hint'),
+    scope: 'world', config: false, type: Number, default: 1,
+  });
   game.settings.register(M, 'enforceAbilityRange', {
     name: L('enforceAbilityRange.name'), hint: L('enforceAbilityRange.hint'),
     scope: 'world', config: false, type: Boolean, default: false,

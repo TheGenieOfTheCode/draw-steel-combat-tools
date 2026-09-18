@@ -253,6 +253,47 @@ export const hasSightToToken = (fromToken, token) => {
   return false;
 };
 
+export function visibleSquareCorners(fromToken, gx, gy, cellsW = 1, cellsH = 1) {
+  if (!fromToken || !canvas?.grid) return 0;
+  const GS = canvas.grid.size;
+  const x = gx * GS;
+  const y = gy * GS;
+  const w = Math.max(1, Math.round(cellsW)) * GS;
+  const h = Math.max(1, Math.round(cellsH)) * GS;
+
+  const cap = loeRangeCap(fromToken);
+  if (cap) {
+    const from = _spaceCentre(fromToken);
+    const to = { x: x + w / 2, y: y + h / 2 };
+    const dist = canvas.grid.measurePath([from, to]).distance;
+    if (dist >= cap * (canvas.grid.distance || 1)) return 0;
+  }
+
+  const origins = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [_spaceCentre(fromToken)];
+  const corners = SIGHT_SAMPLES.slice(1).map(([fx, fy]) => ({ x: x + fx * w, y: y + fy * h }));
+  const blockers = loeBlockersFor(fromToken, null);
+
+  let best = 0;
+  for (const origin of origins) {
+    let seen = 0;
+    for (const corner of corners) {
+      if (segmentBlocksSight(origin, corner)) continue;
+      if (blockers.some(b => _segCrossesToken(origin, corner, b))) continue;
+      seen++;
+    }
+    if (seen > best) best = seen;
+  }
+  return best;
+}
+
+export const hasSightToSquare = (fromToken, gx, gy) => visibleSquareCorners(fromToken, gx, gy) > 0;
+
+export const coveredInSquare = (fromToken, gx, gy, w = 1, h = 1) =>
+  visibleSquareCorners(fromToken, gx, gy, w, h) <= 2;
+
+export const seenPlainlyInSquare = (fromToken, gx, gy, w = 1, h = 1) =>
+  visibleSquareCorners(fromToken, gx, gy, w, h) >= 3;
+
 const _spaceRect = (token) => {
   const GS = canvas.grid.size;
   const doc = token.document;
@@ -285,6 +326,9 @@ const _spaceCentre = (token) => {
 
 export const visibleTargetCorners = (fromToken, token) => {
   if (!fromToken || !token) return 0;
+  
+  
+  if (loeRangeBlocked(fromToken, token)) return 0;
 
   const origins = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [_spaceCentre(fromToken)];
   const corners = _spaceCorners(token);

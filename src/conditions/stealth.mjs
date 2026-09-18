@@ -204,10 +204,21 @@ const _outOfCombat = () =>
   ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.outOfCombat'));
 
 const _enemiesOnScene = (token) => {
+  if (!token || !game.combat) return [];
+
   const disposition = token.document.disposition;
-  return canvas.tokens.placeables
-    .filter(other => other.id !== token.id && other.actor)
-    .filter(other => other.document.disposition !== disposition);
+  const defeated = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+  const out = [];
+
+  for (const combatant of game.combat.combatants) {
+    const other = combatant.token?.object;
+    if (!other?.actor || other.id === token.id) continue;
+    if (other.document.disposition === disposition) continue;
+    if (other.actor.system?.isObject) continue;
+    if (combatant.isDefeated || other.actor.statuses?.has(defeated)) continue;
+    out.push(other);
+  }
+  return out;
 };
 
 const _hideTraits = (token, opts = {}) => {
@@ -227,6 +238,13 @@ export function proposeHide(token, opts = {}) {
     .filter(other => traits.hideWhileObserved || !isObserving(other, token))
     .map(other => other.id);
 }
+
+export function hideCandidates(token) {
+  if (!token || !stealthActive()) return [];
+  return _enemiesOnScene(token).filter(other => !observerBlocksHiding(other, token));
+}
+
+export const hideTraitsOf = (token, opts = {}) => _hideTraits(token, opts);
 
 export function observingEnemies(token, opts = {}) {
   if (!token || !stealthActive()) return [];

@@ -600,6 +600,14 @@
         "name": "Seconds Before Clearing",
         "hint": "How long a placed area stays before it is cleared, when the ability is not marked Ongoing. The end of the turn still clears it sooner."
       },
+      "observationRadius": {
+        "name": "Unobserved Ground Shown",
+        "hint": "How far around a hiding creature the observation picker looks when it shows you how much ground an enemy cannot watch. Context only, it does not change the suggestion. Larger numbers cost more to work out on a walled map."
+      },
+      "observationAdjacentThreshold": {
+        "name": "Unobserved Squares to Suggest Hiding",
+        "hint": "When MORE than this many squares next to a creature are out of an enemy's view, the picker suggests that enemy is not observing them, even if it can see them right now. Set it higher to make the picker stricter, or to 0 to have any unwatched neighbouring square count."
+      },
       "enforceAbilityRange": {
         "name": "Enforce Ability Range",
         "hint": "Prevents Ability Roll UI from opening if target is out of range."
@@ -1709,6 +1717,32 @@
       "flatApplied": {
         "noEffect": "DSCT | That applied effect is no longer on the ability, so nothing was applied."
       }
+    },
+    "observation": {
+      "title": "Who is observing {name}?",
+      "hint": "Hover an enemy to see what it can observe. Click to toggle its state.",
+      "status": "{observing} observing, {hidden} not",
+      "legend": {
+        "title": "Legend",
+        "observing": "Observing them",
+        "notObserving": "Not observing them",
+        "ground": "They would have cover here",
+        "lastSeen": "Last seen plainly",
+        "lastHarm": "They attacked from here",
+        "sightClear": "A line that gets through",
+        "sightBlocked": "A line that is stopped"
+      },
+      "detailCover": "{covered} of {total} squares around them offer cover from it",
+      "detailLastSeen": "last saw them clearly in round {round}",
+      "detailHarm": "they attacked it in round {round}",
+      "reason": {
+        "clear": "sees them plainly",
+        "obscured": "can see them, but they are concealed or in cover",
+        "blind": "has no line of effect to them",
+        "surrounded": "sees them, but there is cover all around them"
+      },
+      "askDirector": "{name} is trying to hide. The Director is deciding who is watching.",
+      "noDirector": "No Director is connected, so the module decided who is watching."
     },
     "templateLifetime": {
       "effectName": "{name} (Area)",

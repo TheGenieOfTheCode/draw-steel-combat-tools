@@ -61,3 +61,25 @@ export const registerHealthEstimateCompat = () => {
   if (!game.modules.get('healthEstimate')?.active) return;
   Hooks.once('ready', _applyPatch);
 };
+
+let _hidden = null;
+
+export function suppressHealthEstimate(on) {
+  const he = game.healthEstimate;
+  if (!he?._handleOverlay) return;
+
+  if (on) {
+    if (_hidden) return;
+    _hidden = he._handleOverlay.bind(he);
+    he._handleOverlay = () => {};
+    
+    for (const token of canvas.tokens?.placeables ?? []) {
+      try { _hidden(token, false); } catch {  }
+    }
+    return;
+  }
+
+  if (!_hidden) return;
+  he._handleOverlay = _hidden;
+  _hidden = null;
+}
