@@ -60,6 +60,8 @@ import { registerEnhancedBadge } from './enhanced-badge.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
 import { stackedPrompt } from './ability-automation/stacked-prompt.mjs';
 import { handleObservationRequest } from './conditions/observation-picker.mjs';
+import { registerLowCover } from './conditions/low-cover.mjs';
+import { registerColorFields, upgradeColorFields } from './color-field.mjs';
 import { registerObservationMemory, suggestObserving, obscuredNear, lastSeenOf, lastHarmOf, seesClearly, clearObservationMemory } from './conditions/observation.mjs';
 
 const api = {
@@ -68,6 +70,7 @@ const api = {
   colorTokenPicker: runColoredTokenPicker,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
   stackedPrompt:    stackedPrompt,
+  colorFields:      upgradeColorFields,
   observation:      { suggest: suggestObserving, obscuredNear, lastSeen: lastSeenOf, lastHarm: lastHarmOf, seesClearly, clear: clearObservationMemory },
   stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits, search: runSearch },
   stealthPanel:     toggleStealthPanel,
@@ -150,6 +153,8 @@ Hooks.once('init', () => {
   registerStatusPalette();
   registerStealthSystem();
   registerObservationMemory();
+  registerLowCover();
+  registerColorFields();
   registerBurrowRendering();
   registerHiddenMarkers();
   registerStealthTraits();
