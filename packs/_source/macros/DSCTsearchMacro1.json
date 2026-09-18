@@ -1,0 +1,25 @@
+{
+ "_id": "DSCTsearchMacro1",
+ "name": "DSCT: Search",
+ "type": "script",
+ "img": "icons/magic/perception/eye-ringed-glow-angry-small-teal.webp",
+ "scope": "global",
+ "sort": 200,
+ "folder": "DSCTfoldSte00001",
+ "ownership": {
+  "default": 0
+ },
+ "flags": {},
+ "command": "// DSCT: Search\n//\n// The Search maneuver posted as its own chat message rather than as part of an ability card.\n//\n// Select the creature searching and run this. It rolls the Intuition test, lists every hidden\n// creature in range as its own row, and lets whoever owns them roll to stay hidden. Beating a\n// creature reveals it, and the searcher can point it out to allies within 10 squares.\n//\n// Use the Search ability from your sheet instead if you want the card with the rules text.\n\nconst api = game.modules.get('draw-steel-combat-tools')?.api;\nif (!api) return ui.notifications.error('Draw Steel: Combat Tools is not active.');\n\nconst token = canvas.tokens.controlled[0];\nif (!token) return ui.notifications.warn('Select the creature searching first.');\n\nawait api.stealth.search(token);\n",
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "coreVersion": "14.0.0",
+  "systemId": null,
+  "systemVersion": null,
+  "createdTime": null,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!macros!DSCTsearchMacro1"
+}

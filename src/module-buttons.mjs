@@ -91,14 +91,6 @@ export const registerModuleButtons = () => {
         visible: S('teleportEnabled') && S('showTeleportButton'),
         onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.teleportUI()
       },
-      'dsct-stealth': {
-        name: 'dsct-stealth',
-        title: 'Stealth',
-        icon: 'fas fa-user-ninja',
-        button: true,
-        visible: STEALTH_WORKFLOW_READY && S('stealthSystemEnabled') && S('showStealthButton'),
-        onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.stealthPanel()
-      },
       'dsct-dc': {
         name: 'dsct-dc',
         title: 'Damage & Conditions',

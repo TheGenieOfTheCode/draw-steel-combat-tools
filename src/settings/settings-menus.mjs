@@ -691,8 +691,7 @@ export class ModuleButtonsSettingsMenu extends SettingsSubmenu {
   };
 
   static get regularKeys() {
-    const keys = ['toolboxEnabled', 'showForcedMovementButton', 'showGrabButton', 'showTeleportButton', 'showDamageConditionsButton',
-      ...(STEALTH_WORKFLOW_READY ? ['showStealthButton'] : [])];
+    const keys = ['toolboxEnabled', 'showForcedMovementButton', 'showGrabButton', 'showTeleportButton', 'showDamageConditionsButton'];
     if (game.user.isGM) keys.push('showWallBuilderButton');
     return keys;
   }

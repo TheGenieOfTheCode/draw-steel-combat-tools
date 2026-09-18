@@ -75,27 +75,33 @@ function _speakerToken(message, item) {
   return actor?.getActiveTokens?.()?.[0] ?? null;
 }
 
-async function _runHide(effect, item, message) {
-  if (!stealthActive()) return ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.outOfCombat'));
-  const token = _speakerToken(message, item);
-  if (!token) return ui.notifications.warn(game.i18n.localize('DSCT.HideEffect.noToken'));
-  if (!token.actor?.isOwner) return ui.notifications.warn(game.i18n.localize('DSCT.HideEffect.notOwner'));
+export async function runHideFor(token, opts = {}) {
+  if (!stealthActive()) { ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.outOfCombat')); return null; }
+  if (!token) { ui.notifications.warn(game.i18n.localize('DSCT.HideEffect.noToken')); return null; }
+  if (!token.actor?.isOwner) { ui.notifications.warn(game.i18n.localize('DSCT.HideEffect.notOwner')); return null; }
 
-  const { from, whileObserved, coverCounts } = effect.hide;
-  const opts = { whileObserved, coverCounts };
-
-  let ids;
-  if (from === 'targets') {
-    ids = [...game.user.targets].map(t => t.id).filter(id => id !== token.id);
-    if (!ids.length) return ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.noTargets'));
-  } else {
-    ids = await proposeHideAsked(token, opts);
-    if (ids === null) return;
-    if (!ids.length) return ui.notifications.warn(game.i18n.format('DSCT.HideEffect.nobody', { name: token.name }));
-  }
+  const ids = opts.ids ?? await proposeHideAsked(token, opts);
+  if (ids === null) return null;
+  if (!ids.length) { ui.notifications.warn(game.i18n.format('DSCT.HideEffect.nobody', { name: token.name })); return []; }
 
   const list = await hide(token, ids, opts);
   ui.notifications.info(game.i18n.format('DSCT.HideEffect.hiddenFrom', { name: token.name, count: list.length }));
+  return list;
+}
+
+async function _runHide(effect, item, message) {
+  const token = _speakerToken(message, item);
+  const { from, whileObserved, coverCounts } = effect.hide;
+  const opts = { whileObserved, coverCounts };
+
+  if (from === 'targets') {
+    if (!token) return ui.notifications.warn(game.i18n.localize('DSCT.HideEffect.noToken'));
+    const ids = [...game.user.targets].map(t => t.id).filter(id => id !== token.id);
+    if (!ids.length) return ui.notifications.warn(game.i18n.localize('DSCT.notice.stealth.noTargets'));
+    opts.ids = ids;
+  }
+
+  await runHideFor(token, opts);
 }
 
 function _buildButton(effect, item, message) {

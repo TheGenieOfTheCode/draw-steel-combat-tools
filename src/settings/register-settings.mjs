@@ -865,11 +865,6 @@ export const registerSettings = () => {
     scope: 'client', config: false, type: Boolean, default: true,
     ...refreshControls,
   });
-  game.settings.register(M, 'showStealthButton', {
-    name: L('showStealthButton.name'), hint: L('showStealthButton.hint'),
-    scope: 'client', config: false, type: Boolean, default: true,
-    ...refreshControls,
-  });
   game.settings.register(M, 'showDamageConditionsButton', {
     name: L('showDamageConditionsButton.name'), hint: L('showDamageConditionsButton.hint'),
     scope: 'client', config: false, type: Boolean, default: true,

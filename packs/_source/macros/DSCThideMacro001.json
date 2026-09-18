@@ -1,0 +1,25 @@
+{
+ "_id": "DSCThideMacro001",
+ "name": "DSCT: Hide",
+ "type": "script",
+ "img": "icons/magic/perception/shadow-stealth-eyes-purple.webp",
+ "scope": "global",
+ "sort": 100,
+ "folder": "DSCTfoldSte00001",
+ "ownership": {
+  "default": 0
+ },
+ "flags": {},
+ "command": "// DSCT: Hide\n//\n// The Hide maneuver without posting a card. Select the creature that is hiding and run this.\n//\n// The Director is asked who was actually observing, in the same picker the Hide ability uses,\n// and you end up hidden from whoever they say was not watching. Cancelling the picker cancels\n// the hide.\n//\n// Use the Hide ability from your sheet instead if you want the card, the rules text and the\n// button. This is the shortcut for a Director moving a creature along quickly.\n\nconst api = game.modules.get('draw-steel-combat-tools')?.api;\nif (!api) return ui.notifications.error('Draw Steel: Combat Tools is not active.');\n\nconst token = canvas.tokens.controlled[0];\nif (!token) return ui.notifications.warn('Select the creature that is hiding first.');\n\nawait api.stealth.runHide(token);\n",
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "coreVersion": "14.0.0",
+  "systemId": null,
+  "systemVersion": null,
+  "createdTime": null,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!macros!DSCThideMacro001"
+}

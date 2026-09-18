@@ -767,10 +767,6 @@
         "name": "Reveal Prompt Fades After",
         "hint": "Seconds a red spiked eye stays before it fades away unanswered. Only matters with Reveal Automatically off."
       },
-      "showStealthButton": {
-        "name": "Show Stealth Button",
-        "hint": "Adds a Stealth button to the token controls, opening the panel for hiding and Stealth Vision. Per client."
-      },
       "stealthSettings": {
         "name": "Stealth",
         "label": "Configure Stealth",
@@ -1239,7 +1235,6 @@
         "CompatibilitySettings": "Compatibility",
         "SquadToolsSettings": "Squad Tools Settings",
         "CombatLogsSettings": "Combat Logs",
-        "stealth": "Stealth",
         "StealthSettings": "Stealth Settings"
       },
       "fm": {
@@ -1412,29 +1407,6 @@
         "mimic": "Mimic",
         "noTarget": "No Target",
         "freeSpentInsight": "Free (spent Insight)"
-      },
-      "stealth": {
-        "hiddenFrom": "Hidden from",
-        "notHidden": "Not hidden from anyone.",
-        "couldHideFrom": "Could hide from",
-        "observingYou": "Observing you",
-        "observingHint": "Cover alone does not hide you from a creature who can see you. If the Director rules they lost track of you, target them and use Hide from Targeted.",
-        "nobody": "Nobody. Get concealment or break their line of effect; cover alone only works against a creature who is not observing you.",
-        "outOfCombat": "Hiding only runs during an encounter. Anything left over is cleared when combat ends.",
-        "hide": "Hide",
-        "hideTargeted": "Hide from Targeted",
-        "reveal": "Reveal",
-        "visionOn": "Stealth Vision",
-        "visionOff": "Exit Stealth Vision",
-        "selectToken": "Select the token you are hiding with.",
-        "visionTitle": "Stealth Vision: {name}",
-        "visionStatus": "{seen} can see you, {could} you could hide from, {hidden} already hidden from",
-        "legend": {
-          "seen": "Red sees you",
-          "covered": "Amber sees you, but you have cover",
-          "blind": "Green lacks line of effect to you",
-          "hidden": "Blue is already hidden from"
-        }
       }
     },
     "settings": {

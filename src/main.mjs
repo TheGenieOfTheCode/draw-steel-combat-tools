@@ -22,7 +22,6 @@ import { applyFrightened, applyTaunted, registerConditionHooks } from './conditi
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
 import { registerStatusPalette } from './status-palette.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
-import { toggleStealthPanel, registerStealthPanel } from './conditions/stealth-panel.mjs';
 import { registerSearch, pointOut, runSearch, spendHeroToken } from './conditions/search.mjs';
 import { registerHiddenMarkers } from './conditions/hidden-markers.mjs';
 import { registerStealthPath, pingStealthStop } from './conditions/stealth-path.mjs';
@@ -51,7 +50,7 @@ import { registerCombatLogHooks } from './combat-logs.mjs';
 import { registerFlatEffects } from './ability-automation/flat-special-effects.mjs';
 import { registerTieredEffects } from './ability-automation/tiered-effects.mjs';
 import { registerChooseEffect } from './ability-automation/choose-effect.mjs';
-import { registerHideEffect } from './ability-automation/hide-effect.mjs';
+import { registerHideEffect, runHideFor } from './ability-automation/hide-effect.mjs';
 import { registerStealthTraits, stealthTraits } from './conditions/stealth-traits.mjs';
 import { registerLineOfEffectFlags, registerCoverImmunity } from './conditions/line-of-effect.mjs';
 import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
@@ -71,8 +70,7 @@ const api = {
   stackedPrompt:    stackedPrompt,
   colorFields:      upgradeColorFields,
   observation:      { suggest: suggestObserving, obscuredNear, lastSeen: lastSeenOf, lastHarm: lastHarmOf, seesClearly, clear: clearObservationMemory },
-  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, enforceBlocked: enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits, search: runSearch },
-  stealthPanel:     toggleStealthPanel,
+  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, enforceBlocked: enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits, search: runSearch, runHide: runHideFor },
   sight:            { hasCover, visibleTargetCorners, hasSightTo: hasSightToToken },
   grab:             runGrab,
   wallBuilder: () => { const existing = getWindowById('wall-builder-panel'); if (existing) existing.close(); else new WallBuilderPanel().render(true); },
@@ -162,7 +160,6 @@ Hooks.once('init', () => {
   registerEffectFlagPicker();
   registerEnhancedBadge();
   if (STEALTH_WORKFLOW_READY) {
-    registerStealthPanel();
     registerStealthPath();
     registerSearch();
     registerCombatReveal();

@@ -24,7 +24,6 @@ const SHROUD_ALPHA = 0.35;
 const SHROUD_MESH = 0.45;
 const BURROW_MESH = 0.5;
 
-let _suspended = false;
 let _texture = null;
 let _lines = null;
 let _lineCount = 0;
@@ -252,7 +251,7 @@ function _syncAlertTicker() {
 }
 
 const _enabled = () =>
-  getSetting('stealthSystemEnabled') && getSetting('hiddenMarkers') && !_suspended;
+  getSetting('stealthSystemEnabled') && getSetting('hiddenMarkers');
 
 const _tokensFor = (id) => [
   canvas.tokens?.get(id),
@@ -360,11 +359,6 @@ export function registerHiddenMarkers() {
     if (mark) _placeMark(mark, token);
     if (_shrouded.has(token.id) || token.mesh?.dsctStealthFaded) _syncShroud(token);
     if (_lineCount) _drawLines();
-  });
-
-  Hooks.on('dsct.stealthVision', (on) => {
-    _suspended = !!on;
-    refreshHiddenMarkers();
   });
 
   const forget = () => { _marked.clear(); _shrouded.clear(); _lines = null; _lineCount = 0; };
