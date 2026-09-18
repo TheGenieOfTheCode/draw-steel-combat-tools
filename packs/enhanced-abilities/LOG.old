@@ -1,15 +1,5 @@
-2026/09/16-22:15:39.905 500c Recovering log #12
-2026/09/16-22:15:39.930 500c Delete type=0 #12
-2026/09/16-22:15:39.930 500c Delete type=3 #11
-2026/09/16-22:15:39.942 6194 Level-0 table #16: started
-2026/09/16-22:15:39.950 6194 Level-0 table #16: 5085 bytes OK
-2026/09/16-22:15:39.953 6194 Delete type=0 #14
-2026/09/16-22:15:39.954 6194 Manual compaction at level-0 from '!items!DSCTenhFaith0001' @ 72057594037927935 : 1 .. '!items!DSCTenhSearch001' @ 0 : 0; will stop at (end)
-2026/09/16-22:15:39.954 6194 Manual compaction at level-1 from '!items!DSCTenhFaith0001' @ 72057594037927935 : 1 .. '!items!DSCTenhSearch001' @ 0 : 0; will stop at '!items!DSCTenhSearch001' @ 11 : 1
-2026/09/16-22:15:39.954 6194 Compacting 1@1 + 1@2 files
-2026/09/16-22:15:39.957 6194 Generated table #17@1: 4 keys, 5068 bytes
-2026/09/16-22:15:39.957 6194 Compacted 1@1 + 1@2 files => 5068 bytes
-2026/09/16-22:15:39.961 6194 compacted to: files[ 0 0 1 0 0 0 0 ]
-2026/09/16-22:15:39.961 6194 Delete type=2 #10
-2026/09/16-22:15:39.961 6194 Delete type=2 #16
-2026/09/16-22:15:39.961 6194 Manual compaction at level-1 from '!items!DSCTenhSearch001' @ 11 : 1 .. '!items!DSCTenhSearch001' @ 0 : 0; will stop at (end)
+2026/09/18-20:59:41.554 b2b0 Delete type=3 #1
+2026/09/18-20:59:41.560 1c18 Level-0 table #5: started
+2026/09/18-20:59:41.563 1c18 Level-0 table #5: 14078 bytes OK
+2026/09/18-20:59:41.567 1c18 Delete type=0 #3
+2026/09/18-20:59:41.567 1c18 Manual compaction at level-0 from '!folders!DSCTfldBasic0001' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhStickyBm1.dsctStickyBomb01' @ 0 : 0; will stop at (end)

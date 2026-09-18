@@ -1,165 +1,165 @@
 {
-  "folder": null,
-  "name": "Faith Is Our Armor",
-  "type": "ability",
-  "_id": "DSCTenhFaith0001",
-  "img": "icons/magic/defensive/shield-barrier-flaming-pentagon-orange.webp",
-  "system": {
-    "source": {
-      "book": "Heroes",
-      "page": "101",
-      "license": "Draw Steel Creator License"
-    },
-    "_dsid": "faith-is-our-armor",
-    "story": "The heroes’ armor glows with golden light, granting divine protection.",
-    "keywords": [
-      "magic",
-      "ranged"
+ "folder": "DSCTfldConduitL1",
+ "name": "Faith Is Our Armor",
+ "type": "ability",
+ "_id": "DSCTenhFaith0001",
+ "img": "icons/magic/defensive/shield-barrier-flaming-pentagon-orange.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "101",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "faith-is-our-armor",
+  "story": "The heroes’ armor glows with golden light, granting divine protection.",
+  "keywords": [
+   "magic",
+   "ranged"
+  ],
+  "type": "maneuver",
+  "category": "heroic",
+  "resource": 5,
+  "trigger": "",
+  "distance": {
+   "type": "ranged",
+   "primary": "10",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "ally",
+   "value": 4,
+   "custom": ""
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [
+     "intuition"
     ],
-    "type": "maneuver",
-    "category": "heroic",
-    "resource": 5,
-    "trigger": "",
-    "distance": {
-      "type": "ranged",
-      "primary": "10",
-      "secondary": "1",
-      "tertiary": "1"
-    },
-    "damageDisplay": "melee",
-    "target": {
-      "type": "ally",
-      "value": 4,
-      "custom": ""
-    },
-    "power": {
-      "roll": {
-        "formula": "@chr",
-        "characteristics": [
-          "intuition"
-        ],
-        "reactive": false
+    "reactive": false
+   },
+   "effects": {
+    "KJ9ruY4GXEnl5zkF": {
+     "_id": "KJ9ruY4GXEnl5zkF",
+     "name": "Temporary Stamina",
+     "img": null,
+     "type": "dsctHeal",
+     "sort": 0,
+     "dsctHeal": {
+      "tier1": {
+       "enabled": true,
+       "displayText": "The target gains 5 temporary Stamina",
+       "display": "",
+       "spend": {
+        "enabled": false,
+        "value": 1
+       },
+       "spendRecovery": false,
+       "recoverySource": "self",
+       "amountType": "custom",
+       "amountFormula": "5",
+       "recoveryValueSource": "self",
+       "tempStamina": true,
+       "repeatable": false,
+       "potency": {
+        "value": "@potency.weak",
+        "characteristic": "none"
+       }
       },
-      "effects": {
-        "KJ9ruY4GXEnl5zkF": {
-          "_id": "KJ9ruY4GXEnl5zkF",
-          "name": "Temporary Stamina",
-          "img": null,
-          "type": "dsctHeal",
-          "sort": 0,
-          "dsctHeal": {
-            "tier1": {
-              "enabled": true,
-              "displayText": "The target gains 5 temporary Stamina",
-              "display": "",
-              "spend": {
-                "enabled": false,
-                "value": 1
-              },
-              "spendRecovery": false,
-              "recoverySource": "self",
-              "amountType": "custom",
-              "amountFormula": "5",
-              "recoveryValueSource": "self",
-              "tempStamina": true,
-              "repeatable": false,
-              "potency": {
-                "value": "@potency.weak",
-                "characteristic": "none"
-              }
-            },
-            "tier2": {
-              "enabled": true,
-              "displayText": "The target gains 10 temporary Stamina",
-              "display": "",
-              "spend": {
-                "enabled": false,
-                "value": 1
-              },
-              "spendRecovery": false,
-              "recoverySource": "self",
-              "amountType": "custom",
-              "amountFormula": "10",
-              "recoveryValueSource": "self",
-              "tempStamina": true,
-              "repeatable": false,
-              "potency": {
-                "value": "@potency.average",
-                "characteristic": ""
-              }
-            },
-            "tier3": {
-              "enabled": true,
-              "displayText": "The target gains 15 temporary Stamina",
-              "display": "",
-              "spend": {
-                "enabled": false,
-                "value": 1
-              },
-              "spendRecovery": false,
-              "recoverySource": "self",
-              "amountType": "custom",
-              "amountFormula": "15",
-              "recoveryValueSource": "self",
-              "tempStamina": true,
-              "repeatable": false,
-              "potency": {
-                "value": "@potency.strong",
-                "characteristic": ""
-              }
-            }
-          }
-        }
-      }
-    },
-    "prerequisites": {
-      "dsid": [
-        "conduit"
-      ],
-      "value": "",
-      "level": null
-    },
-    "effects": {
-      "before0000000000": {
-        "_id": "before0000000000",
-        "type": "base",
-        "description": "<p>You can target yourself instead of one ally with this ability.</p>",
-        "before": true,
-        "name": "",
-        "img": null,
-        "sort": 0
+      "tier2": {
+       "enabled": true,
+       "displayText": "The target gains 10 temporary Stamina",
+       "display": "",
+       "spend": {
+        "enabled": false,
+        "value": 1
+       },
+       "spendRecovery": false,
+       "recoverySource": "self",
+       "amountType": "custom",
+       "amountFormula": "10",
+       "recoveryValueSource": "self",
+       "tempStamina": true,
+       "repeatable": false,
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": ""
+       }
       },
-      "dsctNote00000001": {
-        "_id": "dsctNote00000001",
-        "type": "base",
-        "name": "",
-        "img": null,
-        "sort": 100000,
-        "before": false,
-        "description": "<p><em>Combat Tools: the Temporary Stamina button on this card grants the rolled tier to each target, and stacks with the Target Damage panel so every ally gets their own row.</em></p>"
+      "tier3": {
+       "enabled": true,
+       "displayText": "The target gains 15 temporary Stamina",
+       "display": "",
+       "spend": {
+        "enabled": false,
+        "value": 1
+       },
+       "spendRecovery": false,
+       "recoverySource": "self",
+       "amountType": "custom",
+       "amountFormula": "15",
+       "recoveryValueSource": "self",
+       "tempStamina": true,
+       "repeatable": false,
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": ""
+       }
       }
+     }
     }
+   }
   },
-  "effects": [],
-  "sort": 300000,
-  "ownership": {
-    "default": 0
+  "prerequisites": {
+   "dsid": [
+    "conduit"
+   ],
+   "value": "",
+   "level": null
   },
-  "flags": {
-    "draw-steel-combat-tools": {
-      "enhanced": true
-    }
-  },
-  "_stats": {
-    "compendiumSource": null,
-    "duplicateSource": null,
-    "exportSource": null,
-    "coreVersion": "14",
-    "systemId": "draw-steel",
-    "systemVersion": "1.1.0",
-    "createdTime": null,
-    "modifiedTime": null,
-    "lastModifiedBy": null
-  },
-  "_key": "!items!DSCTenhFaith0001"
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "description": "<p>You can target yourself instead of one ally with this ability.</p>",
+    "before": true,
+    "name": "",
+    "img": null,
+    "sort": 0
+   },
+   "dsctNote00000001": {
+    "_id": "dsctNote00000001",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 100000,
+    "before": false,
+    "description": "<p><em>Combat Tools: the Temporary Stamina button on this card grants the rolled tier to each target, and stacks with the Target Damage panel so every ally gets their own row.</em></p>"
+   }
+  }
+ },
+ "effects": [],
+ "sort": 300000,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": null,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhFaith0001"
 }

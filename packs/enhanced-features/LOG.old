@@ -1,0 +1,5 @@
+2026/09/18-20:59:41.698 359c Delete type=3 #1
+2026/09/18-20:59:41.703 4930 Level-0 table #5: started
+2026/09/18-20:59:41.708 4930 Level-0 table #5: 11496 bytes OK
+2026/09/18-20:59:41.711 4930 Delete type=0 #3
+2026/09/18-20:59:41.711 4930 Manual compaction at level-0 from '!folders!DSCTfffAnimals1' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhSoulsght1.dsctSoulsight001' @ 0 : 0; will stop at (end)

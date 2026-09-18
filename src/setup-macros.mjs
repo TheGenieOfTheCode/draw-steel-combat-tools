@@ -117,6 +117,16 @@ export const distributeAbilities = async () => {
 
 export const ENHANCED_PACK = 'draw-steel-combat-tools.enhanced-abilities';
 
+export const ENHANCED_PACKS = [ENHANCED_PACK, 'draw-steel-combat-tools.enhanced-features'];
+
+const enhancedPacks = () => ENHANCED_PACKS.map(id => game.packs.get(id)).filter(Boolean);
+
+async function enhancedDocuments() {
+  const out = [];
+  for (const pack of enhancedPacks()) out.push(...await pack.getDocuments());
+  return out;
+}
+
 export function enhancedStamp(data) {
   const text = JSON.stringify({ n: data.name, i: data.img, s: data.system });
   let h = 5381;
@@ -138,6 +148,8 @@ const _prereqDsids = (doc) => {
 
 export function isUniversalEnhanced(doc) {
   const p = doc?.system?.prerequisites ?? {};
+  
+  if (doc?.flags?.["draw-steel-combat-tools"]?.enhancedSpecific) return false;
   return !_prereqDsids(doc).length && !String(p.value ?? '').trim() && !p.level;
 }
 
@@ -150,10 +162,9 @@ const _meetsPrereq = (actor, dsids) => {
 export const cleanupEnhancedAbilities = async ({ apply = false } = {}) => {
   const empty = { removed: 0, kept: 0, actors: [], keptActors: [] };
   if (!game.user.isGM) { ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.gmOnlyDistribute')); return empty; }
-  const pack = game.packs.get(ENHANCED_PACK);
-  if (!pack) { ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.enhancedPackNotFound')); return empty; }
+  if (!enhancedPacks().length) { ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.enhancedPackNotFound')); return empty; }
 
-  const gated = (await pack.getDocuments())
+  const gated = (await enhancedDocuments())
     .filter(d => d.system?._dsid && !isUniversalEnhanced(d))
     .map(d => ({ dsid: d.system._dsid, name: d.name, prereq: _prereqDsids(d) }));
   if (!gated.length) return empty;
@@ -197,10 +208,9 @@ export const cleanupEnhancedAbilities = async ({ apply = false } = {}) => {
 export const distributeEnhancedAbilities = async ({ actors = null, silent = false } = {}) => {
   const none = { added: 0, skipped: 0 };
   if (!game.user.isGM) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.gmOnlyDistribute')); return none; }
-  const pack = game.packs.get(ENHANCED_PACK);
-  if (!pack) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.enhancedPackNotFound')); return none; }
+  if (!enhancedPacks().length) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.enhancedPackNotFound')); return none; }
 
-  const docs = (await pack.getDocuments()).filter(d => d.system?._dsid);
+  const docs = (await enhancedDocuments()).filter(d => d.system?._dsid);
   const wanted = (a) => a && !['party', 'object'].includes(a.type);
 
   const givenOut = docs.filter(isUniversalEnhanced);

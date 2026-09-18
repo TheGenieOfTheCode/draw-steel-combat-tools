@@ -1,95 +1,95 @@
 {
-  "name": "Hide",
-  "type": "ability",
-  "img": "icons/svg/cowled.svg",
-  "system": {
-    "source": {
-      "book": "Heroes",
-      "page": "258-259",
-      "license": "Draw Steel Creator License"
-    },
-    "_dsid": "dsct-hide",
-    "keywords": [],
-    "type": "maneuver",
-    "category": "",
-    "resource": null,
-    "trigger": "",
-    "distance": {
-      "type": "self",
-      "primary": "1",
-      "secondary": "1",
-      "tertiary": "1"
-    },
-    "damageDisplay": "melee",
-    "target": {
-      "type": "self",
-      "value": null,
-      "custom": ""
-    },
-    "story": "",
-    "power": {
-      "roll": {
-        "formula": "@chr",
-        "characteristics": [],
-        "reactive": false
-      },
-      "effects": {}
-    },
-    "effects": {
-      "before0000000000": {
-        "_id": "before0000000000",
-        "type": "base",
-        "description": "<p>You attempt to hide from one or more creatures. To hide from a creature, you must have cover or concealment from them, and they must not be observing you. During combat, if you use this maneuver while you have cover or concealment from a creature who isn't observing you, you are automatically hidden from them unless the Director deems otherwise.</p><p>While hidden from a creature, you can't be targeted by their abilities that don't have the Area keyword, and you gain an edge on ability rolls against them. You are no longer hidden from a creature once an activity that reveals you resolves: using an ability, interacting with an enemy, moving without sneaking, or otherwise revealing yourself.</p><p>@UUID[Compendium.draw-steel-combat-tools.rules.JournalEntry.DSCTrulesJournal.JournalEntryPage.DSCTfullHiding00]{Full rules: Hiding and Sneaking}</p><p><em>Combat Tools: the Hide button on this card hides you from every enemy you have concealment or no line of effect from. Cover alone needs the Director's nod: the Stealth panel lists who is still observing you, and Hide from Targeted adds them.</em></p>",
-        "before": true,
-        "name": "",
-        "img": null,
-        "sort": 0
-      },
-      "dsctHideEffect00": {
-        "_id": "dsctHideEffect00",
-        "type": "dsct.hide",
-        "name": "Hide",
-        "img": null,
-        "sort": 100000,
-        "description": "",
-        "before": false,
-        "hide": {
-          "from": "enemies",
-          "whileObserved": false,
-          "coverCounts": "",
-          "display": ""
-        }
-      }
-    },
-    "prerequisites": {
-      "value": "",
-      "dsid": [],
-      "level": null
+ "name": "Hide",
+ "type": "ability",
+ "img": "icons/svg/cowled.svg",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "258-259",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "dsct-hide",
+  "keywords": [],
+  "type": "maneuver",
+  "category": "",
+  "resource": null,
+  "trigger": "",
+  "distance": {
+   "type": "self",
+   "primary": "1",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "self",
+   "value": null,
+   "custom": ""
+  },
+  "story": "",
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "description": "<p>You attempt to hide from one or more creatures. To hide from a creature, you must have cover or concealment from them, and they must not be observing you. During combat, if you use this maneuver while you have cover or concealment from a creature who isn't observing you, you are automatically hidden from them unless the Director deems otherwise.</p><p>While hidden from a creature, you can't be targeted by their abilities that don't have the Area keyword, and you gain an edge on ability rolls against them. You are no longer hidden from a creature once an activity that reveals you resolves: using an ability, interacting with an enemy, moving without sneaking, or otherwise revealing yourself.</p><p>@UUID[Compendium.draw-steel-combat-tools.rules.JournalEntry.DSCTrulesJournal.JournalEntryPage.DSCTfullHiding00]{Full rules: Hiding and Sneaking}</p><p><em>Combat Tools: the Hide button on this card hides you from every enemy you have concealment or no line of effect from. Cover alone needs the Director's nod: the Stealth panel lists who is still observing you, and Hide from Targeted adds them.</em></p>",
+    "before": true,
+    "name": "",
+    "img": null,
+    "sort": 0
+   },
+   "dsctHideEffect00": {
+    "_id": "dsctHideEffect00",
+    "type": "dsct.hide",
+    "name": "Hide",
+    "img": null,
+    "sort": 100000,
+    "description": "",
+    "before": false,
+    "hide": {
+     "from": "enemies",
+     "whileObserved": false,
+     "coverCounts": "",
+     "display": ""
     }
+   }
   },
-  "effects": [],
-  "flags": {
-    "draw-steel-combat-tools": {
-      "keepsHidden": true,
-      "enhanced": true
-    }
-  },
-  "_stats": {
-    "compendiumSource": null,
-    "duplicateSource": null,
-    "exportSource": null,
-    "coreVersion": "14",
-    "systemId": "draw-steel",
-    "systemVersion": "1.1.0",
-    "createdTime": null,
-    "modifiedTime": null,
-    "lastModifiedBy": null
-  },
-  "ownership": {
-    "default": 0
-  },
-  "folder": null,
-  "_id": "DSCTenhHide00001",
-  "sort": 100000,
-  "_key": "!items!DSCTenhHide00001"
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [],
+ "flags": {
+  "draw-steel-combat-tools": {
+   "keepsHidden": true,
+   "enhanced": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": null,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "ownership": {
+  "default": 0
+ },
+ "folder": "DSCTfldBasic0001",
+ "_id": "DSCTenhHide00001",
+ "sort": 100000,
+ "_key": "!items!DSCTenhHide00001"
 }

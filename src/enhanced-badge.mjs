@@ -1,4 +1,4 @@
-import { ENHANCED_PACK } from './setup-macros.mjs';
+import { ENHANCED_PACKS } from './setup-macros.mjs';
 
 const M = 'draw-steel-combat-tools';
 const LOCK = 'enhancedLock';
@@ -6,10 +6,13 @@ const LOCK = 'enhancedLock';
 let _dsids = null;
 
 async function _loadIndex() {
-  const pack = game.packs.get(ENHANCED_PACK);
-  if (!pack) { _dsids = new Set(); return; }
-  const index = await pack.getIndex({ fields: ['system._dsid'] });
-  _dsids = new Set(index.map(e => e.system?._dsid).filter(Boolean));
+  _dsids = new Set();
+  for (const id of ENHANCED_PACKS) {
+    const pack = game.packs.get(id);
+    if (!pack) continue;
+    const index = await pack.getIndex({ fields: ['system._dsid'] });
+    for (const e of index) if (e.system?._dsid) _dsids.add(e.system._dsid);
+  }
 }
 
 export const isEnhancedLocked = (item) => !!item?.getFlag?.(M, LOCK);

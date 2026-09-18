@@ -1,0 +1,202 @@
+{
+ "folder": "DSCTfldShadowL02",
+ "name": "Sticky Bomb",
+ "type": "ability",
+ "_id": "DSCTenhStickyBm1",
+ "img": "icons/commodities/gems/pearl-brown-red.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "165",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "sticky-bomb",
+  "story": "Explosives are best when they’re attached to an enemy.",
+  "keywords": [
+   "ranged"
+  ],
+  "type": "main",
+  "category": "heroic",
+  "resource": 5,
+  "trigger": "",
+  "distance": {
+   "type": "ranged",
+   "primary": "10",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "creature",
+   "value": 1,
+   "custom": ""
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [
+     "agility"
+    ],
+    "reactive": false
+   },
+   "effects": {
+    "ramxGjc0QFZAm5Hj": {
+     "name": "",
+     "img": null,
+     "type": "damage",
+     "_id": "ramxGjc0QFZAm5Hj",
+     "damage": {
+      "tier1": {
+       "value": "4 + @chr",
+       "types": [
+        "fire"
+       ],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.weak",
+        "characteristic": "none"
+       }
+      },
+      "tier2": {
+       "value": "7 + @chr",
+       "types": [
+        "fire"
+       ],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": ""
+       }
+      },
+      "tier3": {
+       "value": "11 + @chr",
+       "types": [
+        "fire"
+       ],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": ""
+       }
+      }
+     },
+     "sort": 0
+    }
+   }
+  },
+  "prerequisites": {
+   "dsid": [
+    "college-of-caustic-alchemy"
+   ],
+   "value": "",
+   "level": null
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "description": "<p>You attach a small bomb to a creature. If you are hidden from the creature, they don’t notice the bomb and you remain hidden. The creature otherwise notices the bomb and can disarm and re move it as a main action. If they don’t, at the end of your next turn, the bomb detonates. When the bomb detonates, you make a power roll targeting each enemy within 2 squares of it.</p>",
+    "before": true,
+    "name": "",
+    "img": null,
+    "sort": 0
+   },
+   "dsctNote00000001": {
+    "_id": "dsctNote00000001",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 100000,
+    "before": false,
+    "description": "<p><strong>Combat Tools:</strong> Keeps you hidden through the attachment, so planting the bomb does not reveal you.</p>"
+   },
+   "dsctApplied000001": {
+    "_id": "dsctApplied000001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctStickyBomb01",
+     "exclusiveSelf": true,
+     "end": "turn",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     },
+     "display": "Stays Hidden"
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "name": "Sticky Bomb",
+   "img": "icons/commodities/gems/pearl-brown-red.webp",
+   "type": "base",
+   "_id": "dsctStickyBomb01",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.keepsHidden",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "description": "<p>Keeps you hidden through the attachment, so planting the bomb does not reveal you.</p><p><em>Draw Steel: Heroes p. 165.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhStickyBm1.dsctStickyBomb01"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.365",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": 1756089871311,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhStickyBm1"
+}

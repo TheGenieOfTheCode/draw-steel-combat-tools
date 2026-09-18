@@ -1,79 +1,79 @@
 {
-  "name": "Search",
-  "type": "ability",
-  "img": "icons/svg/eye.svg",
-  "system": {
-    "source": {
-      "book": "Heroes",
-      "page": "258-259",
-      "license": "Draw Steel Creator License"
-    },
-    "_dsid": "dsct-search",
-    "keywords": [],
-    "type": "maneuver",
-    "category": "",
-    "resource": null,
-    "trigger": "",
-    "distance": {
-      "type": "self",
-      "primary": "1",
-      "secondary": "1",
-      "tertiary": "1"
-    },
-    "damageDisplay": "melee",
-    "target": {
-      "type": "self",
-      "value": null,
-      "custom": ""
-    },
-    "story": "",
-    "power": {
-      "roll": {
-        "formula": "@chr",
-        "characteristics": [],
-        "reactive": false
-      },
-      "effects": {}
-    },
-    "effects": {
-      "before0000000000": {
-        "_id": "before0000000000",
-        "type": "base",
-        "description": "<p>You look for creatures hidden from you within 10 squares that you have line of effect to. Make an Intuition test using the Search skill; each hidden creature in range makes an Agility test using the Hide skill to oppose it. If your total is higher than a hidden creature's, they are no longer hidden from you.</p><p>As part of this maneuver, you can point out any creature you find to your allies within 10 squares, and a creature hidden from your allies but not from you can be pointed out without a test.</p><p>@UUID[Compendium.draw-steel-combat-tools.rules.JournalEntry.DSCTrulesJournal.JournalEntryPage.DSCTfullHiding00]{Full rules: Hiding and Sneaking}</p><p><em>Combat Tools: the Search button on this card rolls the tests, reveals whoever you beat, and offers to point them out to allies within 10 squares.</em></p>",
-        "before": true,
-        "name": "",
-        "img": null,
-        "sort": 0
-      }
-    },
-    "prerequisites": {
-      "value": "",
-      "dsid": [],
-      "level": null
-    }
+ "name": "Search",
+ "type": "ability",
+ "img": "icons/svg/eye.svg",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "258-259",
+   "license": "Draw Steel Creator License"
   },
-  "effects": [],
-  "flags": {
-    "draw-steel-combat-tools": {
-      "enhanced": true
-    }
+  "_dsid": "dsct-search",
+  "keywords": [],
+  "type": "maneuver",
+  "category": "",
+  "resource": null,
+  "trigger": "",
+  "distance": {
+   "type": "self",
+   "primary": "1",
+   "secondary": "1",
+   "tertiary": "1"
   },
-  "_stats": {
-    "compendiumSource": null,
-    "duplicateSource": null,
-    "exportSource": null,
-    "coreVersion": "14",
-    "systemId": "draw-steel",
-    "systemVersion": "1.1.0",
-    "createdTime": null,
-    "modifiedTime": null,
-    "lastModifiedBy": null
+  "damageDisplay": "melee",
+  "target": {
+   "type": "self",
+   "value": null,
+   "custom": ""
   },
-  "ownership": {
-    "default": 0
+  "story": "",
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
   },
-  "folder": null,
-  "_id": "DSCTenhSearch001",
-  "sort": 200000,
-  "_key": "!items!DSCTenhSearch001"
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "description": "<p>You look for creatures hidden from you within 10 squares that you have line of effect to. Make an Intuition test using the Search skill; each hidden creature in range makes an Agility test using the Hide skill to oppose it. If your total is higher than a hidden creature's, they are no longer hidden from you.</p><p>As part of this maneuver, you can point out any creature you find to your allies within 10 squares, and a creature hidden from your allies but not from you can be pointed out without a test.</p><p>@UUID[Compendium.draw-steel-combat-tools.rules.JournalEntry.DSCTrulesJournal.JournalEntryPage.DSCTfullHiding00]{Full rules: Hiding and Sneaking}</p><p><em>Combat Tools: the Search button on this card rolls the tests, reveals whoever you beat, and offers to point them out to allies within 10 squares.</em></p>",
+    "before": true,
+    "name": "",
+    "img": null,
+    "sort": 0
+   }
+  },
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [],
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": null,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "ownership": {
+  "default": 0
+ },
+ "folder": "DSCTfldBasic0001",
+ "_id": "DSCTenhSearch001",
+ "sort": 200000,
+ "_key": "!items!DSCTenhSearch001"
 }

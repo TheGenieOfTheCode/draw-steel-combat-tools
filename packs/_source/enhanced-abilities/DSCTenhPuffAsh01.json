@@ -1,186 +1,186 @@
 {
-  "folder": null,
-  "name": "In a Puff of Ash",
-  "type": "ability",
-  "_id": "DSCTenhPuffAsh01",
-  "img": "icons/skills/melee/strike-weapon-polearm-ice-blue.webp",
-  "system": {
-    "source": {
-      "book": "Heroes",
-      "page": "165",
-      "license": "Draw Steel Creator License"
-    },
-    "_dsid": "in-a-puff-of-ash",
-    "story": "You enchant a strike with your teleportation magic.",
-    "keywords": [
-      "magic",
-      "melee",
-      "ranged",
-      "strike",
-      "weapon"
+ "folder": "DSCTfldShadowL02",
+ "name": "In a Puff of Ash",
+ "type": "ability",
+ "_id": "DSCTenhPuffAsh01",
+ "img": "icons/skills/melee/strike-weapon-polearm-ice-blue.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "165",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "in-a-puff-of-ash",
+  "story": "You enchant a strike with your teleportation magic.",
+  "keywords": [
+   "magic",
+   "melee",
+   "ranged",
+   "strike",
+   "weapon"
+  ],
+  "type": "main",
+  "category": "heroic",
+  "resource": 5,
+  "trigger": "",
+  "distance": {
+   "type": "meleeRanged",
+   "primary": "1",
+   "secondary": "5",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "creature",
+   "value": 1,
+   "custom": ""
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [
+     "agility"
     ],
-    "type": "main",
-    "category": "heroic",
-    "resource": 5,
-    "trigger": "",
-    "distance": {
-      "type": "meleeRanged",
-      "primary": "1",
-      "secondary": "5",
-      "tertiary": "1"
-    },
-    "damageDisplay": "melee",
-    "target": {
-      "type": "creature",
-      "value": 1,
-      "custom": ""
-    },
-    "power": {
-      "roll": {
-        "formula": "@chr",
-        "characteristics": [
-          "agility"
-        ],
-        "reactive": false
+    "reactive": false
+   },
+   "effects": {
+    "rfxqJyiv0tTLD3MZ": {
+     "name": "",
+     "img": null,
+     "type": "damage",
+     "_id": "rfxqJyiv0tTLD3MZ",
+     "damage": {
+      "tier1": {
+       "value": "6 + @chr",
+       "types": [],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.weak",
+        "characteristic": "none"
+       }
       },
-      "effects": {
-        "rfxqJyiv0tTLD3MZ": {
-          "name": "",
-          "img": null,
-          "type": "damage",
-          "_id": "rfxqJyiv0tTLD3MZ",
-          "damage": {
-            "tier1": {
-              "value": "6 + @chr",
-              "types": [],
-              "ignoredImmunities": [],
-              "potency": {
-                "value": "@potency.weak",
-                "characteristic": "none"
-              }
-            },
-            "tier2": {
-              "value": "10 + @chr",
-              "types": [],
-              "ignoredImmunities": [],
-              "potency": {
-                "value": "@potency.average",
-                "characteristic": ""
-              }
-            },
-            "tier3": {
-              "value": "14 + @chr",
-              "types": [],
-              "ignoredImmunities": [],
-              "potency": {
-                "value": "@potency.strong",
-                "characteristic": ""
-              }
-            }
-          },
-          "sort": 0
-        },
-        "hYZCbzd50rGmJ1SC": {
-          "_id": "hYZCbzd50rGmJ1SC",
-          "name": "Teleport",
-          "img": null,
-          "type": "dsctTeleport",
-          "sort": 0,
-          "dsctTeleport": {
-            "tier1": {
-              "enabled": true,
-              "displayText": "you can teleport the target 1 square",
-              "display": "",
-              "spend": {
-                "enabled": false,
-                "value": 1
-              },
-              "mode": "normal",
-              "mover": "target",
-              "distance": "1",
-              "animate": true,
-              "color": "#8a8078",
-              "duration": 600,
-              "potency": {
-                "value": "@potency.weak",
-                "characteristic": "none"
-              }
-            },
-            "tier2": {
-              "enabled": true,
-              "displayText": "you can teleport the target up to 3 squares",
-              "display": "",
-              "spend": {
-                "enabled": false,
-                "value": 1
-              },
-              "mode": "normal",
-              "mover": "target",
-              "distance": "3",
-              "potency": {
-                "value": "@potency.average",
-                "characteristic": ""
-              }
-            },
-            "tier3": {
-              "enabled": true,
-              "displayText": "you can teleport the target up to 5 squares",
-              "display": "",
-              "spend": {
-                "enabled": false,
-                "value": 1
-              },
-              "mode": "normal",
-              "mover": "target",
-              "distance": "5",
-              "potency": {
-                "value": "@potency.strong",
-                "characteristic": ""
-              }
-            }
-          }
-        }
+      "tier2": {
+       "value": "10 + @chr",
+       "types": [],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": ""
+       }
+      },
+      "tier3": {
+       "value": "14 + @chr",
+       "types": [],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": ""
+       }
       }
+     },
+     "sort": 0
     },
-    "prerequisites": {
-      "dsid": [
-        "college-of-black-ash"
-      ],
-      "value": "",
-      "level": null
-    },
-    "effects": {
-      "dsctNote00000001": {
-        "_id": "dsctNote00000001",
-        "type": "base",
-        "name": "",
-        "img": null,
-        "sort": 100000,
-        "before": false,
-        "description": "<p><em>Combat Tools: the Teleport button on this card moves the target, not you, the distance the tier allows, and asks which token to move if you have more than one targeted.</em></p>"
+    "hYZCbzd50rGmJ1SC": {
+     "_id": "hYZCbzd50rGmJ1SC",
+     "name": "Teleport",
+     "img": null,
+     "type": "dsctTeleport",
+     "sort": 0,
+     "dsctTeleport": {
+      "tier1": {
+       "enabled": true,
+       "displayText": "you can teleport the target 1 square",
+       "display": "",
+       "spend": {
+        "enabled": false,
+        "value": 1
+       },
+       "mode": "normal",
+       "mover": "target",
+       "distance": "1",
+       "animate": true,
+       "color": "#8a8078",
+       "duration": 600,
+       "potency": {
+        "value": "@potency.weak",
+        "characteristic": "none"
+       }
+      },
+      "tier2": {
+       "enabled": true,
+       "displayText": "you can teleport the target up to 3 squares",
+       "display": "",
+       "spend": {
+        "enabled": false,
+        "value": 1
+       },
+       "mode": "normal",
+       "mover": "target",
+       "distance": "3",
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": ""
+       }
+      },
+      "tier3": {
+       "enabled": true,
+       "displayText": "you can teleport the target up to 5 squares",
+       "display": "",
+       "spend": {
+        "enabled": false,
+        "value": 1
+       },
+       "mode": "normal",
+       "mover": "target",
+       "distance": "5",
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": ""
+       }
       }
+     }
     }
+   }
   },
-  "effects": [],
-  "sort": 400000,
-  "ownership": {
-    "default": 0
+  "prerequisites": {
+   "dsid": [
+    "college-of-black-ash"
+   ],
+   "value": "",
+   "level": null
   },
-  "flags": {
-    "draw-steel-combat-tools": {
-      "enhanced": true
-    }
-  },
-  "_stats": {
-    "compendiumSource": null,
-    "duplicateSource": null,
-    "exportSource": null,
-    "coreVersion": "14",
-    "systemId": "draw-steel",
-    "systemVersion": "1.1.0",
-    "createdTime": null,
-    "modifiedTime": null,
-    "lastModifiedBy": null
-  },
-  "_key": "!items!DSCTenhPuffAsh01"
+  "effects": {
+   "dsctNote00000001": {
+    "_id": "dsctNote00000001",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 100000,
+    "before": false,
+    "description": "<p><em>Combat Tools: the Teleport button on this card moves the target, not you, the distance the tier allows, and asks which token to move if you have more than one targeted.</em></p>"
+   }
+  }
+ },
+ "effects": [],
+ "sort": 400000,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": null,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhPuffAsh01"
 }

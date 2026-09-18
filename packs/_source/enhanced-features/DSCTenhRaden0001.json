@@ -1,0 +1,234 @@
+{
+ "folder": "DSCTfffFuryKit1",
+ "name": "Raden",
+ "type": "kit",
+ "_id": "DSCTenhRaden0001",
+ "img": "icons/creatures/mammals/rodent-rat-green.webp",
+ "system": {
+  "description": {
+   "value": "<p>With this stormwight kit, you channel your primordial ferocity into the form of a rat, becoming mobile and elusive. Raden are associated with the wild nature of the rat, before cities became their habitat. This aspect is associated with the rat flood—a surge of corrupted water that draws forth hordes of rats.</p><h4>Aspect Benefits</h4><p>You gain an edge on tests made to hide and sneak. Additionally, you ignore difficult terrain.</p><h4>Animal Form: Rat</h4><p>While you are in your rat form, your size is 1T and you can automatically climb at full speed while moving. You can use the Hide maneuver as a free maneuver, you can use your allies as cover when you hide, and you can stay hidden while you move through squares occupied by any creature. Additionally, you gain an edge on tests made to climb other creatures. You can’t use any abilities while in this form except for Aspect of the Wild.</p><h4>Hybrid Form: Rat</h4><p>While you are in your hybrid form, your size is your choice of 1S or 1M. At 4th level, you can automatically climb at full speed while moving.</p><h4>Primordial Storm: Rat Flood</h4><p>Your primordial damage type is corruption.</p><p><strong>Combat Tools:</strong> Switch this on while you are in rat form: your allies count as cover for hiding and occupied squares stop getting in your way. It does not transfer on its own, because the benefit belongs to the form.</p>",
+   "director": ""
+  },
+  "source": {
+   "book": "Heroes",
+   "page": "145",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "raden",
+  "advancements": {
+   "signature0000000": {
+    "type": "itemGrant",
+    "chooseN": 1,
+    "name": "Signature Ability",
+    "description": "<p>Each kit grants a signature ability.</p>",
+    "requirements": {
+     "level": null
+    },
+    "_id": "signature0000000",
+    "img": null,
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel.abilities.Item.PO5DtFuHI0qWvhIu"
+     }
+    ],
+    "sort": 0,
+    "repick": {},
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   },
+   "ZtDkF2m92VWizqZx": {
+    "name": "Aspect of the Wild",
+    "img": null,
+    "type": "itemGrant",
+    "requirements": {
+     "level": null
+    },
+    "_id": "ZtDkF2m92VWizqZx",
+    "description": "<p>All stormwight kits grant the following ability.</p>",
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel.abilities.Item.1Syy7WKXEGvFRO2o"
+     }
+    ],
+    "sort": 0,
+    "repick": {},
+    "chooseN": null,
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   },
+   "l0VJLOcFbzLmQR8o": {
+    "name": "Growing Ferocity",
+    "img": "icons/creatures/abilities/bear-roar-bite-brown-green.webp",
+    "type": "itemGrant",
+    "requirements": {
+     "level": null
+    },
+    "_id": "l0VJLOcFbzLmQR8o",
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel.classes.Item.2POr5VogG2lwJO71"
+     }
+    ],
+    "sort": 0,
+    "description": "",
+    "repick": {},
+    "chooseN": null,
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   },
+   "6TZqLRrFwEdvkmav": {
+    "name": "Growing Ferocity Improvement",
+    "img": "icons/creatures/abilities/bear-roar-bite-brown-green.webp",
+    "type": "itemGrant",
+    "requirements": {
+     "level": 4
+    },
+    "_id": "6TZqLRrFwEdvkmav",
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel.classes.Item.aiwxgZHuyYeR7mvw"
+     },
+     {
+      "uuid": "Compendium.draw-steel.classes.Item.2POr5VogG2lwJO71"
+     }
+    ],
+    "sort": 0,
+    "description": "",
+    "repick": {},
+    "chooseN": null,
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   },
+   "CbW3JH0HmzOKMtxn": {
+    "name": "Growing Ferocity Improvement",
+    "img": "icons/creatures/abilities/bear-roar-bite-brown-green.webp",
+    "type": "itemGrant",
+    "requirements": {
+     "level": 7
+    },
+    "_id": "CbW3JH0HmzOKMtxn",
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel.classes.Item.Qq2Kh84gcuzN9xNx"
+     },
+     {
+      "uuid": "Compendium.draw-steel.classes.Item.2POr5VogG2lwJO71"
+     }
+    ],
+    "sort": 0,
+    "description": "",
+    "repick": {},
+    "chooseN": null,
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   }
+  },
+  "equipment": {
+   "armor": "none",
+   "weapon": [
+    "none"
+   ],
+   "shield": false
+  },
+  "bonuses": {
+   "melee": {
+    "damage": {
+     "tier1": 2,
+     "tier2": 2,
+     "tier3": 2
+    },
+    "distance": null
+   },
+   "ranged": {
+    "damage": {
+     "tier1": 0,
+     "tier2": 0,
+     "tier3": 0
+    },
+    "distance": null
+   },
+   "stamina": 3,
+   "speed": 3,
+   "stability": null,
+   "disengage": 1
+  }
+ },
+ "effects": [
+  {
+   "name": "Raden",
+   "img": "icons/creatures/mammals/rodent-rat-green.webp",
+   "type": "base",
+   "_id": "dsctRaden0000001",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.alliesAreCover",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     },
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.moveThroughOccupied",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "description": "<p>Switch this on while you are in rat form: your allies count as cover for hiding and occupied squares stop getting in your way. It does not transfer on its own, because the benefit belongs to the form.</p><p><em>Draw Steel: Heroes p. 145.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhRaden0001.dsctRaden0000001"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.361",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": 1755756108267,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhRaden0001"
+}

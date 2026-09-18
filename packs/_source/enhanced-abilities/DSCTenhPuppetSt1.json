@@ -1,0 +1,229 @@
+{
+ "folder": "DSCTfldShadowL06",
+ "name": "Puppet Strings",
+ "type": "ability",
+ "_id": "DSCTenhPuppetSt1",
+ "img": "icons/magic/control/control-influence-puppet.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "169",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "puppet-strings",
+  "story": "You prick little needles on the tips of your fingers into the nerves of your enemies and cause them to lose control.",
+  "keywords": [
+   "magic",
+   "melee",
+   "strike",
+   "weapon"
+  ],
+  "type": "main",
+  "category": "heroic",
+  "resource": 9,
+  "trigger": "",
+  "distance": {
+   "type": "melee",
+   "primary": "1",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "enemy",
+   "custom": "",
+   "value": 2
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [
+     "agility"
+    ],
+    "reactive": false
+   },
+   "effects": {
+    "Di3dEqx4vqIH5r9H": {
+     "name": "",
+     "img": null,
+     "type": "damage",
+     "_id": "Di3dEqx4vqIH5r9H",
+     "damage": {
+      "tier1": {
+       "value": "2",
+       "types": [],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.weak",
+        "characteristic": "none"
+       }
+      },
+      "tier2": {
+       "value": "5",
+       "types": [],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": ""
+       }
+      },
+      "tier3": {
+       "value": "7",
+       "types": [],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": ""
+       }
+      }
+     },
+     "sort": 0
+    },
+    "B7KoLajOD0Khvbqi": {
+     "name": "",
+     "img": null,
+     "type": "other",
+     "_id": "B7KoLajOD0Khvbqi",
+     "other": {
+      "tier1": {
+       "potency": {
+        "characteristic": "reason",
+        "value": "@potency.weak"
+       },
+       "display": "if the target has {{potency}}, before the damage is resolved, they make a free strike."
+      },
+      "tier2": {
+       "display": "if the target has {{potency}}, before the damage is resolved, they use a main action ability of your choice.",
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": ""
+       }
+      },
+      "tier3": {
+       "display": "if the target has {{potency}}, before the damage is resolved, they can shift up to their speed and use a main action ability of your choice.",
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": ""
+       }
+      }
+     },
+     "sort": 0
+    }
+   }
+  },
+  "prerequisites": {
+   "dsid": [
+    "college-of-the-harlequin-mask"
+   ],
+   "value": "",
+   "level": null
+  },
+  "effects": {
+   "after00000000000": {
+    "_id": "after00000000000",
+    "type": "base",
+    "description": "<p>You choose the new targets for the original target’s free strike or ability. Additionally, if you are hidden or disguised, using this ability doesn’t cause you to be revealed.</p>",
+    "name": "",
+    "img": null,
+    "sort": 0,
+    "before": false
+   },
+   "dsctNote00000001": {
+    "_id": "dsctNote00000001",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 100000,
+    "before": false,
+    "description": "<p><strong>Combat Tools:</strong> Using this ability no longer reveals you, so being hidden survives pulling the strings.</p>"
+   },
+   "dsctApplied000001": {
+    "_id": "dsctApplied000001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctPuppetStrn01",
+     "exclusiveSelf": true,
+     "end": "turn",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     },
+     "display": "Stays Hidden"
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "name": "Puppet Strings",
+   "img": "icons/magic/control/control-influence-puppet.webp",
+   "type": "base",
+   "_id": "dsctPuppetStrn01",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.keepsHidden",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "turnEnd",
+    "expired": false
+   },
+   "description": "<p>Using this ability no longer reveals you, so being hidden survives pulling the strings.</p><p><em>Draw Steel: Heroes p. 169.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhPuppetSt1.dsctPuppetStrn01"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.365",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": 1760838275352,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhPuppetSt1"
+}

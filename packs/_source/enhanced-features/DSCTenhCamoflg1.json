@@ -1,0 +1,86 @@
+{
+ "folder": "DSCTfffAnimals1",
+ "name": "Camouflage",
+ "type": "feature",
+ "_id": "DSCTenhCamoflg1",
+ "img": "icons/creatures/abilities/bull-head-horns-glowing.webp",
+ "system": {
+  "description": {
+   "value": "<p>(1 Point)</p><p>The animal can attempt to hide even while observed. While no enemy has line of effect to the animal, they can automatically hide at the end of their turn. </p><ul><li><p>Typically Used By: Chameleons, foxes, tigers.</p></li></ul><p><strong>Combat Tools:</strong> The animal can Hide while observed. Hiding automatically at the end of a turn with no enemy line of effect stays a thing you do rather than something the module does for you.</p>",
+   "director": ""
+  },
+  "source": {
+   "book": "Monsters",
+   "page": "39",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "camouflage",
+  "advancements": {},
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [
+  {
+   "name": "Camouflage",
+   "img": "icons/creatures/abilities/bull-head-horns-glowing.webp",
+   "type": "base",
+   "_id": "dsctCamouflage01",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.hideWhileObserved",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "description": "<p>The animal can Hide while observed. Hiding automatically at the end of a turn with no enemy line of effect stays a thing you do rather than something the module does for you.</p><p><em>Draw Steel: Monsters p. 39.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": true,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhCamoflg1.dsctCamouflage01"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.361",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": 1757720784626,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhCamoflg1"
+}

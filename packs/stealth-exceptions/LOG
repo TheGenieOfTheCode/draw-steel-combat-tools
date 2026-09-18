@@ -1,5 +1,0 @@
-2026/09/15-20:00:44.658 9f44 Delete type=3 #1
-2026/09/15-20:00:44.663 cab0 Level-0 table #5: started
-2026/09/15-20:00:44.667 cab0 Level-0 table #5: 5425 bytes OK
-2026/09/15-20:00:44.672 cab0 Delete type=0 #3
-2026/09/15-20:00:44.672 cab0 Manual compaction at level-0 from '!effects!DSCTexcApexPred0' @ 72057594037927935 : 1 .. '!effects!DSCTexcSoulsight' @ 0 : 0; will stop at (end)

@@ -1,0 +1,93 @@
+{
+ "folder": "DSCTfffShadCore",
+ "name": "Smoke Bomb",
+ "type": "feature",
+ "_id": "DSCTenhSmokeBmb1",
+ "img": "icons/weapons/thrown/bomb-fuse-black.webp",
+ "system": {
+  "description": {
+   "value": "<p>You always carry a supply of smoke bombs to use for distractions and easy getaways. You can use the Hide maneuver even if you are observed and don’t initially have cover or concealment. When you do so, you can shift a number of squares equal to [[lookup @A]]{your Agility score}. If you end this movement with cover or concealment, you are automatically hidden.</p><p><strong>Combat Tools:</strong> Throwing a bomb is a thing you do, not a thing you always are, so this ships as an effect on the feature rather than a standing one. Switch it on when you use a bomb and you can Hide while observed with no cover or concealment; it clears itself at the end of the turn. The shift and the automatic hide at the end of it stay yours to make.</p>",
+   "director": ""
+  },
+  "source": {
+   "book": "Heroes",
+   "page": "162",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "smoke-bomb",
+  "advancements": {},
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [
+  {
+   "name": "Smoke Bomb",
+   "img": "icons/weapons/thrown/bomb-fuse-black.webp",
+   "type": "base",
+   "_id": "dsctSmokeBomb001",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.hideWhileObserved",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     },
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.staysHiddenAnywhere",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "turnEnd",
+    "expired": false
+   },
+   "description": "<p>Throwing a bomb is a thing you do, not a thing you always are, so this ships as an effect on the feature rather than a standing one. Switch it on when you use a bomb and you can Hide while observed with no cover or concealment; it clears itself at the end of the turn. The shift and the automatic hide at the end of it stay yours to make.</p><p><em>Draw Steel: Heroes p. 162.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhSmokeBmb1.dsctSmokeBomb001"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.363",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": 1754652711249,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhSmokeBmb1"
+}

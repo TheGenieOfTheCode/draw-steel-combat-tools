@@ -1,0 +1,227 @@
+{
+ "folder": "DSCTfffFuryKit1",
+ "name": "Corven",
+ "type": "kit",
+ "_id": "DSCTenhCorven001",
+ "img": "icons/creatures/birds/corvid-call-sound-blue.webp",
+ "system": {
+  "description": {
+   "value": "<p>With this stormwight kit, you channel your primordial ferocity into the form of a crow, becoming stealthy and quick. Corven are tied to the mountain passes and the hot winds that flow through them. This aspect is associated with the warm and fast-rising anabatic wind.</p><h4>Aspect Benefits</h4><p>You gain an edge on tests made to hide and sneak. Additionally, whenever you fall, you can use a free triggered action to use your Aspect of the Wild ability.</p><h4>Animal Form: Crow</h4><p>While you are in your crow form, your size is 1T and you can fly. You can use the Hide maneuver as a free maneuver, and you can use your allies as cover when you hide. You can’t use any abilities while in this form except for Aspect of the Wild.</p><h4>Hybrid Form: Crow</h4><p>While you are in your hybrid form, your size is your choice of 1S or 1M. At 4th level, you can fly.</p><h4>Primordial Storm: Anabatic Wind</h4><p>Your primordial damage type is fire.</p><p><strong>Combat Tools:</strong> Switch this on while you are in crow form and your allies count as cover for hiding. It does not transfer on its own, because the benefit belongs to the form rather than the kit.</p>",
+   "director": ""
+  },
+  "source": {
+   "book": "Heroes",
+   "page": "144",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "corven",
+  "advancements": {
+   "signature0000000": {
+    "type": "itemGrant",
+    "chooseN": 1,
+    "name": "Signature Ability",
+    "description": "<p>Each kit grants a signature ability.</p>",
+    "requirements": {
+     "level": null
+    },
+    "_id": "signature0000000",
+    "img": null,
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel.abilities.Item.9hXHrtWYvWdrbFc7"
+     }
+    ],
+    "sort": 0,
+    "repick": {},
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   },
+   "O5UzJHxAaaGB0JNo": {
+    "name": "Aspect of the Wild",
+    "img": null,
+    "type": "itemGrant",
+    "requirements": {
+     "level": null
+    },
+    "_id": "O5UzJHxAaaGB0JNo",
+    "description": "<p>All stormwight kits grant the following ability.</p>",
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel.abilities.Item.1Syy7WKXEGvFRO2o"
+     }
+    ],
+    "sort": 0,
+    "repick": {},
+    "chooseN": null,
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   },
+   "EIZOW9ZYkE1QFQOu": {
+    "name": "Growing Ferocity",
+    "img": "icons/creatures/abilities/bear-roar-bite-brown-green.webp",
+    "type": "itemGrant",
+    "requirements": {
+     "level": null
+    },
+    "_id": "EIZOW9ZYkE1QFQOu",
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel.classes.Item.Sy8x4zFqIgYU75DB"
+     }
+    ],
+    "sort": 0,
+    "description": "",
+    "repick": {},
+    "chooseN": null,
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   },
+   "sqMELHoRyw2A76Ih": {
+    "name": "Growing Ferocity Improvement",
+    "img": "icons/creatures/abilities/bear-roar-bite-brown-green.webp",
+    "type": "itemGrant",
+    "requirements": {
+     "level": 4
+    },
+    "_id": "sqMELHoRyw2A76Ih",
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel.classes.Item.aiwxgZHuyYeR7mvw"
+     },
+     {
+      "uuid": "Compendium.draw-steel.classes.Item.Sy8x4zFqIgYU75DB"
+     }
+    ],
+    "sort": 0,
+    "description": "",
+    "repick": {},
+    "chooseN": null,
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   },
+   "EvnH0lTywTdTq438": {
+    "name": "Growing Ferocity Improvement",
+    "img": "icons/creatures/abilities/bear-roar-bite-brown-green.webp",
+    "type": "itemGrant",
+    "requirements": {
+     "level": 7
+    },
+    "_id": "EvnH0lTywTdTq438",
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel.classes.Item.Qq2Kh84gcuzN9xNx"
+     },
+     {
+      "uuid": "Compendium.draw-steel.classes.Item.Sy8x4zFqIgYU75DB"
+     }
+    ],
+    "sort": 0,
+    "description": "",
+    "repick": {},
+    "chooseN": null,
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   }
+  },
+  "equipment": {
+   "armor": "none",
+   "weapon": [
+    "none"
+   ],
+   "shield": false
+  },
+  "bonuses": {
+   "melee": {
+    "damage": {
+     "tier1": 2,
+     "tier2": 2,
+     "tier3": 2
+    },
+    "distance": null
+   },
+   "ranged": {
+    "damage": {
+     "tier1": 0,
+     "tier2": 0,
+     "tier3": 0
+    },
+    "distance": null
+   },
+   "stamina": 3,
+   "speed": 3,
+   "stability": null,
+   "disengage": 1
+  }
+ },
+ "effects": [
+  {
+   "name": "Corven",
+   "img": "icons/creatures/birds/corvid-call-sound-blue.webp",
+   "type": "base",
+   "_id": "dsctCorven000001",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.alliesAreCover",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "description": "<p>Switch this on while you are in crow form and your allies count as cover for hiding. It does not transfer on its own, because the benefit belongs to the form rather than the kit.</p><p><em>Draw Steel: Heroes p. 144.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhCorven001.dsctCorven000001"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.361",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": 1755755729843,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhCorven001"
+}

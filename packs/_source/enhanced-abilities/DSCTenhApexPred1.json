@@ -1,0 +1,249 @@
+{
+ "folder": "DSCTfldFuryL2001",
+ "name": "Apex Predator",
+ "type": "ability",
+ "_id": "DSCTenhApexPred1",
+ "img": "icons/skills/targeting/crosshair-pointed-orange.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "145",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "apex-predator",
+  "story": "I will hunt you down.",
+  "keywords": [
+   "melee",
+   "strike",
+   "weapon"
+  ],
+  "type": "main",
+  "category": "heroic",
+  "resource": 5,
+  "trigger": "",
+  "distance": {
+   "type": "melee",
+   "primary": "1",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "creature",
+   "value": 1,
+   "custom": ""
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [
+     "might"
+    ],
+    "reactive": false
+   },
+   "effects": {
+    "uxqYDrJPuH4Za0Lb": {
+     "name": "",
+     "img": null,
+     "type": "damage",
+     "_id": "uxqYDrJPuH4Za0Lb",
+     "damage": {
+      "tier1": {
+       "value": "4 + @chr",
+       "types": [],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.weak",
+        "characteristic": "none"
+       }
+      },
+      "tier2": {
+       "value": "6 + @chr",
+       "types": [],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": ""
+       }
+      },
+      "tier3": {
+       "value": "10 + @chr",
+       "types": [],
+       "ignoredImmunities": [],
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": ""
+       }
+      }
+     },
+     "sort": 0
+    },
+    "CSU2UsZILKz14scA": {
+     "name": "Slowed",
+     "img": null,
+     "type": "applied",
+     "_id": "CSU2UsZILKz14scA",
+     "applied": {
+      "tier1": {
+       "display": "{{potency}}, slowed (save ends)",
+       "potency": {
+        "characteristic": "intuition",
+        "value": "@potency.weak"
+       },
+       "effects": {
+        "slowed": {
+         "condition": "failure",
+         "end": "save",
+         "properties": []
+        }
+       }
+      },
+      "tier2": {
+       "effects": {
+        "slowed": {
+         "condition": "failure",
+         "end": "save",
+         "properties": []
+        }
+       },
+       "display": "",
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": ""
+       }
+      },
+      "tier3": {
+       "effects": {
+        "slowed": {
+         "condition": "failure",
+         "end": "save",
+         "properties": []
+        }
+       },
+       "display": "",
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": ""
+       }
+      }
+     },
+     "sort": 0
+    }
+   }
+  },
+  "prerequisites": {
+   "dsid": [
+    "stormwight"
+   ],
+   "value": "",
+   "level": null
+  },
+  "effects": {
+   "after00000000000": {
+    "_id": "after00000000000",
+    "type": "base",
+    "description": "<p>The target can’t be hidden from you for 24 hours. Until the end of the encounter, whenever the target willingly moves, you can use a free triggered action to move.</p>",
+    "name": "",
+    "img": null,
+    "sort": 0,
+    "before": false
+   },
+   "dsctNote00000001": {
+    "_id": "dsctNote00000001",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 100000,
+    "before": false,
+    "description": "<p><strong>Combat Tools:</strong> Nobody can be hidden from you until the encounter ends. The book names a single target; this applies to everyone, so take it off if that matters at your table.</p>"
+   },
+   "dsctApplied000001": {
+    "_id": "dsctApplied000001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctApexPred0001",
+     "exclusiveSelf": true,
+     "end": "encounter",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     },
+     "display": "Nothing Can Hide From You"
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "name": "Apex Predator",
+   "img": "icons/skills/targeting/crosshair-pointed-orange.webp",
+   "type": "base",
+   "_id": "dsctApexPred0001",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.cannotBeHiddenFrom",
+      "value": "true",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "description": "<p>Nobody can be hidden from you until the encounter ends. The book names a single target; this applies to everyone, so take it off if that matters at your table.</p><p><em>Draw Steel: Heroes p. 145.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhApexPred1.dsctApexPred0001"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.365",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.0",
+  "createdTime": 1756081110349,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhApexPred1"
+}
