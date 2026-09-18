@@ -29,6 +29,18 @@ export const installMacros = async ({ silent = false } = {}) => {
     folderMap.set(pf.id, wf);
   }
 
+  
+  
+  const RENAMED = { 'DSCT: Show Line of Sight': 'DSCT: Show Line of Effect' };
+  const ours = new Set([rootFolder.id, ...[...folderMap.values()].map(f => f.id)]);
+  let renamed = 0;
+  for (const [was, now] of Object.entries(RENAMED)) {
+    for (const macro of game.macros.filter(m => m.name === was && ours.has(m.folder?.id))) {
+      await macro.update({ name: now });
+      renamed++;
+    }
+  }
+
   const docs = await pack.getDocuments();
   let created = 0, updated = 0, skipped = 0, removed = 0;
 
@@ -71,6 +83,7 @@ export const installMacros = async ({ silent = false } = {}) => {
   }
 
   const parts = [`${created} created`, `${updated} updated`, `${skipped} up to date`];
+  if (renamed) parts.push(`${renamed} renamed`);
   if (removed) parts.push(`${removed} removed`);
   const summary = `DSCT | Macros: ${parts.join(', ')}. Folder: "${MACRO_FOLDER_NAME}".`;
   if (silent) console.log(summary);

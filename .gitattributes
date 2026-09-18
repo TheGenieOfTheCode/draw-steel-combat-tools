@@ -1,2 +1,11 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Compiled LevelDB packs are binary, whatever they look like. CURRENT holds nothing but a
+# filename and a newline, so line ending conversion on a Windows checkout rewrites it to
+# "MANIFEST-000026\r\n" and the database will not open. The release zip is built on Linux,
+# which is why this only ever bites people working from a clone.
+packs/*/** -text
+
+# The unpacked sources beside them are ordinary JSON and stay normalized.
+packs/_source/** text=auto

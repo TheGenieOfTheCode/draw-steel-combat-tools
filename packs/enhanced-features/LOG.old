@@ -1,3 +1,5 @@
-2026/09/18-23:24:55.223 8df4 Recovering log #10
-2026/09/18-23:24:55.230 8df4 Delete type=0 #10
-2026/09/18-23:24:55.230 8df4 Delete type=3 #8
+2026/09/19-00:07:34.929 1a2c Delete type=3 #1
+2026/09/19-00:07:34.934 b038 Level-0 table #5: started
+2026/09/19-00:07:34.940 b038 Level-0 table #5: 12243 bytes OK
+2026/09/19-00:07:34.943 b038 Delete type=0 #3
+2026/09/19-00:07:34.943 b038 Manual compaction at level-0 from '!folders!DSCTfffAnimals10' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhSoulsght1.dsctSoulsight001' @ 0 : 0; will stop at (end)
