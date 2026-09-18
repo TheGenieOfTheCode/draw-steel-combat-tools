@@ -362,6 +362,8 @@ export class StealthSettingsMenu extends SettingsSubmenu {
       'observationAdjacentThreshold',
       ...(STEALTH_WORKFLOW_READY ? ['stealthSneakHouseRule', 'stealthAutoReveal', 'stealthRevealPromptSeconds', 'stealthTrueHidden', 'revealCombatantPositions'] : []),
       'coverBaneEnabled',
+      'lowCoverEnabled',
+      'concealmentBlur',
     ];
   }
 }

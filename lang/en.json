@@ -600,6 +600,14 @@
         "name": "Seconds Before Clearing",
         "hint": "How long a placed area stays before it is cleared, when the ability is not marked Ongoing. The end of the turn still clears it sooner."
       },
+      "concealmentBlur": {
+        "name": "Blur Concealed Creatures",
+        "hint": "Blurs the artwork of a creature that is concealed, so you can tell at a glance that you cannot make it out clearly. Deliberately not the black and white used for what you have no line of effect to, since that says you cannot see it at all. Only the art is blurred, so bars and names stay readable. Set to 0 to turn it off. Per client."
+      },
+      "lowCoverEnabled": {
+        "name": "Low Cover",
+        "hint": "Lets low walls, furniture and objects give cover without blocking line of effect, the way a wall you can shoot over does. Adds a Low Cover Wall tool to the wall controls and a tickbox to every wall, a cover setting to every creature and object sheet, and an effect flag for creatures that shelter whoever stands behind them."
+      },
       "observationRadius": {
         "name": "Unobserved Ground Shown",
         "hint": "How far around a hiding creature the observation picker looks when it shows you how much ground an enemy cannot watch. Context only, it does not change the suggestion. Larger numbers cost more to work out on a walled map."
@@ -1716,6 +1724,25 @@
       },
       "flatApplied": {
         "noEffect": "DSCT | That applied effect is no longer on the ability, so nothing was applied."
+      }
+    },
+    "lowCover": {
+      "wall": {
+        "label": "Low Cover",
+        "hint": "Gives cover to anything behind it without blocking sight or movement, the way a wall you can shoot over does."
+      },
+      "actor": {
+        "label": "Gives Cover",
+        "hint": "Whether standing behind this creature gives cover from the far side.",
+        "hintObject": "Objects give low cover by default, the way a tree or an overturned table does."
+      },
+      "tool": {
+        "title": "Low Cover Wall"
+      },
+      "mode": {
+        "none": "No cover",
+        "low": "Low cover",
+        "full": "Full cover, blocks line of effect"
       }
     },
     "observation": {

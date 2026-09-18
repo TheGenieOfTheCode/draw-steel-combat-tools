@@ -17,6 +17,7 @@ export function registerLineOfEffectFlags() {
   registerEffectFlag('actor', def('blocksForEnemies'));
   registerEffectFlag('actor', def('rangeCap', { type: 'override', value: '2' }));
   registerEffectFlag('actor', def('coverGrantsImmunity'));
+  registerEffectFlag('actor', def('grantsCoverBehind'));
 }
 
 const ABILITY_PART = 'abilityUse'.padEnd(16, '0');

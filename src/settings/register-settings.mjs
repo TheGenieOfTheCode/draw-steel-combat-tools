@@ -759,6 +759,19 @@ export const registerSettings = () => {
     name: L('coverBaneEnabled.name'), hint: L('coverBaneEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'concealmentBlur', {
+    name: L('concealmentBlur.name'), hint: L('concealmentBlur.hint'),
+    scope: 'client', config: false, type: Number, default: 2,
+    onChange: () => {
+      import('../conditions/stealth.mjs')
+        .then(m => m.resyncConcealmentBlur?.())
+        .catch(() => {});
+    },
+  });
+  game.settings.register(M, 'lowCoverEnabled', {
+    name: L('lowCoverEnabled.name'), hint: L('lowCoverEnabled.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'observationRadius', {
     name: L('observationRadius.name'), hint: L('observationRadius.hint'),
     scope: 'world', config: false, type: Number, default: 3,

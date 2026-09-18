@@ -219,6 +219,64 @@ export function blocksLoeForEnemies(token) {
   return raw === true || raw === 1 || /^(true|1|yes|on)$/i.test(String(raw ?? '').trim());
 }
 
+export const COVER_KEY = 'cover';
+
+const _coverModeOf = (token) => {
+  const actor = token?.actor ?? (token?.documentName === 'Actor' ? token : null);
+  const mode = actor?.flags?.['draw-steel-combat-tools']?.[COVER_KEY];
+  if (mode === 'none' || mode === 'low' || mode === 'full') return mode;
+  
+  
+  return actor?.system?.isObject ? 'low' : 'none';
+};
+
+export const tokenCoverMode = _coverModeOf;
+
+export const grantsCoverBehind = (token) => {
+  const actor = token?.actor ?? (token?.documentName === 'Actor' ? token : null);
+  const raw = actor?.flags?.['draw-steel-combat-tools']?.[LOE_KEY]?.grantsCoverBehind;
+  return raw === true || raw === 1 || /^(true|1|yes|on)$/i.test(String(raw ?? '').trim());
+};
+
+export function wallGrantsCover(wall) {
+  const doc = wall?.document ?? wall;
+  return doc?.flags?.['draw-steel-combat-tools']?.lowCover === true;
+}
+
+const _wallEnds = (wall) => {
+  const c = (wall?.document ?? wall)?.c;
+  if (!Array.isArray(c) || c.length < 4) return null;
+  return [{ x: c[0], y: c[1] }, { x: c[2], y: c[3] }];
+};
+
+export function coverObstaclesFor(fromToken, toToken) {
+  const walls = (canvas?.walls?.placeables ?? []).filter(wallGrantsCover);
+
+  const tokens = (canvas?.tokens?.placeables ?? []).filter((t) => {
+    if (t === fromToken || t === toToken || !t.actor) return false;
+    if (grantsCoverBehind(t)) return true;
+    return _coverModeOf(t) !== 'none';
+  });
+
+  return { walls, tokens };
+}
+
+const _crossesCoverWall = (a, b, wall) => {
+  const ends = _wallEnds(wall);
+  return !!ends && foundry.utils.lineSegmentIntersects(a, b, ends[0], ends[1]);
+};
+
+export function segmentBlockedByCover(a, b, obstacles) {
+  if (!obstacles) return false;
+  if (obstacles.walls.some(w => _crossesCoverWall(a, b, w))) return true;
+  return obstacles.tokens.some(t => _segCrossesToken(a, b, t));
+}
+
+export function fullCoverBlockersFor(fromToken, toToken) {
+  return (canvas?.tokens?.placeables ?? []).filter(t =>
+    t !== fromToken && t !== toToken && t.actor && _coverModeOf(t) === 'full');
+}
+
 export function loeBlockersFor(fromToken, toToken) {
   if (!canvas?.tokens?.placeables?.length) return [];
   const viewerDisp = fromToken?.document?.disposition;
@@ -241,7 +299,7 @@ export const hasSightToToken = (fromToken, token) => {
   if (loeRangeBlocked(fromToken, token)) return false;
   const { origins, targets } = _sightEnds(fromToken, token);
 
-  const blockers = loeBlockersFor(fromToken, token);
+  const blockers = [...loeBlockersFor(fromToken, token), ...fullCoverBlockersFor(fromToken, token)];
 
   for (const p of targets) {
     for (const origin of origins) {
@@ -252,6 +310,50 @@ export const hasSightToToken = (fromToken, token) => {
   }
   return false;
 };
+
+const CONCEALING_STATUSES = new Set(['dsctConcMagic', 'dsctConcMundane', 'invisible']);
+
+const _CONCEALING_BEHAVIOURS = new Set([
+  'draw-steel-combat-tools.statusEffect',
+  'draw-steel-combat-tools.statusEffectEvents',
+]);
+
+export function concealingRegions() {
+  const out = [];
+  for (const region of canvas?.regions?.placeables ?? []) {
+    const doc = region.document;
+    if (doc?.hidden) continue;
+    for (const behaviour of doc?.behaviors ?? []) {
+      if (behaviour.disabled) continue;
+      if (!_CONCEALING_BEHAVIOURS.has(behaviour.type)) continue;
+      if (!CONCEALING_STATUSES.has(behaviour.system?.statusId)) continue;
+      out.push(doc);
+      break;
+    }
+  }
+  return out;
+}
+
+export function squareIsConcealed(gx, gy, regions = null) {
+  const list = regions ?? concealingRegions();
+  if (!list.length) return false;
+
+  
+  
+  
+  
+  const dx = canvas.grid.sizeX / 2;
+  const dy = canvas.grid.sizeY / 2;
+  const centre = canvas.grid.getCenterPoint({ i: gy, j: gx });
+  const point = {
+    x: Math.round(centre.x - dx) + dx,
+    y: Math.round(centre.y - dy) + dy,
+  };
+  return list.some((doc) => {
+    try { return !!doc.polygonTree?.testPoint(point, 0.75); }
+    catch { return false; }
+  });
+}
 
 export function visibleSquareCorners(fromToken, gx, gy, cellsW = 1, cellsH = 1) {
   if (!fromToken || !canvas?.grid) return 0;
@@ -271,7 +373,8 @@ export function visibleSquareCorners(fromToken, gx, gy, cellsW = 1, cellsH = 1) 
 
   const origins = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [_spaceCentre(fromToken)];
   const corners = SIGHT_SAMPLES.slice(1).map(([fx, fy]) => ({ x: x + fx * w, y: y + fy * h }));
-  const blockers = loeBlockersFor(fromToken, null);
+  const blockers = [...loeBlockersFor(fromToken, null), ...fullCoverBlockersFor(fromToken, null)];
+  const cover = coverObstaclesFor(fromToken, null);
 
   let best = 0;
   for (const origin of origins) {
@@ -279,6 +382,7 @@ export function visibleSquareCorners(fromToken, gx, gy, cellsW = 1, cellsH = 1) 
     for (const corner of corners) {
       if (segmentBlocksSight(origin, corner)) continue;
       if (blockers.some(b => _segCrossesToken(origin, corner, b))) continue;
+      if (segmentBlockedByCover(origin, corner, cover)) continue;
       seen++;
     }
     if (seen > best) best = seen;
@@ -288,11 +392,11 @@ export function visibleSquareCorners(fromToken, gx, gy, cellsW = 1, cellsH = 1) 
 
 export const hasSightToSquare = (fromToken, gx, gy) => visibleSquareCorners(fromToken, gx, gy) > 0;
 
-export const coveredInSquare = (fromToken, gx, gy, w = 1, h = 1) =>
-  visibleSquareCorners(fromToken, gx, gy, w, h) <= 2;
+export const coveredInSquare = (fromToken, gx, gy, w = 1, h = 1, regions = null) =>
+  squareIsConcealed(gx, gy, regions) || visibleSquareCorners(fromToken, gx, gy, w, h) <= 2;
 
-export const seenPlainlyInSquare = (fromToken, gx, gy, w = 1, h = 1) =>
-  visibleSquareCorners(fromToken, gx, gy, w, h) >= 3;
+export const seenPlainlyInSquare = (fromToken, gx, gy, w = 1, h = 1, regions = null) =>
+  !squareIsConcealed(gx, gy, regions) && visibleSquareCorners(fromToken, gx, gy, w, h) >= 3;
 
 const _spaceRect = (token) => {
   const GS = canvas.grid.size;
@@ -332,7 +436,8 @@ export const visibleTargetCorners = (fromToken, token) => {
 
   const origins = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [_spaceCentre(fromToken)];
   const corners = _spaceCorners(token);
-  const blockers = loeBlockersFor(fromToken, token);
+  const blockers = [...loeBlockersFor(fromToken, token), ...fullCoverBlockersFor(fromToken, token)];
+  const cover = coverObstaclesFor(fromToken, token);
 
   let best = 0;
   for (const origin of origins) {
@@ -340,6 +445,8 @@ export const visibleTargetCorners = (fromToken, token) => {
     for (const corner of corners) {
       if (segmentBlocksSight(origin, corner)) continue;
       if (blockers.some(b => _segCrossesToken(origin, corner, b))) continue;
+
+      if (segmentBlockedByCover(origin, corner, cover)) continue;
       seen++;
     }
     if (seen > best) best = seen;
@@ -348,8 +455,8 @@ export const visibleTargetCorners = (fromToken, token) => {
 };
 
 export const hasCover = (fromToken, token) => {
-  const seen = visibleTargetCorners(fromToken, token);
-  return seen >= 1 && seen <= 2;
+  if (!hasSightToToken(fromToken, token)) return false;
+  return visibleTargetCorners(fromToken, token) <= 2;
 };
 
 const COVER_IMMUNITY_FLAG = 'coverImmunity';
