@@ -1,7 +1,10 @@
 import { MATERIAL_RULE_DEFAULTS, WALL_RESTRICTION_DEFAULTS } from '../forced-movement/wall-builder.mjs';
 import { recheckCombatReveal, recheckNoLos } from '../conditions/combat-reveal.mjs';
 import { syncHiddenRule } from '../conditions/stealth.mjs';
-import { preloadStickbug } from '../squad-hud.mjs';
+import { preloadStickbug, rebuildSquadHuds } from '../squad-hud.mjs';
+import { refreshSquadTurnMarkers } from '../squad-turns.mjs';
+import { refreshHiddenMarkers } from '../conditions/hidden-markers.mjs';
+import { applyHealthEstimatePatch } from '../compat/health-estimate-compat.mjs';
 import { InstallMacrosMenu, EnhancedAbilitiesMenu } from '../setup-macros.mjs';
 import {
   ForcedMovementSettingsMenu,
@@ -21,7 +24,10 @@ import {
 export const registerSettings = () => {
   const M = 'draw-steel-combat-tools';
   const L = (key) => game.i18n.localize(`DSCT.setting.${key}`);
-  const reloadOnChange = { onChange: () => SettingsConfig.reloadConfirm({ world: true }) };
+  const safely = (fn) => () => { try { fn(); } catch (err) { console.warn('DSCT | settings |', err); } };
+  const refreshControls = { onChange: safely(() => ui.controls?.render()) };
+  const refreshHuds     = { onChange: safely(() => rebuildSquadHuds()) };
+  const refreshTurnMark = { onChange: safely(() => refreshSquadTurnMarkers()) };
 
   game.settings.register(M, 'macroPromptMode', {
     name: L('macroPromptMode.name'),
@@ -57,7 +63,7 @@ export const registerSettings = () => {
   game.settings.register(M, 'quickStrikeCompat', {
     name: L('quickStrikeCompat.name'),
     hint: L('quickStrikeCompat.hint'),
-    scope: 'world', config: false, type: Boolean, default: true, ...reloadOnChange
+    scope: 'world', config: false, type: Boolean, default: true,
   });
 
   game.settings.register(M, 'dstdQuickFmButton', {
@@ -95,12 +101,12 @@ export const registerSettings = () => {
       'off':   L('minionHealthEstimate.choice.off'),
     },
     default: 'hide',
-    ...reloadOnChange,
+    onChange: safely(() => applyHealthEstimatePatch()),
   });
 
   game.settings.register(M, 'debugMode', {
     name: L('debugMode.name'), hint: L('debugMode.hint'),
-    scope: 'world', config: true, type: Boolean, default: false, ...reloadOnChange
+    scope: 'world', config: true, type: Boolean, default: false,
   });
 
   game.settings.registerMenu(M, 'homeRulesSettings', {
@@ -131,6 +137,7 @@ export const registerSettings = () => {
   game.settings.register(M, 'forcedMovementEnabled', {
     name: L('forcedMovementEnabled.name'), hint: L('forcedMovementEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    ...refreshControls,
   });
   game.settings.register(M, 'animationStepDelay', {
     name: L('animationStepDelay.name'), hint: L('animationStepDelay.hint'),
@@ -142,7 +149,7 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'fallConfirmation', {
     name: L('fallConfirmation.name'), hint: L('fallConfirmation.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'friendlyFireConfirmation', {
     name: L('friendlyFireConfirmation.name'), hint: L('friendlyFireConfirmation.hint'),
@@ -218,10 +225,12 @@ export const registerSettings = () => {
   game.settings.register(M, 'conditionsEnabled', {
     name: L('conditionsEnabled.name'), hint: L('conditionsEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    requiresReload: true,
   });
   game.settings.register(M, 'grabEnabled', {
     name: L('grabEnabled.name'), hint: L('grabEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    ...refreshControls,
   });
   game.settings.register(M, 'grabbedEffectIcon', {
     name: L('grabbedEffectIcon.name'), hint: L('grabbedEffectIcon.hint'),
@@ -285,7 +294,7 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'squadStaminaClamp', {
     name: L('squadStaminaClamp.name'), hint: L('squadStaminaClamp.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'appliedEffectEnabled', {
     name: L('appliedEffectEnabled.name'), hint: L('appliedEffectEnabled.hint'),
@@ -362,10 +371,12 @@ export const registerSettings = () => {
   game.settings.register(M, 'deathMarkerEnabled', {
     name: L('deathMarkerEnabled.name'), hint: L('deathMarkerEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
+    requiresReload: true,
   });
   game.settings.register(M, 'deathMarkerIcon', {
     name: L('deathMarkerIcon.name'), hint: L('deathMarkerIcon.hint'),
     scope: 'world', config: false, type: String, default: 'icons/commodities/bones/skull-hollow-worn-blue.webp',
+    requiresReload: true,
   });
   Hooks.once('ready', async () => {
     if (!game.users.activeGM?.isSelf) return;
@@ -397,10 +408,12 @@ export const registerSettings = () => {
   game.settings.register(M, 'squadGlowMarker', {
     name: L('squadGlowMarker.name'), hint: L('squadGlowMarker.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    ...refreshTurnMark,
   });
   game.settings.register(M, 'squadGlowMarkerColored', {
     name: L('squadGlowMarkerColored.name'), hint: L('squadGlowMarkerColored.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    ...refreshTurnMark,
   });
   game.settings.register(M, 'squadLabelApplyEffects', {
     name: L('squadLabelApplyEffects.name'), hint: L('squadLabelApplyEffects.hint'),
@@ -430,20 +443,23 @@ export const registerSettings = () => {
   game.settings.register(M, 'squadSimultaneousTurns', {
     name: L('squadSimultaneousTurns.name'), hint: L('squadSimultaneousTurns.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    ...refreshTurnMark,
   });
   game.settings.register(M, 'pairSimultaneousTurns', {
     name: L('pairSimultaneousTurns.name'), hint: L('pairSimultaneousTurns.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    ...refreshTurnMark,
   });
   game.settings.register(M, 'squadHudEnabled', {
     name: L('squadHudEnabled.name'), hint: L('squadHudEnabled.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
-    onChange: (on) => { if (on) preloadStickbug(); },
+    scope: 'world', config: false, type: Boolean, default: true,
+    onChange: (on) => { if (on) preloadStickbug(); rebuildSquadHuds(); },
   });
   game.settings.register(M, 'squadHudScale', {
     name: L('squadHudScale.name'), hint: L('squadHudScale.hint'),
     scope: 'client', config: false, type: Number, default: 1,
     range: { min: 0.5, max: 2.0, step: 0.05 },
+    ...refreshHuds,
   });
   game.settings.register(M, 'squadHudPlayerVisibility', {
     name: L('squadHudPlayerVisibility.name'), hint: L('squadHudPlayerVisibility.hint'),
@@ -454,10 +470,12 @@ export const registerSettings = () => {
       'none': L('squadHudPlayerVisibility.choice.none'),
     },
     default: 'all',
+    ...refreshHuds,
   });
   game.settings.register(M, 'stickbugMode', {
     name: L('stickbugMode.name'), hint: L('stickbugMode.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
+    ...refreshHuds,
   });
   game.settings.register(M, 'stickbugChatTrigger', {
     name: L('stickbugChatTrigger.name'), hint: L('stickbugChatTrigger.hint'),
@@ -605,6 +623,7 @@ export const registerSettings = () => {
   game.settings.register(M, 'abilityAutomationEnabled', {
     name: L('abilityAutomationEnabled.name'), hint: L('abilityAutomationEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    requiresReload: true,
   });
   game.settings.register(M, 'abilityTargetingEnabled', {
     name: L('abilityTargetingEnabled.name'), hint: L('abilityTargetingEnabled.hint'),
@@ -684,11 +703,11 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'autoConfirmSelection', {
     name: L('autoConfirmSelection.name'), hint: L('autoConfirmSelection.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'rollDialogPillUI', {
     name: L('rollDialogPillUI.name'), hint: L('rollDialogPillUI.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
+    scope: 'world', config: false, type: Boolean, default: true,
   });
   game.settings.register(M, 'dstdRollPills', {
     name: L('dstdRollPills.name'), hint: L('dstdRollPills.hint'),
@@ -725,10 +744,11 @@ export const registerSettings = () => {
   game.settings.register(M, 'hiddenMarkers', {
     name: L('hiddenMarkers.name'), hint: L('hiddenMarkers.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    onChange: safely(() => refreshHiddenMarkers()),
   });
   game.settings.register(M, 'revealCombatantPositions', {
     name: L('revealCombatantPositions.name'), hint: L('revealCombatantPositions.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
+    scope: 'world', config: false, type: Boolean, default: true,
     onChange: () => recheckCombatReveal(),
   });
   game.settings.register(M, 'stealthSneakHouseRule', {
@@ -761,7 +781,7 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'concealmentBlur', {
     name: L('concealmentBlur.name'), hint: L('concealmentBlur.hint'),
-    scope: 'client', config: false, type: Number, default: 2,
+    scope: 'client', config: false, type: Number, default: 3,
     onChange: () => {
       import('../conditions/stealth.mjs')
         .then(m => m.resyncConcealmentBlur?.())
@@ -771,6 +791,7 @@ export const registerSettings = () => {
   game.settings.register(M, 'lowCoverEnabled', {
     name: L('lowCoverEnabled.name'), hint: L('lowCoverEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    ...refreshControls,
   });
   game.settings.register(M, 'observationRadius', {
     name: L('observationRadius.name'), hint: L('observationRadius.hint'),
@@ -782,11 +803,11 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'enforceAbilityRange', {
     name: L('enforceAbilityRange.name'), hint: L('enforceAbilityRange.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
+    scope: 'world', config: false, type: Boolean, default: true,
   });
   game.settings.register(M, 'gmBypassRangeEnforcement', {
     name: L('gmBypassRangeEnforcement.name'), hint: L('gmBypassRangeEnforcement.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'abilityTemplateConfigEnabled', {
     name: L('abilityTemplateConfigEnabled.name'), hint: L('abilityTemplateConfigEnabled.hint'),
@@ -804,7 +825,7 @@ export const registerSettings = () => {
 
   game.settings.register(M, 'teleportEnabled', {
     name: L('teleportEnabled.name'), hint: L('teleportEnabled.hint'),
-    scope: 'world', config: true, type: Boolean, default: true, ...reloadOnChange
+    scope: 'world', config: true, type: Boolean, default: true, ...refreshControls,
   });
 
   game.settings.register(M, 'materialRules',         { scope: 'world', config: false, type: Object, default: foundry.utils.deepClone(MATERIAL_RULE_DEFAULTS) });
@@ -826,30 +847,37 @@ export const registerSettings = () => {
   game.settings.register(M, 'toolboxEnabled', {
     name: L('toolboxEnabled.name'), hint: L('toolboxEnabled.hint'),
     scope: 'client', config: false, type: Boolean, default: false,
+    ...refreshControls,
   });
   game.settings.register(M, 'showForcedMovementButton', {
     name: L('showForcedMovementButton.name'), hint: L('showForcedMovementButton.hint'),
     scope: 'client', config: false, type: Boolean, default: true,
+    ...refreshControls,
   });
   game.settings.register(M, 'showGrabButton', {
     name: L('showGrabButton.name'), hint: L('showGrabButton.hint'),
     scope: 'client', config: false, type: Boolean, default: true,
+    ...refreshControls,
   });
   game.settings.register(M, 'showTeleportButton', {
     name: L('showTeleportButton.name'), hint: L('showTeleportButton.hint'),
     scope: 'client', config: false, type: Boolean, default: true,
+    ...refreshControls,
   });
   game.settings.register(M, 'showStealthButton', {
     name: L('showStealthButton.name'), hint: L('showStealthButton.hint'),
     scope: 'client', config: false, type: Boolean, default: true,
+    ...refreshControls,
   });
   game.settings.register(M, 'showDamageConditionsButton', {
     name: L('showDamageConditionsButton.name'), hint: L('showDamageConditionsButton.hint'),
     scope: 'client', config: false, type: Boolean, default: true,
+    ...refreshControls,
   });
   game.settings.register(M, 'showWallBuilderButton', {
     name: L('showWallBuilderButton.name'), hint: L('showWallBuilderButton.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+    ...refreshControls,
   });
 
   game.settings.registerMenu(M, 'installMacros', {

@@ -112,8 +112,67 @@ function _syncInvisibilityFilter(token) {
   }
 }
 
+const BLUR = 'dsctConcealBlur';
+
+const _blurAt = (strength) => Math.max(0.1, strength * (canvas?.stage?.scale?.x || 1));
+
+function _syncConcealmentBlur(token) {
+  const mesh = token?.mesh;
+  if (!mesh) return;
+
+  const strength = Number(getSetting('concealmentBlur'));
+  
+  
+  const wanted = isConcealed(token) && Number.isFinite(strength) && strength > 0;
+  const existing = token[BLUR] ?? null;
+
+  try {
+    if (!wanted) {
+      if (!existing) return;
+      mesh.filters = (mesh.filters ?? []).filter(f => f !== existing);
+      token[BLUR] = null;
+      existing.destroy?.();
+      return;
+    }
+
+    if (existing) {
+      existing.blur = _blurAt(strength);
+      existing.padding = _blurAt(strength) * 2;
+      if (!(mesh.filters ?? []).includes(existing)) mesh.filters = [...(mesh.filters ?? []), existing];
+      return;
+    }
+
+    const filter = new PIXI.BlurFilter(_blurAt(strength));
+    
+    filter.padding = _blurAt(strength) * 2;
+    mesh.filters = [...(mesh.filters ?? []), filter];
+    token[BLUR] = filter;
+  } catch (err) {
+    console.warn('DSCT | stealth | could not sync the concealment blur:', err);
+  }
+}
+
+export function resyncConcealmentBlur() {
+  for (const token of canvas?.tokens?.placeables ?? []) _syncConcealmentBlur(token);
+}
+
+function _rescaleConcealmentBlur() {
+  const strength = Number(getSetting('concealmentBlur'));
+  if (!Number.isFinite(strength) || strength <= 0) return;
+  const scaled = _blurAt(strength);
+  for (const token of canvas?.tokens?.placeables ?? []) {
+    const filter = token[BLUR];
+    if (!filter) continue;
+    filter.blur = scaled;
+    filter.padding = scaled * 2;
+  }
+}
+
 function _syncActorTokens(actor) {
-  for (const token of actor?.getActiveTokens?.() ?? []) _syncInvisibilityFilter(token);
+  for (const token of actor?.getActiveTokens?.() ?? []) {
+    _syncInvisibilityFilter(token);
+    _syncConcealmentBlur(token);
+  }
 }
 
 export function registerStealthSystem() {
@@ -143,7 +202,12 @@ export function registerStealthSystem() {
     if (actor?.documentName === 'Actor' && !actor.effects.some(e => e.statuses?.has(HIDDEN))) _dropSneaking(actor);
   });
   Hooks.on('updateActiveEffect', _sweepExpiredEcho);
-  Hooks.on('drawToken', _syncInvisibilityFilter);
+  Hooks.on('canvasPan', _rescaleConcealmentBlur);
+  Hooks.on('canvasReady', resyncConcealmentBlur);
+  Hooks.on('drawToken', (token) => {
+    _syncInvisibilityFilter(token);
+    _syncConcealmentBlur(token);
+  });
   for (const hook of ['createActiveEffect', 'deleteActiveEffect', 'updateActiveEffect']) {
     Hooks.on(hook, (effect) => {
       const actor = effect?.parent;

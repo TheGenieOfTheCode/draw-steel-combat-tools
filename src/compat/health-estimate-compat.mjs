@@ -57,6 +57,8 @@ const _applyPatch = () => {
   }
 };
 
+export const applyHealthEstimatePatch = () => _applyPatch();
+
 export const registerHealthEstimateCompat = () => {
   if (!game.modules.get('healthEstimate')?.active) return;
   Hooks.once('ready', _applyPatch);

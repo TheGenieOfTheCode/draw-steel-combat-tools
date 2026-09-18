@@ -2276,6 +2276,23 @@ body.detached .chat-form {
   width: 100%;
 }
 
+.dsct-reload-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  font-size: 0.72em;
+  font-weight: bold;
+  padding: 1px 7px;
+  border-radius: 9px;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: help;
+  background: rgba(70, 120, 200, 0.15);
+  color: #2f5a94;
+  border: 1px solid #2f5a94;
+}
+
 .dsct-dep-badge {
   display: inline-flex;
   align-items: center;

@@ -103,6 +103,11 @@ function _syncSquadMarkerState() {
   if (actualGroup) refreshSquadMarkers(actualGroup, game.combat.combatant?.token?.object ?? null);
 }
 
+
+export function refreshSquadTurnMarkers() {
+  for (const token of canvas?.tokens?.placeables ?? []) token._refreshTurnMarker?.();
+}
+
 function refreshSquadMarkers(group, primaryToken) {
   if (!group) return;
   primaryToken?._refreshTurnMarker?.();

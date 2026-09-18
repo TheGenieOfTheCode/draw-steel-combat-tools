@@ -64,6 +64,7 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
     return {
       key,
       deps,
+      needsReload: !!def.requiresReload,
 
       depsUnmet:      deps.some(d => !d.isActive),
       name:           game.i18n.localize(def.name),
@@ -159,12 +160,21 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
       await game.settings.set(M, k, value);
     }
 
-    const changed = entries.some(({ k }) => game.settings.get(M, k) !== before.get(k));
-    if (changed) SettingsConfig.reloadConfirm({ world: true });
+    
+    const needsReload = entries.some(({ k, def }) =>
+      def.requiresReload && game.settings.get(M, k) !== before.get(k));
+    if (needsReload) SettingsConfig.reloadConfirm({ world: true });
   }
 }
 
 const header = (label) => ({ isSectionHeader: true, label });
+
+Handlebars.registerPartial('dsctReloadBadge', `
+{{#if needsReload}}
+<span class="dsct-reload-badge" data-tooltip="This one only takes full effect once you reload the world.">
+  <i class="fas fa-rotate-right"></i> Reload
+</span>
+{{/if}}`);
 
 Handlebars.registerPartial('dsctDepBadges', `
 {{#each deps}}
@@ -356,14 +366,18 @@ export class StealthSettingsMenu extends SettingsSubmenu {
   static get regularKeys() {
     return [
       'stealthSystemEnabled',
+      ...(STEALTH_WORKFLOW_READY ? [header('General'), 'revealCombatantPositions'] : []),
+      header('Visuals'),
       'hiddenMarkers',
+      'concealmentBlur',
+      ...(STEALTH_WORKFLOW_READY ? [header('Hiding'), 'stealthSneakHouseRule', 'stealthTrueHidden'] : []),
+      ...(STEALTH_WORKFLOW_READY ? [header('Being Revealed'), 'stealthAutoReveal', 'stealthRevealPromptSeconds'] : []),
       header('Observation'),
       'observationRadius',
       'observationAdjacentThreshold',
-      ...(STEALTH_WORKFLOW_READY ? ['stealthSneakHouseRule', 'stealthAutoReveal', 'stealthRevealPromptSeconds', 'stealthTrueHidden', 'revealCombatantPositions'] : []),
+      header('Cover and Concealment'),
       'coverBaneEnabled',
       'lowCoverEnabled',
-      'concealmentBlur',
     ];
   }
 }
