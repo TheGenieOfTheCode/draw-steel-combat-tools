@@ -1,7 +1,9 @@
-import { ENHANCED_PACKS } from './setup-macros.mjs';
+import { ENHANCED_PACKS, enhancedKey } from './setup-macros.mjs';
 
 const M = 'draw-steel-combat-tools';
 const LOCK = 'enhancedLock';
+
+export const BADGED_TYPES = new Set(['ability', 'feature', 'kit']);
 
 let _dsids = null;
 
@@ -11,7 +13,10 @@ async function _loadIndex() {
     const pack = game.packs.get(id);
     if (!pack) continue;
     const index = await pack.getIndex({ fields: ['system._dsid'] });
-    for (const e of index) if (e.system?._dsid) _dsids.add(e.system._dsid);
+    for (const e of index) {
+      const key = enhancedKey(e.type, e.system?._dsid);
+      if (key) _dsids.add(key);
+    }
   }
 }
 
@@ -21,14 +26,22 @@ export function hasDsctEffects(item) {
   const special = item?.system?.effects?.contents ?? [];
   if (special.some(e => String(e?.type ?? '').startsWith('dsct'))) return true;
   const power = item?.system?.power?.effects?.contents ?? [];
-  return power.some(e => String(e?.type ?? '').startsWith('dsct'));
+  if (power.some(e => String(e?.type ?? '').startsWith('dsct'))) return true;
+  
+  
+  
+  for (const effect of (item?.effects ?? [])) {
+    const changes = [...(effect.system?.changes ?? []), ...(effect.changes ?? [])];
+    if (changes.some(c => String(c?.key ?? '').includes(M))) return true;
+  }
+  return false;
 }
 
 export function enhancedState(item) {
   if (isEnhancedLocked(item)) return 'ignored';
   if (item.getFlag(M, 'enhanced')) return 'enhanced';
-  const dsid = item.system?._dsid;
-  if (dsid && _dsids?.has(dsid)) return 'available';
+  const key = enhancedKey(item.type, item.system?._dsid);
+  if (key && _dsids?.has(key)) return 'available';
   if (hasDsctEffects(item)) return 'automated';
   return 'none';
 }
@@ -63,7 +76,7 @@ function _badge(item) {
 
 function _inject(app) {
   const item = app.document;
-  if (item?.documentName !== 'Item' || item.type !== 'ability') return;
+  if (item?.documentName !== 'Item' || !BADGED_TYPES.has(item.type)) return;
   const header = app.element?.querySelector?.('.window-header');
   if (!header) return;
   

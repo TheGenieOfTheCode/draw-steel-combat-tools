@@ -59,6 +59,16 @@ export const registerSettings = () => {
     name: L('enhancedAutoAdd.name'), hint: L('enhancedAutoAdd.hint'),
     scope: 'world', config: true, type: Boolean, default: false,
   });
+  game.settings.register(M, 'enhancedSwapMode', {
+    name: L('enhancedSwapMode.name'), hint: L('enhancedSwapMode.hint'),
+    scope: 'world', config: true, type: String,
+    choices: {
+      'ask':    L('enhancedSwapMode.choice.ask'),
+      'always': L('enhancedSwapMode.choice.always'),
+      'never':  L('enhancedSwapMode.choice.never'),
+    },
+    default: 'ask',
+  });
 
   game.settings.register(M, 'dstdQuickFmButton', {
     name: L('dstdQuickFmButton.name'), hint: L('dstdQuickFmButton.hint'),

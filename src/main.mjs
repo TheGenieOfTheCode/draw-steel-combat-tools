@@ -13,7 +13,7 @@ import { registerPairTurnHooks } from './pair-turns.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
-import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities } from './setup-macros.mjs';
+import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities, swapEnhancedItem } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.mjs';
 import { registerTargetDistance } from './ability-automation/target-distance.mjs';
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
@@ -377,7 +377,7 @@ Hooks.once('ready', async () => {
   if (remembered) {
     if (game.settings.get(M, 'enhancedAutoAdd')) {
       const r = await distributeEnhancedAbilities({ silent: true });
-      const touched = (r?.added ?? 0) + (r?.refreshed ?? 0);
+      const touched = (r?.added ?? 0) + (r?.refreshed ?? 0) + (r?.swapped ?? 0);
       if (touched) ui.notifications.info(game.i18n.format('DSCT.notice.macros.enhancedKeptCurrent', { count: touched }));
     }
     return;
@@ -421,6 +421,13 @@ Hooks.on('createActor', async (actor, _options, _userId) => {
   if (!game.settings.get('draw-steel-combat-tools', 'enhancedAutoAdd')) return;
   if (['party', 'object'].includes(actor.type)) return;
   await distributeEnhancedAbilities({ actors: [actor], silent: true });
+});
+
+Hooks.on('createItem', async (item, _options, _userId) => {
+  if (!game.users.activeGM?.isSelf || item.pack) return;
+  if (!game.settings.get('draw-steel-combat-tools', 'enhancedAutoAdd')) return;
+  try { await swapEnhancedItem(item); }
+  catch (err) { console.warn('DSCT | enhanced | could not swap an imported item:', err); }
 });
 
 Hooks.once('socketlib.ready', () => {

@@ -2561,6 +2561,11 @@ body #token-hud .status-effects.palette section.effect-pane .dsct-status-header:
 .dsct-flag-picker dt { font-weight: bold; }
 .dsct-flag-picker dd { margin: 0; overflow-wrap: anywhere; }
 
+.dsct-swap-list { max-height: 320px; overflow-y: auto; margin: 8px 0; padding-left: 20px; }
+.dsct-swap-list > li { margin-bottom: 6px; }
+.dsct-swap-list ul { margin: 2px 0 0; padding-left: 18px; list-style: none; }
+.dsct-swap-list ul > li { margin: 1px 0; }
+
 .dsct-prompt-remember { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .dsct-prompt-remember > label { flex: 0 0 auto; white-space: normal; }
 .dsct-prompt-remember > select { flex: 1; min-width: 0; }
