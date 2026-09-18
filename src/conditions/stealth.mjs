@@ -462,13 +462,28 @@ export async function clearRevealPending(token, reasons) {
 
 export async function setHiddenFrom(token, ids, { keepPending = false } = {}) {
   const before = hiddenFrom(token);
-  const list = [...new Set(ids)].filter(Boolean);
+
+  
+  
+  
+  const blocked = (id) => {
+    const observer = canvas.tokens?.get(id);
+    return !!observer && observerBlocksHiding(observer, token);
+  };
+
+  const list = [...new Set(ids)].filter(Boolean).filter(id => {
+    if (!blocked(id)) return true;
+    if (getSetting('debugMode')) console.log(`DSCT | stealth | ${canvas.tokens.get(id)?.name} cannot be hidden from, dropped from ${token.name}'s hidden list.`);
+    return false;
+  });
 
   if (list.length && !stealthActive()) { _outOfCombat(); return []; }
 
   const effect = _hiddenEffect(token);
 
-  const dropped = [...before].filter(id => !list.includes(id));
+  
+  
+  const dropped = [...before].filter(id => !list.includes(id) && !blocked(id));
 
   if (!list.length) {
     if (effect) await safeDelete(effect);
@@ -626,12 +641,34 @@ export async function recheckHidden(moved) {
 const _moveLog = [];
 export const moveLog = () => [..._moveLog];
 
+const _writesStealthFlag = (effect) =>
+  [...(effect?.system?.changes ?? []), ...(effect?.changes ?? [])]
+    .some(c => String(c?.key ?? '').includes(`flags.${M}.stealth.`));
+
+export async function enforceBlockedObservers() {
+  if (!stealthActive() || !game.users.activeGM?.isSelf) return 0;
+  let stripped = 0;
+  for (const hider of canvas.tokens?.placeables ?? []) {
+    if (!_hiddenEffect(hider)) continue;
+    const ids = [...hiddenFrom(hider)];
+    const kept = ids.filter(id => {
+      const observer = canvas.tokens.get(id);
+      return !observer || !observerBlocksHiding(observer, hider);
+    });
+    if (kept.length === ids.length) continue;
+    stripped += ids.length - kept.length;
+    await setHiddenFrom(hider, kept);
+  }
+  return stripped;
+}
+
 function _watchQualifyingStatuses() {
   const qualifying = (effect) =>
     effect?.statuses?.has('invisible')
     || effect?.statuses?.has('burrow')
     || CONCEALED.some(id => effect?.statuses?.has(id))
-    || !!effect?.flags?.[M]?.stealth;
+    || !!effect?.flags?.[M]?.stealth
+    || _writesStealthFlag(effect);
 
   for (const hook of ['createActiveEffect', 'deleteActiveEffect', 'updateActiveEffect']) {
     Hooks.on(hook, (effect) => {
@@ -639,6 +676,7 @@ function _watchQualifyingStatuses() {
       if (actor?.documentName !== 'Actor') return;
       if (!qualifying(effect)) return;
       for (const token of actor.getActiveTokens?.() ?? []) recheckHidden(token);
+      enforceBlockedObservers().catch(err => console.warn('DSCT | stealth |', err));
     });
   }
 }

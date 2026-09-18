@@ -19,7 +19,7 @@ import { registerTargetDistance } from './ability-automation/target-distance.mjs
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
-import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
+import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
 import { registerStatusPalette } from './status-palette.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { toggleStealthPanel, registerStealthPanel } from './conditions/stealth-panel.mjs';
@@ -71,7 +71,7 @@ const api = {
   stackedPrompt:    stackedPrompt,
   colorFields:      upgradeColorFields,
   observation:      { suggest: suggestObserving, obscuredNear, lastSeen: lastSeenOf, lastHarm: lastHarmOf, seesClearly, clear: clearObservationMemory },
-  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits, search: runSearch },
+  stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, enforceBlocked: enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits, search: runSearch },
   stealthPanel:     toggleStealthPanel,
   sight:            { hasCover, visibleTargetCorners, hasSightTo: hasSightToToken },
   grab:             runGrab,
