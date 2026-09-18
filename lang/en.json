@@ -1766,6 +1766,7 @@
         "clear": "sees them plainly",
         "obscured": "can see them, but they are concealed or in cover",
         "blind": "has no line of effect to them",
+        "pinned": "cannot make them out, but there is nowhere for them to be except that square",
         "surrounded": "sees them, but there is cover all around them"
       },
       "askDirector": "{name} is trying to hide. The Director is deciding who is watching.",

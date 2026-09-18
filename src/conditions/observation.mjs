@@ -212,6 +212,15 @@ export function suggestObserving(observer, target) {
 
   let observing = clear;
   let reason = clear ? 'clear' : (sight ? 'obscured' : 'blind');
+
+  
+  
+  
+  if (!observing && sight && adjacent.obscured === 0) {
+    observing = true;
+    reason = 'pinned';
+  }
+
   if (observing && adjacent.obscured > limit) {
     observing = false;
     reason = 'surrounded';
