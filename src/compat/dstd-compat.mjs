@@ -637,7 +637,9 @@ function _seedPanelAnchor(message, root) {
   if (!abilityUuid) return;
   const ability = fromUuidSync(abilityUuid);
   const effects = ability?.system?.effects?.contents ?? [];
-  if (!effects.some(e => String(e?.type ?? '').startsWith('dsct.'))) return;
+  
+  
+  if (!effects.some(e => String(e?.type ?? '').startsWith('dsct.flat'))) return;
 
   const anchor = document.createElement('a');
   anchor.className = `roll-link ${PANEL_ANCHOR}`;
