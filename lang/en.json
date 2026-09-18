@@ -582,7 +582,7 @@
       },
       "coverBaneEnabled": {
         "name": "Cover Bane",
-        "hint": "Shows a Cover bane in the roll dialog for damage dealing abilities when the target has at least half their form blocked from you, meaning no corner of your space can see more than two corners of theirs. Like every modifier, it can be toggled off."
+        "hint": "Shows a Cover bane in the roll dialog for damage dealing abilities when no corner of your space can see more than two corners of the target's."
       },
       "abilityTemplateConfigEnabled": {
         "name": "Configure Ability Templates",
@@ -598,19 +598,19 @@
       },
       "concealmentBlur": {
         "name": "Blur Concealed Creatures",
-        "hint": "Blurs the artwork of a creature that is concealed, so you can tell at a glance that you cannot make it out clearly. Deliberately not the black and white used for what you have no line of effect to, since that says you cannot see it at all. Only the art is blurred, so bars and names stay readable. Set to 0 to turn it off. Per client."
+        "hint": "Blurs the artwork of a concealed creature, leaving its bars and name readable. Per client, and 0 turns it off."
       },
       "lowCoverEnabled": {
         "name": "Low Cover",
-        "hint": "Lets low walls, furniture and objects give cover without blocking line of effect, the way a wall you can shoot over does. Adds a Low Cover Wall tool to the wall controls and a tickbox to every wall, a cover setting to every creature and object sheet, and an effect flag for creatures that shelter whoever stands behind them."
+        "hint": "Lets low walls, furniture and objects give cover without blocking line of effect, the way a wall you can shoot over does. Adds a Low Cover Wall tool, a tickbox on every wall, and a cover setting on creature and object sheets."
       },
       "observationRadius": {
         "name": "Unobserved Ground Shown",
-        "hint": "How far around a hiding creature the observation picker looks when it shows you how much ground an enemy cannot watch. Context only, it does not change the suggestion. Larger numbers cost more to work out on a walled map."
+        "hint": "How far around a hiding creature the observation picker looks when showing ground an enemy cannot watch. Context only, and larger numbers cost more on a walled map."
       },
       "observationAdjacentThreshold": {
         "name": "Unobserved Squares to Suggest Hiding",
-        "hint": "When MORE than this many squares next to a creature are out of an enemy's view, the picker suggests that enemy is not observing them, even if it can see them right now. Set it higher to make the picker stricter, or to 0 to have any unwatched neighbouring square count."
+        "hint": "When more than this many squares next to a creature are out of an enemy's view, the picker suggests that enemy is not observing them. Set to 0 for any unwatched square to count."
       },
       "enforceAbilityRange": {
         "name": "Enforce Ability Range",
@@ -727,19 +727,19 @@
       },
       "stealthSystemEnabled": {
         "name": "Draw Steel Stealth",
-        "hint": "Stops Foundry erasing invisible and burrowing tokens from everyone's vision, which is not how either works in Draw Steel, and adds the Hidden and Concealment statuses the game has but the system does not. Needs a reload."
+        "hint": "Adds the Hidden and Concealment statuses Draw Steel has but the system does not, and stops Foundry erasing invisible and burrowing tokens from everyone's vision."
       },
       "hiddenMarkers": {
         "name": "Stealth Markers",
-        "hint": "Marks every creature a selected token is hidden from with the blinded icon: white for cannot see you, yellow and faded for lost sight of you this turn, red for would spot you. A red marker is joined to the hider by a line, shows for the Director without selecting anything, and is clicked to make the reveal official. Also ghosts any creature hiding from everything you have selected."
+        "hint": "Marks every creature a selected token is hidden from: white for cannot see you, yellow for lost sight of you this turn, red for would spot you. Click a red marker to make the reveal official."
       },
       "revealCombatantPositions": {
         "name": "Everyone Knows Where Everyone Is",
-        "hint": "Draw Steel says the position of every combatant in an encounter is known to all its participants, even without line of effect. Shows every combatant through the fog of war as a greyed out stand in, so their square is known without pretending you can see them. Targeting by hand still works, and the target pickers still leave out anyone you have no line of effect to."
+        "hint": "Draw Steel says every combatant in an encounter knows where the others are, so each one shows through the fog of war as a greyed out stand in. The target pickers still leave out anyone you have no line of effect to."
       },
       "stealthSneakHouseRule": {
         "name": "Sneaking in Combat (House Rule)",
-        "hint": "By the book, any movement during combat ends hiding, and sneaking only exists outside of combat. Either house rule allows sneaking in combat: becoming hidden also makes you Sneaking, which halves your speed and lets you move while staying hidden. Every Square checks cover or concealment along the whole path and stops the move on the first exposed square; Start and End only asks that the move begins and ends in cover or concealment, closer to the book's wording. Remove Sneaking to move at full speed, which ends Hidden. Forced movement and teleports still reveal you either way.",
+        "hint": "By the book, any movement during combat ends hiding. Either option lets a hidden creature move at half speed and stay hidden, checking cover or concealment along the whole path or only at each end of it.",
         "choice": {
           "off": "Off, by the book",
           "path": "Every square of the move",
@@ -748,11 +748,11 @@
       },
       "stealthAutoReveal": {
         "name": "Reveal Automatically",
-        "hint": "Moving, using an ability, being force moved or teleporting ends hiding by the book, and with this on it simply happens. Turn it off to be asked instead: the creature that gave itself away gets a red spiked eye with lines to everyone it was hiding from. Click the eye to make the reveal official, right click to wave it off, or let it fade and they stay hidden."
+        "hint": "Moving, using an ability or being force moved ends hiding by the book, and with this on it simply happens. Off asks instead, with a red spiked eye to click, right click to wave off, or let fade."
       },
       "stealthTrueHidden": {
         "name": "Fully Hide Hidden Creatures",
-        "hint": "A player stops seeing any creature that is hidden from every token they look through, the way invisible tokens vanish in plain Foundry, and the Search card masks such creatures until they are found. The Director always sees everything, and nobody loses sight of their own creatures."
+        "hint": "A player stops seeing any creature that is hidden from every token they look through, the way invisible tokens vanish in plain Foundry. The Director always sees everything."
       },
       "stealthRevealPromptSeconds": {
         "name": "Reveal Prompt Fades After",
