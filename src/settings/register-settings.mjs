@@ -19,6 +19,7 @@ import {
   CompatibilitySettingsMenu,
   SquadToolsSettingsMenu,
   CombatLogsSettingsMenu,
+  PartyToolsSettingsMenu,
   StealthSettingsMenu,
 } from './settings-menus.mjs';
 
@@ -822,6 +823,35 @@ export const registerSettings = () => {
     name: L('stealthTrueHiddenObjects.name'), hint: L('stealthTrueHiddenObjects.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
     onChange: () => recheckCombatReveal(),
+  });
+  game.settings.registerMenu(M, 'partyToolsSettings', {
+    name: game.i18n.localize('DSCT.party.menuName'), label: game.i18n.localize('DSCT.party.menuLabel'),
+    hint: game.i18n.localize('DSCT.party.menuHint'),
+    icon: 'fas fa-users', type: PartyToolsSettingsMenu, restricted: false,
+  });
+  game.settings.register(M, 'partyToolsEnabled', {
+    name: game.i18n.localize('DSCT.party.enabledName'), hint: game.i18n.localize('DSCT.party.enabledHint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'partySetupPrompt', {
+    name: game.i18n.localize('DSCT.party.promptName'), hint: game.i18n.localize('DSCT.party.promptHint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'partyPlayersCanPickIgnored', {
+    name: game.i18n.localize('DSCT.party.pickIgnoredName'), hint: game.i18n.localize('DSCT.party.pickIgnoredHint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'partyIgnoredWarning', {
+    name: game.i18n.localize('DSCT.party.warnName'), hint: game.i18n.localize('DSCT.party.warnHint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'partyShowLanguages', {
+    name: game.i18n.localize('DSCT.party.showLanguagesName'), hint: game.i18n.localize('DSCT.party.showLanguagesHint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'partyIgnoreDeadLanguages', {
+    name: game.i18n.localize('DSCT.party.ignoreDeadName'), hint: game.i18n.localize('DSCT.party.ignoreDeadHint'),
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'coverBaneEnabled', {
     name: L('coverBaneEnabled.name'), hint: L('coverBaneEnabled.hint'),

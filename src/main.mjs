@@ -24,6 +24,10 @@ import { registerStatusPalette } from './status-palette.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { registerSearch, pointOut, runSearch, spendHeroToken } from './conditions/search.mjs';
 import { registerHiddenMarkers } from './conditions/hidden-markers.mjs';
+import { registerPartyOverview } from './party/overview.mjs';
+import { registerAdvancementHints } from './party/advancement-hints.mjs';
+import { registerPartySetupPrompt } from './party/setup-prompt.mjs';
+import { registerIgnoredWarning } from './party/ignored-warning.mjs';
 import { registerStealthPath, pingStealthStop } from './conditions/stealth-path.mjs';
 import { registerCombatReveal } from './conditions/combat-reveal.mjs';
 import { playDetected } from './conditions/detected-flash.mjs';
@@ -157,6 +161,12 @@ Hooks.once('init', () => {
   registerColorFields();
   registerBurrowRendering();
   registerHiddenMarkers();
+  if (getSetting('partyToolsEnabled')) {
+    registerPartyOverview();
+    registerAdvancementHints();
+    registerPartySetupPrompt();
+    registerIgnoredWarning();
+  }
   registerStealthTraits();
   registerLineOfEffectFlags();
   registerCoverImmunity();

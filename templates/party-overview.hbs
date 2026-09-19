@@ -1,0 +1,77 @@
+{{#with dsctOverview}}
+<section data-tab="{{@root.tabs.dsctOverview.id}}" data-group="{{@root.tabs.dsctOverview.group}}" class="{{@root.tabs.dsctOverview.cssClass}}">
+  <div class="contents dsct-po">
+
+    {{#unless any}}
+    <p class="dsct-po-empty">{{localize "DSCT.party.noMembers"}}</p>
+    {{/unless}}
+
+    {{#if any}}
+    {{#if isDirector}}
+    <p class="dsct-po-hint">{{localize "DSCT.party.markHint"}}</p>
+    {{/if}}
+
+    {{#each blocks}}
+    <section class="item-list-container">
+      <div class="item-header">
+        <div class="item-column item-name">{{label}}</div>
+        <div class="item-column item-type">{{localize "DSCT.party.covered"}}</div>
+        <div class="item-column item-controls"></div>
+      </div>
+      <ol class="item-list">
+        {{#each groups}}
+        <li class="item">
+          <details class="dsct-po-group" data-group="{{id}}"{{#if open}} open{{/if}}>
+            <summary class="item-row">
+              <div class="item-column item-name">
+                <i class="fa-solid {{icon}} dsct-po-icon" inert></i>
+                <div class="name"><div class="label">{{label}}</div></div>
+              </div>
+              <div class="item-column item-type">{{covered}} / {{total}}</div>
+              <div class="item-column item-controls">
+                <i class="fa-fw fa-solid fa-angle-right dsct-po-caret" inert></i>
+              </div>
+            </summary>
+            <div class="dsct-po-pills">
+              {{#each pills}}
+              <span class="dsct-po-pill{{#unless count}} is-gap{{/unless}}{{#if isPreferred}} is-preferred{{/if}}{{#if isIgnored}} is-ignored{{/if}}"
+                    data-kind="{{kind}}" data-key="{{key}}"
+                    data-tooltip="{{#if count}}{{holders}}{{else}}{{localize 'DSCT.party.nobody'}}{{/if}}">
+                {{label}}{{#if showCount}} <b class="dsct-po-n">{{count}}</b>{{/if}}
+              </span>
+              {{/each}}
+            </div>
+          </details>
+        </li>
+        {{/each}}
+      </ol>
+    </section>
+    {{/each}}
+
+    <section class="item-list-container">
+      <div class="item-header">
+        <div class="item-column item-name">{{localize "DSCT.party.characteristics"}}</div>
+        <div class="item-column item-controls"></div>
+      </div>
+      <table class="dsct-po-table">
+        <thead>
+          <tr>
+            <th class="dsct-po-rowhead"></th>
+            {{#each characteristics.heads}}<th class="{{#if sep}}dsct-po-sep{{/if}}{{#if isFollower}} is-follower{{/if}}">{{name}}</th>{{/each}}
+          </tr>
+        </thead>
+        <tbody>
+          {{#each characteristics.rows}}
+          <tr>
+            <th class="dsct-po-rowhead">{{label}}</th>
+            {{#each cells}}<td class="{{#if isBest}}is-best{{/if}}{{#if sep}} dsct-po-sep{{/if}}">{{text}}</td>{{/each}}
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </section>
+    {{/if}}
+
+  </div>
+</section>
+{{/with}}

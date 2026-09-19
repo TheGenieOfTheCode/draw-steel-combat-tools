@@ -864,6 +864,20 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
 
 }
 
+export class PartyToolsSettingsMenu extends SettingsSubmenu {
+  static DEFAULT_OPTIONS = {
+    id:     'dsct-party-tools-settings',
+    window: { title: 'DSCT.panel.title.PartyToolsSettings' },
+  };
+
+  static get enableKey()   { return 'partyToolsEnabled'; }
+
+  static get regularKeys() {
+    return ['partyToolsEnabled', 'partySetupPrompt', 'partyShowLanguages', 'partyIgnoreDeadLanguages',
+      'partyPlayersCanPickIgnored', 'partyIgnoredWarning'];
+  }
+}
+
 export class CombatLogsSettingsMenu extends SettingsSubmenu {
   static DEFAULT_OPTIONS = {
     id:     'dsct-combat-logs-settings',
