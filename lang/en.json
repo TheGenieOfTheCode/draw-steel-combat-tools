@@ -1014,6 +1014,7 @@
       "known": "Seen by you",
       "unknown": "Unknown creature",
       "unknownObject": "Unknown object",
+      "pingHint": "Click to ping. Shift click to pull everyone to it.",
       "awaiting": "Waiting on the Director's rolls",
       "nothing": "Nothing found within 10 squares.",
       "pointOut": "Point Out to Allies",

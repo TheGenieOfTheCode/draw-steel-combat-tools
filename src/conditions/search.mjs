@@ -353,7 +353,7 @@ const esc = (s) => foundry.utils.escapeHTML(String(s ?? ''));
 
 const _nameHTML = (name, tokenId, cls = 'dsct-search-name') =>
   tokenId
-    ? `<span class="${cls} dsct-search-link" data-token-id="${esc(tokenId)}">${esc(name)}</span>`
+    ? `<span class="${cls} dsct-search-link" data-token-id="${esc(tokenId)}" data-tooltip="${esc(L('DSCT.search.pingHint'))}">${esc(name)}</span>`
     : `<span class="${cls}">${esc(name)}</span>`;
 
 const _isMasked = (row, redact) => redact && !row.playerOwned && ['pending', 'hidden', 'decoy'].includes(row.status);
@@ -554,6 +554,15 @@ function _renderCard(message, html, state) {
         if (token?.visible && token._canHover?.(game.user, ev)) token._onHoverIn(ev, { hoverOutOthers: true });
       });
       link.addEventListener('mouseleave', (ev) => canvas.tokens?.get(link.dataset.tokenId)?._onHoverOut(ev));
+      link.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const token = canvas.tokens?.get(link.dataset.tokenId);
+        if (!token) return;
+
+        const types = CONFIG.Canvas.pings.types;
+        const pull = ev.shiftKey;
+        canvas.ping(token.center, { style: pull ? types.PULL : types.PULSE, pull });
+      });
     }
   }
 }
