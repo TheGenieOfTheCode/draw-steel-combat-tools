@@ -13,6 +13,16 @@ const _targetKey = (target) => {
   return String(raw).replace(/\./g, '__');
 };
 
+function _allPowerRolls(message) {
+  const out = [];
+  for (const part of Array.from(message.system?.parts?.contents ?? [])) {
+    for (const roll of Array.from(part.rolls ?? [])) if (_isPowerRoll(roll)) out.push(roll);
+  }
+  return out;
+}
+
+const _pickRolled = (rolls) => rolls.find(r => _diceResults(r).length) ?? rolls[0] ?? null;
+
 function _findTargetRoll(message, target) {
   const parts = Array.from(message.system?.parts?.contents ?? []);
   if (!target?.selectedToken) {
@@ -23,9 +33,13 @@ function _findTargetRoll(message, target) {
       }
     }
   }
+  if (target?.selectedToken) {
+    const all = _allPowerRolls(message);
+    const untargeted = all.filter(r => !r?.options?.target);
+    return _pickRolled((untargeted.length ? untargeted : all).reverse());
+  }
   const withPower = parts.filter(p => Array.from(p.rolls ?? []).some(_isPowerRoll));
-  if (withPower.length === 1) return Array.from(withPower[0].rolls).reverse().find(_isPowerRoll) ?? null;
-  if (target?.selectedToken && withPower.length) return Array.from(withPower[0].rolls).find(_isPowerRoll) ?? null;
+  if (withPower.length === 1) return _pickRolled(Array.from(withPower[0].rolls).reverse().filter(_isPowerRoll));
   return null;
 }
 
@@ -450,23 +464,31 @@ export async function syncBaseRollTier(message, root) {
 export function injectRollPills(message, root) {
   if (!getSetting('dstdRollPills')) return;
   if (!game.modules.get(DSTD)?.active) return;
+  const dbg = getSetting('debugMode');
   const state = message.getFlag(DSTD, 'state');
-  if (!state) return;
+  if (!state) {
+    if (dbg) console.log(`DSCT | roll pills | ${message.id} no DSTD state flag yet`);
+    return;
+  }
   const prov = message.getFlag(M, 'rollPills') ?? null;
   const canEdit = game.user.isGM || message.isOwner || !!getModuleApi(false)?.socket;
   const ctx = _rollCtx(message, state, prov);
 
-  for (const cog of root.querySelectorAll('button[data-dstd-action="editRoll"]')) {
+  const cogs = root.querySelectorAll('button[data-dstd-action="editRoll"]');
+  if (dbg) console.log(`DSCT | roll pills | ${message.id} targets=${state.targets?.length ?? 0} cogs=${cogs.length}`);
+
+  for (const cog of cogs) {
     const rollLine = cog.closest(`.${DSTD}-roll-line`);
-    if (!rollLine) continue;
+    if (!rollLine) { if (dbg) console.log('DSCT | roll pills | cog has no roll line'); continue; }
     let target;
-    try { target = JSON.parse(cog.dataset.target); } catch { continue; }
+    try { target = JSON.parse(cog.dataset.target); } catch { if (dbg) console.log('DSCT | roll pills | cog target JSON unreadable', cog.dataset.target); continue; }
     const targetKey = _targetKey(target);
     const host = rollLine.parentElement;
     host?.querySelectorAll(':scope > .dsct-roll-pills-row').forEach(e => e.remove());
     const roll = _findTargetRoll(message, target);
-    if (!roll) continue;
+    if (!roll) { if (dbg) console.log(`DSCT | roll pills | no power roll for ${targetKey}`); continue; }
 
+    if (dbg && !_diceResults(roll).length) console.log(`DSCT | roll pills | ${targetKey} power roll carries no dice`);
     _diceIcons(rollLine, roll);
 
     const override = state.tierOverrides?.[targetKey] ?? null;
@@ -1064,6 +1086,13 @@ export function registerDstdRollPills() {
     if (userId !== game.user.id) return;
     if (!getSetting('dstdRollPills')) return;
     _persistProvenance(message);
+  });
+
+  Hooks.on('updateChatMessage', (message, changed) => {
+    if (!getSetting('dstdRollPills')) return;
+    if (!foundry.utils.hasProperty(changed, `flags.${DSTD}`)) return;
+    const li = document.querySelector(`li.chat-message[data-message-id="${message.id}"]`);
+    if (li) setTimeout(() => injectRollPills(message, li), 0);
   });
 
   Hooks.on('renderChatMessageHTML', (message, html) => {
