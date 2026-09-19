@@ -553,6 +553,10 @@
         "name": "Neutralize Ability Enrichers",
         "hint": "Replaces clickable [[/apply]] buttons in ability chat messages with plain text and injects DSCT-handled apply buttons instead. Disable if you prefer the DS system's default enricher behavior."
       },
+      "alwaysRepickTargets": {
+        "name": "Always Re-Pick Targets",
+        "hint": "Clear whatever you had targeted before an ability resolves, so the target picker always opens instead of accepting the selection you already had."
+      },
       "autoConfirmSelection": {
         "name": "Auto-Confirm Target Selection",
         "hint": "When the required number of targets are selected in a target picker (ability targeting, Power Word: Kill, Raise Dead), automatically confirm without needing to press Enter. Also skips the picker entirely when the valid target count is at or below the ability's target maximum."

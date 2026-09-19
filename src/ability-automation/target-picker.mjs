@@ -355,6 +355,15 @@ async function _runTargetPicker(ability, casterToken) {
       if (getSetting('cancelOnRightClick')) doCancel();
     };
 
+    
+    
+    if (validTokens.length === 1 && maxTargets >= 1) {
+      selectedTokens.add(validTokens[0].id);
+      drawHighlights();
+      syncStatus();
+      _syncReticles(validTokens, selectedTokens, hoveredId);
+    }
+
     canvas.stage.on('mousedown', onClick);
     canvas.stage.on('mousemove', onMove);
     document.addEventListener('keydown', onKey);
@@ -730,6 +739,10 @@ export function checkAndRunTargetPicker(dialog) {
   const excludeSelf = isStrike || (keywords?.has('weapon') ?? false);
 
   
+  
+  
+  if (getSetting('alwaysRepickTargets') && game.user.targets.size > 0) setFoundryTargets([]);
+
   if (game.user.targets.size > 0) {
     if (game.user.targets.size < target.value) {
       const alreadyTargetedIds = new Set([...game.user.targets].map(t => t.id));

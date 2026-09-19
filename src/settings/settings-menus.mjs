@@ -555,11 +555,21 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
 
   static get enableKey()   { return 'abilityAutomationEnabled'; }
 
+  static get dependencies() {
+    return {
+      alwaysRepickTargets: 'abilityTargetingEnabled',
+      autoConfirmSelection: 'abilityTargetingEnabled',
+      gmBypassRangeEnforcement: 'enforceAbilityRange',
+      abilityTemplateSeconds: 'abilityTemplateCleanup',
+    };
+  }
+
   static get regularKeys() {
     return [
       'abilityAutomationEnabled',
       header('Targeting'),
       'abilityTargetingEnabled',
+      'alwaysRepickTargets',
       'autoConfirmSelection',
       'groupActionsEnabled',
       header('Ability Range'),
