@@ -862,6 +862,7 @@ async function _persistDstdState(message, subKey, state) {
   const allState  = foundry.utils.deepClone(message.getFlag(M, 'dstdFmState') ?? {});
   allState[subKey] = {
     applied: state.applied, undoMsgId: state.undoMsgId ?? null, modStack: stackData,
+    ...(state.seeded ? { seeded: true } : {}),
     ...(state.redirected ? { redirected: state.redirected } : {}),
   };
   const api = getModuleApi();
@@ -1648,9 +1649,23 @@ async function _injectFmButtons(message, root) {
         let saved = _fmState.get(stateKey);
         if (!saved) {
           const fromFlags = savedFlagState[subKey];
+          const seeds = [...(_bvlMod ? [_bvlMod] : []), ...(_flyingMod ? [_flyingMod] : [])];
+
+          
+          
+          
+          
           saved = fromFlags
-            ? { applied: fromFlags.applied ?? false, undoMsgId: fromFlags.undoMsgId ?? null, modStack: (fromFlags.modStack ?? []).map(e => ({ ...e })) }
-            : { applied: false, undoMsgId: null, modStack: [...(_bvlMod ? [_bvlMod] : []), ...(_flyingMod ? [_flyingMod] : [])] };
+            ? {
+              applied: fromFlags.applied ?? false,
+              undoMsgId: fromFlags.undoMsgId ?? null,
+              modStack: [
+                ...(fromFlags.seeded ? [] : seeds),
+                ...(fromFlags.modStack ?? []).map(e => ({ ...e })),
+              ],
+            }
+            : { applied: false, undoMsgId: null, modStack: seeds };
+          saved.seeded = true;
           _fmState.set(stateKey, saved);
         }
         saved.redirected = savedFlagState[subKey]?.redirected ?? null;
