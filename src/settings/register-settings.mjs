@@ -55,6 +55,7 @@ export const registerSettings = () => {
     default: 'ask',
   });
   game.settings.register(M, 'enhancedPromptSeenVersion', { scope: 'world', config: false, type: String, default: '' });
+  game.settings.register(M, 'enhancedRepairDone', { scope: 'world', config: false, type: String, default: '' });
   game.settings.register(M, 'enhancedAutoAdd', {
     name: L('enhancedAutoAdd.name'), hint: L('enhancedAutoAdd.hint'),
     scope: 'world', config: true, type: Boolean, default: false,

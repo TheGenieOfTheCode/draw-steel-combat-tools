@@ -1693,6 +1693,7 @@
         "enhancedRefreshed": "{refreshed} actor(s) had an existing Enhanced Ability brought up to date.",
         "enhancedSwapped": "{swapped} item(s) were swapped for their enhanced version; see the console for the list.",
         "enhancedKeptCurrent": "Enhanced Abilities: {count} actor(s) brought up to date on load.",
+        "enhancedRepaired": "Enhanced Abilities: repaired {count} actor(s) whose entries did not import correctly.",
         "abilitiesPackNotFound": "Could not find the draw-steel.abilities compendium.",
         "knockbackNotFound": "Could not find Knockback in the abilities pack.",
         "cancelled": "Cancelled.",

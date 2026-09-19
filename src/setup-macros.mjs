@@ -143,7 +143,8 @@ async function enhancedDocuments() {
 }
 
 export function enhancedStamp(data) {
-  const text = JSON.stringify({ n: data.name, i: data.img, s: data.system, e: data.effects ?? [] });
+
+  const text = JSON.stringify({ v: 2, n: data.name, i: data.img, s: data.system, e: data.effects ?? [] });
   let h = 5381;
   for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
@@ -163,6 +164,51 @@ export async function enhancedDocIndex() {
   _docIndex = map;
   return map;
 }
+
+const _typedMapPaths = (node, path, out) => {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return out;
+  const entries = Object.entries(node);
+  const typed = entries.filter(([, v]) => v && typeof v === 'object' && !Array.isArray(v) && typeof v.type === 'string');
+  if (entries.length && typed.length === entries.length) out.push(path);
+  for (const [k, v] of entries) _typedMapPaths(v, path ? `${path}.${k}` : k, out);
+  return out;
+};
+
+const _retypeSafe = (item, system) => {
+  const ops = foundry.data?.operators;
+  if (!ops?.ForcedReplacement) return system;
+
+  const out  = foundry.utils.deepClone(system);
+  const held = item.toObject()?.system ?? {};
+
+  for (const path of _typedMapPaths(out, '', [])) {
+    const next = path ? foundry.utils.getProperty(out, path) : out;
+    const have = path ? foundry.utils.getProperty(held, path) : held;
+    if (!next || typeof next !== 'object' || !have || typeof have !== 'object') continue;
+
+    for (const [id, entry] of Object.entries(next)) {
+      if (have[id] && have[id].type !== entry.type) entry.type = ops.ForcedReplacement.create(entry.type);
+    }
+
+    for (const [id, entry] of Object.entries(have)) {
+      if (!(id in next) && typeof entry?.type === 'string') next[id] = new ops.ForcedDeletion();
+    }
+  }
+  return out;
+};
+
+const _overwriteLanded = (item, system) => {
+  const held = item.toObject()?.system ?? {};
+  for (const path of _typedMapPaths(system, '', [])) {
+    const want = path ? foundry.utils.getProperty(system, path) : system;
+    const have = path ? foundry.utils.getProperty(held, path) : held;
+    if (!want || typeof want !== 'object') continue;
+    for (const [id, entry] of Object.entries(want)) {
+      if (typeof entry?.type === 'string' && have?.[id]?.type !== entry.type) return false;
+    }
+  }
+  return true;
+};
 
 const _syncEffects = async (item, effects) => {
   const existing = item.effects.map(e => e.id);
@@ -257,7 +303,13 @@ export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
   const flags = { enhanced: true, enhancedHash: hash };
   if (!item.getFlag(ENH_FLAG, 'enhanced')) flags.enhancedSwapped = true;
 
-  await item.update({ name: data.name, img: data.img, system: data.system }, { recursive: false });
+  await item.update({ name: data.name, img: data.img, system: _retypeSafe(item, data.system) });
+
+  if (!_overwriteLanded(item, data.system)) {
+    console.warn(`DSCT | enhanced | Foundry rejected the overwrite of "${item.name}" on ${item.parent?.name ?? 'the sidebar'}. Left unflagged so it is tried again rather than marked enhanced.`);
+    return false;
+  }
+
   await _syncEffects(item, data.effects ?? []);
   await item.update({ flags: { [ENH_FLAG]: flags } });
   return true;
@@ -352,7 +404,7 @@ export const cleanupEnhancedAbilities = async ({ apply = false } = {}) => {
   return out;
 };
 
-export const distributeEnhancedAbilities = async ({ actors = null, silent = false } = {}) => {
+export const distributeEnhancedAbilities = async ({ actors = null, silent = false, repair = false } = {}) => {
   const none = { added: 0, skipped: 0 };
   if (!game.user.isGM) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.gmOnlyDistribute')); return none; }
   if (!enhancedPacks().length) { if (!silent) ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.enhancedPackNotFound')); return none; }
@@ -371,6 +423,8 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
       }
     }
   }
+
+  if (repair) targets = targets.filter(a => a.items.some(i => i.getFlag(ENH_FLAG, 'enhanced')));
 
   
   
@@ -394,7 +448,8 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
       if (doc && isSwapCandidate(item)) candidates.push({ item, doc, owner: sidebarLabel });
     }
   }
-  const allowSwap = await confirmSwaps(candidates);
+
+  const allowSwap = repair ? false : await confirmSwaps(candidates);
 
   const refresh = async (actor) => {
     let touched = false;

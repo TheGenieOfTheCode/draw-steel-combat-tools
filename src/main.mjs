@@ -370,6 +370,19 @@ Hooks.once('ready', async () => {
   const promptMode     = game.settings.get(M, 'enhancedPromptMode');
   const seenVersion    = game.settings.get(M, 'enhancedPromptSeenVersion') ?? '';
 
+  const REPAIR_ID = 'retype-1';
+  if (game.settings.get(M, 'enhancedRepairDone') !== REPAIR_ID) {
+    try {
+      const r = await distributeEnhancedAbilities({ silent: true, repair: true });
+      const touched = (r?.refreshed ?? 0) + (r?.added ?? 0);
+      if (touched) ui.notifications.info(game.i18n.format('DSCT.notice.macros.enhancedRepaired', { count: touched }));
+      if (r?.failed) console.warn(`DSCT | enhanced | repair pass could not finish ${r.failed} actor(s)`);
+    } catch (err) {
+      console.warn('DSCT | enhanced | repair pass failed:', err);
+    }
+    await game.settings.set(M, 'enhancedRepairDone', REPAIR_ID);
+  }
+
   const remembered = promptMode === 'never' || (promptMode === 'skip-update' && seenVersion === currentVersion);
   if (remembered) {
     if (game.settings.get(M, 'enhancedAutoAdd')) {
