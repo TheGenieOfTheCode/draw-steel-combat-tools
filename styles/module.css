@@ -1416,6 +1416,25 @@ enriched-content[enricher="dsct.teleport"] {
   color: #d77676;
   background: rgba(215, 118, 118, 0.08);
 }
+
+.dsct-fm-pill.dsct-pill-multi {
+  border: 1px solid transparent;
+  color: var(--dsct-pill-text);
+  background:
+    linear-gradient(90deg, var(--dsct-pill-fill)) padding-box,
+    linear-gradient(90deg, var(--dsct-pill-edge)) border-box;
+}
+.dsct-fm-pill.dsct-pill-multi.dsct-pill-custom {
+  border: 1px solid var(--dsct-pill-border);
+  background: linear-gradient(90deg, var(--dsct-pill-fill));
+}
+.dsct-fm-pill.dsct-pill-multi .dsct-pip {
+  background: linear-gradient(90deg, var(--dsct-pill-ink));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 .dsct-fm-pill.dsct-fmpill-type {
   border-color: rgba(217, 166, 63, 0.6);
   color: #d9a63f;

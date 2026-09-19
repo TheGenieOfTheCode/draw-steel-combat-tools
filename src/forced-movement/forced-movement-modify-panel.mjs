@@ -115,6 +115,13 @@ const _PILL_COLORS = {
   tweak: '86, 179, 167',
 };
 
+const _TEXT_LIFT = 0.5;
+
+const _lift = (rgb, amount = _TEXT_LIFT) => rgb
+  .split(",")
+  .map((n) => { const v = Number(n.trim()); return Math.round(v + (255 - v) * amount); })
+  .join(", ");
+
 const _pillCategories = (entry, baseStates) => {
   const m    = entry.modState?.[0];
   const base = baseStates?.[0];
@@ -148,24 +155,18 @@ export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, 
   const descLine = noteDesc ? `${noteDesc}\n` : '';
   pillBtn.title = `${descLine}${_buildModTooltip(entry, baseStates)}`;
 
+  
+  
+  
   if (categories.length > 1) {
-    const rgb   = categories.map(c => _PILL_COLORS[c]);
-    const stops = (alpha) => rgb.map((c, i) => `rgba(${c}, ${alpha}) ${Math.round(i * 100 / (rgb.length - 1))}%`).join(', ');
-    pillBtn.style.color = `rgb(${rgb[0]})`;
-    if (isAbilityPill) {
-      pillBtn.style.border = '1px solid transparent';
-      pillBtn.style.background = `linear-gradient(90deg, ${stops(0.08)}) padding-box, linear-gradient(90deg, ${stops(0.6)}) border-box`;
-    } else {
-      pillBtn.style.borderColor = `rgba(${rgb[0]}, 0.6)`;
-      pillBtn.style.background = `linear-gradient(90deg, ${stops(0.08)})`;
-    }
-    const pip = pillBtn.querySelector('.dsct-pip');
-    if (pip) {
-      pip.style.background = `linear-gradient(90deg, ${rgb.map(c => `rgb(${c})`).join(', ')})`;
-      pip.style.webkitBackgroundClip = 'text';
-      pip.style.backgroundClip = 'text';
-      pip.style.color = 'transparent';
-    }
+    const rgb = categories.map(c => _PILL_COLORS[c]);
+    const stops = (fn) => rgb.map((c, i) => `${fn(c)} ${Math.round(i * 100 / (rgb.length - 1))}%`).join(", ");
+    pillBtn.classList.add("dsct-pill-multi");
+    pillBtn.style.setProperty("--dsct-pill-fill", stops(c => `rgba(${c}, 0.08)`));
+    pillBtn.style.setProperty("--dsct-pill-edge", stops(c => `rgba(${c}, 0.6)`));
+    pillBtn.style.setProperty("--dsct-pill-ink", stops(c => `rgb(${_lift(c)})`));
+    pillBtn.style.setProperty("--dsct-pill-text", `rgb(${_lift(rgb[0])})`);
+    pillBtn.style.setProperty("--dsct-pill-border", `rgba(${rgb[0]}, 0.6)`);
   }
 
   const refresh = () => {
