@@ -101,6 +101,8 @@ function _injectActorField(app, html) {
   const actor = app.document;
   if (!actor?.isOwner) return;
 
+  if (!(actor.system?.isObject || actor.type === 'object')) return;
+
   const host = root.querySelector('section[data-tab="stats"] fieldset')
     ?? root.querySelector('section[data-tab="details"] fieldset')
     ?? root.querySelector('fieldset');
