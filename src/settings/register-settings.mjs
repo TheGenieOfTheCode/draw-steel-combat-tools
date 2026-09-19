@@ -818,6 +818,11 @@ export const registerSettings = () => {
     scope: 'world', config: false, type: Boolean, default: false,
     onChange: () => recheckCombatReveal(),
   });
+  game.settings.register(M, 'stealthTrueHiddenObjects', {
+    name: L('stealthTrueHiddenObjects.name'), hint: L('stealthTrueHiddenObjects.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+    onChange: () => recheckCombatReveal(),
+  });
   game.settings.register(M, 'coverBaneEnabled', {
     name: L('coverBaneEnabled.name'), hint: L('coverBaneEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

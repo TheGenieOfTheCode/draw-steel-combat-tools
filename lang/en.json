@@ -797,6 +797,10 @@
         "name": "Fully Hide Hidden Creatures",
         "hint": "A player stops seeing any creature that is hidden from every token they look through, the way invisible tokens vanish in plain Foundry. The Director always sees everything."
       },
+      "stealthTrueHiddenObjects": {
+        "name": "Fully Hide Hidden Objects",
+        "hint": "A hidden terrain object is not drawn at all for players until somebody finds it with the Search maneuver. On by default, because where a hidden object sits is exactly what the search is for. The Director always sees everything."
+      },
       "stealthRevealPromptSeconds": {
         "name": "Reveal Prompt Fades After",
         "hint": "Seconds a red spiked eye stays before it fades away unanswered. Only matters with Reveal Automatically off."
@@ -988,6 +992,10 @@
       "testLabel": "Intuition test (Search)",
       "sectionHidden": "Hidden creatures",
       "sectionKnown": "Already seen",
+      "sectionObjects": "Hidden Terrain Objects",
+      "objectFound": "Found",
+      "objectMissed": "Out of reach",
+      "badgeObjects": "{found} of {total}, within {squares}",
       "badgePending": "{done} of {total}",
       "badgeFound": "{found} of {total} found",
       "badgeFoundOnly": "{found} found",
@@ -1005,6 +1013,7 @@
       "stillHidden": "Still hidden",
       "known": "Seen by you",
       "unknown": "Unknown creature",
+      "unknownObject": "Unknown object",
       "awaiting": "Waiting on the Director's rolls",
       "nothing": "Nothing found within 10 squares.",
       "pointOut": "Point Out to Allies",

@@ -30,6 +30,7 @@ export async function syncHiddenRule() {
 
   if (!game.users.activeGM?.isSelf || !game.ready) return;
   for (const actor of game.actors) {
+    if (isObjectActor(actor)) continue;
     const hiddenNow = actor.effects.some(e => e.statuses?.has(HIDDEN));
     const sneakingNow = actor.effects.filter(e => e.statuses?.has(SNEAKING));
     if (mode === 'off' && sneakingNow.length) await _dropSneaking(actor);
@@ -192,7 +193,7 @@ export function registerStealthSystem() {
   Hooks.on('createActiveEffect', (effect) => {
     if (!game.users.activeGM?.isSelf || !effect?.statuses?.has(HIDDEN) || sneakMode() === 'off') return;
     const actor = effect.parent;
-    if (actor?.documentName !== 'Actor') return;
+    if (actor?.documentName !== 'Actor' || isObjectActor(actor)) return;
     _grantSneaking(actor).catch(() => {});
   });
 
@@ -217,6 +218,7 @@ export function registerStealthSystem() {
 }
 
 const FLAG = 'hiddenFrom';
+const FOUND_BY = 'foundBy';
 
 const _hiddenEffect = (token) =>
   token?.actor?.appliedEffects?.find(e => e.statuses?.has(HIDDEN)) ?? null;
@@ -235,13 +237,43 @@ export function enemyCombatants(token) {
   return out;
 }
 
+export const isObjectActor = (actor) =>
+  !!(actor?.system?.isObject || actor?.type === 'object');
+
+export const isObjectToken = (token) => isObjectActor(token?.actor);
+
+export const objectFoundBy = (token) => {
+  const list = _hiddenEffect(token)?.getFlag(M, FOUND_BY);
+  return new Set(Array.isArray(list) ? list : []);
+};
+
 export function hiddenFrom(token) {
   const effect = _hiddenEffect(token);
   if (!effect) return new Set();
 
+  if (isObjectToken(token)) {
+    const found = objectFoundBy(token);
+    return new Set((canvas.tokens?.placeables ?? [])
+      .filter(t => t.id !== token.id && t.actor && !found.has(t.id))
+      .map(t => t.id));
+  }
+
   const ids = effect.getFlag(M, FLAG);
   if (Array.isArray(ids)) return new Set(ids);
   return new Set(enemyCombatants(token));
+}
+
+export async function markObjectFound(token, ids) {
+  const effect = _hiddenEffect(token);
+  if (!effect) return [];
+  const found = objectFoundBy(token);
+  const added = [...new Set(ids)].filter(id => id && !found.has(id));
+  if (!added.length) return [];
+
+  for (const id of added) found.add(id);
+  await safeUpdate(effect, { [`flags.${M}.${FOUND_BY}`]: [...found] });
+  Hooks.callAll('dsct.stealthChanged');
+  return added;
 }
 
 export const isHiddenFrom = (token, observer) =>
@@ -415,6 +447,8 @@ async function _restoreFromSnapshot(token) {
 }
 
 export async function markRevealed(token, reason, detail = null) {
+
+  if (isObjectToken(token)) return false;
   const effect = _hiddenEffect(token);
   if (!effect || !stealthActive() || !hiddenFrom(token).size) return false;
 
@@ -461,6 +495,9 @@ export async function clearRevealPending(token, reasons) {
 }
 
 export async function setHiddenFrom(token, ids, { keepPending = false } = {}) {
+
+  if (isObjectToken(token)) return [...hiddenFrom(token)];
+
   const before = hiddenFrom(token);
 
   
@@ -517,10 +554,10 @@ export async function clearStealthEffects(combat = null) {
 
   const actors = new Map();
   for (const combatant of combat?.combatants ?? []) {
-    if (combatant.actor) actors.set(combatant.actor.uuid, combatant.actor);
+    if (combatant.actor && !isObjectActor(combatant.actor)) actors.set(combatant.actor.uuid, combatant.actor);
   }
   for (const token of canvas.tokens?.placeables ?? []) {
-    if (token.actor) actors.set(token.actor.uuid, token.actor);
+    if (token.actor && !isObjectActor(token.actor)) actors.set(token.actor.uuid, token.actor);
   }
 
   let cleared = 0;
@@ -544,6 +581,9 @@ export async function clearStealthEffects(combat = null) {
 }
 
 export async function reveal(token, observerIds = null) {
+  if (isObjectToken(token)) {
+    return markObjectFound(token, observerIds ?? (canvas.tokens?.placeables ?? []).map(t => t.id));
+  }
   if (!observerIds) return setHiddenFrom(token, []);
   const remaining = [...hiddenFrom(token)].filter(id => !observerIds.includes(id));
   return setHiddenFrom(token, remaining, { keepPending: true });
@@ -559,7 +599,7 @@ export function pendingSpots() {
   const pairs = [];
   if (!stealthActive()) return pairs;
   for (const hider of canvas.tokens?.placeables ?? []) {
-    if (!_hiddenEffect(hider)) continue;
+    if (!_hiddenEffect(hider) || isObjectToken(hider)) continue;
     const reasons = revealPendingReasons(hider);
     const traits = stealthTraits(hider);
     for (const id of hiddenFrom(hider)) {
@@ -619,7 +659,7 @@ export async function recheckHidden(moved) {
 
   const trace = [];
   for (const hider of canvas.tokens?.placeables ?? []) {
-    if (!_hiddenEffect(hider)) continue;
+    if (!_hiddenEffect(hider) || isObjectToken(hider)) continue;
     const concealed = isConcealed(hider);
     const traits = stealthTraits(hider);
 
@@ -649,7 +689,7 @@ export async function enforceBlockedObservers() {
   if (!stealthActive() || !game.users.activeGM?.isSelf) return 0;
   let stripped = 0;
   for (const hider of canvas.tokens?.placeables ?? []) {
-    if (!_hiddenEffect(hider)) continue;
+    if (!_hiddenEffect(hider) || isObjectToken(hider)) continue;
     const ids = [...hiddenFrom(hider)];
     const kept = ids.filter(id => {
       const observer = canvas.tokens.get(id);
@@ -725,6 +765,8 @@ async function _afterWillingMove(token, options, userId) {
   if (userId !== game.userId) return null;
   if (window._dsctFMActive || window._dsctTeleportActive) return null;
   if (!stealthActive()) return null;
+
+  if (isObjectToken(token)) return null;
 
   if (options?.isUndo || options?.isPaste) {
     if (_hiddenEffect(token)) await clearRevealPending(token, UNDOABLE);

@@ -1,5 +1,5 @@
 import { getSetting, hasSightToToken } from '../helpers.mjs';
-import { hiddenFrom, HIDDEN } from './stealth.mjs';
+import { hiddenFrom, HIDDEN, isObjectToken } from './stealth.mjs';
 
 let _combatants = new Set();
 
@@ -28,7 +28,10 @@ function _viewers() {
 
 function _fullyHidden(token) {
   if (game.user.isGM || !token?.id || token.isOwner) return false;
-  if (!getSetting('stealthSystemEnabled') || !getSetting('stealthTrueHidden')) return false;
+  if (!getSetting('stealthSystemEnabled')) return false;
+
+  const gate = isObjectToken(token) ? 'stealthTrueHiddenObjects' : 'stealthTrueHidden';
+  if (!getSetting(gate)) return false;
   const from = hiddenFrom(token);
   if (!from.size) return false;
   const viewers = _viewers();

@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi, tokFootprintDist, hasSightToToken } from '../helpers.mjs';
-import { hiddenFrom, isHiddenFrom, stealthActive, revealWithReason, setHiddenFrom } from './stealth.mjs';
+import { hiddenFrom, isHiddenFrom, stealthActive, revealWithReason, setHiddenFrom, isObjectToken, markObjectFound } from './stealth.mjs';
 
 const M = 'draw-steel-combat-tools';
 const ABILITY_PART_ID = 'abilityUse'.padEnd(16, '0');
@@ -131,6 +131,20 @@ export async function rerollSearch(message, tokenId = null) {
   await _show3d(fresh);
 
   Object.assign(side, result, { rollJSON: fresh.toJSON(), rerolls: (side.rerolls ?? 0) + 1 });
+
+  if (!tokenId) {
+    const searcher = canvas.tokens?.get(state.searcher.tokenId);
+    if (searcher) {
+      state.band = objectBand(state.searcher.total);
+      const kept = new Map((state.objects ?? []).filter(r => r.status === 'found').map(r => [r.tokenId, r]));
+      for (const row of _objectRowsFor(searcher, state.searcher.total)) {
+        if (row.status === 'found') await markObjectFound(canvas.tokens.get(row.tokenId), [searcher.id]);
+        if (!kept.has(row.tokenId)) kept.set(row.tokenId, row);
+      }
+      state.objects = [...kept.values()];
+    }
+  }
+
   await _reconcile(state);
   await _saveAs(message, state);
 }
@@ -160,11 +174,34 @@ const _allies = (searcher) =>
   canvas.tokens.placeables.filter(t => t.id !== searcher.id && t.actor
     && t.document.disposition === searcher.document.disposition && _withinRange(searcher, t));
 
+const trueHiddenObjects = () => !!getSetting('stealthTrueHiddenObjects');
+
+const OBJECT_BANDS = [{ max: 11, squares: 1 }, { max: 16, squares: 5 }, { max: Infinity, squares: 10 }];
+
+export const objectBand = (total) => OBJECT_BANDS.find(b => total <= b.max).squares;
+
+const _hiddenObjectsNear = (searcher) =>
+  canvas.tokens.placeables.filter(t => t.id !== searcher.id && t.actor && isObjectToken(t)
+    && hiddenFrom(t).has(searcher.id) && _withinRange(searcher, t));
+
+function _objectRowsFor(searcher, total) {
+  const squares = objectBand(total);
+  return _hiddenObjectsNear(searcher).map((token) => {
+    const inBand = tokFootprintDist(searcher, token) < squares * canvas.grid.distance;
+    const found = inBand && hasSightToToken(searcher, token);
+    return {
+      tokenId: token.id, name: token.name, img: token.document.texture?.src ?? token.actor.img,
+      kind: 'object', status: found ? 'found' : 'missed',
+      playerOwned: !!token.actor.hasPlayerOwner, total: null,
+    };
+  });
+}
+
 function _rowsFor(searcher) {
   const rows = [];
   const allies = _allies(searcher);
   for (const token of canvas.tokens.placeables) {
-    if (token.id === searcher.id || !token.actor) continue;
+    if (token.id === searcher.id || !token.actor || isObjectToken(token)) continue;
     const from = hiddenFrom(token);
     if (!from.size) continue;
     const base = {
@@ -187,10 +224,20 @@ export async function runSearch(searcher, message = null) {
   if (!searcher.actor.isOwner) return ui.notifications.warn(L('DSCT.search.notOwner'));
 
   const rows = _rowsFor(searcher);
-  if (!rows.length && !trueHidden()) return ui.notifications.warn(L('DSCT.search.nobody', { name: searcher.name }));
+
+  const quietRoll = trueHidden() || trueHiddenObjects();
+  if (!rows.length && !_hiddenObjectsNear(searcher).length && !quietRoll) {
+    return ui.notifications.warn(L('DSCT.search.nobody', { name: searcher.name }));
+  }
 
   const result = await _rollTest(searcher.actor, 'intuition', 'search');
   if (result === null) return;
+
+  const objects = _objectRowsFor(searcher, result.total);
+  for (const row of objects) {
+    if (row.status !== 'found') continue;
+    await markObjectFound(canvas.tokens.get(row.tokenId), [searcher.id]);
+  }
 
   const state = {
     searcher: {
@@ -198,6 +245,8 @@ export async function runSearch(searcher, message = null) {
       total: result.total, adjust: result.adjust, dice: result.dice, mods: result.mods, rollJSON: result.rollJSON, hero: result.hero, rerolls: 0,
     },
     rows,
+    objects,
+    band: objectBand(result.total),
     complete: !rows.some(r => r.kind === 'contest'),
     pointedOut: false,
     pointedTo: [],
@@ -279,6 +328,17 @@ export async function pointOut(messageId) {
     await revealWithReason(hider, ids, 'pointedOut', searcher.name);
     for (const id of ids) pointed.set(id, canvas.tokens.get(id)?.name ?? id);
   }
+
+  for (const row of state.objects ?? []) {
+    if (row.status !== 'found') continue;
+    const object = canvas.tokens.get(row.tokenId);
+    if (!object) continue;
+    const ids = allies.filter(a => isHiddenFrom(object, a)).map(a => a.id);
+    if (!ids.length) continue;
+    await markObjectFound(object, ids);
+    for (const id of ids) pointed.set(id, canvas.tokens.get(id)?.name ?? id);
+  }
+
   state.pointedOut = true;
   state.pointedTo = [...pointed].map(([tokenId, name]) => ({ tokenId, name }));
   await _save(message, state);
@@ -318,6 +378,20 @@ function _rowHTML(row, redact) {
     <img class="dsct-search-art" src="${esc(img)}" alt="">
     ${_nameHTML(name, masked ? null : row.tokenId)}
     ${roll}
+    <span class="dsct-search-outcome">${outcome}</span>
+  </div>`;
+}
+
+function _objectRowHTML(row) {
+  const masked = row.status === 'decoy';
+  const outcome = masked
+    ? `<i class="fa-solid fa-question"></i> ${esc(L('DSCT.search.unknownOutcome'))}`
+    : row.status === 'found'
+      ? `<i class="fa-solid fa-eye"></i> ${esc(L('DSCT.search.objectFound'))}`
+      : `<i class="fa-solid fa-eye-slash"></i> ${esc(L('DSCT.search.objectMissed'))}`;
+  return `<div class="dsct-search-row is-${row.status}${masked ? ' is-masked' : ''}">
+    <img class="dsct-search-art" src="${esc(masked ? SHADOW : row.img)}" alt="">
+    ${_nameHTML(masked ? L('DSCT.search.unknownObject') : row.name, masked ? null : row.tokenId)}
     <span class="dsct-search-outcome">${outcome}</span>
   </div>`;
 }
@@ -365,7 +439,25 @@ function _cardHTML(state, message) {
       ? L('DSCT.search.badgePending', { done: contest.length - contest.filter(r => r.status === 'pending').length, total: contest.length })
       : L('DSCT.search.badgeFound', { found, total: contest.length });
 
-  const pointable = state.rows.some(r => ['found', 'known'].includes(r.status));
+  const allObjects = state.objects ?? [];
+  const objectsFound = allObjects.filter(r => r.status === 'found').length;
+  const redactObjects = !game.user.isGM && trueHiddenObjects();
+
+  const objects = redactObjects
+    ? [...allObjects.filter(r => r.status === 'found'),
+       { tokenId: null, name: '', img: SHADOW, kind: 'object', status: 'decoy' }]
+    : allObjects;
+
+  const objectsLocked = redactObjects && objectsFound === 0;
+  const objectKey = `${message?.id ?? ''}:objects`;
+  const objectsOpen = redactObjects ? (_openState.get(objectKey) ?? true) : true;
+  const objectBadge = objectsLocked
+    ? L('DSCT.search.badgeLocked')
+    : redactObjects
+      ? L('DSCT.search.badgeFoundOnly', { found: objectsFound })
+      : L('DSCT.search.badgeObjects', { found: objectsFound, total: allObjects.length, squares: state.band ?? 1 });
+
+  const pointable = state.rows.some(r => ['found', 'known'].includes(r.status)) || objectsFound > 0;
   const canPoint = state.complete && !state.pointedOut && pointable
     && (game.user.isGM || !!canvas.tokens?.get(state.searcher.tokenId)?.actor?.isOwner);
 
@@ -381,7 +473,7 @@ function _cardHTML(state, message) {
       : `<span class="dsct-search-status"><i class="fa-solid fa-wind"></i> ${esc(L('DSCT.search.quiet'))}</span>`;
   } else if (!state.complete) {
     foot = `<span class="dsct-search-status"><i class="fa-solid fa-hourglass-half"></i> ${esc(L(game.user.isGM ? 'DSCT.search.awaitingGM' : 'DSCT.search.awaiting'))}</span>`;
-  } else if (!state.rows.length) {
+  } else if (!state.rows.length && !allObjects.length) {
     foot = `<span class="dsct-search-status"><i class="fa-solid fa-wind"></i> ${esc(L('DSCT.search.nothing'))}</span>`;
   } else {
     foot = `<button type="button" class="dsct-search-point" ${canPoint ? '' : 'disabled'}><i class="fa-solid fa-bullhorn"></i> ${esc(L('DSCT.search.pointOut'))}</button>`;
@@ -396,6 +488,7 @@ function _cardHTML(state, message) {
       ${_rollLine(state.searcher, { hero: _heroBtn(state.searcher, canvas.tokens?.get(state.searcher.tokenId)?.actor ?? null, null) })}
     </div>
     ${_section(L('DSCT.search.sectionHidden'), contest.map(r => _rowHTML(r, redact)), contestBadge, contestOpen, { locked, key: sectionKey })}
+    ${_section(L('DSCT.search.sectionObjects'), objects.map(_objectRowHTML), objectBadge, objectsOpen, { locked: objectsLocked, key: objectKey })}
     ${_section(L('DSCT.search.sectionKnown'), known.map(r => _rowHTML(r, redact)), String(known.length), false)}
     <footer class="dsct-search-foot">${foot}</footer>
   </div>`;

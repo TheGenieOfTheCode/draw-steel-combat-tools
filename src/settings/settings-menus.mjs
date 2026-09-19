@@ -414,7 +414,7 @@ export class StealthSettingsMenu extends SettingsSubmenu {
       header('Visuals'),
       'hiddenMarkers',
       'concealmentBlur',
-      ...(STEALTH_WORKFLOW_READY ? [header('Hiding'), 'stealthSneakHouseRule', 'stealthTrueHidden'] : []),
+      ...(STEALTH_WORKFLOW_READY ? [header('Hiding'), 'stealthSneakHouseRule', 'stealthTrueHidden', 'stealthTrueHiddenObjects'] : []),
       ...(STEALTH_WORKFLOW_READY ? [header('Being Revealed'), 'stealthAutoReveal', 'stealthRevealPromptSeconds'] : []),
       header('Observation'),
       'observationRadius',

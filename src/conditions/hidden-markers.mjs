@@ -1,5 +1,5 @@
 import { getSetting, isBurrowing } from '../helpers.mjs';
-import { hiddenFrom, hiddenEchoFrom, pendingSpots, confirmSpot, dismissReveal, revealPendingSince, revealPromptMs } from './stealth.mjs';
+import { hiddenFrom, hiddenEchoFrom, pendingSpots, confirmSpot, dismissReveal, revealPendingSince, revealPromptMs, isObjectToken, markObjectFound } from './stealth.mjs';
 
 const ICON = 'icons/svg/blind.svg';
 const MARK = 'dsct-hidden-mark';
@@ -115,7 +115,10 @@ function _buildMark(observerId, state) {
 
 async function _confirm(observerId) {
   for (const hiderId of [...(_marked.get(observerId)?.hiders ?? [])]) {
-    await confirmSpot(hiderId, [observerId]);
+    const hider = canvas.tokens.get(hiderId);
+
+    if (isObjectToken(hider)) await markObjectFound(hider, [observerId]);
+    else await confirmSpot(hiderId, [observerId]);
   }
 }
 
@@ -292,6 +295,18 @@ function _planMarks() {
     if (observers.length > MASS_SPOT && plan.get(hiderId)?.state !== 'alert') {
       plan.set(hiderId, { state: 'alert', hiders: [], observers: [...observers], since: null, lines: false });
     }
+  }
+
+  if (selected && game.user.isGM && isObjectToken(selected) && hiddenFrom(selected).size) {
+    for (const observer of canvas.tokens?.placeables ?? []) {
+      if (observer.id === selected.id || !observer.actor?.hasPlayerOwner) continue;
+      if (!hiddenFrom(selected).has(observer.id)) continue;
+      const entry = plan.get(observer.id);
+      if (entry?.state === 'alert') continue;
+      if (entry) entry.hiders.push(selected.id);
+      else plan.set(observer.id, { state: 'spot', hiders: [selected.id] });
+    }
+    return plan;
   }
 
   if (selected) {
