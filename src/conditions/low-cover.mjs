@@ -48,19 +48,26 @@ function _injectWallField(app, html) {
 
 const LOW_COVER_TOOL = 'dsctLowCover';
 
+const _safeCreateData = (tool) => {
+  try { return tool?.createData ?? null; }
+  catch { return null; }
+};
+
 function _registerWallTool(controls) {
   if (!getSetting('lowCoverEnabled')) return;
   const walls = controls.walls;
   if (!walls?.tools || walls.tools[LOW_COVER_TOOL]) return;
 
   const solid = walls.tools.solid ?? walls.tools.terrain;
-  if (!solid?.createData) return;
+  if (!solid) return;
 
   
   
   for (const [name, tool] of Object.entries(walls.tools)) {
-    if (name === LOW_COVER_TOOL || !tool?.createData) continue;
-    foundry.utils.setProperty(tool.createData, `flags.${M}.lowCover`, false);
+    if (name === LOW_COVER_TOOL) continue;
+    const data = _safeCreateData(tool);
+    if (!data) continue;
+    foundry.utils.setProperty(data, `flags.${M}.lowCover`, false);
   }
 
   const s = CONST.EDGE_SENSE_TYPES ?? CONST.WALL_SENSE_TYPES;
@@ -70,13 +77,16 @@ function _registerWallTool(controls) {
     title: 'DSCT.lowCover.tool.title',
     icon: 'fa-solid fa-fence',
     button: true,
-    createData: foundry.utils.mergeObject(foundry.utils.deepClone(solid.createData), {
-      light: s.NONE, sight: s.NONE, sound: s.NONE, move: s.NONE,
-      flags: {
-        [M]: { lowCover: true },
-        'draw-steel': { blocksLineOfEffect: false },
-      },
-    }, { inplace: false }),
+
+    get createData() {
+      return foundry.utils.mergeObject(foundry.utils.deepClone(_safeCreateData(solid) ?? {}), {
+        light: s.NONE, sight: s.NONE, sound: s.NONE, move: s.NONE,
+        flags: {
+          [M]: { lowCover: true },
+          'draw-steel': { blocksLineOfEffect: false },
+        },
+      }, { inplace: false });
+    },
     onChange: foundry.applications.sheets.palette.WallPalette?.onClickPreset
       ?? solid.onChange,
   };
