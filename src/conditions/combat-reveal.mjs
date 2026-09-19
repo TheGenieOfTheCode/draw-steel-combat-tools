@@ -35,12 +35,31 @@ function _fullyHidden(token) {
   return viewers.length > 0 && viewers.every(v => from.has(v.id));
 }
 
+const _seenCache = new Map();
+
+export const dropSeenCache = () => _seenCache.clear();
+
+const _anyViewerSees = (token) => {
+  const id = token?.id;
+  if (!id) return false;
+  if (_seenCache.has(id)) return _seenCache.get(id);
+  const seen = _viewers().some(v => v !== token && hasSightToToken(v, token));
+  _seenCache.set(id, seen);
+  return seen;
+};
+
 export function resolveTokenVisibility(token, real) {
   if (_fullyHidden(token)) {
     if (token) token.dsctForcedVisible = false;
     return false;
   }
   const forced = !real && _forced(token);
+
+  if (forced && _anyViewerSees(token)) {
+    if (token) token.dsctForcedVisible = false;
+    return true;
+  }
+
   if (token) token.dsctForcedVisible = forced;
   return real || forced;
 }
@@ -132,6 +151,7 @@ const _sameSet = (a, b) => a.size === b.size && [...a].every(v => b.has(v));
 
 export function recheckNoLos() {
   if (!canvas.ready) return;
+  dropSeenCache();
   const next = _computeNoLos();
   if (_sameSet(next, _noLos)) return;
   _noLos = next;
@@ -140,6 +160,7 @@ export function recheckNoLos() {
 
 export function recheckCombatReveal() {
   if (!canvas.ready) return;
+  dropSeenCache();
   _rebuild();
   for (const token of canvas.tokens?.placeables ?? []) {
     token.renderFlags?.set?.({ refreshVisibility: true });
@@ -168,7 +189,7 @@ export function registerCombatReveal() {
     Hooks.on(hook, () => recheckCombatReveal());
   }
 
-  Hooks.on('canvasTearDown', () => { _noLos = new Set(); _dropBaked(); });
+  Hooks.on('canvasTearDown', () => { _noLos = new Set(); dropSeenCache(); _dropBaked(); });
   Hooks.on('canvasReady', () => { _rebuild(); _noLos = new Set(); recheckNoLos(); });
 
   
@@ -178,11 +199,17 @@ export function registerCombatReveal() {
   Hooks.on('controlToken', () => { recheckCombatReveal(); recheckNoLos(); });
 
   
+
+  const _moved = () => {
+    recheckNoLos();
+    if (getSetting('revealCombatantPositions')) recheckCombatReveal();
+  };
+
   Hooks.on('updateToken', (doc, changed) => {
-    if (['x', 'y', 'elevation', 'hidden', 'width', 'height'].some(k => k in changed)) recheckNoLos();
+    if (['x', 'y', 'elevation', 'hidden', 'width', 'height'].some(k => k in changed)) _moved();
   });
   for (const hook of ['createWall', 'updateWall', 'deleteWall', 'createToken', 'deleteToken']) {
-    Hooks.on(hook, () => recheckNoLos());
+    Hooks.on(hook, () => _moved());
   }
   for (const hook of ['createActiveEffect', 'updateActiveEffect', 'deleteActiveEffect']) {
     Hooks.on(hook, (effect) => {
