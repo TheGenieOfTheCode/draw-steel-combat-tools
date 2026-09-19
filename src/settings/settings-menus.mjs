@@ -239,7 +239,7 @@ export class ForcedMovementSettingsMenu extends SettingsSubmenu {
   static get enableKey()   { return 'forcedMovementEnabled'; }
 
   static get regularKeys() {
-    return ['forcedMovementEnabled', 'animationStepDelay', 'fallConfirmation', 'friendlyFireConfirmation', 'fmModifyGmOnly'];
+    return ['forcedMovementEnabled', 'animationStepDelay', 'fallConfirmation', 'friendlyFireConfirmation', 'fmModifyGmOnly', 'dstdQuickFmButton'];
   }
 
   static get debugKeys() {
@@ -450,6 +450,7 @@ export class DeathTrackerSettingsMenu extends SettingsSubmenu {
       'clearSkullsOnCombatEnd',
       'clearEffectsOnRevive',
       'cleanOrphanedCombatants',
+      'playerCanUndoDstdDeaths',
     ];
   }
 
@@ -782,9 +783,9 @@ export class HomeRulesSettingsMenu extends SettingsSubmenu {
       header('Pickers'),
       'cancelOnRightClick',
       'targetDistanceLines',
+      header('Vision'),
       'trueDrawSteelLos',
       'loeCornerMode',
-      header('Vision'),
       'revealCombatantPositions',
       'greyscaleNoLos',
       header('Peek'),
@@ -822,16 +823,6 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
       keys.push(compatInfo('ds-terrain-designer', 'DSCT.compat.dsTerrain.name', 'DSCT.compat.dsTerrain.hint'));
     }
 
-    if (debugMode || isActive('draw-steel-target-damage')) {
-      keys.push(header('Draw Steel: Target Damage'));
-      keys.push('dstdQuickFmButton');
-      keys.push('playerCanUndoDstdDeaths');
-      keys.push('squadTargetBonus');
-      keys.push('squadAutoAssignStaminaPriority');
-      keys.push('squadTargetingIcon');
-      keys.push(compatInfo('draw-steel-target-damage', 'DSCT.compat.dsTargetDamage.name', 'DSCT.compat.dsTargetDamage.hint'));
-    }
-
     if (debugMode || isActive('healthEstimate')) {
       keys.push(header('Health Estimate'));
       keys.push('minionHealthEstimate');
@@ -860,13 +851,6 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
     return keys;
   }
 
-  static _FILE_PICKER_KEYS = new Set(['squadTargetingIcon']);
-
-  _buildEntry(key) {
-    const entry = super._buildEntry(key);
-    if (entry && CompatibilitySettingsMenu._FILE_PICKER_KEYS.has(key)) entry.isFilePicker = true;
-    return entry;
-  }
 
   async render(...args) {
     const debugMode = game.settings.get(M, 'debugMode');
@@ -877,21 +861,6 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
     return super.render(...args);
   }
 
-  _onRender(context, options) {
-    super._onRender(context, options);
-
-    const squadBonusInput  = this.element.querySelector('[name="squadTargetBonus"]');
-    const staminaPrioGroup = this.element.querySelector('[name="squadAutoAssignStaminaPriority"]')?.closest('.form-group');
-    if (squadBonusInput && staminaPrioGroup) {
-      const sync = () => {
-        const on = squadBonusInput.checked;
-        staminaPrioGroup.classList.toggle('dsct-sub-disabled', !on);
-        staminaPrioGroup.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
-      };
-      squadBonusInput.addEventListener('change', sync);
-      sync();
-    }
-  }
 
 }
 
@@ -914,6 +883,18 @@ export class SquadToolsSettingsMenu extends SettingsSubmenu {
 
   static get enableKey()   { return 'squadToolsEnabled'; }
 
+  static get dependencies() {
+    return { squadAutoAssignStaminaPriority: 'squadTargetBonus' };
+  }
+
+  static _FILE_PICKER_KEYS = new Set(['squadTargetingIcon']);
+
+  _buildEntry(key) {
+    const entry = super._buildEntry(key);
+    if (entry && SquadToolsSettingsMenu._FILE_PICKER_KEYS.has(key)) entry.isFilePicker = true;
+    return entry;
+  }
+
   static get regularKeys() {
     return [
       'squadToolsEnabled',
@@ -934,6 +915,10 @@ export class SquadToolsSettingsMenu extends SettingsSubmenu {
       'squadHudEnabled',
       'squadHudScale',
       'squadHudPlayerVisibility',
+      header('Squad Targeting'),
+      'squadTargetBonus',
+      'squadAutoAssignStaminaPriority',
+      'squadTargetingIcon',
     ];
   }
 

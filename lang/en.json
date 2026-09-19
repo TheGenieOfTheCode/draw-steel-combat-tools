@@ -2081,10 +2081,6 @@
         "name": "Wall Height",
         "hint": "The Wall Builder exposes height controls for setting the top and bottom elevation of individual walls."
       },
-      "dsTargetDamage": {
-        "name": "Draw Steel: Target Damage",
-        "hint": "DSCT cedes damage automation and moves all its buttons to the per-target collapsible boxes, and if Target Damage's Minion Damage Automation is on while the Alternative Minion Defeat UI is, that one is switched off so defeated minions are only processed once."
-      },
       "dsTokenOverride": {
         "name": "DS Token Override",
         "hint": "Death Tracker accounts for Token Override's combatant animation hooks during kill and revival. Squad stamina tick bars are manually redrawn after minion deaths, and tint/alpha restoration on revival uses explicit targets instead of reading mid-animation document values."
