@@ -1,4 +1,5 @@
 import { MATERIAL_RULE_DEFAULTS, WALL_RESTRICTION_DEFAULTS } from '../forced-movement/wall-builder.mjs';
+import { refreshLoeCornerMode } from '../helpers.mjs';
 import { recheckCombatReveal, recheckNoLos } from '../conditions/combat-reveal.mjs';
 import { syncHiddenRule } from '../conditions/stealth.mjs';
 import { preloadStickbug, rebuildSquadHuds } from '../squad-hud.mjs';
@@ -215,6 +216,24 @@ export const registerSettings = () => {
     name: L('trueDrawSteelLos.name'), hint: L('trueDrawSteelLos.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
     onChange: () => canvas?.perception?.update({ initializeVision: true, refreshVision: true, refreshOcclusion: true }),
+  });
+  game.settings.register(M, 'loeCornerMode', {
+    name: L('loeCornerMode.name'), hint: L('loeCornerMode.hint'),
+    scope: 'world', config: false, type: String,
+    choices: {
+      'restrictive': L('loeCornerMode.choice.restrictive'),
+      'normal':      L('loeCornerMode.choice.normal'),
+      'generous':    L('loeCornerMode.choice.generous'),
+    },
+    default: 'normal',
+    onChange: safely(() => {
+      refreshLoeCornerMode();
+      canvas?.perception?.update({ initializeVision: true, refreshVision: true, refreshOcclusion: true });
+
+
+      recheckNoLos();
+      recheckCombatReveal();
+    }),
   });
   game.settings.register(M, 'collisionOnUnitStep', {
     name: L('collisionOnUnitStep.name'), hint: L('collisionOnUnitStep.hint'),

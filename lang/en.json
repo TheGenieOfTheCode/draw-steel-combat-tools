@@ -712,6 +712,20 @@
         "name": "True Line of Effect",
         "hint": "Judge targeting by the book’s corner to corner line of effect, and apply the same rule to Foundry’s vision and fog."
       },
+      "loeCornerMode": {
+        "name": "Corner Precision",
+        "hint": "Where the corner to corner lines start and end. Nobody sees through a wall they stand flush against, whichever you pick.",
+        "choiceHint": {
+          "restrictive": "Corners sit just inside the square, so a creature at the very edge of what a wall hides still counts as hidden.",
+          "normal": "The true corners of the square, the geometry the book describes.",
+          "generous": "Corners sit just outside, so a creature barely leaning past a wall counts as seen."
+        },
+        "choice": {
+          "restrictive": "Restrictive",
+          "normal": "Normal",
+          "generous": "Generous"
+        }
+      },
       "collisionOnUnitStep": {
         "name": "Collide on 1-Square Elevation Steps",
         "hint": "Forced movement into a square 1 elevation higher triggers a collision instead of climbing it freely. Steps down are unaffected."

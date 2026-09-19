@@ -1,4 +1,4 @@
-import { getSetting, segmentBlocksSight, SIGHT_SAMPLES, tokFootprintDist, hasSightToToken } from '../helpers.mjs';
+import { getSetting, segmentBlocksSight, spaceSamplePoints, clampOutsetPoints, tokFootprintDist, hasSightToToken } from '../helpers.mjs';
 import { registerEffectFlag } from '../effect-flag-picker.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -115,9 +115,14 @@ export function coverCountingCreatures(observer, hider, mode) {
 
   const o = _rectOf(observer);
   const h = _rectOf(hider);
-  const corners = SIGHT_SAMPLES.slice(1).map(([fx, fy]) => ({ x: h.x + fx * h.w, y: h.y + fy * h.h }));
+  const _pts = (r) => clampOutsetPoints(
+    spaceSamplePoints(r.x, r.y, r.w, r.h),
+    { x: r.x + r.w / 2, y: r.y + r.h / 2 },
+  ).slice(1);
+
+  const corners = _pts(h);
   const origins = getSetting('trueDrawSteelLos')
-    ? SIGHT_SAMPLES.slice(1).map(([fx, fy]) => ({ x: o.x + fx * o.w, y: o.y + fy * o.h }))
+    ? _pts(o)
     : [{ x: o.x + o.w / 2, y: o.y + o.h / 2 }];
 
   let best = 0;

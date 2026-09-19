@@ -119,6 +119,36 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
       });
     });
 
+
+
+
+    el.querySelectorAll('select[name]').forEach((select) => {
+      const baseHint = select.closest('.form-group')?.querySelector('.hint');
+      if (!baseHint) return;
+
+      const key  = (value) => `DSCT.setting.${select.name}.choiceHint.${value}`;
+      const text = (value) => {
+        const line = game.i18n.localize(key(value));
+        return line === key(value) ? '' : line;
+      };
+      if (![...select.options].some(o => text(o.value))) return;
+
+      let line = baseHint.nextElementSibling;
+      if (!line?.classList.contains('dsct-choice-hint')) {
+        line = document.createElement('p');
+        line.className = 'hint dsct-choice-hint';
+        baseHint.after(line);
+      }
+
+      const sync = () => {
+        const body = text(select.value);
+        line.textContent = body;
+        line.hidden = !body;
+      };
+      select.addEventListener('change', sync);
+      sync();
+    });
+
     el.querySelector('#dsct-sub-save-btn')?.addEventListener('click', async () => {
       await this._doSave();
       this.close();
@@ -713,6 +743,7 @@ export class HomeRulesSettingsMenu extends SettingsSubmenu {
       'cancelOnRightClick',
       'targetDistanceLines',
       'trueDrawSteelLos',
+      'loeCornerMode',
       'greyscaleNoLos',
       header('Forced Movement'),
       'fallDamageCap',

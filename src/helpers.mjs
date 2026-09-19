@@ -112,7 +112,74 @@ export const sightBlockPoint = (from, to) => {
   return { t, x: hit.x, y: hit.y };
 };
 
-export const SIGHT_SAMPLES = [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]];
+const CORNER_INSETS = { restrictive: 0.1, normal: 0, generous: -0.1 };
+
+const EDGE_EPSILON = 0.001;
+
+let _cornerInset = null;
+
+export const refreshLoeCornerMode = () => { _cornerInset = null; };
+
+const cornerInset = () => {
+  if (_cornerInset !== null) return _cornerInset;
+  let mode;
+
+  try { mode = getSetting('loeCornerMode'); }
+  catch { return CORNER_INSETS.normal; }
+  _cornerInset = CORNER_INSETS[mode] ?? CORNER_INSETS.normal;
+  return _cornerInset;
+};
+
+export const cornersAreOutside = () => cornerInset() < 0;
+
+
+const PROBE = 0.02;
+
+export const cornersNeedClamping = () => cornerInset() <= 0;
+
+const samplesAt = (i) => [[0.5, 0.5], [i, i], [1 - i, i], [i, 1 - i], [1 - i, 1 - i]];
+
+export const sightSamples = ({ inside = false } = {}) => {
+  let i = cornerInset();
+
+
+  if (inside) i = Math.min(Math.max(i, EDGE_EPSILON), 0.5 - EDGE_EPSILON);
+  return samplesAt(i);
+};
+
+export const SIGHT_SAMPLE_COUNT = 5;
+
+export const clampOutsetPoints = (points, centre) => {
+  if (!cornersNeedClamping() || !centre) return points;
+
+
+
+  const GS = canvas?.grid?.size ?? 100;
+  const beyond = (p) => {
+    const dx = p.x - centre.x, dy = p.y - centre.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return { x: p.x + (dx / len) * GS * PROBE, y: p.y + (dy / len) * GS * PROBE };
+  };
+
+  return points.map((p) => {
+    if (!p.clamped) return p;
+    return segmentBlocksSight(centre, beyond(p)) ? { ...p, x: p.clamped.x, y: p.clamped.y, pulled: true } : p;
+  });
+};
+
+export const spaceSamplePoints = (x, y, w, h, { inside = false } = {}) => {
+  const out = sightSamples({ inside }).map(([fx, fy]) => ({ x: x + fx * w, y: y + fy * h }));
+
+
+
+  if (cornersNeedClamping() && !inside) {
+    const back = samplesAt(CORNER_INSETS.restrictive);
+    for (let i = 0; i < out.length; i++) {
+      out[i].clamped = { x: x + back[i][0] * w, y: y + back[i][1] * h };
+    }
+  }
+  return out;
+};
 
 export const sightSamplePoints = (token) => {
   const GS  = canvas.grid.size;
@@ -123,9 +190,9 @@ export const sightSamplePoints = (token) => {
     for (let dy = 0; dy < h; dy++) {
       const cellX = token.x + dx * GS;
       const cellY = token.y + dy * GS;
-      SIGHT_SAMPLES.forEach(([fx, fy], sample) => {
-        out.push({ x: cellX + fx * GS, y: cellY + fy * GS, cell: { dx, dy }, sample });
-      });
+      const centre = { x: cellX + GS / 2, y: cellY + GS / 2 };
+      clampOutsetPoints(spaceSamplePoints(cellX, cellY, GS, GS), centre)
+        .forEach((p, sample) => out.push({ x: p.x, y: p.y, cell: { dx, dy }, sample, pulled: !!p.pulled }));
     }
   }
   return out;
@@ -134,12 +201,15 @@ export const sightSamplePoints = (token) => {
 export const sightOriginPoints = (token) => {
   if (!getSetting('trueDrawSteelLos')) {
     const c = token.center;
-    return SIGHT_SAMPLES.map(() => ({ x: c.x, y: c.y }));
+    return Array.from({ length: SIGHT_SAMPLE_COUNT }, () => ({ x: c.x, y: c.y }));
   }
   const GS = canvas.grid.size;
   const w  = Math.max(1, Math.round(token.document.width))  * GS;
   const h  = Math.max(1, Math.round(token.document.height)) * GS;
-  return SIGHT_SAMPLES.map(([fx, fy]) => ({ x: token.x + fx * w, y: token.y + fy * h }));
+  return clampOutsetPoints(
+    spaceSamplePoints(token.x, token.y, w, h),
+    { x: token.x + w / 2, y: token.y + h / 2 },
+  );
 };
 
 const _sightEnds = (fromToken, token) => {
@@ -372,7 +442,10 @@ export function visibleSquareCorners(fromToken, gx, gy, cellsW = 1, cellsH = 1) 
   }
 
   const origins = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [_spaceCentre(fromToken)];
-  const corners = SIGHT_SAMPLES.slice(1).map(([fx, fy]) => ({ x: x + fx * w, y: y + fy * h }));
+  const corners = clampOutsetPoints(
+    spaceSamplePoints(x, y, w, h),
+    { x: x + w / 2, y: y + h / 2 },
+  ).slice(1);
   const blockers = [...loeBlockersFor(fromToken, null), ...fullCoverBlockersFor(fromToken, null)];
   const cover = coverObstaclesFor(fromToken, null);
 
@@ -420,7 +493,7 @@ function _segCrossesToken(a, b, token) {
 
 const _spaceCorners = (token) => {
   const { x, y, w, h } = _spaceRect(token);
-  return SIGHT_SAMPLES.slice(1).map(([fx, fy]) => ({ x: x + fx * w, y: y + fy * h }));
+  return clampOutsetPoints(spaceSamplePoints(x, y, w, h), { x: x + w / 2, y: y + h / 2 }).slice(1);
 };
 
 const _spaceCentre = (token) => {

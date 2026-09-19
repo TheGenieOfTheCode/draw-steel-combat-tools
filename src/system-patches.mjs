@@ -1,4 +1,4 @@
-import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, safeDelete, SIGHT_SAMPLES, sightOriginPoints } from './helpers.mjs';
+import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, safeDelete, sightSamples, sightOriginPoints } from './helpers.mjs';
 import { chooseMessageFilter, chooseKeywords } from './ability-automation/choose-effect.mjs';
 import { applyGrab, runGrab, endGrab, openGrabPanel } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
@@ -107,9 +107,11 @@ function _patchVisionTestPoints() {
       const stepY = size.height / rows;
 
       const points = [];
+
+      const samples = sightSamples({ inside: true });
       for (let cx = 0; cx < cols; cx++) {
         for (let cy = 0; cy < rows; cy++) {
-          for (const [fx, fy] of SIGHT_SAMPLES) {
+          for (const [fx, fy] of samples) {
             points.push({ x: x + (cx + fx) * stepX, y: y + (cy + fy) * stepY });
           }
         }
