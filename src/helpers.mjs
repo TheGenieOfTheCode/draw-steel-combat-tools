@@ -529,7 +529,36 @@ function _blockerHitPoint(from, to, blockers) {
   return best;
 }
 
-export const sightLinesToToken = (fromToken, token) => {
+const _evalLine = (from, p, { capped, capPixels, blockers, buried }) => {
+  const to = { x: p.x, y: p.y };
+
+
+  const base = {
+    from, to, cell: p.cell, sample: p.sample,
+    fromPulled: !!from.pulled, toPulled: !!p.pulled,
+  };
+
+  if (capped) {
+    const len = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+    const t = Math.min(1, capPixels / len);
+    const at = { t, x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
+    return { ...base, blocked: true, hit: at, capped: true };
+  }
+
+  const hit = sightBlockPoint(from, to);
+  const body = hit ? null : _blockerHitPoint(from, to, blockers);
+
+  if (!hit && !body) {
+    if (buried) return { ...base, blocked: true, hit: { t: 1, x: to.x, y: to.y }, burrowed: true };
+    return { ...base, blocked: false, hit: null };
+  }
+
+  return body
+    ? { ...base, blocked: true, hit: body, blockedBy: body.blocker?.name ?? null }
+    : { ...base, blocked: true, hit, burrowed: buried };
+};
+
+export const sightLinesToToken = (fromToken, token, { all = false } = {}) => {
   if (!fromToken || !token) return [];
   const { origins, targets } = _sightEnds(fromToken, token);
   if (!origins.length) return [];
@@ -543,32 +572,22 @@ export const sightLinesToToken = (fromToken, token) => {
   const capped = cap > 0 && loeRangeBlocked(fromToken, token);
   const capPixels = cap * (canvas.grid?.size ?? 0);
 
-  return targets.map(p => {
-    const to = { x: p.x, y: p.y };
+  const ctx = { capped, capPixels, blockers, buried };
+
+  
+  
+  if (all) {
+    const out = [];
+    for (const p of targets) for (const from of origins) out.push(_evalLine(from, p, ctx));
+    return out;
+  }
+
+  return targets.map((p) => {
     let blocked = null;
     for (const from of origins) {
-      if (capped) {
-        const len = Math.hypot(to.x - from.x, to.y - from.y) || 1;
-        const t = Math.min(1, capPixels / len);
-        const at = { t, x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
-        blocked ??= { from, to, cell: p.cell, sample: p.sample, blocked: true, hit: at, capped: true };
-        continue;
-      }
-
-      const hit = sightBlockPoint(from, to);
-      const body = hit ? null : _blockerHitPoint(from, to, blockers);
-
-      if (!hit && !body) {
-        if (buried) {
-          const at = { t: 1, x: to.x, y: to.y };
-          return { from, to, cell: p.cell, sample: p.sample, blocked: true, hit: at, burrowed: true };
-        }
-        return { from, to, cell: p.cell, sample: p.sample, blocked: false, hit: null };
-      }
-
-      blocked ??= body
-        ? { from, to, cell: p.cell, sample: p.sample, blocked: true, hit: body, blockedBy: body.blocker?.name ?? null }
-        : { from, to, cell: p.cell, sample: p.sample, blocked: true, hit, burrowed: buried };
+      const line = _evalLine(from, p, ctx);
+      if (!line.blocked) return line;
+      blocked ??= line;
     }
     return blocked;
   });
