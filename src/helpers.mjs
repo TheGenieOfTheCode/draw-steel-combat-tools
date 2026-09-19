@@ -636,9 +636,9 @@ const _evalLine = (from, p, { capped, capPixels, blockers, buried }) => {
     : { ...base, blocked: true, hit, burrowed: buried };
 };
 
-export const sightLinesToToken = (fromToken, token, { all = false } = {}) => {
+export const sightLinesToToken = (fromToken, token, { all = false, shift = null } = {}) => {
   if (!fromToken || !token) return [];
-  const { origins, targets } = _sightEnds(fromToken, token);
+  const { origins, targets } = _sightEnds(fromToken, token, { shift });
   if (!origins.length) return [];
 
   const buried = burrowBlocksLineOfEffect(fromToken, token);

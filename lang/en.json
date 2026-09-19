@@ -1486,8 +1486,9 @@
     },
     "dialog": {
       "peek": {
-        "title": "Lean Out?",
-        "body": "{name} cannot reach {targets} from here, but could by leaning out of cover. Peek first?"
+        "title": "{name} could lean out",
+        "status": "Pick a space to lean towards.",
+        "detail": "Hover a space to see what it opens up, and what it costs. Escape or right click to stay put."
       },
       "mr": {
         "prompt": "This ability can be used as a melee or a ranged attack. Which one is it this time?",

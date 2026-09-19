@@ -1,4 +1,4 @@
-import { getSetting, tokFootprintDist, getItemRange, hasSightToToken, isSelfAndSelf } from '../helpers.mjs';
+import { getSetting, tokFootprintDist, getItemRange, hasSightToToken, sightLinesToToken, isSelfAndSelf } from '../helpers.mjs';
 import { chooseTargeting } from './choose-effect.mjs';
 import { isHiddenFrom } from '../conditions/stealth.mjs';
 import { burrowBlocksLineOfEffect } from '../conditions/burrow.mjs';
@@ -98,17 +98,29 @@ const _undoAutoPeek = async (casterToken) => {
   if (peekEffect(casterToken.actor)?.getFlag('draw-steel-combat-tools', 'peek')?.auto) await unpeek(casterToken);
 };
 
-const _peekWouldHelp = (casterToken, opts) => {
+const _peekOptions = (casterToken, opts) => {
   const spaces = peekSpaces(casterToken);
-  if (!spaces.length) return null;
+  if (!spaces.length) return [];
 
-  const now = new Set(_getValidTargets(casterToken, opts.targetType, opts.range, opts.filter).map(t => t.id));
+  const now = _getValidTargets(casterToken, opts.targetType, opts.range, opts.filter);
+  const nowIds = new Set(now.map(t => t.id));
+
+  const out = [];
   for (const space of spaces) {
-    const gained = _getValidTargets(casterToken, opts.targetType, opts.range, { ...opts.filter, shift: space.shift })
-      .filter(t => !now.has(t.id));
-    if (gained.length) return { space, gained };
+    const after = _getValidTargets(casterToken, opts.targetType, opts.range, { ...opts.filter, shift: space.shift });
+    const afterIds = new Set(after.map(t => t.id));
+    const gained = after.filter(t => !nowIds.has(t.id));
+    
+    
+    const lost = now.filter(t => !afterIds.has(t.id));
+    if (gained.length) out.push({ space, gained, lost });
   }
-  return null;
+  return out;
+};
+
+const _peekLine = (casterToken, target, shift) => {
+  const lines = sightLinesToToken(casterToken, target, { shift });
+  return lines.find(l => !l.blocked) ?? null;
 };
 
 async function _offerPeek(casterToken, opts) {
@@ -120,19 +132,142 @@ async function _offerPeek(casterToken, opts) {
   
   if (getSetting('peekRequiresSpeed') && !(Number(casterToken.actor?.system?.movement?.value) > 0)) return false;
 
-  const found = _peekWouldHelp(casterToken, opts);
-  if (!found) return false;
+  const options = _peekOptions(casterToken, opts);
+  if (!options.length) return false;
 
-  const names = found.gained.map(t => t.name).join(', ');
-  const ok = await foundry.applications.api.DialogV2.confirm({
-    window: { title: game.i18n.localize('DSCT.dialog.peek.title') },
-    content: `<p>${game.i18n.format('DSCT.dialog.peek.body', { name: casterToken.name, targets: names })}</p>`,
-    rejectClose: false,
-  });
-  if (!ok) return false;
+  const chosen = await _runPeekPicker(casterToken, options);
+  if (!chosen) return false;
 
-  await peekTo(casterToken, found.space, { auto: true });
+  await peekTo(casterToken, chosen.space, { auto: true });
   return true;
+}
+
+function _runPeekPicker(casterToken, options) {
+  return new Promise((resolve) => {
+    const GS = canvas.grid.size;
+    const layer = new PIXI.Container();
+    layer.eventMode = 'none';
+    canvas.controls.addChild(layer);
+    const g = new PIXI.Graphics();
+    layer.addChild(g);
+
+    const label = new PIXI.Text('', {
+      fontFamily: 'Signika, sans-serif', fontSize: 15, fontWeight: 'bold',
+      fill: 0xffffff, stroke: 0x000000, strokeThickness: 4,
+    });
+    label.anchor.set(0.5, 1);
+    label.visible = false;
+    layer.addChild(label);
+
+    let hover = null;
+
+    const outline = (token, colour) => {
+      const w = Math.max(1, Math.round(token.document.width)) * GS;
+      const h = Math.max(1, Math.round(token.document.height)) * GS;
+      g.lineStyle(3, colour, 0.95);
+      g.drawRoundedRect(token.document.x + 2, token.document.y + 2, w - 4, h - 4, 6);
+    };
+
+    const paint = () => {
+      g.clear();
+      for (const o of options) {
+        const on = hover === o;
+        g.lineStyle(on ? 3 : 2, on ? 0xffe066 : 0x66ccff, on ? 1 : 0.65);
+        g.beginFill(on ? 0xffe066 : 0x66ccff, on ? 0.3 : 0.1);
+        g.drawRoundedRect(o.space.x * GS + GS * 0.08, o.space.y * GS + GS * 0.08, GS * 0.84, GS * 0.84, 6);
+        g.endFill();
+      }
+      label.visible = false;
+      if (!hover) return;
+
+      
+      const from = {
+        x: casterToken.document.x + (Math.max(1, Math.round(casterToken.document.width)) * GS) / 2 + hover.space.shift.x,
+        y: casterToken.document.y + (Math.max(1, Math.round(casterToken.document.height)) * GS) / 2 + hover.space.shift.y,
+      };
+      g.lineStyle(0);
+      g.beginFill(0xffe066, 0.9);
+      g.drawCircle(from.x, from.y, GS * 0.09);
+      g.endFill();
+
+      for (const t of hover.gained) {
+        outline(t, 0x44d07a);
+        const line = _peekLine(casterToken, t, hover.space.shift);
+        if (!line) continue;
+        g.lineStyle(3, 0x44d07a, 0.95);
+        g.moveTo(line.from.x, line.from.y);
+        g.lineTo(line.to.x, line.to.y);
+        g.lineStyle(0);
+        g.beginFill(0x44d07a, 1);
+        g.drawCircle(line.to.x, line.to.y, 4);
+        g.endFill();
+      }
+      for (const t of hover.lost) outline(t, 0xd04444);
+
+      const bits = [`+${hover.gained.map(t => t.name).join(', ')}`];
+      if (hover.lost.length) bits.push(`loses ${hover.lost.map(t => t.name).join(', ')}`);
+      label.text = bits.join('  ·  ');
+      label.position.set(hover.space.x * GS + GS / 2, hover.space.y * GS - 4);
+      label.visible = true;
+    };
+
+    const overlay = beginPickerOverlay({
+      title: game.i18n.format('DSCT.dialog.peek.title', { name: casterToken.name }),
+      status: game.i18n.localize('DSCT.dialog.peek.status'),
+      detail: game.i18n.localize('DSCT.dialog.peek.detail'),
+      holeRects: [
+        { x: casterToken.document.x, y: casterToken.document.y,
+          w: Math.max(1, Math.round(casterToken.document.width)) * GS,
+          h: Math.max(1, Math.round(casterToken.document.height)) * GS },
+        ...options.map(o => ({ x: o.space.x * GS, y: o.space.y * GS, w: GS, h: GS })),
+        ...options.flatMap(o => [...o.gained, ...o.lost]).map(t => ({
+          x: t.document.x, y: t.document.y,
+          w: Math.max(1, Math.round(t.document.width)) * GS,
+          h: Math.max(1, Math.round(t.document.height)) * GS,
+        })),
+      ],
+      showConfirm: false,
+      showCancel: true,
+      onCancel: () => done(null),
+    });
+
+    const atEvent = (event) => {
+      const pt = typeof event?.getLocalPosition === 'function' ? event.getLocalPosition(canvas.app.stage)
+        : event?.data?.getLocalPosition ? event.data.getLocalPosition(canvas.app.stage)
+        : canvas.app.renderer.events.pointer.getLocalPosition(canvas.app.stage);
+      const o = canvas.grid.getOffset(pt);
+      return options.find(c => c.space.x === o.j && c.space.y === o.i) ?? null;
+    };
+
+    const onMove = (event) => { hover = atEvent(event); paint(); };
+    const onDown = (event) => {
+      if (event.target?.closest?.('#dsct-picker-topbar')) return;
+      if (event.button === 2) { event.preventDefault(); done(null); return; }
+      if (event.button !== 0 || !hover) return;
+      event.preventDefault();
+      event.stopPropagation();
+      done(hover);
+    };
+    const onKey = (event) => { if (event.key === 'Escape') { event.preventDefault(); done(null); } };
+    const onContext = (event) => event.preventDefault();
+
+    function done(result) {
+      canvas.stage.off('pointermove', onMove);
+      window.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('contextmenu', onContext, true);
+      layer.parent?.removeChild(layer);
+      layer.destroy({ children: true });
+      overlay.end();
+      resolve(result);
+    }
+
+    canvas.stage.on('pointermove', onMove);
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('contextmenu', onContext, true);
+    paint();
+  });
 }
 
 async function _runTargetPicker(ability, casterToken) {
@@ -761,7 +896,7 @@ export function checkAndRunTargetPicker(dialog) {
   const respectHidden = !(keywords?.has('area') ?? false);
   const validTokens = _getValidTargets(casterToken, target.type, range, { excludeSelf, checkLOS: true, respectHidden });
 
-  const peekRescue = getSetting('peekHouseRule') && !isPeeking(casterToken.actor) && wallAdjacent(casterToken) && !!_peekWouldHelp(casterToken, { targetType: target.type, range, filter: { excludeSelf, checkLOS: true, respectHidden } });
+  const peekRescue = getSetting('peekHouseRule') && !isPeeking(casterToken.actor) && wallAdjacent(casterToken) && _peekOptions(casterToken, { targetType: target.type, range, filter: { excludeSelf, checkLOS: true, respectHidden } }).length > 0;
 
   if (!validTokens.length && !peekRescue) {
     if (getSetting('enforceAbilityRange') || !_getValidTargets(casterToken, target.type, 0, { excludeSelf, checkLOS: true }).length) {
