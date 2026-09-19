@@ -235,6 +235,24 @@ export const registerSettings = () => {
       recheckCombatReveal();
     }),
   });
+  game.settings.register(M, 'peekRequiresSpeed', {
+    name: L('peekRequiresSpeed.name'), hint: L('peekRequiresSpeed.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'peekDistance', {
+    name: L('peekDistance.name'), hint: L('peekDistance.hint'),
+    scope: 'world', config: false, type: Number, default: 0.15,
+    range: { min: 0.01, max: 0.49, step: 0.01 },
+  });
+  game.settings.register(M, 'peekDuration', {
+    name: L('peekDuration.name'), hint: L('peekDuration.hint'),
+    scope: 'world', config: false, type: Number, default: 1200,
+    range: { min: 0, max: 4000, step: 100 },
+  });
+  game.settings.register(M, 'peekHouseRule', {
+    name: L('peekHouseRule.name'), hint: L('peekHouseRule.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
   game.settings.register(M, 'collisionOnUnitStep', {
     name: L('collisionOnUnitStep.name'), hint: L('collisionOnUnitStep.hint'),
     scope: 'world', config: false, type: Boolean, default: false,

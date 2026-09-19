@@ -19,6 +19,7 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
 
   static get debugKeys()   { return []; }
   static get enableKey()   { return null; }
+  static get dependencies() { return {}; }
 
   async _prepareContext(_options) {
     const debugMode    = game.settings.get(M, 'debugMode');
@@ -101,6 +102,28 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
         enableInput.addEventListener('change', syncDisabled);
         syncDisabled();
       }
+    }
+
+    
+    
+    const deps = this.constructor.dependencies ?? {};
+    if (Object.keys(deps).length) {
+      const masterOn = () => !enableKey || (el.querySelector(`[name="${enableKey}"]`)?.checked ?? true);
+      const syncDeps = () => {
+        for (const [child, parent] of Object.entries(deps)) {
+          const parentInput = el.querySelector(`[name="${parent}"]`);
+          const group = el.querySelector(`[name="${child}"]`)?.closest('.form-group');
+          if (!parentInput || !group) continue;
+          const off = !parentInput.checked || !masterOn();
+          group.classList.toggle('dsct-sub-disabled', off);
+          group.querySelectorAll('input, select').forEach(i => { i.disabled = off; });
+        }
+      };
+      for (const parent of new Set(Object.values(deps))) {
+        el.querySelector(`[name="${parent}"]`)?.addEventListener('change', syncDeps);
+      }
+      if (enableKey) el.querySelector(`[name="${enableKey}"]`)?.addEventListener('change', syncDeps);
+      syncDeps();
     }
 
     el.querySelectorAll('.dsct-fp-btn').forEach(btn => {
@@ -381,10 +404,13 @@ export class StealthSettingsMenu extends SettingsSubmenu {
 
   static get enableKey() { return 'stealthSystemEnabled'; }
 
+  static get dependencies() {
+    return { stealthRevealPromptSeconds: 'stealthAutoReveal' };
+  }
+
   static get regularKeys() {
     return [
       'stealthSystemEnabled',
-      ...(STEALTH_WORKFLOW_READY ? [header('General'), 'revealCombatantPositions'] : []),
       header('Visuals'),
       'hiddenMarkers',
       'concealmentBlur',
@@ -735,6 +761,10 @@ export class HomeRulesSettingsMenu extends SettingsSubmenu {
 
   static get enableKey()   { return 'homeRulesEnabled'; }
 
+  static get dependencies() {
+    return { peekRequiresSpeed: 'peekHouseRule', peekDistance: 'peekHouseRule', peekDuration: 'peekHouseRule' };
+  }
+
   static get regularKeys() {
     return [
       'homeRulesEnabled',
@@ -744,7 +774,14 @@ export class HomeRulesSettingsMenu extends SettingsSubmenu {
       'targetDistanceLines',
       'trueDrawSteelLos',
       'loeCornerMode',
+      header('Vision'),
+      'revealCombatantPositions',
       'greyscaleNoLos',
+      header('Peek'),
+      'peekHouseRule',
+      'peekRequiresSpeed',
+      'peekDistance',
+      'peekDuration',
       header('Forced Movement'),
       'fallDamageCap',
       'cornerCutMode',

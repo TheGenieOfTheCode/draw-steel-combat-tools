@@ -59,7 +59,7 @@ import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picke
 import { stackedPrompt } from './ability-automation/stacked-prompt.mjs';
 import { handleObservationRequest } from './conditions/observation-picker.mjs';
 import { registerLowCover } from './conditions/low-cover.mjs';
-import { registerPeek, unpeek, peekEffect } from './conditions/peek.mjs';
+import { registerPeek, unpeek, peekEffect, peekSpaces, peekTo, peekDistance, peekDuration, isPeeking } from './conditions/peek.mjs';
 import { registerColorFields, upgradeColorFields } from './color-field.mjs';
 import { registerObservationMemory, suggestObserving, obscuredNear, lastSeenOf, lastHarmOf, seesClearly, clearObservationMemory } from './conditions/observation.mjs';
 
@@ -73,7 +73,7 @@ const api = {
   observation:      { suggest: suggestObserving, obscuredNear, lastSeen: lastSeenOf, lastHarm: lastHarmOf, seesClearly, clear: clearObservationMemory },
   stealth:          { hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheck: recheckHidden, enforceBlocked: enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, isActive: stealthActive, clearAll: clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies, traits: stealthTraits, search: runSearch, runHide: runHideFor },
   sight:            { hasCover, visibleTargetCorners, hasSightTo: hasSightToToken },
-  peek:             { unpeek, effect: peekEffect },
+  peek:             { unpeek, effect: peekEffect, isPeeking, spaces: peekSpaces, to: peekTo, distance: peekDistance, duration: peekDuration },
   grab:             runGrab,
   wallBuilder: () => { const existing = getWindowById('wall-builder-panel'); if (existing) existing.close(); else new WallBuilderPanel().render(true); },
   convertWalls: convertWalls,

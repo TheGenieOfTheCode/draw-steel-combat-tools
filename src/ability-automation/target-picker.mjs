@@ -8,6 +8,7 @@ import {
   removePreviewToken,
   activateTokenLayer,
 } from '../death-tracker/defeated-token-visibility.mjs';
+import { peekSpaces, wallAdjacent, peekTo, peekEffect, isPeeking, unpeek } from '../conditions/peek.mjs';
 import { beginPickerOverlay, setPickerArrow, setPickerTarget, removePickerArrow, removePickerTarget, clearPickerArrows } from './picker-overlay.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -15,7 +16,7 @@ const M = 'draw-steel-combat-tools';
 
 const _dsctPreTargeted = new Set();
 
-const _hasAnySightTo = (casterToken, targetToken) => hasSightToToken(casterToken, targetToken);
+const _hasAnySightTo = (casterToken, targetToken, shift = null) => hasSightToToken(casterToken, targetToken, { shift });
 
 const _defeatedStatus = () => CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
 const _isDefeated     = (t) => t.actor?.statuses?.has(_defeatedStatus()) ?? false;
@@ -52,7 +53,7 @@ function _getCasterToken(ability) {
       ?? canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
 }
 
-export function _getValidTargets(casterToken, targetType, range, { excludeSelf = false, checkLOS = false, respectHidden = false } = {}) {
+export function _getValidTargets(casterToken, targetType, range, { excludeSelf = false, checkLOS = false, respectHidden = false, shift = null } = {}) {
   const CGD      = canvas.grid.distance;
   const hasRange = range > 0 && !isNaN(range);
   const cDisp    = casterToken.document.disposition;
@@ -83,13 +84,55 @@ export function _getValidTargets(casterToken, targetType, range, { excludeSelf =
     if (!valid) return false;
 
     
-    if (checkLOS && !isSelf(t) && !_hasAnySightTo(casterToken, t)) return false;
+    if (checkLOS && !isSelf(t) && !_hasAnySightTo(casterToken, t, shift)) return false;
     if (!isSelf(t) && burrowBlocksLineOfEffect(casterToken, t)) return false;
 
     
     if (respectHidden && !isSelf(t) && isHiddenFrom(t, casterToken)) return false;
     return true;
   });
+}
+
+const _undoAutoPeek = async (casterToken) => {
+  if (!isPeeking(casterToken?.actor)) return;
+  if (peekEffect(casterToken.actor)?.getFlag('draw-steel-combat-tools', 'peek')?.auto) await unpeek(casterToken);
+};
+
+const _peekWouldHelp = (casterToken, opts) => {
+  const spaces = peekSpaces(casterToken);
+  if (!spaces.length) return null;
+
+  const now = new Set(_getValidTargets(casterToken, opts.targetType, opts.range, opts.filter).map(t => t.id));
+  for (const space of spaces) {
+    const gained = _getValidTargets(casterToken, opts.targetType, opts.range, { ...opts.filter, shift: space.shift })
+      .filter(t => !now.has(t.id));
+    if (gained.length) return { space, gained };
+  }
+  return null;
+};
+
+async function _offerPeek(casterToken, opts) {
+  if (!getSetting('peekHouseRule')) return false;
+  if (isPeeking(casterToken.actor)) return false;
+  if (!wallAdjacent(casterToken)) return false;
+
+  
+  
+  if (getSetting('peekRequiresSpeed') && !(Number(casterToken.actor?.system?.movement?.value) > 0)) return false;
+
+  const found = _peekWouldHelp(casterToken, opts);
+  if (!found) return false;
+
+  const names = found.gained.map(t => t.name).join(', ');
+  const ok = await foundry.applications.api.DialogV2.confirm({
+    window: { title: game.i18n.localize('DSCT.dialog.peek.title') },
+    content: `<p>${game.i18n.format('DSCT.dialog.peek.body', { name: casterToken.name, targets: names })}</p>`,
+    rejectClose: false,
+  });
+  if (!ok) return false;
+
+  await peekTo(casterToken, found.space, { auto: true });
+  return true;
 }
 
 async function _runTargetPicker(ability, casterToken) {
@@ -106,6 +149,17 @@ async function _runTargetPicker(ability, casterToken) {
   const cDisp       = casterToken.document.disposition;
 
   if (needsReveal) { setRaisedDeadVisible(true); activateTokenLayer(); }
+
+  
+  
+  const ranged = !(keywords?.has('melee') ?? false) || (keywords?.has('ranged') ?? false);
+  if (ranged || isStrike) {
+    await _offerPeek(casterToken, {
+      targetType,
+      range: isRangeEnforced ? range : 0,
+      filter: { excludeSelf, checkLOS: true, respectHidden: !(keywords?.has('area') ?? false) },
+    });
+  }
 
   const respectHidden = !(keywords?.has('area') ?? false);
   const validTokens = _getValidTargets(casterToken, targetType, isRangeEnforced ? range : 0, { excludeSelf, checkLOS: true, respectHidden });
@@ -694,7 +748,9 @@ export function checkAndRunTargetPicker(dialog) {
   const respectHidden = !(keywords?.has('area') ?? false);
   const validTokens = _getValidTargets(casterToken, target.type, range, { excludeSelf, checkLOS: true, respectHidden });
 
-  if (!validTokens.length) {
+  const peekRescue = getSetting('peekHouseRule') && !isPeeking(casterToken.actor) && wallAdjacent(casterToken) && !!_peekWouldHelp(casterToken, { targetType: target.type, range, filter: { excludeSelf, checkLOS: true, respectHidden } });
+
+  if (!validTokens.length && !peekRescue) {
     if (getSetting('enforceAbilityRange') || !_getValidTargets(casterToken, target.type, 0, { excludeSelf, checkLOS: true }).length) {
       ui.notifications.warn(game.i18n.localize('DSCT.notice.targetPicker.noValidTargets'));
       return null;
@@ -725,11 +781,16 @@ export function checkAndRunTargetPicker(dialog) {
     return 'block';
   }
 
-  _runTargetPicker(ability, casterToken).then(selected => {
-    if (!selected?.length) return;
+  _runTargetPicker(ability, casterToken).then(async (selected) => {
+    
+    if (!selected?.length) { await _undoAutoPeek(casterToken); return; }
     _dsctPreTargeted.add(ability.uuid);
     setFoundryTargets(selected);
     ds.helpers.macros.rollItemMacro(ability.uuid);
+  }).catch((err) => {
+    
+    console.error('DSCT | target picker | failed after the peek offer:', err);
+    _undoAutoPeek(casterToken);
   });
 
   return 'block';

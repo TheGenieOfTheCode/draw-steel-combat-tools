@@ -726,6 +726,22 @@
           "generous": "Generous"
         }
       },
+      "peekRequiresSpeed": {
+        "name": "Only Offer to Creatures That Can Move",
+        "hint": "A creature with a speed of 0 is never offered the chance to peek, since leaning out of your square is still moving."
+      },
+      "peekDistance": {
+        "name": "Peek Distance",
+        "hint": "How far out of its own square a peeking token leans, as a fraction of one square. Capped below half, because a token more than halfway across would settle into the space it peeked towards rather than back home."
+      },
+      "peekDuration": {
+        "name": "Peek Duration (ms)",
+        "hint": "How long the lean and the settle back take. Slower is funnier."
+      },
+      "peekHouseRule": {
+        "name": "Offer to Peek Around Corners",
+        "hint": "When a creature standing against a wall uses a ranged ability or a strike, and leaning out of its square would reach something it cannot reach now, it is offered the chance to peek first."
+      },
       "collisionOnUnitStep": {
         "name": "Collide on 1-Square Elevation Steps",
         "hint": "Forced movement into a square 1 elevation higher triggers a collision instead of climbing it freely. Steps down are unaffected."
@@ -1465,6 +1481,10 @@
       "shiftStartCombat": "Shift-Click to Override Saved Squad Labels Rename Preference"
     },
     "dialog": {
+      "peek": {
+        "title": "Lean Out?",
+        "body": "{name} cannot reach {targets} from here, but could by leaning out of cover. Peek first?"
+      },
       "mr": {
         "prompt": "This ability can be used as a melee or a ranged attack. Which one is it this time?",
         "melee": "Melee {range}",

@@ -132,6 +132,7 @@ const cornerInset = () => {
 
 export const cornersAreOutside = () => cornerInset() < 0;
 
+
 const PROBE = 0.02;
 
 export const cornersNeedClamping = () => cornerInset() <= 0;
@@ -141,6 +142,7 @@ const samplesAt = (i) => [[0.5, 0.5], [i, i], [1 - i, i], [i, 1 - i], [1 - i, 1 
 export const sightSamples = ({ inside = false } = {}) => {
   let i = cornerInset();
 
+
   if (inside) i = Math.min(Math.max(i, EDGE_EPSILON), 0.5 - EDGE_EPSILON);
   return samplesAt(i);
 };
@@ -149,6 +151,8 @@ export const SIGHT_SAMPLE_COUNT = 5;
 
 export const clampOutsetPoints = (points, centre) => {
   if (!cornersNeedClamping() || !centre) return points;
+
+
 
   const GS = canvas?.grid?.size ?? 100;
   const beyond = (p) => {
@@ -165,6 +169,8 @@ export const clampOutsetPoints = (points, centre) => {
 
 export const spaceSamplePoints = (x, y, w, h, { inside = false } = {}) => {
   const out = sightSamples({ inside }).map(([fx, fy]) => ({ x: x + fx * w, y: y + fy * h }));
+
+
 
   if (cornersNeedClamping() && !inside) {
     const back = samplesAt(CORNER_INSETS.restrictive);
@@ -192,26 +198,31 @@ export const sightSamplePoints = (token) => {
   return out;
 };
 
-export const sightOriginPoints = (token) => {
+export const sightOriginPoints = (token, { shift = null } = {}) => {
+  const ox = shift?.x ?? 0;
+  const oy = shift?.y ?? 0;
+
   if (!getSetting('trueDrawSteelLos')) {
     const c = token.center;
-    return Array.from({ length: SIGHT_SAMPLE_COUNT }, () => ({ x: c.x, y: c.y }));
+    return Array.from({ length: SIGHT_SAMPLE_COUNT }, () => ({ x: c.x + ox, y: c.y + oy }));
   }
   const GS = canvas.grid.size;
   const w  = Math.max(1, Math.round(token.document.width))  * GS;
   const h  = Math.max(1, Math.round(token.document.height)) * GS;
+  const x  = token.x + ox;
+  const y  = token.y + oy;
   return clampOutsetPoints(
-    spaceSamplePoints(token.x, token.y, w, h),
-    { x: token.x + w / 2, y: token.y + h / 2 },
+    spaceSamplePoints(x, y, w, h),
+    { x: x + w / 2, y: y + h / 2 },
   );
 };
 
-const _sightEnds = (fromToken, token) => {
+const _sightEnds = (fromToken, token, opts = {}) => {
   const trueLoE = getSetting('trueDrawSteelLos');
 
   
   const seen = new Set();
-  const origins = sightOriginPoints(fromToken).filter((p, i) => {
+  const origins = sightOriginPoints(fromToken, opts).filter((p, i) => {
     if (trueLoE && i === 0) return false;
     const key = `${Math.round(p.x)},${Math.round(p.y)}`;
     if (seen.has(key)) return false;
@@ -357,11 +368,11 @@ export function loeRangeBlocked(fromToken, toToken) {
   return tokFootprintDist(fromToken, toToken) >= cap * (canvas.grid.distance || 1);
 }
 
-export const hasSightToToken = (fromToken, token) => {
+export const hasSightToToken = (fromToken, token, opts = {}) => {
   if (!fromToken || !token) return false;
   if (burrowBlocksLineOfEffect(fromToken, token)) return false;
   if (loeRangeBlocked(fromToken, token)) return false;
-  const { origins, targets } = _sightEnds(fromToken, token);
+  const { origins, targets } = _sightEnds(fromToken, token, opts);
 
   const blockers = [...loeBlockersFor(fromToken, token), ...fullCoverBlockersFor(fromToken, token)];
 
@@ -598,6 +609,7 @@ function _blockerHitPoint(from, to, blockers) {
 
 const _evalLine = (from, p, { capped, capPixels, blockers, buried }) => {
   const to = { x: p.x, y: p.y };
+
 
   const base = {
     from, to, cell: p.cell, sample: p.sample,
@@ -886,6 +898,8 @@ export const canCurrentlyFly = (actor) => {
   if (!hasFly(actor)) return false;
   if (actor?.statuses?.has('prone'))      return false;
   if (actor?.statuses?.has('restrained')) return false;
+  
+  
   return (actor?.system?.movement?.value ?? 1) > 0;
 };
 
