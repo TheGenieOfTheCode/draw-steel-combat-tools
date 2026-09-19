@@ -443,8 +443,14 @@ export function registerSquadTurnHooks() {
     }
   });
 
+  
+  
+  const tokenProto = foundry?.canvas?.placeables?.Token
+    ? 'foundry.canvas.placeables.Token.prototype'
+    : 'Token.prototype';
+
   if (typeof libWrapper !== 'undefined') {
-    libWrapper.register('draw-steel-combat-tools', 'Token.prototype._refreshPosition', function(wrapped, ...args) {
+    libWrapper.register('draw-steel-combat-tools', `${tokenProto}._refreshPosition`, function(wrapped, ...args) {
       wrapped(...args);
       if (_isPreview(this)) return;
       const wrapper = this._dsctMarkerWrapper ?? _markerWrappers.get(this.id);
@@ -465,7 +471,7 @@ export function registerSquadTurnHooks() {
   }
 
   if (typeof libWrapper !== 'undefined') {
-    libWrapper.register('draw-steel-combat-tools', 'Token.prototype._refreshTurnMarker', function(wrapped, ...args) {
+    libWrapper.register('draw-steel-combat-tools', `${tokenProto}._refreshTurnMarker`, function(wrapped, ...args) {
       
       
       _purgeDeadTurnMarkers();
