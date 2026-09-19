@@ -132,7 +132,6 @@ const cornerInset = () => {
 
 export const cornersAreOutside = () => cornerInset() < 0;
 
-
 const PROBE = 0.02;
 
 export const cornersNeedClamping = () => cornerInset() <= 0;
@@ -142,7 +141,6 @@ const samplesAt = (i) => [[0.5, 0.5], [i, i], [1 - i, i], [i, 1 - i], [1 - i, 1 
 export const sightSamples = ({ inside = false } = {}) => {
   let i = cornerInset();
 
-
   if (inside) i = Math.min(Math.max(i, EDGE_EPSILON), 0.5 - EDGE_EPSILON);
   return samplesAt(i);
 };
@@ -151,8 +149,6 @@ export const SIGHT_SAMPLE_COUNT = 5;
 
 export const clampOutsetPoints = (points, centre) => {
   if (!cornersNeedClamping() || !centre) return points;
-
-
 
   const GS = canvas?.grid?.size ?? 100;
   const beyond = (p) => {
@@ -169,8 +165,6 @@ export const clampOutsetPoints = (points, centre) => {
 
 export const spaceSamplePoints = (x, y, w, h, { inside = false } = {}) => {
   const out = sightSamples({ inside }).map(([fx, fy]) => ({ x: x + fx * w, y: y + fy * h }));
-
-
 
   if (cornersNeedClamping() && !inside) {
     const back = samplesAt(CORNER_INSETS.restrictive);
@@ -605,7 +599,6 @@ function _blockerHitPoint(from, to, blockers) {
 const _evalLine = (from, p, { capped, capPixels, blockers, buried }) => {
   const to = { x: p.x, y: p.y };
 
-
   const base = {
     from, to, cell: p.cell, sample: p.sample,
     fromPulled: !!from.pulled, toPulled: !!p.pulled,
@@ -893,7 +886,7 @@ export const canCurrentlyFly = (actor) => {
   if (!hasFly(actor)) return false;
   if (actor?.statuses?.has('prone'))      return false;
   if (actor?.statuses?.has('restrained')) return false;
-  return (actor?.system?.movement?.speed ?? 1) > 0;
+  return (actor?.system?.movement?.value ?? 1) > 0;
 };
 
 export const confirmFall = async (token, rawFall, effectiveFall, dmg, { noFallDamage = false } = {}) => {
