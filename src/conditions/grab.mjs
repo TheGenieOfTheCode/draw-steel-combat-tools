@@ -2,7 +2,7 @@ import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTa
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
 import { stackedPrompt } from '../ability-automation/stacked-prompt.mjs';
-import { checkAndRunTargetPicker } from '../ability-automation/target-picker.mjs';
+import { checkAndRunTargetPicker, clearRepickStamp, isTriggeredAbility } from '../ability-automation/target-picker.mjs';
 import { toggleDamageConditionsPanel } from './damage-conditions.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore, isNullSpeedExemptActive } from '../ability-automation/class-null/psionic-martial-arts.mjs';
@@ -624,7 +624,7 @@ function _checkAbilityRange(dialog) {
   const view = getSetting('abilityTargetingEnabled') ? chooseTargeting(ability) : null;
   const keywords = view?.keywords ?? ability.system?.keywords;
   if (keywords?.has('area')) return null;
-  if (ability.system?.type === 'triggered') return null;
+  if (isTriggeredAbility(ability)) return null;
   
   if (isSelfAndSelf(ability, view)) return null;
 
@@ -665,7 +665,7 @@ function _checkMeleeRangedChoice(dialog) {
   const ability = dialog.options?.ability;
   if (!ability) return null;
   if (ability.system?.distance?.type !== 'meleeRanged') return null;
-  if (ability.system?.type === 'triggered') return null;
+  if (isTriggeredAbility(ability)) return null;
 
   const stamp = _mrChosen.get(ability.uuid);
   if (stamp && Date.now() - stamp < 300000) return null;
@@ -699,6 +699,7 @@ export function registerKnockbackGuard() {
     const uuid = app.options?.ability?.uuid;
     if (uuid) _mrChosen.delete(uuid);
     if (uuid) clearChoicePicks(uuid);
+    clearRepickStamp(uuid);
   });
 
   Hooks.on('ds.canRenderAbilityConfigurationDialog', (app) => {

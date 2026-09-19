@@ -16,6 +16,15 @@ const M = 'draw-steel-combat-tools';
 
 const _dsctPreTargeted = new Set();
 
+
+const _repicked = new Set();
+
+export const clearRepickStamp = (uuid) => { if (uuid) _repicked.delete(uuid); };
+
+
+export const isTriggeredAbility = (ability) =>
+  !!ds.CONFIG?.abilities?.types?.[ability?.system?.type]?.triggered;
+
 const _hasAnySightTo = (casterToken, targetToken, shift = null) => hasSightToToken(casterToken, targetToken, { shift });
 
 const _defeatedStatus = () => CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
@@ -866,6 +875,15 @@ export function checkAndRunTargetPicker(dialog) {
   }
 
   if (!getSetting('abilityTargetingEnabled')) return null;
+
+  
+  
+  
+  if (isTriggeredAbility(ability)) {
+    if (game.modules.get('draw-steel-triggers')?.active) return null;
+    if (game.user.targets.size > 0) return null;
+  }
+
   const view = chooseTargeting(ability);
 
   if (_isSelfOnly(ability, view)) {
@@ -892,7 +910,10 @@ export function checkAndRunTargetPicker(dialog) {
   
   
   
-  if (getSetting('alwaysRepickTargets') && game.user.targets.size > 0) setFoundryTargets([]);
+  if (getSetting('alwaysRepickTargets') && game.user.targets.size > 0 && !_repicked.has(ability.uuid)) {
+    _repicked.add(ability.uuid);
+    setFoundryTargets([]);
+  }
 
   if (game.user.targets.size > 0) {
     if (game.user.targets.size < target.value) {
