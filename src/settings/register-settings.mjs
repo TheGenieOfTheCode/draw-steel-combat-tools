@@ -82,7 +82,7 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'squadTargetBonus', {
     name: L('squadTargetBonus.name'), hint: L('squadTargetBonus.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
+    scope: 'world', config: false, type: Boolean, default: true,
   });
   game.settings.register(M, 'squadTargetingIcon', {
     name: L('squadTargetingIcon.name'), hint: L('squadTargetingIcon.hint'),
@@ -106,7 +106,7 @@ export const registerSettings = () => {
       'count': L('minionHealthEstimate.choice.count'),
       'off':   L('minionHealthEstimate.choice.off'),
     },
-    default: 'hide',
+    default: 'count',
     onChange: safely(() => applyHealthEstimatePatch()),
   });
 
