@@ -242,13 +242,27 @@ function _runPeekPicker(casterToken, options) {
     const onMove = (event) => { hover = atEvent(event); paint(); };
     const onDown = (event) => {
       if (event.target?.closest?.('#dsct-picker-topbar')) return;
-      if (event.button === 2) { event.preventDefault(); done(null); return; }
+      if (event.button === 2) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        done(null);
+        return;
+      }
       if (event.button !== 0 || !hover) return;
       event.preventDefault();
       event.stopPropagation();
       done(hover);
     };
-    const onKey = (event) => { if (event.key === 'Escape') { event.preventDefault(); done(null); } };
+    const onKey = (event) => {
+      if (event.key !== 'Escape') return;
+      
+      
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      done(null);
+    };
     const onContext = (event) => event.preventDefault();
 
     function done(result) {
@@ -259,7 +273,9 @@ function _runPeekPicker(casterToken, options) {
       layer.parent?.removeChild(layer);
       layer.destroy({ children: true });
       overlay.end();
-      resolve(result);
+      
+      
+      setTimeout(() => resolve(result), 0);
     }
 
     canvas.stage.on('pointermove', onMove);
