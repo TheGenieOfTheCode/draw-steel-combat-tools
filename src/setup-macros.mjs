@@ -187,7 +187,10 @@ const _retypeSafe = (item, system) => {
     if (!next || typeof next !== 'object' || !have || typeof have !== 'object') continue;
 
     for (const [id, entry] of Object.entries(next)) {
-      if (have[id] && have[id].type !== entry.type) entry.type = ops.ForcedReplacement.create(entry.type);
+      
+      
+      
+      if (have[id] && have[id].type !== entry.type) next[id] = ops.ForcedReplacement.create(entry);
     }
 
     for (const [id, entry] of Object.entries(have)) {
