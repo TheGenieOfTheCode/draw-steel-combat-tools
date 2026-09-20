@@ -817,7 +817,52 @@ export function injectDamagePills(message, root) {
     if (recPills.length) suffixByOp.set(opId, _multSuffixFor(recPills));
   }
 
-  for (const entry of providerEntries) add(entry.opId, entry.pill);
+  
+  for (const entry of providerEntries) {
+    if (!entry.targetUuid) {
+      add(entry.opId, entry.pill);
+      continue;
+    }
+    const key = String(entry.targetUuid).replace(/\./g, '__');
+    const row = root.querySelector(`.${DSTD}-target-row[data-target-key="${key}"]`);
+    if (!row) continue;
+    const seen = new Set();
+    const toPersist = [];
+    for (const btn of row.querySelectorAll('button[data-dstd-action="applyDamage"][data-operation-id]')) {
+      const id = btn.dataset.operationId;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const ov = overrides[id];
+      const have = Array.isArray(ov?.dstPills) ? ov.dstPills : [];
+      const same = (p) => p.kind === entry.pill.kind && p.label === entry.pill.label && p.value === entry.pill.value;
+      const stored = have.some(same);
+
+      
+      if (!stored) {
+        const opPills = ov?.dstPills ?? apps[id]?.override?.dstPills;
+        const typeOverridden = Array.isArray(opPills) && damagePillType(opPills) != null;
+        add(id, entry.pill, { inert: entry.pill.kind === 'type' && typeOverridden });
+      }
+
+      
+      if (!stored && apps[id]?.status !== 'applied') toPersist.push({ id, ov, btn, have });
+    }
+
+    if (toPersist.length && game.users.activeGM?.isSelf) {
+      const payload = { [`flags.${DSTD}.state.updatedAt`]: Date.now() };
+      for (const { id, ov, btn, have } of toPersist) {
+        const base = Number(ov?.baseAmount ?? parseInt(btn.textContent.match(/\d+/)?.[0] ?? '0'));
+        const typeClass = [...btn.classList].find((c) => c.includes('-damage-type-'));
+        const seedType = typeClass?.split('-damage-type-')[1] ?? '';
+        const seed = ov ?? { baseAmount: base, amount: base, damageType: seedType, typeLabel: seedType ? damageTypeLabel(seedType) : '' };
+        const data = _pillOpData({ ...seed, baseAmount: base }, [...have, entry.pill]);
+        
+        const FR = foundry.data?.operators?.ForcedReplacement;
+        payload[`flags.${DSTD}.state.damageOverrides.${id}`] = FR ? new FR(data) : data;
+      }
+      message.update(payload).catch(() => {});
+    }
+  }
 
   for (const btn of root.querySelectorAll('button[data-dstd-action="editDamage"][data-operation-id]')) {
     btn.disabled = apps[btn.dataset.operationId]?.status === 'applied';
