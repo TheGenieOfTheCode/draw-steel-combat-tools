@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank } from '../helpers.mjs';
-import { buildCleanseAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel } from '../ability-automation/flat-special-effects.mjs';
+import { triggerRollData, buildCleanseAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
@@ -1365,7 +1365,7 @@ async function _injectFmButtons(message, root) {
   const savedFlagState = message.getFlag(M, 'dstdFmState') ?? {};
 
   const flatDamageResolved = await Promise.all(flatDamageEffects.map(async effect => {
-    const rollData = ability.actor?.getRollData?.() ?? {};
+    const rollData = { ...(ability.actor?.getRollData?.() ?? {}), ...triggerRollData(message) };
     try {
       const roll = new Roll(effect.flatDamage.value, rollData);
       await roll.evaluate();

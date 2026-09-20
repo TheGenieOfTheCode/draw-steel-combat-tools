@@ -51,7 +51,7 @@ import {
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerAbilityHudCompat } from './compat/ability-hud-compat.mjs';
 import { registerCombatLogHooks } from './combat-logs.mjs';
-import { registerFlatEffects } from './ability-automation/flat-special-effects.mjs';
+import { registerFlatEffects, setPendingTriggerDamage } from './ability-automation/flat-special-effects.mjs';
 import { registerTieredEffects } from './ability-automation/tiered-effects.mjs';
 import { registerChooseEffect } from './ability-automation/choose-effect.mjs';
 import { registerHideEffect, runHideFor } from './ability-automation/hide-effect.mjs';
@@ -70,6 +70,7 @@ import { registerObservationMemory, suggestObserving, obscuredNear, lastSeenOf, 
 const api = {
   forcedMovement:   runForcedMovement,
   bypassNextFmGate: bypassNextFmGate,
+  setTriggerDamage:  setPendingTriggerDamage,
   colorTokenPicker: runColoredTokenPicker,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
   stackedPrompt:    stackedPrompt,

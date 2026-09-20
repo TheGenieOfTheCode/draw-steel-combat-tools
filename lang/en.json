@@ -1094,7 +1094,12 @@
       },
       "Damage": {
         "defaultLabel": "Apply {value} {types}",
-        "typeSelect": "{name} Type"
+        "typeSelect": "{name} Type",
+        "triggerDamage": {
+          "title": "Triggering Damage",
+          "label": "Damage that triggered this",
+          "hint": "This ability's damage is worked out from the damage that set it off. Used from the trigger stack the number is filled in for you; used by hand, enter it here."
+        }
       },
       "Teleport": {
         "defaultLabel": "Teleport {distance}",

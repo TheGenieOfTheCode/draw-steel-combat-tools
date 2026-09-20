@@ -705,9 +705,51 @@ export function teleportMoverOptions() {
   return ["self", "target"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Teleport.Mover.${value}`) }));
 }
 
-function _buildDamageButton(effect, item, chosenType = null) {
+export const usesTriggerDamage = (effects) =>
+  Array.from(effects ?? []).some(e => /@triggerDamage\b/.test(e?.flatDamage?.value ?? ''));
+
+let _pendingTriggerDamage = null;
+
+export const takePendingTriggerDamage = () => {
+  const held = _pendingTriggerDamage;
+  _pendingTriggerDamage = null;
+  return held;
+};
+
+export const setPendingTriggerDamage = (amount) => {
+  const n = Number(amount);
+  _pendingTriggerDamage = Number.isFinite(n) ? n : null;
+};
+
+export async function askTriggerDamage(item) {
+  if (_pendingTriggerDamage != null) return;
+  if (!usesTriggerDamage(Array.from(item?.system?.effects?.contents ?? []))) return;
+
+  const input = foundry.applications.fields.createNumberInput({ name: 'triggerDamage', value: 0, min: 0 });
+  const group = foundry.applications.fields.createFormGroup({
+    input,
+    label: game.i18n.localize('DSCT.FlatEffect.Damage.triggerDamage.label'),
+    hint: game.i18n.localize('DSCT.FlatEffect.Damage.triggerDamage.hint'),
+    localize: true,
+  });
+
+  const result = await ds.applications.api.DSDialog.input({
+    content: group.outerHTML,
+    window: { title: game.i18n.localize('DSCT.FlatEffect.Damage.triggerDamage.title') },
+  }).catch(() => null);
+
+  const amount = Number(result?.triggerDamage);
+  _pendingTriggerDamage = Number.isFinite(amount) ? amount : 0;
+}
+
+export function triggerRollData(message) {
+  const n = Number(message?.getFlag(MODULE_ID, 'triggerDamage'));
+  return Number.isFinite(n) ? { triggerDamage: n } : {};
+}
+
+function _buildDamageButton(effect, item, chosenType = null, message = null) {
   const { value, types, ignoredImmunities, display, spend } = effect.flatDamage;
-  const rollData = item.actor?.getRollData?.() ?? {};
+  const rollData = { ...(item.actor?.getRollData?.() ?? {}), ...triggerRollData(message) };
   const simplified = rollData ? ds.utils.simplifyRollFormula(value, rollData) : value;
   const allTypes = Array.from(types);
   const typeList = chosenType && allTypes.includes(chosenType) ? [chosenType] : allTypes;
@@ -1220,7 +1262,8 @@ export function addFlatEffectListeners(section, item, message) {
         if (!ok) return;
       }
 
-      const rollData = item.actor?.getRollData?.() ?? {};
+      
+      const rollData = { ...(item.actor?.getRollData?.() ?? {}), ...triggerRollData(message) };
       const roll = new Roll(formula, rollData);
       await roll.evaluate();
       const amount = Math.floor(roll.total);
@@ -1464,7 +1507,7 @@ export function addFlatEffectListeners(section, item, message) {
 
 export function buildFlatEffectButtons(flatEffects, item, message) {
   const chosenTypes = message?.getFlag(MODULE_ID, "flatDmgTypes") ?? {};
-  const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage") .map(e => _buildDamageButton(e, item, chosenTypes[e.id] ?? null));
+  const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage") .map(e => _buildDamageButton(e, item, chosenTypes[e.id] ?? null, message));
   const fmRows      = flatEffects.filter(e => e.type === "dsct.flatForced") .map(e => _buildForcedRow(e, item));
   const condButtons = flatEffects.filter(e => e.type === "dsct.flatApplied").map(e => _buildAppliedButton(e, item)).filter(Boolean);
   const healButtons = flatEffects.filter(e => e.type === "dsct.flatHeal").map(e => {
@@ -1777,8 +1820,23 @@ function _installFlatTypeSelection() {
   });
 }
 
+function _installTriggerDamagePrompt() {
+  if (!game.modules.get('lib-wrapper')?.active) return;
+  libWrapper.register(MODULE_ID, 'ds.data.Item.AbilityModel.prototype.use', async function (wrapped, ...args) {
+    await askTriggerDamage(this.parent);
+    return wrapped(...args);
+  }, 'WRAPPER');
+
+  Hooks.on('preCreateChatMessage', (message) => {
+    const amount = takePendingTriggerDamage();
+    if (amount == null) return;
+    message.updateSource({ [`flags.${MODULE_ID}.triggerDamage`]: amount });
+  });
+}
+
 export function registerFlatEffects() {
   _registerPartials();
+  _installTriggerDamagePrompt();
   _installFlatEffectChatHook();
   _installFlatTypeSelection();
   _installCreateDialogFilter();
