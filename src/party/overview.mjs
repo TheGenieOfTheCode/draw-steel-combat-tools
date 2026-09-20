@@ -137,16 +137,16 @@ function _bucket(party, kind, entries, tally, groupOf, labelOf, order) {
   return ids.map(id => _group(party, kind, id, labelOf(id), buckets.get(id), tally));
 }
 
-function _skillGroups(party, members) {
-  const tally = tallyHolders(members, 'system.skills.value');
+function _skillGroups(party, contributors) {
+  const tally = tallyHolders(contributors, 'system.skills.value');
   const groups = ds.CONFIG.skills?.groups ?? {};
   const label = (id) => (groups[id]?.label ? L(groups[id].label) : L('DSCT.party.otherGroup'));
   return _bucket(party, 'skills', Object.entries(ds.CONFIG.skills?.list ?? {}), tally,
     (key, cfg) => (groups[cfg?.group] ? cfg.group : OTHER), label, Object.keys(groups));
 }
 
-function _languageGroups(party, members) {
-  const tally = tallyHolders(members, 'system.languages.value');
+function _languageGroups(party, contributors) {
+  const tally = tallyHolders(contributors, 'system.languages.value');
   const groups = ds.CONFIG.languages?.groups ?? {};
   const label = (id) => (LANGUAGE_LABELS[id] ? L(LANGUAGE_LABELS[id])
     : groups[id]?.label ? L(groups[id].label)

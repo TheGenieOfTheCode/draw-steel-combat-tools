@@ -1,5 +1,5 @@
 import { getSetting } from '../helpers.mjs';
-import { L, partyMembers, tallyHolders, markFor } from './overview.mjs';
+import { L, partyContributors, tallyHolders, markFor } from './overview.mjs';
 
 let _leveling = null;
 
@@ -17,8 +17,10 @@ function _annotateTraitPicks(root) {
   if (!kind) return;
 
   const party = game.actors?.party ?? null;
-  const members = partyMembers(party).filter(a => a.id !== _leveling?.id);
-  const tally = tallyHolders(members, kind === 'skills' ? 'system.skills.value' : 'system.languages.value');
+  
+  
+  const contributors = partyContributors(party).filter(c => c.isFollower || c.id !== _leveling?.id);
+  const tally = tallyHolders(contributors, kind === 'skills' ? 'system.skills.value' : 'system.languages.value');
 
   box.dataset.dsctHinted = '1';
 
