@@ -1465,7 +1465,7 @@ async function _injectFmButtons(message, root) {
       previewParts.push(rv.display || effect.label);
     }
     for (const effect of flatCleanseEffects) {
-      previewParts.push(buildCleanseAutoLabel(effect.flatCleanse));
+      previewParts.push(effect.flatCleanse.displayText || buildCleanseAutoLabel(effect.flatCleanse));
     }
     for (const effect of flatTeleportEffects) {
       const tv = effect.flatTeleport ?? {};

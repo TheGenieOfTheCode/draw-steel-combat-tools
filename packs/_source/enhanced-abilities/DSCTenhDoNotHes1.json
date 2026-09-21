@@ -62,7 +62,7 @@
     "description": "",
     "before": false,
     "flatApplied": {
-     "displayText": "",
+     "displayText": "Edge on abilities (EoT)",
      "potency": {
       "characteristic": "",
       "strength": "",
@@ -76,7 +76,7 @@
       "enabled": false,
       "value": 1
      },
-     "display": "Edge on abilities until end of turn"
+     "display": "Edge on Abilities (EoT)"
     }
    }
   }

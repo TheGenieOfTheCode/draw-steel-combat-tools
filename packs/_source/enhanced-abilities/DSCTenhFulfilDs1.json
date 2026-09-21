@@ -65,8 +65,8 @@
     "description": "",
     "before": false,
     "flatCleanse": {
-     "displayText": "",
-     "display": "Remove a condition or negative effect",
+     "displayText": "Removes all conditions and negative effects on the target, one press each",
+     "display": "Remove Effect",
      "expiryFilter": [],
      "statusFilter": [],
      "repeatable": true,
@@ -85,7 +85,7 @@
     "description": "",
     "before": false,
     "flatApplied": {
-     "displayText": "",
+     "displayText": "Double edge on power rolls (EoT)",
      "potency": {
       "characteristic": "",
       "strength": "",
@@ -99,7 +99,7 @@
       "enabled": false,
       "value": 1
      },
-     "display": "Double edge until end of turn"
+     "display": "Double Edge (EoT)"
     }
    }
   }

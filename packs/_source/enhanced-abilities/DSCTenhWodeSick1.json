@@ -62,7 +62,7 @@
     "description": "",
     "before": false,
     "flatApplied": {
-     "displayText": "",
+     "displayText": "Bleeding (EoT)",
      "potency": {
       "characteristic": "presence",
       "strength": "custom",
@@ -88,7 +88,7 @@
     "description": "",
     "before": false,
     "flatApplied": {
-     "displayText": "",
+     "displayText": "Bane on strikes (EoT)",
      "potency": {
       "characteristic": "presence",
       "strength": "custom",
@@ -102,7 +102,7 @@
       "enabled": false,
       "value": 1
      },
-     "display": "Bane on strikes until end of turn"
+     "display": "Bane on Strikes (EoT)"
     }
    }
   }
