@@ -46,6 +46,38 @@ function _isSelfOnly(ability, view) {
   return !damage?.length;
 }
 
+const _cancelTriggeredUse = (ability) => game.modules.get('draw-steel-triggers')?.api?.noteUseCancelled?.(ability.uuid);
+
+
+function _runTriggeredPicker(ability, view) {
+  const casterToken = _getCasterToken(ability);
+  if (!casterToken) return null;
+  const target = view?.target ?? ability.system.target;
+  const count  = Math.max(1, Number(target?.value) || 1);
+  const range  = getItemRange(ability, view?.distance);
+  const valid  = _getValidTargets(casterToken, target?.type ?? 'creature', range, { checkLOS: true });
+  const validIds = new Set(valid.map(t => t.id));
+  const chosen = [...game.user.targets];
+  const exact = chosen.length === count && chosen.every(t => validIds.has(t.id));
+  if (exact && !(getSetting('alwaysRepickTargets') && !_repicked.has(ability.uuid))) return null;
+  _repicked.add(ability.uuid);
+  if (!valid.length) {
+    ui.notifications.warn(game.i18n.localize('DSCT.notice.targetPicker.noValidTargets'));
+    _cancelTriggeredUse(ability);
+    return 'block';
+  }
+  _runTargetPicker(ability, casterToken, { maxTargets: count }).then((selected) => {
+    if (!selected?.length) { _cancelTriggeredUse(ability); return; }
+    _dsctPreTargeted.add(ability.uuid);
+    setFoundryTargets(selected);
+    ds.helpers.macros.rollItemMacro(ability.uuid);
+  }).catch((err) => {
+    console.error('DSCT | target picker | triggered ability picker failed:', err);
+    _cancelTriggeredUse(ability);
+  });
+  return 'block';
+}
+
 function _isPickerEligible(ability, view) {
   const target = view?.target ?? ability.system?.target;
   const keywords = view?.keywords ?? ability.system?.keywords;
@@ -295,11 +327,12 @@ function _runPeekPicker(casterToken, options) {
   });
 }
 
-async function _runTargetPicker(ability, casterToken) {
+async function _runTargetPicker(ability, casterToken, { maxTargets: maxOverride = null } = {}) {
   const view        = chooseTargeting(ability);
   const target      = view?.target ?? ability.system.target;
   const keywords    = view?.keywords ?? ability.system?.keywords;
-  const maxTargets  = target.value;
+  
+  const maxTargets  = Number(target.value) || maxOverride || 1;
   const targetType  = target.type;
   const range       = getItemRange(ability, view?.distance);
   const isRangeEnforced = getSetting('enforceAbilityRange');
@@ -879,12 +912,15 @@ export function checkAndRunTargetPicker(dialog) {
   
   
   
-  if (isTriggeredAbility(ability)) {
+  
+  const triggeredPicker = isTriggeredAbility(ability) && !!ability.getFlag?.('draw-steel-combat-tools', 'pickerForTriggered');
+  if (isTriggeredAbility(ability) && !triggeredPicker) {
     if (game.modules.get('draw-steel-triggers')?.active) return null;
     if (game.user.targets.size > 0) return null;
   }
 
   const view = chooseTargeting(ability);
+  if (triggeredPicker) return _runTriggeredPicker(ability, view);
 
   if (_isSelfOnly(ability, view)) {
     const self = _getCasterToken(ability);

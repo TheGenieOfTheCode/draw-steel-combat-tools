@@ -535,7 +535,7 @@
       },
       "hiwEnabled": {
         "name": "Hesitation Is Weakness",
-        "hint": "Posts a chat notification with a Start Turn button when another hero ends their turn and the Hesitation Is Weakness ability can be triggered."
+        "hint": "Posts a chat notification with a Start Turn button when another hero ends their turn and the Hesitation Is Weakness ability can be triggered. Stands down while Draw Steel: Triggers is active, which holds the turn change itself."
       },
       "combatTurnLog": {
         "name": "Combat Turn Log",

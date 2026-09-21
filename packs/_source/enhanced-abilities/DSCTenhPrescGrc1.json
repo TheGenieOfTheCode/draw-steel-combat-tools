@@ -1,0 +1,95 @@
+{
+  "name": "Prescient Grace",
+  "type": "ability",
+  "_id": "DSCTenhPrescGrc1",
+  "img": "icons/magic/life/cross-beam-green.webp",
+  "system": {
+    "source": {
+      "book": "Heroes",
+      "page": "85",
+      "license": "Draw Steel Creator License"
+    },
+    "_dsid": "prescient-grace",
+    "story": "Gifted by a prescient vision, you warn an ally of an impending attack.",
+    "keywords": [
+      "magic",
+      "ranged"
+    ],
+    "type": "triggered",
+    "category": "heroic",
+    "resource": 5,
+    "trigger": "An enemy within 10 squares starts their turn.",
+    "distance": {
+      "type": "ranged",
+      "primary": "10",
+      "secondary": "1",
+      "tertiary": "1"
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "selfOrAlly",
+      "custom": "",
+      "value": null
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "prerequisites": {
+      "dsid": [
+        "oracle"
+      ],
+      "value": "",
+      "level": null
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "description": "<p>You can spend a Recovery to allow the target to regain Stamina equal to your recovery value. The target can then take their turn immediately before the triggering enemy.</p>",
+        "before": true,
+        "name": "",
+        "img": null,
+        "sort": 0
+      },
+      "dsctFlatHeal0001": {
+        "_id": "dsctFlatHeal0001",
+        "type": "dsct.flatHeal",
+        "name": "Prescient Grace",
+        "img": null,
+        "sort": 100000,
+        "description": "",
+        "before": false,
+        "flatHeal": {
+          "displayText": "",
+          "display": "",
+          "spendRecovery": true,
+          "recoverySource": "self",
+          "amountType": "recoveryValue",
+          "amountFormula": "0",
+          "recoveryValueSource": "self",
+          "tempStamina": false,
+          "repeatable": false,
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "pickerForTriggered": true
+    }
+  },
+  "_key": "!items!DSCTenhPrescGrc1",
+  "folder": "DSCTfldCensorL02"
+}

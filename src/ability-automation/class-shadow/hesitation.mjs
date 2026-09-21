@@ -53,6 +53,8 @@ export const executeHIWTurn = async (actorUuid, msgId) => {
 
 export const registerHIWHooks = () => {
   if (!getSetting('abilityAutomationEnabled')) return;
+  
+  if (game.modules.get('draw-steel-triggers')?.active) return;
   Hooks.on('updateCombat', async (combat, changes) => {
     if (changes.round === undefined) return;
     hiwActivatedCombatantIds.clear();
