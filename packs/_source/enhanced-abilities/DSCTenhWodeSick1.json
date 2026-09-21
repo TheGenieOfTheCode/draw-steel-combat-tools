@@ -47,7 +47,7 @@
    "before0000000000": {
     "_id": "before0000000000",
     "type": "base",
-    "description": "<p>The target must not have taken their turn this round. The target takes their turn immediately, and if they have [[potency P 2]] they are [[/apply bleeding turn]] and take a bane on strikes until the end of their turn.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Enhanced-Abilities\">What it does, and what it leaves to you</a></em></p></section>",
+    "description": "<p>The target must not have taken their turn this round. The target takes their turn immediately, and if they have [[potency P 2]] they are bleeding and take a bane on strikes until the end of their turn.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Enhanced-Abilities\">What it does, and what it leaves to you</a></em></p></section>",
     "before": true,
     "name": "",
     "img": null,
@@ -68,7 +68,7 @@
       "strength": "custom",
       "custom": "2"
      },
-     "statusId": "dsctWodeSicknes1",
+     "statusId": "dsctWodeBleed001",
      "exclusiveSelf": false,
      "end": "turn",
      "properties": [],
@@ -76,17 +76,76 @@
       "enabled": false,
       "value": 1
      },
-     "display": "Bleeding and a bane on strikes until end of turn"
+     "display": "Bleeding (EoT)"
+    }
+   },
+   "dsctApplied00002": {
+    "_id": "dsctApplied00002",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 300000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "",
+     "potency": {
+      "characteristic": "presence",
+      "strength": "custom",
+      "custom": "2"
+     },
+     "statusId": "dsctWodeBane0001",
+     "exclusiveSelf": false,
+     "end": "turn",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     },
+     "display": "Bane on strikes until end of turn"
     }
    }
   }
  },
  "effects": [
   {
-   "name": "Wode Sickness",
+   "name": "Bleeding",
+   "img": "icons/skills/movement/arrow-upward-yellow.webp",
+   "type": "base",
+   "_id": "dsctWodeBleed001",
+   "system": {
+    "filters": {
+     "keywords": []
+    }
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "turnEnd",
+    "expired": false
+   },
+   "description": "<p>Bleeding until the end of the turn.</p><p><em>Draw Steel: Monsters p. 140.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [
+    "bleeding"
+   ],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhWodeSick1.dsctWodeBleed001"
+  },
+  {
+   "name": "Wode Sickness (Bane on Strikes)",
    "img": "icons/skills/movement/arrow-upward-yellow.webp",
    "type": "abilityModifier",
-   "_id": "dsctWodeSicknes1",
+   "_id": "dsctWodeBane0001",
    "system": {
     "filters": {
      "keywords": [
@@ -109,20 +168,18 @@
     "expiry": "turnEnd",
     "expired": false
    },
-   "description": "<p>Bleeding, and a bane on strikes, until the end of the turn.</p><p><em>Draw Steel: Monsters p. 140.</em></p>",
+   "description": "<p>A bane on strikes until the end of the turn.</p><p><em>Draw Steel: Monsters p. 140.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,
-   "statuses": [
-    "bleeding"
-   ],
+   "statuses": [],
    "sort": 0,
    "flags": {
     "draw-steel-combat-tools": {
      "enhanced": true
     }
    },
-   "_key": "!items.effects!DSCTenhWodeSick1.dsctWodeSicknes1"
+   "_key": "!items.effects!DSCTenhWodeSick1.dsctWodeBane0001"
   }
  ],
  "folder": "DSCTfldWodeElves",
