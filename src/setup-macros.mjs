@@ -144,7 +144,7 @@ async function enhancedDocuments() {
 
 export function enhancedStamp(data) {
 
-  const text = JSON.stringify({ v: 2, n: data.name, i: data.img, s: data.system, e: data.effects ?? [] });
+  const text = JSON.stringify({ v: 3, n: data.name, i: data.img, s: data.system, e: data.effects ?? [], f: data.flags?.[ENH_FLAG] ?? {} });
   let h = 5381;
   for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
@@ -303,7 +303,8 @@ export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
 
   
   
-  const flags = { enhanced: true, enhancedHash: hash };
+  
+  const flags = { ...(data.flags?.[ENH_FLAG] ?? {}), enhanced: true, enhancedHash: hash };
   if (!item.getFlag(ENH_FLAG, 'enhanced')) flags.enhancedSwapped = true;
 
   await item.update({ name: data.name, img: data.img, system: _retypeSafe(item, data.system) });

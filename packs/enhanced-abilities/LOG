@@ -1,5 +1,3 @@
-2026/09/20-22:08:59.233 5f40 Delete type=3 #1
-2026/09/20-22:08:59.240 1c44 Level-0 table #5: started
-2026/09/20-22:08:59.245 1c44 Level-0 table #5: 20815 bytes OK
-2026/09/20-22:08:59.248 1c44 Delete type=0 #3
-2026/09/20-22:08:59.248 1c44 Manual compaction at level-0 from '!folders!DSCTfldBasic0001' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhStickyBm1.dsctStickyBomb01' @ 0 : 0; will stop at (end)
+2026/09/21-19:16:10.709 55cc Recovering log #4
+2026/09/21-19:16:10.717 55cc Delete type=0 #4
+2026/09/21-19:16:10.717 55cc Delete type=3 #2
