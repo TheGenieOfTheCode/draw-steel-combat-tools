@@ -73,6 +73,17 @@ export const registerSettings = () => {
     default: 'ask',
   });
 
+  game.settings.register(M, 'completeEncounterMode', {
+    name: L('completeEncounterMode.name'), hint: L('completeEncounterMode.hint'),
+    scope: 'world', config: true, type: String,
+    choices: {
+      'ask':    L('completeEncounterMode.choice.ask'),
+      'accept': L('completeEncounterMode.choice.accept'),
+      'skip':   L('completeEncounterMode.choice.skip'),
+    },
+    default: 'ask',
+  });
+
   game.settings.register(M, 'dstdQuickFmButton', {
     name: L('dstdQuickFmButton.name'), hint: L('dstdQuickFmButton.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

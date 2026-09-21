@@ -35,6 +35,15 @@
         "name": "Keep Enhanced Abilities Current",
         "hint": "On every load, and for every actor created, adds the Enhanced Abilities an actor is missing and brings older copies up to date. Answering the prompt sets this; switch it off here."
       },
+      "completeEncounterMode": {
+        "name": "Complete Encounter Window",
+        "hint": "The system asks about victories and resets whenever a combat ends. Accepting answers it with its defaults (1 victory, temporary Stamina, heroic resources and surges reset) without showing it; skipping closes it and applies nothing.",
+        "choice": {
+          "ask": "Show it (system default)",
+          "accept": "Accept the defaults without showing it",
+          "skip": "Close it and apply nothing"
+        }
+      },
       "enhancedSwapMode": {
         "name": "Overwrite On Import",
         "hint": "What to do when you import something the Combat Tools compendiums carry an enhanced version of. Asking lists what would be overwritten before anything is written.",

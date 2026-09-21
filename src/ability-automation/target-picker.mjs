@@ -78,6 +78,24 @@ function _runTriggeredPicker(ability, view) {
   return 'block';
 }
 
+
+const SQUAD_SELF_ABILITIES = new Set(['do-not-hesitate-in-the-wode']);
+
+function _squadTargeted(ability) {
+  if (!SQUAD_SELF_ABILITIES.has(ability.system?._dsid ?? ability.dsid)) return false;
+  const self = _getCasterToken(ability);
+  if (!self) return false;
+  const group = self.document.combatant?.group;
+  const isMinion = (actor) => actor?.system?.isMinion ?? actor?.system?.monster?.organization === 'minion';
+  const minions = group
+    ? [...group.members].filter(m => m.actor && m.actor !== self.actor && isMinion(m.actor)).map(m => canvas.tokens.get(m.tokenId)).filter(Boolean)
+    : [];
+  _dsctPreTargeted.add(ability.uuid);
+  setFoundryTargets([self, ...minions]);
+  ds.helpers.macros.rollItemMacro(ability.uuid);
+  return true;
+}
+
 function _isPickerEligible(ability, view) {
   const target = view?.target ?? ability.system?.target;
   const keywords = view?.keywords ?? ability.system?.keywords;
@@ -913,6 +931,8 @@ export function checkAndRunTargetPicker(dialog) {
   
   
   
+  if (_squadTargeted(ability)) return 'block';
+
   const triggeredPicker = isTriggeredAbility(ability) && !!ability.getFlag?.('draw-steel-combat-tools', 'pickerForTriggered');
   if (isTriggeredAbility(ability) && !triggeredPicker) {
     if (game.modules.get('draw-steel-triggers')?.active) return null;

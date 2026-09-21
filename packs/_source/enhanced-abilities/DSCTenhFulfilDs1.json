@@ -1,0 +1,170 @@
+{
+ "name": "Fulfill Your Destiny",
+ "type": "ability",
+ "_id": "DSCTenhFulfilDs1",
+ "img": "icons/creatures/eyes/humanoid-single-yellow.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "92",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "fulfill-your-destiny",
+  "story": "You have looked at various futures, and only this one works.",
+  "keywords": [
+   "magic",
+   "ranged"
+  ],
+  "type": "triggered",
+  "category": "heroic",
+  "resource": 11,
+  "trigger": "You or another hero ends their turn.",
+  "distance": {
+   "type": "ranged",
+   "primary": "10",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "ally",
+   "custom": "",
+   "value": 1
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "prerequisites": {
+   "dsid": [
+    "oracle"
+   ],
+   "value": "",
+   "level": null
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "description": "<p>The target takes their turn after the triggering hero, and immediately removes all conditions and negative effects on themself.</p><p>During their turn, the target has a double edge on power rolls.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Enhanced-Abilities\">What it does, and what it leaves to you</a></em></p></section>",
+    "before": true,
+    "name": "",
+    "img": null,
+    "sort": 0
+   },
+   "dsctFlatCleanse1": {
+    "_id": "dsctFlatCleanse1",
+    "type": "dsct.flatCleanse",
+    "name": "Fulfill Your Destiny",
+    "img": null,
+    "sort": 100000,
+    "description": "",
+    "before": false,
+    "flatCleanse": {
+     "displayText": "",
+     "display": "Remove a condition or negative effect",
+     "expiryFilter": [],
+     "statusFilter": [],
+     "repeatable": true,
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
+   },
+   "dsctApplied00001": {
+    "_id": "dsctApplied00001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctFulfillDest1",
+     "exclusiveSelf": false,
+     "end": "turn",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     },
+     "display": "Double edge until end of turn"
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "name": "Fulfill Your Destiny",
+   "img": "icons/creatures/eyes/humanoid-single-yellow.webp",
+   "type": "abilityModifier",
+   "_id": "dsctFulfillDest1",
+   "system": {
+    "filters": {
+     "keywords": []
+    }
+   },
+   "changes": [
+    {
+     "key": "power.roll.edges",
+     "mode": 2,
+     "value": "2",
+     "priority": null
+    }
+   ],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "turnEnd",
+    "expired": false
+   },
+   "description": "<p>A double edge on power rolls until the end of the turn.</p><p><em>Draw Steel: Heroes p. 92.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhFulfilDs1.dsctFulfillDest1"
+  }
+ ],
+ "folder": "DSCTfldCensorL09",
+ "sort": 0,
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "pickerForTriggered": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null,
+  "createdTime": 1790000000000
+ },
+ "ownership": {
+  "default": 0
+ },
+ "_key": "!items!DSCTenhFulfilDs1"
+}

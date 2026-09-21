@@ -37,6 +37,7 @@ import { triggerAbyssalEvolution, registerMaliceInjectors } from './ability-auto
 import { registerCrossfadeHooks } from './ability-automation/class-shadow/crossfade.mjs';
 import { registerSquadTargetingHooks, _pendingSquadMap } from './ability-automation/squad-targeting.mjs';
 import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-shadow/hesitation.mjs';
+import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
 import { registerDefeatedTokenVisibility } from './death-tracker/defeated-token-visibility.mjs';
 import { registerSettings, registerCompatibilityChecks } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
@@ -194,6 +195,7 @@ Hooks.once('init', () => {
   registerSourceLineHooks();
   registerCrossfadeHooks();
   registerHIWHooks();
+  registerCompleteEncounterHooks();
   registerCombatLogHooks();
   registerSystemPatches();
   registerCornerVision();
