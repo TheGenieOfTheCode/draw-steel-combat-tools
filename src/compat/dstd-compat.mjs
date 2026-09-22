@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank } from '../helpers.mjs';
-import { triggerRollData, buildCleanseAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel } from '../ability-automation/flat-special-effects.mjs';
+import { triggerRollData, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
@@ -726,6 +726,10 @@ function _buildBaseState(movementType, distance, properties, verticalDistance, f
   };
 }
 
+const _spendSuffix = (spend) => (spend?.enabled
+  ? ` ${game.i18n.format('DSCT.FlatEffect.spend.costSuffix', { cost: spend.value ?? 1 })}`
+  : '');
+
 function _makeLabel(state) {
   return [
     state.fastMove ? 'Auto' : '',
@@ -1110,19 +1114,26 @@ const _soloCollapsed = new Set();
 
 const _COMPACT_VERBS = /^(?:apply|applied|applying|deal|deals|gain|gained|undo)\s*:?\s+/i;
 
+const _COMPACT_TYPED_DAMAGE = /^([0-9]+)\s+(.+?)\s+damage$/i;
+
 function _compactText(text) {
-  return String(text ?? '')
+  const stripped = String(text ?? '')
     .replace(_COMPACT_VERBS, '')
     .replace(/\s*\([^)]*\)\s*$/, '')
     .trim();
+  const typed = stripped.match(_COMPACT_TYPED_DAMAGE);
+  return typed ? `${typed[1]} ${typed[2]}` : stripped;
 }
 
 function _compactify(button, applied) {
   if (applied) return;
   const span = button.querySelector('span');
   if (!span) return;
-  const short = button.dataset.dsctCompact || _compactText(span.textContent);
-  if (short) span.textContent = short;
+  
+  const suffix = span.dataset.dsctMultSuffix ?? '';
+  const base = span.dataset.dsctBaseLabel ?? span.textContent;
+  const short = button.dataset.dsctCompact || _compactText(base);
+  if (short) span.textContent = short + suffix;
 }
 
 function _allowSoloCollapse(message, panel) {
@@ -1465,8 +1476,13 @@ async function _injectFmButtons(message, root) {
       if (rv.displayText) { previewParts.push(rv.displayText); continue; }
       previewParts.push(rv.display || effect.label);
     }
+    for (const effect of flatHealEffects) {
+      const h = effect.flatHeal ?? {};
+      if (h.displayText) { previewParts.push(h.displayText); continue; }
+      previewParts.push(h.display || healAutoLabel(h, h.recoveryValueSource === 'target' ? null : sourceActor));
+    }
     for (const effect of flatCleanseEffects) {
-      previewParts.push(effect.flatCleanse.displayText || buildCleanseAutoLabel(effect.flatCleanse));
+      previewParts.push(cleansePreviewLabel(effect.flatCleanse));
     }
     for (const effect of flatTeleportEffects) {
       const tv = effect.flatTeleport ?? {};
@@ -1478,7 +1494,9 @@ async function _injectFmButtons(message, root) {
       if (tierTextDds.length) {
         const suffix = '; ' + previewParts.join('; ');
         const _appendSuffix = (span) => {
-          span.textContent = span.textContent.replace(/\.\s*$/, '') + suffix;
+          const text = span.textContent.replace(/\.\s*$/, '') + suffix;
+          span.textContent = text;
+          TextEditor.enrichHTML(text, { async: true }).then(html => { span.innerHTML = html; }).catch(() => {});
         };
         for (const dd of tierTextDds) {
           if (dd.dataset.dsctFlatPreview) continue;
@@ -2452,7 +2470,7 @@ async function _injectFmButtons(message, root) {
 
       const _flatFmDisplayOverride = effect.flatForced.display || null;
       const effInitF       = _effectiveState(baseState, saved.modStack);
-      const label          = _flatFmDisplayOverride || _makeLabel(effInitF);
+      const label          = (_flatFmDisplayOverride || _makeLabel(effInitF)) + _spendSuffix(effect.flatForced.spend);
       const rowLabelFlatFn = (st) => (_flatFmDisplayOverride || `Apply ${_makeLabel(st)}`) + _stabSuffix(_stabInfo(tokenUuid, st), false);
 
       const applyFlatBtn = document.createElement('button');
@@ -2677,7 +2695,7 @@ async function _injectFmButtons(message, root) {
 
       const baseName   = appliedInfo.name || statusEntry?.name || statusId;
       const statusIconSrc = appliedInfo.img ?? statusEntry?.img ?? statusEntry?.icon ?? null;
-      const applyLbl   = (display || `Apply ${baseName}`) + potencyTag;
+      const applyLbl   = (display || `Apply ${baseName}`) + potencyTag + _spendSuffix(effect.flatApplied.spend);
       const _makeCondIcon = () => _makeStatusIcon(statusIconSrc);
 
       const condBtn = document.createElement('button');
@@ -2781,7 +2799,7 @@ async function _injectFmButtons(message, root) {
       else if (spendRecovery)           defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.spendHealLabel",   { amount: amountStr });
       else                              defaultLabel = game.i18n.format("DSCT.FlatEffect.Heal.healLabel",        { amount: amountStr });
 
-      const applyLbl = display || defaultLabel;
+      const applyLbl = (display || defaultLabel) + _spendSuffix(effect.flatHeal.spend);
 
       const healBtn = document.createElement('button');
       healBtn.type      = 'button';
@@ -2942,7 +2960,7 @@ async function _injectFmButtons(message, root) {
 
       const spentMatch = message?.flavor?.match(/^Spent (\d+)/i);
       const tpDist = teleportDistance(tv, ability, spentMatch ? parseInt(spentMatch[1]) : 0);
-      const tpLabel = tv.display || teleportAutoLabel(tv, tpDist);
+      const tpLabel = (tv.display || teleportAutoLabel(tv, tpDist)) + _spendSuffix(tv.spend);
 
       const tpBtn = document.createElement('button');
       tpBtn.type = 'button';
@@ -3093,7 +3111,7 @@ async function _injectFmButtons(message, root) {
       const stackLen = (cur.stack ?? []).length;
       const isApplied = !repeatable && stackLen > 0;
 
-      const applyLbl = buildCleanseAutoLabel(effect.flatCleanse);
+      const applyLbl = buildCleanseAutoLabel(effect.flatCleanse) + _spendSuffix(effect.flatCleanse.spend);
 
       const cleanseBtn = document.createElement('button');
       cleanseBtn.type      = 'button';

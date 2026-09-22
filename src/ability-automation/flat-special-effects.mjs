@@ -906,7 +906,25 @@ export function buildCleanseAutoLabel(flatCleanse) {
   return cleanseAutoLabel(flatCleanse);
 }
 
+const CLEANSE_RULE = "Compendium.draw-steel-combat-tools.rules.JournalEntry.DSCTrulesJournal.JournalEntryPage.DSCTruleCleanse0";
+
+export function isStandardCleanse(flatCleanse) {
+  const ef = flatCleanse?.expiryFilter instanceof Set ? flatCleanse.expiryFilter : new Set(flatCleanse?.expiryFilter ?? []);
+  const sf = flatCleanse?.statusFilter instanceof Set ? flatCleanse.statusFilter : new Set(flatCleanse?.statusFilter ?? []);
+  return sf.size === 0 && ef.size === 2 && ef.has("turnEnd") && ef.has("save");
+}
+
+export function cleansePreviewLabel(flatCleanse) {
+  if (flatCleanse?.displayText) return flatCleanse.displayText;
+  if (flatCleanse?.display) return flatCleanse.display;
+  if (!isStandardCleanse(flatCleanse)) return cleanseAutoLabel(flatCleanse);
+  return game.i18n.format("DSCT.FlatEffect.Cleanse.standardPreview", {
+    cleanse: `@UUID[${CLEANSE_RULE}]{${game.i18n.localize("DSCT.FlatEffect.Cleanse.word")}}`,
+  });
+}
+
 export function cleanseAutoLabel(flatCleanse) {
+  if (isStandardCleanse(flatCleanse)) return game.i18n.localize("DSCT.FlatEffect.Cleanse.standardLabel");
   const { expiryFilter, statusFilter } = flatCleanse;
   const parts = [];
   const efSet = expiryFilter instanceof Set ? expiryFilter : new Set(expiryFilter ?? []);

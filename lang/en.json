@@ -1193,6 +1193,9 @@
       },
       "Cleanse": {
         "defaultLabel": "Cleanse an Effect",
+        "standardLabel": "Cleanse one effect",
+        "standardPreview": "{cleanse} one effect",
+        "word": "Cleanse",
         "noMatch": "No matching effects to cleanse on {name}.",
         "pickTitle": "Cleanse an Effect: {name}",
         "cleanseBtn": "Cleanse",

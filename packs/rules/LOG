@@ -1,3 +1,5 @@
-2026/09/19-00:07:42.176 aecc Recovering log #4
-2026/09/19-00:07:42.181 aecc Delete type=0 #4
-2026/09/19-00:07:42.181 aecc Delete type=3 #2
+2026/09/22-17:05:09.365 38d8 Recovering log #4
+2026/09/22-17:05:09.365 38d8 Recovering log #7
+2026/09/22-17:05:09.372 38d8 Delete type=0 #4
+2026/09/22-17:05:09.372 38d8 Delete type=0 #7
+2026/09/22-17:05:09.373 38d8 Delete type=3 #2
