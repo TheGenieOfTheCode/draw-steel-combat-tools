@@ -1,0 +1,205 @@
+{
+  "name": "My Life for Yours",
+  "type": "ability",
+  "_id": "DSCTenhMyLifeFY1",
+  "img": "icons/magic/life/heart-hand-gold-green-light.webp",
+  "system": {
+    "source": {
+      "book": "Heroes",
+      "page": "80",
+      "license": "Draw Steel Creator License"
+    },
+    "_dsid": "my-life-for-yours",
+    "story": "You channel some of your vitality into more resilience for you or an ally",
+    "keywords": [
+      "magic",
+      "ranged"
+    ],
+    "type": "triggered",
+    "category": "signature",
+    "resource": null,
+    "trigger": "The target starts their turn or takes damage.",
+    "distance": {
+      "type": "ranged",
+      "primary": "10",
+      "secondary": "1",
+      "tertiary": "1"
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "selfOrAlly",
+      "custom": "",
+      "value": 1
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "prerequisites": {
+      "dsid": [
+        "censor"
+      ],
+      "value": "",
+      "level": null
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "description": "<p>You spend a Recovery and the target regains Stamina equal to your recovery value.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools automates part of this. <a href=\"https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/Enhanced-Abilities\">What it does, and what it leaves to you</a></em></p></section>",
+        "before": true,
+        "name": "",
+        "img": null,
+        "sort": 0
+      },
+      "spend00000000000": {
+        "_id": "spend00000000000",
+        "type": "base",
+        "name": "Spend",
+        "img": null,
+        "sort": 100000,
+        "before": false,
+        "description": "<p>You can end one effect on the target that is ended by a saving throw or that ends at the end of their turn, or a prone target can stand up.</p>"
+      },
+      "dsctFlatHeal0001": {
+        "_id": "dsctFlatHeal0001",
+        "type": "dsct.flatHeal",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatHeal": {
+          "displayText": "",
+          "display": "",
+          "spendRecovery": true,
+          "recoverySource": "self",
+          "amountType": "recoveryValue",
+          "amountFormula": "0",
+          "recoveryValueSource": "self",
+          "tempStamina": false,
+          "repeatable": false,
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      },
+      "dsctFlatCleanse1": {
+        "_id": "dsctFlatCleanse1",
+        "type": "dsct.flatCleanse",
+        "name": "Cleanse",
+        "img": null,
+        "sort": 300000,
+        "description": "",
+        "before": false,
+        "flatCleanse": {
+          "displayText": "",
+          "display": "",
+          "expiryFilter": [
+            "turnEnd",
+            "save"
+          ],
+          "statusFilter": [],
+          "repeatable": false,
+          "spend": {
+            "enabled": true,
+            "value": 1
+          }
+        }
+      },
+      "dsctFlatStandUp1": {
+        "_id": "dsctFlatStandUp1",
+        "type": "dsct.flatCleanse",
+        "name": "Stand Up",
+        "img": null,
+        "sort": 400000,
+        "description": "",
+        "before": false,
+        "flatCleanse": {
+          "displayText": "",
+          "display": "Stand Up",
+          "expiryFilter": [],
+          "statusFilter": [
+            "prone"
+          ],
+          "repeatable": false,
+          "spend": {
+            "enabled": true,
+            "value": 1
+          }
+        }
+      },
+      "dsctChoose000001": {
+        "_id": "dsctChoose000001",
+        "type": "dsct.choose",
+        "name": "",
+        "img": null,
+        "sort": 150000,
+        "description": "",
+        "before": false,
+        "choose": {
+          "count": 1,
+          "choices": [
+            {
+              "name": "Cleanse",
+              "icon": "",
+              "preview": "Cleanse one effect on the target",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Cleanse"
+              ]
+            },
+            {
+              "name": "Stand Up",
+              "icon": "",
+              "preview": "A prone target stands up",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Stand Up"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "pickerForTriggered": true
+    }
+  },
+  "_key": "!items!DSCTenhMyLifeFY1",
+  "folder": "DSCTfldCensorCor"
+}
