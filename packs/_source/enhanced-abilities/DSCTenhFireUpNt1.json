@@ -67,7 +67,7 @@
     "description": "",
     "before": false,
     "flatApplied": {
-     "displayText": "",
+     "displayText": "Ignores the concealment bane (EoT)",
      "potency": {
       "characteristic": "",
       "strength": "",

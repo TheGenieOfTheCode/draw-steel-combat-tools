@@ -76,7 +76,7 @@
     "description": "",
     "before": false,
     "flatApplied": {
-     "displayText": "",
+     "displayText": "Can hide while observed (EoT)",
      "potency": {
       "characteristic": "",
       "strength": "",

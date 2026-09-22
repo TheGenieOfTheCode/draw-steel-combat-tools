@@ -1448,8 +1448,9 @@ async function _injectFmButtons(message, root) {
     }
     for (const effect of flatAppliedEffects) {
       const { statusId, displayText, potency } = effect.flatApplied;
-      const statusEntry = CONFIG.statusEffects.find(s => s.id === statusId);
-      let previewText = displayText || statusEntry?.name || statusId;
+      
+      
+      let previewText = displayText || flatAppliedLabel(ability, statusId).name || statusId;
       if (previewText.includes('{{potency}}') && potency?.characteristic) {
         const abbrev = ds.CONFIG.characteristics[potency.characteristic]?.abbreviation ?? potency.characteristic;
         const strength = potency.strength === 'custom' ? (potency.custom || 'average') : (potency.strength || 'average');

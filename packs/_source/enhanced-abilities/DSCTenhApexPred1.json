@@ -157,7 +157,7 @@
     "description": "",
     "before": false,
     "flatApplied": {
-     "displayText": "",
+     "displayText": "Cannot hide from the hunter until their next respite",
      "potency": {
       "characteristic": "",
       "strength": "",

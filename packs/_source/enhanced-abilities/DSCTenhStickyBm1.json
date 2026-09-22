@@ -110,7 +110,7 @@
     "description": "",
     "before": false,
     "flatApplied": {
-     "displayText": "",
+     "displayText": "Using an ability no longer reveals them (EoT)",
      "potency": {
       "characteristic": "",
       "strength": "",
