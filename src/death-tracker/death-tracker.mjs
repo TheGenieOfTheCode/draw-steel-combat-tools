@@ -10,6 +10,27 @@ const M = 'draw-steel-combat-tools';
 
 const _dropFlag = () => new foundry.data.operators.ForcedDeletion();
 
+
+
+const _emptyMinions = async (tokens) => {
+  const list = [...tokens].filter(t => t?.actor?.system?.isMinion && (t.actor.system.stamina?.value ?? 0) > 0);
+  if (!list.length) return;
+  const deltas = list.filter(t => !t.document.actorLink).map(t => ({ _id: t.id, 'delta.system.stamina.value': 0 }));
+  if (deltas.length) await canvas.scene.updateEmbeddedDocuments('Token', deltas).catch(() => {});
+  for (const t of list.filter(t => t.document.actorLink)) {
+    await safeUpdate(t.actor, { 'system.stamina.value': 0 }).catch(() => {});
+  }
+};
+
+const _waitUntil = async (test, timeoutMs = 2000, stepMs = 25) => {
+  const deadline = performance.now() + timeoutMs;
+  while (performance.now() < deadline) {
+    if (test()) return true;
+    await new Promise(r => setTimeout(r, stepMs));
+  }
+  return false;
+};
+
 let _deathBatch = [];
 let _deathBatchTimer = null;
 const DEATH_BATCH_MS = 200;
@@ -108,7 +129,7 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
       await token.document.setFlag('draw-steel-combat-tools', 'isDefeatedObject', true);
     }
 
-    if (!isObject && actor.system?.isMinion) actor.updateSource({ 'system.stamina.value': 0 });
+    if (!isObject) await _emptyMinions([token]);
 
     const entry = { name: actor.name, tokenId: token.id, isObject };
     if (batchEntries) {
@@ -375,9 +396,7 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
         await tok.document.setFlag(M, 'isDefeatedObject', true);
       }
     }
-    for (const t of tokens) {
-      if (t.actor?.system?.isMinion) t.actor.updateSource({ 'system.stamina.value': 0 });
-    }
+    await _emptyMinions(tokens);
     if (_dbgTime) {
       _stopFrameMonitor = true;
       setTimeout(() => {
@@ -659,9 +678,7 @@ const localTarget = [...game.user.targets].find(t2 => t2.id === t.id);
           await tok.document.setFlag(M, 'isDefeatedObject', true);
         }
       }
-      for (const t of tokens) {
-        if (t.actor?.system?.isMinion) t.actor.updateSource({ 'system.stamina.value': 0 });
-      }
+      await _emptyMinions(tokens);
       ui.notifications.info(tokens.length > 1 ? 'MASS POWER WORD: KILL' : 'POWER WORD: KILL');
       processQueue();
       break;
@@ -759,26 +776,43 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
   const _tm = (label) => { if (_dbgTime) console.log(`DSCT | DT | [REVIVE +${(performance.now()-_t0).toFixed(0)}ms] ${label}`); };
 
   
-  for (const t of tokens) {
-    if (!canvas.tokens.get(t.id)) continue;
-    _tm(`step 2: toggleStatusEffect dead OFF -- ${t.actor.name}`);
-    await safeToggleStatusEffect(t.actor, defeatedStatusId, { overlay: true, active: false });
-    _tm(`step 2: done -- ${t.actor.name}`);
-    if ((t.actor.system.stamina?.value ?? 0) <= 0) {
-      _tm(`step 2: stamina restore -- ${t.actor.name}`);
-      const _staminaRestoreVal = t.actor.system?.isMinion ? (t.actor.system.stamina?.max ?? 1) : 1;
-      await safeUpdate(t.actor, { 'system.stamina.value': _staminaRestoreVal });
-      t.actor.updateSource({ 'system.stamina.value': _staminaRestoreVal });
-      _tm(`step 2: stamina done -- ${t.actor.name}`);
-    }
-  }
-  _tm('step 2 complete; waiting 300ms');
-  await new Promise(r => setTimeout(r, 300));
-  _tm('300ms pause done');
+  
+  const woken = tokens
+    .filter(t => canvas.tokens.get(t.id))
+    .map(t => ({
+      t,
+      needsStamina: (t.actor.system.stamina?.value ?? 0) <= 0,
+      staminaValue: t.actor.system?.isMinion ? (t.actor.system.stamina?.max ?? 1) : 1,
+    }));
+
 
   
+  _tm(`step 2: ${woken.length} status(es) in sequence`);
+  for (const { t } of woken) {
+    await safeToggleStatusEffect(t.actor, defeatedStatusId, { overlay: true, active: false });
+  }
+
   
-  
+  const hungry = woken.filter(w => w.needsStamina);
+  const deltaWrites = hungry
+    .filter(({ t }) => !t.document.actorLink)
+    .map(({ t, staminaValue }) => ({ _id: t.id, 'delta.system.stamina.value': staminaValue }));
+  if (deltaWrites.length) {
+    _tm(`step 2: ${deltaWrites.length} stamina restore(s) in one write`);
+    await canvas.scene.updateEmbeddedDocuments('Token', deltaWrites);
+  }
+  for (const { t, staminaValue } of hungry.filter(({ t }) => t.document.actorLink)) {
+    await safeUpdate(t.actor, { 'system.stamina.value': staminaValue });
+
+    if (!t.actor.isOwner) t.actor.updateSource({ 'system.stamina.value': staminaValue });
+  }
+  _tm('step 2: writes away');
+
+  const _settled = await _waitUntil(() => woken.every(({ t, needsStamina, staminaValue }) =>
+    !t.actor?.statuses?.has(defeatedStatusId)
+    && (!needsStamina || (t.actor.system.stamina?.value ?? 0) >= staminaValue)));
+  if (!_settled) console.warn('DSCT | DT | revival: the board did not catch up with step 2, carrying on anyway');
+  _tm('step 2 complete');
   const plan = [];
   for (const t of tokens) {
     if (!canvas.tokens.get(t.id)) continue;
@@ -971,8 +1005,9 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
           await safeToggleStatusEffect(t.actor, defeatedStatusId, { overlay: true, active: false });
           if ((t.actor.system.stamina?.value ?? 0) <= 0) {
             const _staminaRestoreVal = t.actor.system?.isMinion ? (t.actor.system.stamina?.max ?? 1) : 1;
-            await safeUpdate(t.actor, { 'system.stamina.value': _staminaRestoreVal });
-            t.actor.updateSource({ 'system.stamina.value': _staminaRestoreVal });
+
+            if (t.document.actorLink) await safeUpdate(t.actor, { 'system.stamina.value': _staminaRestoreVal });
+            else await canvas.scene.updateEmbeddedDocuments('Token', [{ _id: t.id, 'delta.system.stamina.value': _staminaRestoreVal }]);
           }
           step2Data.push({ t, prevStamina });
         }
@@ -1918,13 +1953,7 @@ export function registerDeathTrackerHooks() {
     
     
     const defeatedStatusId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
-    for (const token of canvas.tokens.placeables) {
-      if (!token.actor?.system?.isMinion) continue;
-      if (!token.actor.statuses?.has(defeatedStatusId)) continue;
-      if ((token.actor.system.stamina?.value ?? 0) > 0) {
-        token.actor.updateSource({ 'system.stamina.value': 0 });
-      }
-    }
+    await _emptyMinions(canvas.tokens.placeables.filter(tok => tok.actor?.statuses?.has(defeatedStatusId)));
   });
 
   const _deletingCombatIds = new Set();
