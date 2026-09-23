@@ -1721,7 +1721,7 @@ export function registerDeathTrackerHooks() {
     changed.system.staminaValue = clamped;
   });
 
-  Hooks.on('updateCombatantGroup', async (group, changes, options) => {
+  const _onSquadPoolChanged = async (group, changes, options) => {
 
     if (isOurTransition(options)) {
       if (getSetting('debugMode')) console.log(`DSCT | DT | updateCombatantGroup: ${options[TRANSITION].id}, this module's own write, standing down`);
@@ -1743,7 +1743,13 @@ export function registerDeathTrackerHooks() {
     }
 
     if (window._dsctKillLockActive) {
-      if (dbg) console.log('DSCT | DT | updateCombatantGroup: kill lock active, skipping processDeath');
+      deferSquadReconcile(group, 'the kill lock');
+      return;
+    }
+
+    const applying = dstdStillApplying();
+    if (applying) {
+      deferSquadReconcile(group, applying);
       return;
     }
 
@@ -1753,8 +1759,10 @@ export function registerDeathTrackerHooks() {
     if (group.type !== 'squad') return;
 
     if (!window._squadDeathLocks) window._squadDeathLocks = new Set();
-    if (window._squadDeathLocks.has(group.id)) { if (dbg) console.log('DSCT | DT | squad lock held, skipping'); return; }
+    if (window._squadDeathLocks.has(group.id)) { deferSquadReconcile(group, 'its own squad lock'); return; }
     window._squadDeathLocks.add(group.id);
+
+    clearSquadReconcileWaits(group);
 
     const defeatedStatusId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
     const minions = Array.from(group.members ?? []).filter(m => m?.actor?.system?.isMinion);
@@ -1800,6 +1808,8 @@ export function registerDeathTrackerHooks() {
       }
       
       const killCount = Math.min(effectiveNumToKill, pickable.length);
+
+      scheduleSquadReconcile(group, { delay: 1500 });
 
       if (dbg) console.log(`DSCT | DT | processDeath: origNumToKill=${numToKill} effectiveNumToKill=${effectiveNumToKill} killCount=${killCount} deferred=${deferredCount} freshHp=${freshHp} damagedTokenIds=[${damagedTokenIds.join(',')}]`);
 
@@ -1902,6 +1912,61 @@ export function registerDeathTrackerHooks() {
         window._dsctPendingSquadTimers?.delete(group.id);
       }, 500));
     }
+  };
+
+  
+  
+  const RECONCILE_MS = 900;
+  const RECONCILE_MAX_WAITS = 60;
+  const _reconcileTimers = new Map();
+  const _reconcileWaits = new Map();
+
+  const scheduleSquadReconcile = (group, { delay = RECONCILE_MS } = {}) => {
+    if (!group?.id) return;
+    clearTimeout(_reconcileTimers.get(group.id));
+    _reconcileTimers.set(group.id, setTimeout(() => {
+      _reconcileTimers.delete(group.id);
+      const live = game.combat?.groups?.get(group.id);
+      if (!live) { _reconcileWaits.delete(group.id); return; }
+      _onSquadPoolChanged(live, { system: { staminaValue: live.system?.staminaValue } }, {});
+    }, delay));
+  };
+
+  
+  const deferSquadReconcile = (group, why) => {
+    const waits = (_reconcileWaits.get(group.id) ?? 0) + 1;
+    if (waits > RECONCILE_MAX_WAITS) {
+      _reconcileWaits.delete(group.id);
+      console.warn(`DSCT | DT | squad reconcile gave up waiting on ${why} for "${group.name ?? group.id}"`);
+      return;
+    }
+    _reconcileWaits.set(group.id, waits);
+    if (getSetting('debugMode')) console.log(`DSCT | DT | squad reconcile waiting on ${why} (${waits})`);
+    scheduleSquadReconcile(group);
+  };
+
+  const clearSquadReconcileWaits = (group) => _reconcileWaits.delete(group?.id);
+
+  
+  const DSTD = 'draw-steel-target-damage';
+  const dstdStillApplying = () => {
+    
+    for (const msg of game.messages.contents.slice(-25)) {
+      const state = msg?.flags?.[DSTD]?.state;
+      const targets = state?.targets?.length ?? 0;
+      if (!targets) continue;
+      const done = Object.values(state.applications ?? {}).filter(a => a?.status === 'applied').length;
+      if (done < targets) return `"${msg.flavor || 'a damage card'}" still applying (${done}/${targets})`;
+    }
+    return null;
+  };
+
+  Hooks.on('updateCombatantGroup', (group, changes, options) => {
+    if (isOurTransition(options)) return;
+    if (group?.type !== 'squad') return;
+    if (changes?.system?.staminaValue === undefined) return;
+    
+    _onSquadPoolChanged(group, changes, options);
   });
 
   Hooks.on('deleteActiveEffect', async (effect) => {
