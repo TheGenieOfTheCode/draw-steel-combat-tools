@@ -11,12 +11,29 @@ const M = 'draw-steel-combat-tools';
 const _dropFlag = () => new foundry.data.operators.ForcedDeletion();
 
 
+const TRANSITION = 'dsctTransition';
+let _transitionSeq = 0;
+export const beginTransition = (kind) => ({ [TRANSITION]: { kind, id: `${kind}-${++_transitionSeq}` } });
+export const isOurTransition = (options) => !!options?.[TRANSITION];
+
+
+
+
+const _updateTokens = async (updates, options = {}) => {
+  if (!updates.length) return;
+  if (canvas.scene?.canUserModify?.(game.user, 'update')) {
+    return canvas.scene.updateEmbeddedDocuments('Token', updates, options).catch(() => {});
+  }
+  for (const { _id, ...data } of updates) {
+    const doc = canvas.scene?.tokens?.get(_id);
+    if (doc) await safeUpdate(doc, data, options).catch(() => {});
+  }
+};
 
 const _emptyMinions = async (tokens) => {
   const list = [...tokens].filter(t => t?.actor?.system?.isMinion && (t.actor.system.stamina?.value ?? 0) > 0);
   if (!list.length) return;
-  const deltas = list.filter(t => !t.document.actorLink).map(t => ({ _id: t.id, 'delta.system.stamina.value': 0 }));
-  if (deltas.length) await canvas.scene.updateEmbeddedDocuments('Token', deltas).catch(() => {});
+  await _updateTokens(list.filter(t => !t.document.actorLink).map(t => ({ _id: t.id, 'delta.system.stamina.value': 0 })));
   for (const t of list.filter(t => t.document.actorLink)) {
     await safeUpdate(t.actor, { 'system.stamina.value': 0 }).catch(() => {});
   }
@@ -750,6 +767,7 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
   if (!tokens.length) return;
 
   window._dsctReviveActive = true;
+  const txn = beginTransition('revive');
 
   const _dbgTime = getSetting('debugMode');
   const _t0 = _dbgTime ? performance.now() : 0;
@@ -799,10 +817,10 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
     .map(({ t, staminaValue }) => ({ _id: t.id, 'delta.system.stamina.value': staminaValue }));
   if (deltaWrites.length) {
     _tm(`step 2: ${deltaWrites.length} stamina restore(s) in one write`);
-    await canvas.scene.updateEmbeddedDocuments('Token', deltaWrites);
+    await _updateTokens(deltaWrites, txn);
   }
   for (const { t, staminaValue } of hungry.filter(({ t }) => t.document.actorLink)) {
-    await safeUpdate(t.actor, { 'system.stamina.value': staminaValue });
+    await safeUpdate(t.actor, { 'system.stamina.value': staminaValue }, txn);
 
     if (!t.actor.isOwner) t.actor.updateSource({ 'system.stamina.value': staminaValue });
   }
@@ -842,7 +860,7 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
   });
   if (tokenUpdates.length) {
     _tm(`step 3a: ${tokenUpdates.length} token(s) in one update`);
-    await canvas.scene.updateEmbeddedDocuments('Token', tokenUpdates);
+    await _updateTokens(tokenUpdates, txn);
     _tm('step 3a: done');
   }
 
@@ -853,7 +871,7 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
   });
   if (newCombatants.length) {
     _tm(`step 3b: ${newCombatants.length} combatant(s) in one create`);
-    await game.combat.createEmbeddedDocuments('Combatant', newCombatants);
+    await game.combat.createEmbeddedDocuments('Combatant', newCombatants, txn);
     _tm('step 3b: combatants done');
   }
 
@@ -868,8 +886,14 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
     for (const [groupId, delta] of poolDeltas) {
       const group = game.combat?.groups.get(groupId);
       if (!group) continue;
-      _tm(`step 3b: group pool +${delta} in one write`);
-      await group.update({ 'system.staminaValue': (group.system.staminaValue ?? 0) + delta });
+
+
+      const living = Array.from(group.members ?? []).filter(m => m?.actor?.system?.isMinion && !m.defeated);
+      const ceiling = living.length * (living[0]?.actor?.system?.stamina?.max ?? 0);
+      let restored = Math.max(0, (group.system.staminaValue ?? 0) + delta);
+      if (ceiling > 0) restored = Math.min(restored, ceiling);
+      _tm(`step 3b: group pool +${delta} to ${restored} in one write`);
+      await group.update({ 'system.staminaValue': restored }, txn);
       _tm('step 3b: group pool done');
     }
   }
@@ -883,7 +907,7 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
   const markerTileIds = plan.map(p2 => p2.markerTileId).filter(id => id && canvas.scene.tiles.get(id));
   if (markerTileIds.length) {
     _tm(`step 4: ${markerTileIds.length} skull tile(s) in one delete`);
-    await canvas.scene.deleteEmbeddedDocuments('Tile', markerTileIds).catch(() => {});
+    await canvas.scene.deleteEmbeddedDocuments('Tile', markerTileIds, txn).catch(() => {});
     _tm('step 4: skull tiles done');
   }
 
@@ -1681,23 +1705,28 @@ export function registerDeathTrackerHooks() {
     );
   });
 
-  Hooks.on('updateCombatantGroup', async (group, changes, options) => {
-    
-    
-    if (getSetting('squadStaminaClamp') && group.type === 'squad' && game.users.activeGM?.isSelf) {
-      const newVal = changes.system?.staminaValue;
-      if (newVal !== undefined) {
-        const alive = Array.from(group.members ?? []).filter(m => m?.actor?.system?.isMinion && !m.defeated);
-        const indivHP = alive.length > 0 ? (alive[0].actor?.system?.stamina?.max ?? 1) : 1;
-        const maxHP = alive.length * indivHP;
-        if (getSetting('debugMode')) console.log(`DSCT | DT | overclamp guard | newVal=${newVal} maxHP=${maxHP} alive=${alive.length} indivHP=${indivHP} correcting=${newVal > maxHP}`);
-        if (newVal > maxHP) {
-          group.update({ 'system.staminaValue': maxHP });
-          return;
-        }
-      }
-    }
+  
+  Hooks.on('preUpdateCombatantGroup', (group, changed) => {
+    if (group.type !== 'squad') return;
+    const newVal = changed?.system?.staminaValue;
+    if (newVal === undefined) return;
 
+    const alive = Array.from(group.members ?? []).filter(m => m?.actor?.system?.isMinion && !m.defeated);
+    const indivHP = alive.length > 0 ? (alive[0].actor?.system?.stamina?.max ?? 1) : 1;
+    const maxHP = alive.length * indivHP;
+    const clamped = Math.min(Math.max(newVal, 0), maxHP);
+    if (clamped === newVal) return;
+
+    if (getSetting('debugMode')) console.log(`DSCT | DT | clamp guard | ${newVal} corrected to ${clamped} (alive=${alive.length} x ${indivHP})`);
+    changed.system.staminaValue = clamped;
+  });
+
+  Hooks.on('updateCombatantGroup', async (group, changes, options) => {
+
+    if (isOurTransition(options)) {
+      if (getSetting('debugMode')) console.log(`DSCT | DT | updateCombatantGroup: ${options[TRANSITION].id}, this module's own write, standing down`);
+      return;
+    }
     const dbg = getSetting('debugMode');
     if (dbg) console.log('DSCT | DT | updateCombatantGroup fired', { groupType: group.type, isGM: game.users.activeGM?.isSelf, enabled: getSetting('deathTrackerEnabled'), override: getSetting('overrideMinionDefeat'), changes });
     if (!getSetting('deathTrackerEnabled') || !getSetting('overrideMinionDefeat') || !game.users.activeGM?.isSelf) return;

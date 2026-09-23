@@ -311,7 +311,6 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
       'allowIllegalMovement',
       header('Area Damage'),
       'areaDamageEnabled',
-      'squadStaminaClamp',
     ];
   }
 

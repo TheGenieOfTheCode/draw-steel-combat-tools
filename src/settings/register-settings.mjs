@@ -343,10 +343,6 @@ export const registerSettings = () => {
     name: L('areaDamageEnabled.name'), hint: L('areaDamageEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
-  game.settings.register(M, 'squadStaminaClamp', {
-    name: L('squadStaminaClamp.name'), hint: L('squadStaminaClamp.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
-  });
   game.settings.register(M, 'appliedEffectEnabled', {
     name: L('appliedEffectEnabled.name'), hint: L('appliedEffectEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

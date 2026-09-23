@@ -198,10 +198,6 @@
         "name": "Area Damage Automation",
         "hint": "Labels damage buttons on area abilities and caps area damage dealt to squad minions at their max stamina."
       },
-      "squadStaminaClamp": {
-        "name": "Squad Stamina Overclamp Guard",
-        "hint": "Prevents a squad's total stamina from exceeding alive-minion count times individual max stamina after an update. Disable if sequential undo/revival causes stamina to clamp incorrectly."
-      },
       "bleedingEnabled": {
         "name": "Bleeding",
         "hint": "Automates all aspects of the bleeding condition as per the Draw Steel rules."
