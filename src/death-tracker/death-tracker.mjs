@@ -1,6 +1,7 @@
 import { getSetting, getModuleApi, safeToggleStatusEffect, safeUpdate, getSquadGroup, MATERIAL_ICONS, safeCreateEmbedded, safeDelete, tokenAt, toGrid, chooseFreeSquare } from '../helpers.mjs';
 import { setRaisedDeadVisible, addPreviewToken, removePreviewToken, activateTokenLayer, clearPreviewTokens } from './defeated-token-visibility.mjs';
 import { applySquadLabels } from '../squad-labels.mjs';
+import { isDeathDeferred, isTokenDeathDeferred } from './defer-death.mjs';
 import { beginPickerOverlay, endPickerOverlay, setPickerTarget, removePickerTarget, clearPickerArrows } from '../ability-automation/picker-overlay.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -1768,7 +1769,7 @@ export function registerDeathTrackerHooks() {
     
     if (statuses.includes('dying') && !statuses.includes('dead')) {
       const actor = effect.parent;
-      if (actor && !_isDTExcluded(actor)) {
+      if (actor && !_isDTExcluded(actor) && !isDeathDeferred(actor)) {
         const token = actor.isToken ? actor.token.object : canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
         if (token && !window._dsctManualKillTokenIds?.has(token.id)) {
           
@@ -1785,6 +1786,11 @@ export function registerDeathTrackerHooks() {
 
     const actor = effect.parent;
     if (!actor || _isDTExcluded(actor)) return;
+    
+    if (isDeathDeferred(actor)) {
+      if (getSetting('debugMode')) console.log(`DSCT | DT | death deferred for ${actor.name}, not processing`);
+      return;
+    }
 
     const token = actor.isToken ? actor.token.object : canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
     if (!token) return;
@@ -1888,26 +1894,40 @@ export function registerDeathTrackerHooks() {
         : Math.max(0, liveMinions.length - Math.ceil(freshHp / indivHP));
       if (effectiveNumToKill <= 0) return;
 
-      if (dbg) console.log(`DSCT | DT | processDeath: origNumToKill=${numToKill} effectiveNumToKill=${effectiveNumToKill} freshHp=${freshHp} damagedTokenIds=[${damagedTokenIds.join(',')}]`);
+      
+      const pickable = liveMinions.filter(m => !isDeathDeferred(m.actor));
+      const deferredCount = liveMinions.length - pickable.length;
+      if (dbg) console.log(`DSCT | DT | DEFER | processDeath reached: live=${liveMinions.length} pickable=${pickable.length} deferred=${deferredCount} effectiveNumToKill=${effectiveNumToKill}`);
+      if (pickable.length === 0) {
+        if (dbg) console.log('DSCT | DT | DEFER | every living minion has its death deferred, nothing to do');
+        return;
+      }
+      
+      const killCount = Math.min(effectiveNumToKill, pickable.length);
+
+      if (dbg) console.log(`DSCT | DT | processDeath: origNumToKill=${numToKill} effectiveNumToKill=${effectiveNumToKill} killCount=${killCount} deferred=${deferredCount} freshHp=${freshHp} damagedTokenIds=[${damagedTokenIds.join(',')}]`);
 
       if (!getSetting('autoAssignDamagedMinion')) {
         
-        if (freshHp <= 0) _queueManualKillTargets(new Set(liveMinions.map(m => m.tokenId).filter(Boolean)), []);
+        if (freshHp <= 0) _queueManualKillTargets(new Set(pickable.map(m => m.tokenId).filter(Boolean)), []);
         return;
       }
 
-      const eligibleDamaged = damagedTokenIds.filter(id => liveMinions.find(m => m.tokenId === id));
+      const eligibleDamaged = damagedTokenIds.filter(id => pickable.find(m => m.tokenId === id));
       const damagedNames = damagedTokenIds.map(id => canvas.tokens.get(id)?.actor?.name ?? id);
       const groupName = group.name ?? 'Squad';
       const extraLines = [
-        `<p><em><strong>[${groupName}]</strong> Damage-caused: ${effectiveNumToKill} of ${liveMinions.length} minions must die.</em></p>`,
+        `<p><em><strong>[${groupName}]</strong> Damage-caused: ${killCount} of ${liveMinions.length} minions must die.</em></p>`,
         `<p><em>Damaged tokens tracked: ${damagedNames.length ? damagedNames.join(', ') : '<strong>none identified</strong>'}</em></p>`,
       ];
+      if (deferredCount) extraLines.push(`<p><em>${deferredCount} minion has its death deferred and is not a candidate.</em></p>`);
       if (freshHp <= 0) {
-        _queueManualKillTargets(new Set(liveMinions.map(m => m.tokenId).filter(Boolean)), extraLines);
+        _queueManualKillTargets(new Set(pickable.map(m => m.tokenId).filter(Boolean)), extraLines);
         return;
       }
-      if (eligibleDamaged.length === effectiveNumToKill) {
+      if (dbg) console.log(`DSCT | DT | DEFER | eligibleDamaged=${eligibleDamaged.length} killCount=${killCount}`);
+      if (eligibleDamaged.length === killCount) {
+        if (dbg) console.log('DSCT | DT | DEFER | branch: oneMustDie, the damaged are exactly the toll');
         oneMustDie(eligibleDamaged, extraLines);
         return;
       }
@@ -1929,28 +1949,29 @@ export function registerDeathTrackerHooks() {
         });
       };
 
-      if (eligibleDamaged.length > effectiveNumToKill) {
+      if (eligibleDamaged.length > killCount) {
         
         const sorted = _sortCandidates(eligibleDamaged, new Set());
         _queueManualPickerContext({
           lockedIds:      new Set(),
-          preSelectedIds: new Set(sorted.slice(0, effectiveNumToKill)),
+          preSelectedIds: new Set(sorted.slice(0, killCount)),
           poolTokenIds:   new Set(eligibleDamaged),
-          numToKill:      effectiveNumToKill,
+          numToKill:      killCount,
           groupName,
         }, extraLines);
         return;
       }
       
-      const undamaged = liveMinions
+      const undamaged = pickable
         .filter(m => m.tokenId && !eligibleDamaged.includes(m.tokenId))
         .map(m => m.tokenId);
       const sortedUndamaged = _sortCandidates(undamaged, new Set(eligibleDamaged));
+      if (dbg) console.log(`DSCT | DT | DEFER | branch: picker, locked=${eligibleDamaged.length} undamagedCandidates=${undamaged.length} stillToFind=${killCount - eligibleDamaged.length}`);
       _queueManualPickerContext({
         lockedIds:      new Set(eligibleDamaged),
-        preSelectedIds: new Set(sortedUndamaged.slice(0, effectiveNumToKill - eligibleDamaged.length)),
-        poolTokenIds:   new Set(liveMinions.map(m => m.tokenId).filter(Boolean)),
-        numToKill:      effectiveNumToKill,
+        preSelectedIds: new Set(sortedUndamaged.slice(0, killCount - eligibleDamaged.length)),
+        poolTokenIds:   new Set(pickable.map(m => m.tokenId).filter(Boolean)),
+        numToKill:      killCount,
         groupName,
       }, extraLines);
     };

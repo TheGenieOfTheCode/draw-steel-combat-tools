@@ -638,6 +638,7 @@
         "name": "Enforce Ability Range",
         "hint": "Prevents Ability Roll UI from opening if target is out of range."
       },
+
       "gmBypassRangeEnforcement": {
         "name": "Director Bypasses Range Enforcement",
         "hint": "Director is exempt from range enforcement."
@@ -1736,6 +1737,7 @@
         "reviveCancelled": "Revival cancelled.",
         "raiseDeadInstruction": "RAISE DEAD | Click defeated creatures to select. Enter or double-click to confirm. Escape to cancel.",
         "raiseDeadCancelled": "Raise Dead cancelled.",
+        "deferAlreadyInSquad": "{other} in {squad} already has Death Deferred, and only one minion per squad can. The status was removed.",
         "noSkullsSelected": "No defeated creatures selected.",
         "noValidTargets": "No valid targets found on the board.",
         "pwkInstruction": "POWER WORD: KILL | Click NPCs to select. Enter or double-click to confirm. Escape to cancel.",
@@ -2236,6 +2238,8 @@
       "concealedMagical": "Magical Concealment",
       "concealedMundane": "Mundane Concealment",
       "wasHidden": "Was Hidden",
+      "deferDeath": "Death Deferred",
+      "deferDeathDescription": "<p>This creature does not die while this is on it. It can sit at 0 Stamina, keeping its token and its place in the order, until the status is removed. A squad minion carrying it is left out of the squad's deaths rather than cancelling one, and only one minion per squad can have it at a time.</p>",
       "sneaking": "Sneaking"
     },
     "statusGroup": {

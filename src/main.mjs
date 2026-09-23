@@ -6,6 +6,8 @@ import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockback
 import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes } from './death-tracker/death-tracker.mjs';
+import { registerDeferDeath, isDeathDeferred, DEFER_DEATH } from './death-tracker/defer-death.mjs';
+
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { registerSquadTurnHooks } from './squad-turns.mjs';
@@ -75,6 +77,7 @@ const api = {
   colorTokenPicker: runColoredTokenPicker,
   
   getValidTargets:  _getValidTargets,
+  deferDeath:       { status: DEFER_DEATH, isDeferred: isDeathDeferred },
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
   stackedPrompt:    stackedPrompt,
   colorFields:      upgradeColorFields,
@@ -184,6 +187,7 @@ Hooks.once('init', () => {
   registerDCHooks();
   registerTacticalHooks();
   registerDeathTrackerHooks();
+  registerDeferDeath();
   registerSquadLabelHooks();
   registerSquadHudHooks();
   registerSquadTurnHooks();
@@ -318,6 +322,7 @@ Hooks.once('setup', () => {
 });
 
 Hooks.once('ready', () => {
+
   if (!game.user.isGM) {
     const M = 'draw-steel-combat-tools';
     game.user.setFlag(M, 'cedeDeathPickerToGM', game.settings.get(M, 'cedeDeathPickerToGM'));

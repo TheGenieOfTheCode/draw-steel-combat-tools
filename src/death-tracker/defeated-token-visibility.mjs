@@ -1,5 +1,6 @@
 import { getSetting } from '../helpers.mjs';
 import { resolveTokenVisibility } from '../conditions/combat-reveal.mjs';
+import { isDeathDeferred } from './defer-death.mjs';
 
 const M = 'draw-steel-combat-tools';
 const DBG = () => getSetting('debugMode');
@@ -16,9 +17,11 @@ export const addPreviewToken = (id) => { _previewTokenIds.add(id); };
 export const removePreviewToken = (id) => { _previewTokenIds.delete(id); };
 export const clearPreviewTokens = () => { _previewTokenIds.clear(); };
 
+
 const isDefeatedAndHiding = (tokenDoc) =>
   (game.user.getFlag(M, 'hideDefeated') ?? false) === true &&
-  (tokenDoc?.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead') ?? false);
+  (tokenDoc?.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead') ?? false) &&
+  !isDeathDeferred(tokenDoc?.actor);
 
 export const activateTokenLayer = () => {
   
@@ -151,7 +154,7 @@ const refreshDefeatedVisibility = () => {
 
   if (hiding) {
     for (const t of canvas.tokens.placeables) {
-      if (!t.actor?.statuses?.has(defeatedStatusId)) continue;
+      if (!t.actor?.statuses?.has(defeatedStatusId) || isDeathDeferred(t.actor)) continue;
       t.release();
       t.setTarget(false, { releaseOthers: false });
     }
