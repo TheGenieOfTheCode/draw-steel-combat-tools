@@ -848,6 +848,11 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
       keys.push(...autoEntries);
     }
 
+    if (debugMode || isActive('draw-steel-combat-tracker')) {
+      keys.push(header('Draw Steel Combat Tracker'));
+      keys.push('suppressTrackerAutoDefeat');
+    }
+
     return keys;
   }
 

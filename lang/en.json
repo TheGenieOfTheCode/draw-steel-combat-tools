@@ -638,7 +638,10 @@
         "name": "Enforce Ability Range",
         "hint": "Prevents Ability Roll UI from opening if target is out of range."
       },
-
+      "suppressTrackerAutoDefeat": {
+        "name": "Own Death Instead of the Combat Tracker",
+        "hint": "Draw Steel Combat Tracker marks any Director-controlled creature defeated the moment its Stamina reaches 0, applying the Dead condition itself, with no setting of its own to stop it. That is the same moment this module's Death Tracker handles, so the two end up declaring the same death twice and Death Deferred cannot hold. With this on, that one behaviour is switched off and this module decides when a creature dies; the Combat Tracker's dock still refreshes normally and nothing else about it changes. Turn it off to hand death back."
+      },
       "gmBypassRangeEnforcement": {
         "name": "Director Bypasses Range Enforcement",
         "hint": "Director is exempt from range enforcement."

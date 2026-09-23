@@ -894,6 +894,10 @@ export const registerSettings = () => {
     name: L('enforceAbilityRange.name'), hint: L('enforceAbilityRange.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'suppressTrackerAutoDefeat', {
+    name: L('suppressTrackerAutoDefeat.name'), hint: L('suppressTrackerAutoDefeat.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'gmBypassRangeEnforcement', {
     name: L('gmBypassRangeEnforcement.name'), hint: L('gmBypassRangeEnforcement.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
