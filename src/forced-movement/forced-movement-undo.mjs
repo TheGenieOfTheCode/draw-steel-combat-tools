@@ -94,20 +94,14 @@ const handleStaminaRevival = async (undoLog) => {
 
     
     if (isDead) {
-      const preTint = tokenDoc.getFlag('draw-steel-combat-tools', 'preDeathTint') ?? '#ffffff';
-      const preAlpha = tokenDoc.getFlag('draw-steel-combat-tools', 'preDeathAlpha') ?? 1;
+
       const savedDisplayBars = tokenDoc.getFlag('draw-steel-combat-tools', 'savedDisplayBars');
-      const restoreData = {
-        'texture.tint': preTint,
-        alpha: preAlpha,
-        'flags.draw-steel-combat-tools.-=preDeathTint': null,
-        'flags.draw-steel-combat-tools.-=preDeathAlpha': null,
-      };
       if (savedDisplayBars !== undefined) {
-        restoreData.displayBars = savedDisplayBars;
-        restoreData['flags.draw-steel-combat-tools.-=savedDisplayBars'] = null;
+        await safeUpdate(tokenDoc, {
+          displayBars: savedDisplayBars,
+          'flags.draw-steel-combat-tools.-=savedDisplayBars': null,
+        });
       }
-      await safeUpdate(tokenDoc, restoreData);
     }
 
     

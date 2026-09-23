@@ -7,6 +7,7 @@ import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerR
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes } from './death-tracker/death-tracker.mjs';
 import { registerDeferDeath, isDeathDeferred, DEFER_DEATH } from './death-tracker/defer-death.mjs';
+import { registerDeathVisuals } from './death-tracker/death-visuals.mjs';
 import { suppressTrackerAutoDefeat } from './compat/combat-tracker-compat.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
@@ -188,6 +189,7 @@ Hooks.once('init', () => {
   registerTacticalHooks();
   registerDeathTrackerHooks();
   registerDeferDeath();
+  registerDeathVisuals();
   registerSquadLabelHooks();
   registerSquadHudHooks();
   registerSquadTurnHooks();

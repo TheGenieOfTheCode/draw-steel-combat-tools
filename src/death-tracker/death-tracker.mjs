@@ -2,9 +2,13 @@ import { getSetting, getModuleApi, safeToggleStatusEffect, safeUpdate, getSquadG
 import { setRaisedDeadVisible, addPreviewToken, removePreviewToken, activateTokenLayer, clearPreviewTokens } from './defeated-token-visibility.mjs';
 import { applySquadLabels } from '../squad-labels.mjs';
 import { isDeathDeferred, isTokenDeathDeferred } from './defer-death.mjs';
+import { animateDeathVisual, deathVisualSettled, syncDeathVisual } from './death-visuals.mjs';
 import { beginPickerOverlay, endPickerOverlay, setPickerTarget, removePickerTarget, clearPickerArrows } from '../ability-automation/picker-overlay.mjs';
 
 const M = 'draw-steel-combat-tools';
+
+
+const _dropFlag = () => new foundry.data.operators.ForcedDeletion();
 
 let _deathBatch = [];
 let _deathBatchTimer = null;
@@ -47,25 +51,7 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
 
   const combatant = game.combat?.combatants.find(c => c.tokenId === token.id);
   const groupId   = combatant?._source?.group ?? null;
-  const _rawTintVal = token.document.texture?.tint;
-  const preAlpha    = token.document.alpha ?? 1;
-  
-  
-  let _tintNum = 0xFFFFFF;
-  let preTint = '#ffffff';
-  if (_rawTintVal != null) {
-    if (typeof _rawTintVal === 'string' && _rawTintVal.startsWith('#')) {
-      _tintNum = parseInt(_rawTintVal.slice(1), 16) || 0xFFFFFF;
-      preTint  = _rawTintVal.toLowerCase();
-    } else {
-      const _n = Number(_rawTintVal?.valueOf?.() ?? _rawTintVal);
-      if (isFinite(_n)) { _tintNum = _n >>> 0; preTint = `#${_tintNum.toString(16).padStart(6, '0')}`; }
-    }
-  }
-  if (_tintNum === 0xFF0000 && preAlpha <= 0.6 && !actor.statuses?.has('dead')) { preTint = '#ffffff'; }
-
-  
-  const flagData = { savedDisplayBars: token.document.displayBars, preDeathTint: preTint, preDeathAlpha: preAlpha };
+  const flagData = { savedDisplayBars: token.document.displayBars };
   if (groupId) flagData.savedGroupId = groupId;
   await Promise.all([
     token.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
@@ -73,24 +59,9 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
   ]);
 
   const isObject = actor.type === 'object';
-  const targetAlpha = isObject ? 0 : 0.5;
 
-  
-  const animDuration = window._dsctKillLockActive ? 0 : getSetting('deathAnimationDuration');
-  if (animDuration > 0 && !window._dsctFMActive) {
-    await token.document.update({ 'texture.tint': '#ff0000' });
-    await new Promise(resolve => {
-      const start = performance.now();
-      const tick = (now) => {
-        if (!canvas.tokens.get(token.id)) { resolve(); return; }
-        const progress = Math.min(1, (now - start) / animDuration);
-        if (token.mesh) token.mesh.alpha = preAlpha + (targetAlpha - preAlpha) * progress;
-        if (progress < 1) requestAnimationFrame(tick);
-        else resolve();
-      };
-      requestAnimationFrame(tick);
-    });
-  }
+
+  await deathVisualSettled(token);
 
   if (canvas.tokens.get(token.id)) {
     if (!isObject) {
@@ -100,23 +71,18 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
         const tw = Math.max(1, token.document.width) * gs;
         const th = Math.max(1, token.document.height) * gs;
         
-        const [[markerTile]] = await Promise.all([
-          canvas.scene.createEmbeddedDocuments('Tile', [{
-            x: token.document.x + tw / 2, y: token.document.y + th / 2,
-            width: tw / 2, height: th / 2,
-            texture: { src: markerSrc },
-            overhead: false, locked: true, hidden: false,
-            restrictions: { light: false, weather: false },
-            video: { loop: false, autoplay: false, volume: 0 },
-            flags: { [M]: { deathMarkerFor: token.id } },
-          }]),
-          token.document.update({ 'texture.tint': '#ff0000', alpha: 0.5 }),
-        ]);
+        const [markerTile] = await canvas.scene.createEmbeddedDocuments('Tile', [{
+          x: token.document.x + tw / 2, y: token.document.y + th / 2,
+          width: tw / 2, height: th / 2,
+          texture: { src: markerSrc },
+          overhead: false, locked: true, hidden: false,
+          restrictions: { light: false, weather: false },
+          video: { loop: false, autoplay: false, volume: 0 },
+          flags: { [M]: { deathMarkerFor: token.id } },
+        }]);
         if (markerTile) await token.document.setFlag(M, 'deathMarkerTileId', markerTile.id);
-      } else {
-        await token.document.update({ 'texture.tint': '#ff0000', alpha: 0.5 });
       }
-      
+
       const localTarget = [...game.user.targets].find(t => t.id === token.id);
       if (localTarget) localTarget.setTarget(false, { releaseOthers: false });
     } else {
@@ -138,7 +104,7 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
         }]);
       }
 
-      await token.document.update({ hidden: true, alpha: 1, 'texture.tint': '#ffffff' });
+      await token.document.update({ hidden: true });
       await token.document.setFlag('draw-steel-combat-tools', 'isDefeatedObject', true);
     }
 
@@ -259,36 +225,7 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
 
     
     
-    const preDeathVisuals = new Map(tokens.map(t => [t.id, (() => {
-      const rawTintVal = t.document.texture?.tint;  
-      const rawAlpha   = t.document.alpha ?? 1;
-      
-      
-      
-      let tintNum = 0xFFFFFF;
-      let tintHex = '#ffffff';
-      if (rawTintVal != null) {
-        if (typeof rawTintVal === 'string' && rawTintVal.startsWith('#')) {
-          tintNum = parseInt(rawTintVal.slice(1), 16) || 0xFFFFFF;
-          tintHex = rawTintVal.toLowerCase();
-        } else {
-          const n = Number(rawTintVal?.valueOf?.() ?? rawTintVal);
-          if (isFinite(n)) {
-            tintNum = n >>> 0;
-            tintHex = `#${tintNum.toString(16).padStart(6, '0')}`;
-          }
-        }
-      }
-      
-      
-      const isDeadLooking = tintNum === 0xFF0000 && rawAlpha <= 0.6;
-      const isActuallyDead = t.actor.statuses?.has('dead');
-      if (_dbgTime && isDeadLooking && !isActuallyDead) console.log(`DSCT | DT | [TO-DBG2] broken-state detected on "${t.actor.name}" (tintHex=${tintHex}, alpha=${rawAlpha}), overriding to defaults`);
-      return {
-        tint:  (isDeadLooking && !isActuallyDead) ? '#ffffff' : tintHex,
-        alpha: (isDeadLooking && !isActuallyDead) ? 1         : rawAlpha,
-      };
-    })()]));
+
 
     
     for (const t of tokens) {
@@ -326,12 +263,7 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
       }
       const combatant = game.combat?.combatants.find(c => c.tokenId === t.id);
       const groupId   = combatant?._source?.group ?? null;
-      const _vis      = preDeathVisuals.get(t.id) ?? {};
-      const flagData  = {
-        savedDisplayBars: t.document.displayBars,
-        preDeathTint:     _vis.tint  ?? '#ffffff',
-        preDeathAlpha:    _vis.alpha ?? 1,
-      };
+      const flagData  = { savedDisplayBars: t.document.displayBars };
       if (groupId) flagData.savedGroupId = groupId;
       _tm(`step 3: token flags + combatant.delete -- ${t.actor.name}`);
       await Promise.all([
@@ -388,22 +320,7 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
     await Promise.all(tokens.map(async (t) => {
       if (!canvas.tokens.get(t.id)) return;
       const isObject = t.actor.type === 'object';
-      const preAlpha = t.document.getFlag(M, 'preDeathAlpha') ?? 1;
-      if (animDuration > 0 && !window._dsctFMActive) {
-        await t.document.update({ 'texture.tint': '#ff0000' });
-        const targetAlpha = isObject ? 0 : 0.5;
-        await new Promise(resolve => {
-          const start = performance.now();
-          const tick = (now) => {
-            if (!canvas.tokens.get(t.id)) { resolve(); return; }
-            const progress = Math.min(1, (now - start) / animDuration);
-            if (t.mesh) t.mesh.alpha = preAlpha + (targetAlpha - preAlpha) * progress;
-            if (progress < 1) requestAnimationFrame(tick);
-            else resolve();
-          };
-          requestAnimationFrame(tick);
-        });
-      }
+      await animateDeathVisual(t, { duration: window._dsctFMActive ? 0 : animDuration });
       if (!canvas.tokens.get(t.id)) return;
       if (!isObject) {
         if (getSetting('deathMarkerEnabled')) {
@@ -411,23 +328,18 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
           const gs = canvas.grid.size;
           const tw = Math.max(1, t.document.width)  * gs;
           const th = Math.max(1, t.document.height) * gs;
-          const [[markerTile]] = await Promise.all([
-            canvas.scene.createEmbeddedDocuments('Tile', [{
-              x: t.document.x + tw / 2, y: t.document.y + th / 2,
-              width: tw / 2, height: th / 2,
-              texture: { src: markerSrc },
-              overhead: false, locked: true, hidden: false,
-              restrictions: { light: false, weather: false },
-              video: { loop: false, autoplay: false, volume: 0 },
-              flags: { [M]: { deathMarkerFor: t.id } },
-            }]),
-            t.document.update({ 'texture.tint': '#ff0000', alpha: 0.5 }),
-          ]);
-          _tm(`step 4: skull tile + tint -- ${t.actor.name}`);
+          const [markerTile] = await canvas.scene.createEmbeddedDocuments('Tile', [{
+            x: t.document.x + tw / 2, y: t.document.y + th / 2,
+            width: tw / 2, height: th / 2,
+            texture: { src: markerSrc },
+            overhead: false, locked: true, hidden: false,
+            restrictions: { light: false, weather: false },
+            video: { loop: false, autoplay: false, volume: 0 },
+            flags: { [M]: { deathMarkerFor: t.id } },
+          }]);
+          _tm(`step 4: skull tile -- ${t.actor.name}`);
           if (markerTile) await t.document.setFlag(M, 'deathMarkerTileId', markerTile.id);
           _tm(`step 4: done -- ${t.actor.name}`);
-        } else {
-          await t.document.update({ 'texture.tint': '#ff0000', alpha: 0.5 });
         }
         const localTarget = [...game.user.targets].find(t2 => t2.id === t.id);
         if (localTarget) localTarget.setTarget(false, { releaseOthers: false });
@@ -459,7 +371,7 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
       if (!obj) continue;
       const tok = canvas.tokens.get(tokenId);
       if (tok) {
-        await tok.document.update({ hidden: true, alpha: 1, 'texture.tint': '#ffffff' });
+        await tok.document.update({ hidden: true });
         await tok.document.setFlag(M, 'isDefeatedObject', true);
       }
     }
@@ -621,19 +533,8 @@ const _doKillManual = async ({ tokenIds, squadGroup, processQueue, step1Extra = 
           }
           const combatant = game.combat?.combatants.find(c => c.tokenId === t.id);
           const groupId   = combatant?._source?.group ?? null;
-          const _mrv = t.document.texture?.tint; const _mpa = t.document.alpha ?? 1;
-          let _mtn = 0xFFFFFF; let _mth = '#ffffff';
-          if (_mrv != null) {
-            if (typeof _mrv === 'string' && _mrv.startsWith('#')) { _mtn = parseInt(_mrv.slice(1), 16) || 0xFFFFFF; _mth = _mrv.toLowerCase(); }
-            else { const _mn = Number(_mrv?.valueOf?.() ?? _mrv); if (isFinite(_mn)) { _mtn = _mn >>> 0; _mth = `#${_mtn.toString(16).padStart(6, '0')}`; } }
-          }
-          if (_mtn === 0xFF0000 && _mpa <= 0.6 && !t.actor.statuses?.has('dead')) _mth = '#ffffff';
-          const flagData  = {
-            savedDisplayBars: t.document.displayBars,
-            preDeathTint:     _mth,
-            preDeathAlpha:    _mpa,
-          };
-          if (groupId) flagData.savedGroupId = groupId;
+          const flagData  = { savedDisplayBars: t.document.displayBars };
+if (groupId) flagData.savedGroupId = groupId;
           await Promise.all([
             t.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
             combatant ? combatant.delete() : Promise.resolve(),
@@ -679,12 +580,10 @@ const _doKillManual = async ({ tokenIds, squadGroup, processQueue, step1Extra = 
         for (const { t, groupId, hadCombatant } of (step3PreData ?? [])) {
           if (!canvas.tokens.get(t.id)) continue;
           await t.document.update({ flags: { [M]: {
-            preDeathTint:     foundry.data.operators.ForcedDeletion,
-            preDeathAlpha:    foundry.data.operators.ForcedDeletion,
-            savedDisplayBars: foundry.data.operators.ForcedDeletion,
-            savedGroupId:     foundry.data.operators.ForcedDeletion,
+            savedDisplayBars: _dropFlag(),
+            savedGroupId:     _dropFlag(),
           } } });
-          if (hadCombatant && game.combat && !game.combat.combatants.find(c => c.tokenId === t.id)) {
+if (hadCombatant && game.combat && !game.combat.combatants.find(c => c.tokenId === t.id)) {
             const combatantData = { tokenId: t.id, sceneId: canvas.scene.id, actorId: t.document.actorId };
             if (groupId) combatantData.group = groupId;
             await game.combat.createEmbeddedDocuments('Combatant', [combatantData]);
@@ -700,25 +599,12 @@ const _doKillManual = async ({ tokenIds, squadGroup, processQueue, step1Extra = 
     else if (currentStep === 4) {
       const batchEntries = [];
       const animDuration = (getSetting('batchAnimationSafety') && tokens.length >= 8) ? 0 : getSetting('deathAnimationDuration');
+
+      await restoreTints();
       await Promise.all(tokens.map(async (t) => {
         if (!canvas.tokens.get(t.id)) return;
         const isObject = t.actor.type === 'object';
-        const preAlpha = origState.find(s => s.token.id === t.id)?.alpha ?? 1;
-        if (animDuration > 0 && !window._dsctFMActive) {
-          await t.document.update({ 'texture.tint': '#ff0000' });
-          const targetAlpha = isObject ? 0 : 0.5;
-          await new Promise(resolve => {
-            const start = performance.now();
-            const tick = (now) => {
-              if (!canvas.tokens.get(t.id)) { resolve(); return; }
-              const progress = Math.min(1, (now - start) / animDuration);
-              if (t.mesh) t.mesh.alpha = preAlpha + (targetAlpha - preAlpha) * progress;
-              if (progress < 1) requestAnimationFrame(tick);
-              else resolve();
-            };
-            requestAnimationFrame(tick);
-          });
-        }
+        await animateDeathVisual(t, { duration: window._dsctFMActive ? 0 : animDuration });
         if (!canvas.tokens.get(t.id)) return;
         if (!isObject) {
           if (getSetting('deathMarkerEnabled')) {
@@ -726,23 +612,18 @@ const _doKillManual = async ({ tokenIds, squadGroup, processQueue, step1Extra = 
             const gs = canvas.grid.size;
             const tw = Math.max(1, t.document.width)  * gs;
             const th = Math.max(1, t.document.height) * gs;
-            const [[markerTile]] = await Promise.all([
-              canvas.scene.createEmbeddedDocuments('Tile', [{
-                x: t.document.x + tw / 2, y: t.document.y + th / 2,
-                width: tw / 2, height: th / 2,
-                texture: { src: markerSrc },
-                overhead: false, locked: true, hidden: false,
-                restrictions: { light: false, weather: false },
-                video: { loop: false, autoplay: false, volume: 0 },
-                flags: { [M]: { deathMarkerFor: t.id } },
-              }]),
-              t.document.update({ 'texture.tint': '#ff0000', alpha: 0.5 }),
-            ]);
+            const [markerTile] = await canvas.scene.createEmbeddedDocuments('Tile', [{
+              x: t.document.x + tw / 2, y: t.document.y + th / 2,
+              width: tw / 2, height: th / 2,
+              texture: { src: markerSrc },
+              overhead: false, locked: true, hidden: false,
+              restrictions: { light: false, weather: false },
+              video: { loop: false, autoplay: false, volume: 0 },
+              flags: { [M]: { deathMarkerFor: t.id } },
+            }]);
             if (markerTile) await t.document.setFlag(M, 'deathMarkerTileId', markerTile.id);
-          } else {
-            await t.document.update({ 'texture.tint': '#ff0000', alpha: 0.5 });
           }
-          const localTarget = [...game.user.targets].find(t2 => t2.id === t.id);
+const localTarget = [...game.user.targets].find(t2 => t2.id === t.id);
           if (localTarget) localTarget.setTarget(false, { releaseOthers: false });
         } else {
           if (!window._dsctRubblePlaced?.has(t.id)) {
@@ -774,7 +655,7 @@ const _doKillManual = async ({ tokenIds, squadGroup, processQueue, step1Extra = 
         if (!obj) continue;
         const tok = canvas.tokens.get(tokenId);
         if (tok) {
-          await tok.document.update({ hidden: true, alpha: 1, 'texture.tint': '#ffffff' });
+          await tok.document.update({ hidden: true });
           await tok.document.setFlag(M, 'isDefeatedObject', true);
         }
       }
@@ -897,105 +778,91 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
 
   
   
-  const _reviveTargets = new Map();
+  
+  const plan = [];
   for (const t of tokens) {
     if (!canvas.tokens.get(t.id)) continue;
-    const savedGroupId     = t.document.getFlag(M, 'savedGroupId');
-    const savedDisplayBars = t.document.getFlag(M, 'savedDisplayBars');
-    const isMinion         = t.actor.system?.isMinion ?? false;
-    const minionMaxHP      = isMinion ? (t.actor.system.stamina?.max ?? 0) : 0;
-    const _flagTint = t.document.getFlag(M, 'preDeathTint');
-    
-    const preTint = _flagTint == null ? '#ffffff'
-      : typeof _flagTint === 'string' ? _flagTint
-      : typeof _flagTint === 'number' ? `#${(_flagTint >>> 0).toString(16).padStart(6, '0')}`
-      : '#ffffff';
-    const preAlpha = t.document.getFlag(M, 'preDeathAlpha') ?? 1;
-    if (_dbgTime) console.log(`DSCT | DT | [TO-DBG2] revival preTint=${JSON.stringify(preTint)} (raw flag=${JSON.stringify(_flagTint)}, type=${typeof _flagTint}), preAlpha=${preAlpha}`);
-    _reviveTargets.set(t.id, { preTint, preAlpha });
-    
-    
-    
-    
-    
-    const tokenUpdate3a = {
+    const isMinion = t.actor.system?.isMinion ?? false;
+    plan.push({
+      t,
+      isMinion,
+      savedGroupId:     t.document.getFlag(M, 'savedGroupId'),
+      savedDisplayBars: t.document.getFlag(M, 'savedDisplayBars'),
+      markerTileId:     t.document.getFlag(M, 'deathMarkerTileId'),
+      minionMaxHP:      isMinion ? (t.actor.system.stamina?.max ?? 0) : 0,
+      needsCombatant:   !!game.combat && !game.combat.combatants.find(c => c.tokenId === t.id),
+    });
+  }
+
+  const tokenUpdates = plan.map(({ t, savedDisplayBars }) => {
+    const data = {
+      _id: t.id,
       flags: { [M]: {
-        savedGroupId:     foundry.data.operators.ForcedDeletion,
-        savedDisplayBars: foundry.data.operators.ForcedDeletion,
-        preDeathTint:     foundry.data.operators.ForcedDeletion,
-        preDeathAlpha:    foundry.data.operators.ForcedDeletion,
+        savedGroupId:      _dropFlag(),
+        savedDisplayBars:  _dropFlag(),
+        deathMarkerTileId: _dropFlag(),
       } },
     };
-    if (savedDisplayBars !== undefined) tokenUpdate3a.displayBars = savedDisplayBars;
-    _tm(`step 3a: clear flags -- ${t.actor.name}`);
-    await t.document.update(tokenUpdate3a);
-    _tm(`step 3a: done -- ${t.actor.name}`);
-    
-    if (game.combat && !game.combat.combatants.find(c => c.tokenId === t.id)) {
-      const combatantData = { tokenId: t.id, sceneId: canvas.scene.id, actorId: t.document.actorId };
-      if (savedGroupId) combatantData.group = savedGroupId;
-      _tm(`step 3b: createCombatant -- ${t.actor.name}`);
-      await game.combat.createEmbeddedDocuments('Combatant', [combatantData]);
-      _tm(`step 3b: combatant done -- ${t.actor.name}`);
-      if (!skipGroupHpRestore && savedGroupId && isMinion && minionMaxHP > 0) {
-        const group = game.combat.groups.get(savedGroupId);
-        if (group) {
-          _tm(`step 3b: group HP restore (+${minionMaxHP}) -- ${t.actor.name}`);
-          await group.update({ 'system.staminaValue': (group.system.staminaValue ?? 0) + minionMaxHP });
-          _tm(`step 3b: group HP done -- ${t.actor.name}`);
-        }
-      }
-    }
-    
-    
-    
-    
-    
-    _tm(`step 3c: restore tint/alpha -- ${t.actor.name}`);
-    if (_dbgTime) console.log(`DSCT | DT | [TO-DBG2] pre-tint-update: doc tint=${t.document.texture?.tint}, alpha=${t.document.alpha}, mesh alpha=${t.mesh?.alpha}`);
-    await t.document.update({ 'texture.tint': preTint, alpha: preAlpha });
-    if (_dbgTime) {
-      const ad = t._getAnimationData?.();
-      console.log(`DSCT | DT | [TO-DBG2] post-tint-update: doc tint=${t.document.texture?.tint}, alpha=${t.document.alpha}, animData alpha=${ad?.alpha}, animData tint=${ad?.texture?.tint ?? ad?.tint}`);
-    }
-    t.animate?.({ alpha: preAlpha, texture: { tint: preTint } }, { duration: 0 });
+    if (savedDisplayBars !== undefined) data.displayBars = savedDisplayBars;
+    return data;
+  });
+  if (tokenUpdates.length) {
+    _tm(`step 3a: ${tokenUpdates.length} token(s) in one update`);
+    await canvas.scene.updateEmbeddedDocuments('Token', tokenUpdates);
+    _tm('step 3a: done');
   }
-  await new Promise(r => setTimeout(r, 100));
-  for (const t of tokens) {
-    if (!canvas.tokens.get(t.id)) continue;
-    const { preTint, preAlpha } = _reviveTargets.get(t.id) ?? { preTint: '#ffffff', preAlpha: 1 };
-    t.animate?.({ alpha: preAlpha, texture: { tint: preTint } }, { duration: 0 });
-    if (_dbgTime) {
-      const _tId = t.id; const _tName = t.actor.name;
-      [200, 800].forEach(ms => setTimeout(() => {
-        const tok = canvas.tokens.get(_tId);
-        if (tok) console.log(`DSCT | DT | [TO-DBG2] +${ms}ms "${_tName}": mesh alpha=${tok.mesh?.alpha?.toFixed(3)}, tint=${tok.mesh?.tint}, doc alpha=${tok.document.alpha}, doc tint=${tok.document.texture?.tint}`);
-      }, ms));
-    }
-  }
-  _tm('step 3 complete');
 
+  const newCombatants = plan.filter(p2 => p2.needsCombatant).map(({ t, savedGroupId }) => {
+    const data = { tokenId: t.id, sceneId: canvas.scene.id, actorId: t.document.actorId };
+    if (savedGroupId) data.group = savedGroupId;
+    return data;
+  });
+  if (newCombatants.length) {
+    _tm(`step 3b: ${newCombatants.length} combatant(s) in one create`);
+    await game.combat.createEmbeddedDocuments('Combatant', newCombatants);
+    _tm('step 3b: combatants done');
+  }
+
+
+
+  if (!skipGroupHpRestore) {
+    const poolDeltas = new Map();
+    for (const p2 of plan) {
+      if (!p2.needsCombatant || !p2.savedGroupId || !p2.isMinion || p2.minionMaxHP <= 0) continue;
+      poolDeltas.set(p2.savedGroupId, (poolDeltas.get(p2.savedGroupId) ?? 0) + p2.minionMaxHP);
+    }
+    for (const [groupId, delta] of poolDeltas) {
+      const group = game.combat?.groups.get(groupId);
+      if (!group) continue;
+      _tm(`step 3b: group pool +${delta} in one write`);
+      await group.update({ 'system.staminaValue': (group.system.staminaValue ?? 0) + delta });
+      _tm('step 3b: group pool done');
+    }
+  }
+
+  _tm('step 3c: back to life');
+  await Promise.all(plan.map(({ t }) => animateDeathVisual(t)));
+  _tm('step 3 complete');
   await _resolveReviveSpaceConflicts(tokens);
 
-  for (const t of tokens) {
-    if (!canvas.tokens.get(t.id)) continue;
-    const markerTileId = t.document.getFlag(M, 'deathMarkerTileId');
-    if (markerTileId) {
-      const tile = canvas.scene.tiles.get(markerTileId);
-      if (tile) { _tm('step 4: delete skull tile'); await tile.delete().catch(() => {}); _tm('step 4: skull tile done'); }
-      await t.document.unsetFlag(M, 'deathMarkerTileId');
-    }
-    if (getSetting('clearEffectsOnRevive')) {
-      const validEffectIds = t.actor.effects
-        .filter(e => !e.id.endsWith('0000000000'))
-        .map(e => e.id);
-      if (validEffectIds.length) {
-        _tm(`step 4: deleteEmbeddedDocuments ActiveEffect x${validEffectIds.length} -- ${t.actor.name}`);
-        try { await t.actor.deleteEmbeddedDocuments('ActiveEffect', validEffectIds); }
-        catch (e) { console.warn('DSCT | DT | Minor error clearing effects on revive:', e); }
-        _tm(`step 4: effects done -- ${t.actor.name}`);
-      }
-    }
+
+  const markerTileIds = plan.map(p2 => p2.markerTileId).filter(id => id && canvas.scene.tiles.get(id));
+  if (markerTileIds.length) {
+    _tm(`step 4: ${markerTileIds.length} skull tile(s) in one delete`);
+    await canvas.scene.deleteEmbeddedDocuments('Tile', markerTileIds).catch(() => {});
+    _tm('step 4: skull tiles done');
+  }
+
+  if (getSetting('clearEffectsOnRevive')) {
+    await Promise.all(plan.map(async ({ t }) => {
+      if (!canvas.tokens.get(t.id)) return;
+      const validEffectIds = t.actor.effects.filter(e => !e.id.endsWith('0000000000')).map(e => e.id);
+      if (!validEffectIds.length) return;
+      _tm(`step 4: deleteEmbeddedDocuments ActiveEffect x${validEffectIds.length} -- ${t.actor.name}`);
+      try { await t.actor.deleteEmbeddedDocuments('ActiveEffect', validEffectIds); }
+      catch (e) { console.warn('DSCT | DT | Minor error clearing effects on revive:', e); }
+    }));
+    _tm('step 4: effects done');
   }
   _tm('step 4 complete; deleteDeathMessages');
   if (tokens.length === 1) {
@@ -1032,8 +899,8 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
 
   
   const deathSnap = new Map(tokens.map(t => [t.id, {
-    tint:  t.document.texture.tint ?? '#ff0000',
-    alpha: t.document.alpha       ?? 0.5,
+    tint:  t.document.texture.tint ?? '#ffffff',
+    alpha: t.document.alpha       ?? 1,
   }]));
 
   const sections = [];
@@ -1084,8 +951,8 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
         await Promise.all(tokens.map(t => {
           const snap = deathSnap.get(t.id);
           return canvas.tokens.get(t.id)
-            ? t.document.update({ 'texture.tint': snap?.tint ?? '#ff0000', alpha: snap?.alpha ?? 0.5 })
-            : Promise.resolve();
+            ? t.document.update({ 'texture.tint': snap?.tint ?? '#ffffff', alpha: snap?.alpha ?? 1 })
+: Promise.resolve();
         }));
         await msg.update({ content: buildContent(s1 + '<p><em>&#x2715; Aborted.</em></p>') });
         return;
@@ -1154,8 +1021,8 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
           const minionMaxHP     = isMinion ? (t.actor.system.stamina?.max ?? 0) : 0;
 
           const flagClear = { flags: { [M]: {
-            savedGroupId:    foundry.data.operators.ForcedDeletion,
-            savedDisplayBars: foundry.data.operators.ForcedDeletion,
+            savedGroupId:    _dropFlag(),
+            savedDisplayBars: _dropFlag(),
           } } };
           if (savedDisplayBars !== undefined) flagClear.displayBars = savedDisplayBars;
           await t.document.update(flagClear);
@@ -1218,24 +1085,8 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
     
     else if (currentStep === 4) {
       const s4Lines = [];
-      const _dbgManual = getSetting('debugMode');
-      const _s4Targets = new Map();
       for (const t of tokens) {
         if (!canvas.tokens.get(t.id)) continue;
-        const _s4FlagTint = t.document.getFlag(M, 'preDeathTint');
-        const preTint = _s4FlagTint == null ? '#ffffff'
-          : typeof _s4FlagTint === 'string' ? _s4FlagTint
-          : typeof _s4FlagTint === 'number' ? `#${(_s4FlagTint >>> 0).toString(16).padStart(6, '0')}`
-          : '#ffffff';
-        const preAlpha = t.document.getFlag(M, 'preDeathAlpha') ?? 1;
-        _s4Targets.set(t.id, { preTint, preAlpha });
-        
-        await t.document.update({
-          flags: { [M]: {
-            preDeathTint:  foundry.data.operators.ForcedDeletion,
-            preDeathAlpha: foundry.data.operators.ForcedDeletion,
-          } },
-        });
         const markerTileId = t.document.getFlag(M, 'deathMarkerTileId');
         if (markerTileId) {
           const tile = canvas.scene.tiles.get(markerTileId);
@@ -1251,29 +1102,10 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
             catch (e) { console.warn('DSCT | DT | Minor error clearing effects on revive:', e); }
           }
         }
-        if (_dbgManual) console.log(`DSCT | DT | [TO-DBG2] manual step4 pre-tint-update: doc tint=${t.document.texture?.tint}, alpha=${t.document.alpha}, mesh alpha=${t.mesh?.alpha}`);
-        await t.document.update({ 'texture.tint': preTint, alpha: preAlpha });
-        if (_dbgManual) {
-          const ad = t._getAnimationData?.();
-          console.log(`DSCT | DT | [TO-DBG2] manual step4 post-tint-update: doc tint=${t.document.texture?.tint}, alpha=${t.document.alpha}, animData alpha=${ad?.alpha}`);
-        }
-        t.animate?.({ alpha: preAlpha, texture: { tint: preTint } }, { duration: 0 });
+        await animateDeathVisual(t);
         s4Lines.push(`&#x2713; ${t.actor.name} &mdash; revival complete`);
       }
-      await new Promise(r => setTimeout(r, 100));
-      for (const t of tokens) {
-        if (!canvas.tokens.get(t.id)) continue;
-        const { preTint, preAlpha } = _s4Targets.get(t.id) ?? { preTint: '#ffffff', preAlpha: 1 };
-        t.animate?.({ alpha: preAlpha, texture: { tint: preTint } }, { duration: 0 });
-        if (_dbgManual) {
-          const _tId = t.id; const _tName = t.actor.name;
-          [200, 800].forEach(ms => setTimeout(() => {
-            const tok = canvas.tokens.get(_tId);
-            if (tok) console.log(`DSCT | DT | [TO-DBG2] manual +${ms}ms "${_tName}": mesh alpha=${tok.mesh?.alpha?.toFixed(3)}, tint=${tok.mesh?.tint}`);
-          }, ms));
-        }
-      }
-      await _resolveReviveSpaceConflicts(tokens);
+await _resolveReviveSpaceConflicts(tokens);
       if (s4Lines.length === 1) {
         ui.notifications.info(game.i18n.format('DSCT.notice.dt.revived', { name: tokens[0].actor.name }));
       } else if (s4Lines.length > 1) {
@@ -2591,19 +2423,13 @@ const executeRevival = async (tokenId, { skipGroupHpUpdate = false } = {}) => {
     }
   }
 
-  const preTint = tokenDoc.getFlag('draw-steel-combat-tools', 'preDeathTint') ?? '#ffffff';
-  const preAlpha = tokenDoc.getFlag('draw-steel-combat-tools', 'preDeathAlpha') ?? 1;
   const savedDisplayBars = tokenDoc.getFlag('draw-steel-combat-tools', 'savedDisplayBars');
   const restoreUpdate = {
-    'texture.tint': preTint, alpha: preAlpha,
-    flags: { [M]: {
-      preDeathTint: foundry.data.operators.ForcedDeletion,
-      preDeathAlpha: foundry.data.operators.ForcedDeletion,
-      savedDisplayBars: foundry.data.operators.ForcedDeletion,
-    } },
+    flags: { [M]: { savedDisplayBars: _dropFlag() } },
   };
   if (savedDisplayBars !== undefined) restoreUpdate.displayBars = savedDisplayBars;
   await tokenDoc.update(restoreUpdate);
+  if (tokenDoc.object) await animateDeathVisual(tokenDoc.object);
 
   if (game.combat && !game.combat.combatants.find(c => c.tokenId === tokenId)) {
     const savedGroupId = tokenDoc.getFlag('draw-steel-combat-tools', 'savedGroupId');
