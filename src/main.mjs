@@ -1,5 +1,5 @@
 import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHooks, bypassNextFmGate } from './forced-movement/forced-movement.mjs';
-import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
+import { runColoredTokenPicker, _getValidTargets } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
@@ -73,6 +73,8 @@ const api = {
   bypassNextFmGate: bypassNextFmGate,
   setTriggerDamage:  setPendingTriggerDamage,
   colorTokenPicker: runColoredTokenPicker,
+  
+  getValidTargets:  _getValidTargets,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
   stackedPrompt:    stackedPrompt,
   colorFields:      upgradeColorFields,
