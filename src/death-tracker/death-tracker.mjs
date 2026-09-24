@@ -280,7 +280,6 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
 
     
     const step3GroupHpDeltas = new Map();
-    const step3AffectedGroups = new Set();
     for (const t of tokens) {
       if (!canvas.tokens.get(t.id)) continue;
       if (window._activeGrabs) {
@@ -313,7 +312,6 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
         const hp = t.actor.system.stamina?.max ?? 0;
         if (hp > 0) step3GroupHpDeltas.set(groupId, (step3GroupHpDeltas.get(groupId) ?? 0) + hp);
       }
-      if (t.actor.system?.isMinion && groupId) step3AffectedGroups.add(groupId);
     }
     for (const [gid, delta] of step3GroupHpDeltas) {
       const group = game.combat?.groups.get(gid);
@@ -329,28 +327,6 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
 
     
     
-    
-    if (step3AffectedGroups.size && game.combat) {
-      const killedIds = new Set(tokens.map(t => t.id));
-      const _dbg1 = getSetting('debugMode');
-      if (_dbg1) console.log(`DSCT | DT | [TO-DBG1] affectedGroups=${[...step3AffectedGroups].join(',')}, killedIds=${[...killedIds].join(',')}, totalCombatants=${game.combat.combatants.size}`);
-      for (const c of game.combat.combatants) {
-        const cGroupId = c._source?.group ?? null;
-        if (_dbg1) console.log(`DSCT | DT | [TO-DBG1]   combatant "${c.name}" tokenId=${c.tokenId} group=${cGroupId} isKilled=${killedIds.has(c.tokenId)}`);
-        if (!cGroupId || !step3AffectedGroups.has(cGroupId) || killedIds.has(c.tokenId)) continue;
-        const tok = canvas.tokens.get(c.tokenId);
-        if (_dbg1) console.log(`DSCT | DT | [TO-DBG1]   → tick refresh on "${c.name}": tok=${!!tok}, hasBars=${!!tok?.bars}`);
-        if (!tok?.bars) continue;
-        const grp = game.combat.groups.get(cGroupId);
-        const newCount = grp?.system?.minions?.size ?? 0;
-        tok.bars._tickCount = newCount;
-        
-        
-        delete tok._barWidth;
-        Hooks.callAll('refreshToken', tok, { refreshBars: true });
-      }
-    }
-
     
     const batchEntries = [];
     const animDuration = (getSetting('batchAnimationSafety') && tokens.length >= 8) ? 0 : getSetting('deathAnimationDuration');
@@ -1575,6 +1551,28 @@ export const _addDamagedToken = (tokenId, userId = null) => {
 export const deathTrackerExcludedTypes = new Set();
 const _isDTExcluded = (actor) => actor.type === 'hero' || actor.type === 'retainer' || deathTrackerExcludedTypes.has(actor.type);
 
+
+function _suppressSystemMinionPrompt() {
+  if (!getSetting('overrideMinionDefeat')) return;
+
+  const apps = ds?.applications?.apps;
+  if (!apps?.DefeatedMinionSelection) {
+    console.warn('DSCT | DT | could not find the system\'s defeated minion prompt to suppress it, so the table may be asked twice who dies');
+    return;
+  }
+  apps.DefeatedMinionSelection.create = async () => null;
+
+
+  const _closeIfItGetsThrough = (app) => {
+    if (!getSetting('overrideMinionDefeat')) return;
+    if (!/DefeatedMinionSelection/.test(app?.constructor?.name ?? '')) return;
+    console.warn('DSCT | DT | the system\'s defeated minion prompt opened despite being suppressed, closing it');
+    app.close?.();
+  };
+  Hooks.on('renderApplicationV2', _closeIfItGetsThrough);
+  Hooks.on('renderDefeatedMinionSelection', _closeIfItGetsThrough);
+}
+
 export function registerDeathTrackerHooks() {
 
   
@@ -1602,51 +1600,17 @@ export function registerDeathTrackerHooks() {
   });
 
   Hooks.once('ready', () => {
-    if (getSetting('overrideMinionDefeat') && ds?.applications?.apps?.DefeatedMinionSelection) {
-      ds.applications.apps.DefeatedMinionSelection.create = async () => null;
-    }
+    _suppressSystemMinionPrompt();
     cleanBaseNpcActors();
     if (getSetting('cleanOrphanedCombatants')) cleanOrphanedCombatants();
 
     
-    Hooks.on('updateCombatantGroup', (group, changes, options, userId) => {
-      if (!getSetting('debugMode')) return;
-      const minions = group?.system?.minions;
-      const minionEntries = [...(minions ?? [])].map(m => {
-        const tok = m.token?.object;
-        return `${m.name}(tokenId=${m.tokenId ?? m.token?.id ?? '?'}, hasObject=${!!tok})`;
-      });
-      console.log(`DSCT | DT | [TO-DBG1] updateCombatantGroup:`, {
-        groupId: group.id,
-        staminaMax: group.system?.staminaMax,
-        staminaValue: group.system?.staminaValue,
-        minionsSize: minions?.size,
-        minions: minionEntries,
-        changedKeys: Object.keys(changes),
-      });
-    });
+  });
 
-    
-    
-    const _CombatantCls = CONFIG.Combatant?.documentClass;
-    if (_CombatantCls) {
-      const _origRefreshCombatant = _CombatantCls.prototype.refreshCombatant;
-      _CombatantCls.prototype.refreshCombatant = function () {
-        if (getSetting('debugMode') && this.actor?.system?.combatGroups?.size === 1) {
-          const tok = this.token?.object;
-          const animData = tok?._getAnimationData?.();
-          console.log(`DSCT | DT | [TO-DBG2] refreshCombatant on "${this.actor?.name}":`, {
-            animAlpha: animData?.alpha ?? '?',
-            animTint: animData?.texture?.tint ?? animData?.tint ?? '?',
-            docAlpha: this.token?.alpha ?? '?',
-            docTint: this.token?.texture?.tint ?? '?',
-            meshAlpha: tok?.mesh?.alpha ?? '?',
-            stack: new Error().stack.split('\n').slice(2, 4).join(' | '),
-          });
-        }
-        _origRefreshCombatant.call(this);
-      };
-    }
+  Hooks.on('preUpdateActor', (actor, changes, options, userId) => {
+    const next = changes.system?.stamina?.value;
+    if (next === undefined || next >= (actor.system?.stamina?.value ?? 0)) return;
+    noteDamageCause({ dstd: options?.dstd?.source === 'draw-steel-target-damage', userId });
   });
 
   Hooks.on('combatRound', () => { cleanBaseNpcActors(); });
