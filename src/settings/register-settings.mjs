@@ -88,9 +88,24 @@ export const registerSettings = () => {
     name: L('dstdQuickFmButton.name'), hint: L('dstdQuickFmButton.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
-  game.settings.register(M, 'playerCanUndoDstdDeaths', {
-    name: L('playerCanUndoDstdDeaths.name'), hint: L('playerCanUndoDstdDeaths.hint'),
+  game.settings.register(M, 'playerCanUndoCausedDeaths', {
+    name: L('playerCanUndoCausedDeaths.name'), hint: L('playerCanUndoCausedDeaths.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+  });
+  
+  Hooks.once('ready', () => {
+    if (!game.user.isGM) return;
+    try {
+      const legacy = game.settings.storage.get('world')?.find?.(s => s.key === `${M}.playerCanUndoDstdDeaths`);
+      if (legacy === undefined || legacy === null) return;
+      const wanted = typeof legacy.value === 'string' ? JSON.parse(legacy.value) : legacy.value;
+      if (typeof wanted !== 'boolean') return;
+      if (wanted === game.settings.get(M, 'playerCanUndoCausedDeaths')) return;
+      game.settings.set(M, 'playerCanUndoCausedDeaths', wanted);
+      console.log(`DSCT | carried the old player undo setting across as ${wanted}`);
+    } catch (err) {
+      console.warn('DSCT | could not carry the old player undo setting across:', err);
+    }
   });
   game.settings.register(M, 'squadTargetBonus', {
     name: L('squadTargetBonus.name'), hint: L('squadTargetBonus.hint'),

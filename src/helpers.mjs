@@ -832,7 +832,8 @@ export const safeTakeDamage = async (actor, amount, options = {}) => {
   
   
   if (actor.isOwner && (game.user.isGM || !getSquadGroup(actor))) return await actor.system.takeDamage(amount, options);
-  return await getSocket().executeAsGM('dsct.takeDamage', actor.uuid, amount, options);
+  
+  return await getSocket().executeAsGM('dsct.takeDamage', actor.uuid, amount, options, game.userId);
 };
 
 export const applyDamage = async (actor, amount, squadGroupOverride = undefined, {

@@ -71,9 +71,9 @@
         "name": "Quick Forced Movement Button",
         "hint": "When multiple targets are present, adds a condensed Forced Movement button to the collapsed target header alongside the damage button. The damage button is shortened to icon and number only to fit both."
       },
-      "playerCanUndoDstdDeaths": {
-        "name": "Players Can Undo Deaths via Target Damage",
-        "hint": "Allows players to utilize the undo button."
+      "playerCanUndoCausedDeaths": {
+        "name": "Players Can Undo Deaths Their Owned Actors Caused",
+        "hint": "Lets a player undo a death from its chat message when the damage came from an actor they own, or failing that when they were the one who dealt it. Deaths dealt through a Target Damage card are always undone from that card instead."
       },
       "squadTargetBonus": {
         "name": "Squad Action Bonus Free Strikes",
@@ -1606,7 +1606,7 @@
     "notice": {
       "notActive": "Draw Steel: Combat Tools not active.",
       "noTargets": "No targets selected. Target tokens before applying.",
-      "playerCannotUndoDamage": "Undoing this would revive a defeated target, which players cannot do. Enable \"Players Can Undo Deaths via Target Damage\" in Compatibility settings.",
+      "playerCannotUndoDamage": "Undoing this would revive a defeated target, which players cannot do. Enable \"Players Can Undo Deaths Their Owned Actors Caused\" in Compatibility settings.",
       "abilityRange": {
         "outOfRange": "{names} {verb} not within range {range} of {ability}"
       },
@@ -1942,7 +1942,8 @@
         "fallen": "<strong>{name}</strong> has fallen.",
         "destroyed": "<strong>{name}</strong> was destroyed.",
         "fallenMultiple": "{names} have fallen.",
-        "destroyedMultiple": "{names} were destroyed."
+        "destroyedMultiple": "{names} were destroyed.",
+        "undoFromCard": "Undo from the damage card"
       },
       "tactical": {
         "judged": "<strong>Judgement:</strong> {name} is judged.",

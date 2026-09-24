@@ -449,7 +449,7 @@ export class DeathTrackerSettingsMenu extends SettingsSubmenu {
       'clearSkullsOnCombatEnd',
       'clearEffectsOnRevive',
       'cleanOrphanedCombatants',
-      'playerCanUndoDstdDeaths',
+      'playerCanUndoCausedDeaths',
     ];
   }
 

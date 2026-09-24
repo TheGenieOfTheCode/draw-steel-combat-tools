@@ -409,14 +409,14 @@ function _installUndoDeathHook(root) {
     if (game.users.activeGM?.isSelf) {
       setTimeout(() => runDstdUndoRevival(tokenUuid), 500);
     } else {
-      if (!getSetting('playerCanUndoDstdDeaths')) return;
+      if (!getSetting('playerCanUndoCausedDeaths')) return;
       if (!socket) return;
       socket.executeAsGM('dsct.dstdUndoDeath', tokenUuid);
     }
   }, { capture: true });
 
   root.addEventListener('click', (e) => {
-    if (game.users.activeGM?.isSelf || getSetting('playerCanUndoDstdDeaths')) return;
+    if (game.users.activeGM?.isSelf || getSetting('playerCanUndoCausedDeaths')) return;
     const undoDmgBtn = e.target.closest('[data-dstd-action="undoDamage"]');
     if (!undoDmgBtn?.closest(DSTD_PANEL)) return;
     
@@ -1210,7 +1210,7 @@ async function _injectFmButtons(message, root) {
     }
 
     _installGlobalDamageButtons(panel, message);
-    if (!game.users.activeGM?.isSelf && !getSetting('playerCanUndoDstdDeaths')) {
+    if (!game.users.activeGM?.isSelf && !getSetting('playerCanUndoCausedDeaths')) {
       for (const btn of panel.querySelectorAll('[data-dstd-action="undoDamage"]')) {
         if (_rowTargetDefeated(btn)) btn.disabled = true;
       }

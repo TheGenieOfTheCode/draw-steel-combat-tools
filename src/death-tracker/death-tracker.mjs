@@ -11,6 +11,53 @@ const M = 'draw-steel-combat-tools';
 const _dropFlag = () => new foundry.data.operators.ForcedDeletion();
 
 
+const CAUSE_TTL_MS = 8000;
+let _damageCause = null;
+
+
+const _latestDstdCardId = () => game.messages?.contents
+  ?.slice(-25)
+  .reverse()
+  .find(m => m?.flags?.['draw-steel-target-damage']?.state?.targets?.length)?.id ?? null;
+
+export const noteDamageCause = ({ dstd = false, userId = null, sourceActorUuid = null, messageId = null, stated = false } = {}) => {
+  const now = Date.now();
+  const fresh = _damageCause && now - _damageCause.at < CAUSE_TTL_MS ? _damageCause : null;
+  
+  const keepStated = fresh?.stated && !stated;
+  _damageCause = {
+    at: now,
+    dstd: dstd || !!fresh?.dstd,
+    stated: stated || !!fresh?.stated,
+    messageId: messageId ?? fresh?.messageId ?? null,
+    userId: keepStated ? fresh.userId : (userId ?? fresh?.userId ?? null),
+    sourceActorUuid: keepStated && fresh.sourceActorUuid
+      ? fresh.sourceActorUuid
+      : (sourceActorUuid ?? fresh?.sourceActorUuid ?? null),
+  };
+};
+
+const _currentDamageCause = () => {
+  if (!_damageCause || Date.now() - _damageCause.at > CAUSE_TTL_MS) return {};
+  const { at, stated, ...cause } = _damageCause;
+  return cause;
+};
+
+
+export const isDstdDeath = (message) => !!message?.getFlag(M, 'cause')?.dstd;
+
+
+export const mayUndoDeath = (cause, user = game.user) => {
+  if (user?.isGM) return true;
+  if (!getSetting('playerCanUndoCausedDeaths')) return false;
+  if (cause?.sourceActorUuid) {
+    const source = fromUuidSync(cause.sourceActorUuid);
+    if (source) return !!source.testUserPermission?.(user, 'OWNER');
+  }
+  return !!cause?.userId && cause.userId === user?.id;
+};
+
+
 const TRANSITION = 'dsctTransition';
 let _transitionSeq = 0;
 export const beginTransition = (kind) => ({ [TRANSITION]: { kind, id: `${kind}-${++_transitionSeq}` } });
@@ -148,7 +195,7 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
 
     if (!isObject) await _emptyMinions([token]);
 
-    const entry = { name: actor.name, tokenId: token.id, isObject };
+    const entry = { name: actor.name, tokenId: token.id, isObject, cause: _currentDamageCause() };
     if (batchEntries) {
       batchEntries.push(entry);
     } else {
@@ -374,7 +421,7 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
           }]);
         }
       }
-      batchEntries.push({ name: t.actor.name, tokenId: t.id, isObject });
+      batchEntries.push({ name: t.actor.name, tokenId: t.id, isObject, cause: _currentDamageCause() });
     }));
 
     _tm('step 4 complete; flushing death batch');
@@ -654,7 +701,7 @@ const localTarget = [...game.user.targets].find(t2 => t2.id === t.id);
             }]);
           }
         }
-        batchEntries.push({ name: t.actor.name, tokenId: t.id, isObject });
+        batchEntries.push({ name: t.actor.name, tokenId: t.id, isObject, cause: _currentDamageCause() });
       }));
 
       const s4 = mkSection(4, 'Visual Treatment Complete',
@@ -1700,6 +1747,7 @@ export function registerDeathTrackerHooks() {
     
     const dstdOpts = options?.dstd;
     if (dstdOpts?.source === 'draw-steel-target-damage') {
+      noteDamageCause({ dstd: true, messageId: _latestDstdCardId() });
       const ids = dstdOpts.minionDeathTargetIds?.length ? dstdOpts.minionDeathTargetIds
         : dstdOpts.primaryTargetId ? [dstdOpts.primaryTargetId] : [];
       for (const id of ids) if (id) _addDamagedToken(id);
@@ -2131,13 +2179,43 @@ export function registerDeathTrackerHooks() {
   });
 
   Hooks.on('renderChatMessageHTML', (msg, el) => {
-    if (!game.user.isGM) return;
     if (!msg.getFlag(M, 'isDeathMessage')) return;
 
-    
     const deadTokenIds = msg.getFlag(M, 'deadTokenIds') ??
       (msg.getFlag(M, 'deadTokenId') ? [msg.getFlag(M, 'deadTokenId')] : null);
     if (!deadTokenIds?.length) return;
+
+    const cause = msg.getFlag(M, 'cause') ?? {};
+
+    
+    if (cause.dstd) {
+      const note = document.createElement('p');
+      note.className = 'dsct-undo-elsewhere';
+      const label = game.i18n.localize('DSCT.chat.dt.undoFromCard');
+      const card = cause.messageId ? game.messages.get(cause.messageId) : null;
+
+      if (card) {
+        const link = document.createElement('a');
+        link.textContent = label;
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const row = document.querySelector(`#chat-log [data-message-id="${card.id}"], .chat-log [data-message-id="${card.id}"]`);
+          if (!row) return;
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          row.classList.add('dsct-card-found');
+          setTimeout(() => row.classList.remove('dsct-card-found'), 1600);
+        });
+        note.appendChild(link);
+      } else {
+        note.textContent = label;
+      }
+
+      el.querySelector('.message-content')?.appendChild(note) ?? el.appendChild(note);
+      return;
+    }
+
+    if (!mayUndoDeath(cause)) return;
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -2145,13 +2223,17 @@ export function registerDeathTrackerHooks() {
     btn.innerHTML = `<i class="fa-solid fa-rotate-left"></i> ${game.i18n.localize('DSCT.button.undo')}`;
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
+
+      if (!game.users.activeGM?.isSelf) {
+        getModuleApi(false)?.socket?.executeAsGM('dsct.undoDeathMessage', msg.id, game.userId);
+        return;
+      }
       if (getSetting('deathTrackerManualMode')) {
         await _doReviveManual({ tokenIds: new Set(deadTokenIds) });
       } else {
         await _doReviveV3({ tokenIds: new Set(deadTokenIds) });
       }
     });
-
     const hlName = 'dsct-hover-preview-hl';
     btn.addEventListener('mouseenter', () => {
       for (const id of deadTokenIds) addPreviewToken(id);
@@ -2252,11 +2334,14 @@ const cleanBaseNpcActors = async () => {
 
 const flushDeathBatch = async (batch) => {
   if (!batch.length) return;
+  
+  
+  const cause = batch.find(b => b?.cause && Object.keys(b.cause).length)?.cause ?? _currentDamageCause();
   if (batch.length === 1) {
     const { name, tokenId, isObject } = batch[0];
     await ChatMessage.create({
       content: game.i18n.format(isObject ? 'DSCT.chat.dt.destroyed' : 'DSCT.chat.dt.fallen', { name }),
-      flags: { [M]: { isDeathMessage: true, deadTokenIds: [tokenId] } },
+      flags: { [M]: { isDeathMessage: true, deadTokenIds: [tokenId], cause } },
     });
   } else {
     const creatures = batch.filter(b => !b.isObject);
@@ -2266,7 +2351,7 @@ const flushDeathBatch = async (batch) => {
     if (objects.length)   lines.push(game.i18n.format('DSCT.chat.dt.destroyedMultiple', { names: formatNames(objects.map(b => b.name)) }));
     await ChatMessage.create({
       content: lines.join('<br>'),
-      flags: { [M]: { isDeathMessage: true, deadTokenIds: batch.map(b => b.tokenId) } },
+      flags: { [M]: { isDeathMessage: true, deadTokenIds: batch.map(b => b.tokenId), cause } },
     });
   }
   cleanBaseNpcActors();

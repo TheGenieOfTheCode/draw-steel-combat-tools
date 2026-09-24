@@ -5,7 +5,7 @@ import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
 import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
-import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes } from './death-tracker/death-tracker.mjs';
+import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes, reviveTokens, mayUndoDeath, noteDamageCause } from './death-tracker/death-tracker.mjs';
 import { registerDeferDeath, isDeathDeferred, DEFER_DEATH } from './death-tracker/defer-death.mjs';
 import { registerDeathVisuals } from './death-tracker/death-visuals.mjs';
 import { suppressTrackerAutoDefeat } from './compat/combat-tracker-compat.mjs';
@@ -478,7 +478,7 @@ Hooks.once('socketlib.ready', () => {
   socket.register('dsct.searchPointOut',    (messageId) => pointOut(messageId));
   socket.register('dsct.askObservation',    (hiderId, observerIds) => handleObservationRequest(hiderId, observerIds));
   socket.register('dsct.spendHeroToken',    () => spendHeroToken());
-  socket.register('dsct.takeDamage',        async (uuid, amount, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.system.takeDamage(amount, options); });
+  socket.register('dsct.takeDamage',        async (uuid, amount, options, originUserId = null) => { const actor = await fromUuid(uuid); if (!actor) return; if (originUserId) noteDamageCause({ userId: originUserId, stated: true }); return await actor.system.takeDamage(amount, options); });
   socket.register('dsct.rollFreeStrike',    async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });
   socket.register('dsct.executeHIWTurn',    async (actorUuid, msgId) => await executeHIWTurn(actorUuid, msgId));
   socket.register('dsct.applyEffectAsGM',   async (pseudoUuid, tierKey, effectId, targetActorUuids) => {
@@ -522,6 +522,16 @@ Hooks.once('socketlib.ready', () => {
     _addDamagedToken(tokenId, userId);
   });
   socket.register('dsct.dstdUndoDeath', (tokenUuid) => { queueDstdUndoRevival(tokenUuid); });
+  
+  socket.register('dsct.undoDeathMessage', async (messageId, userId) => {
+    const msg = game.messages.get(messageId);
+    if (!msg?.getFlag('draw-steel-combat-tools', 'isDeathMessage')) return;
+    const cause = msg.getFlag('draw-steel-combat-tools', 'cause') ?? {};
+    const user = game.users.get(userId);
+    if (!user || !mayUndoDeath(cause, user)) return;
+    const ids = msg.getFlag('draw-steel-combat-tools', 'deadTokenIds') ?? [];
+    if (ids.length) await reviveTokens(ids);
+  });
   socket.register('dsct.dstdPendingRevival', (tokenUuid) => { markPendingRevival(tokenUuid); });
   socket.register('dsct.fmRowExecuting', (stateKey, executing) => setFmRowRemoteExecuting(stateKey, executing));
 
