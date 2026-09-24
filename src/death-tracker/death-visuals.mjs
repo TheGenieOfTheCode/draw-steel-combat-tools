@@ -138,17 +138,28 @@ export function animateDeathVisual(token, { duration } = {}) {
   let cancelled = false;
 
   const promise = new Promise((resolve) => {
+    let done = false;
+    let watchdog = null;
+
     const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(watchdog);
       if (token[TWEEN]?.promise === promise) token[TWEEN] = null;
       if (!cancelled) syncDeathVisual(token);
       resolve();
     };
+
     const tick = (now) => {
+      if (done) return;
       if (cancelled || !canvas.tokens.get(id)?.mesh) { finish(); return; }
       _apply(token, from + (to - from) * Math.min(1, (now - start) / ms), deadAlpha);
       if (now - start < ms) requestAnimationFrame(tick);
       else finish();
     };
+
+    
+    watchdog = setTimeout(finish, ms + 500);
     requestAnimationFrame(tick);
   });
 
@@ -160,6 +171,78 @@ export const deathVisualSettled = (token) => token?.[TWEEN]?.promise ?? Promise.
 
 export function resyncDeathVisuals() {
   for (const token of canvas?.tokens?.placeables ?? []) syncDeathVisual(token);
+}
+
+const PENDING = 'dsctPendingFilter';
+const PENDING_PERIOD_MS = 1500;
+const PENDING_DEPTH = 0.3;
+
+const _pendingFilters = new Map();
+let _pendingPhase = 0;
+let _pendingTicker = null;
+
+const _pendingStep = () => {
+  _pendingPhase = (_pendingPhase + (canvas?.app?.ticker?.deltaMS ?? 16) / PENDING_PERIOD_MS) % 1;
+  const keep = 1 - PENDING_DEPTH * (0.5 - 0.5 * Math.cos(_pendingPhase * Math.PI * 2));
+  for (const [id, filter] of _pendingFilters) {
+    const token = canvas?.tokens?.get(id);
+    
+    
+    if (!token?.mesh || isDeadLooking(token)) { clearDeathPending([{ id }]); continue; }
+    const mesh = token.mesh;
+
+    if (!(mesh.filters ?? []).includes(filter)) mesh.filters = [...(mesh.filters ?? []), filter];
+    filter.matrix = [
+      1, 0, 0, 0, 0,
+      0, keep, 0, 0, 0,
+      0, 0, keep, 0, 0,
+      0, 0, 0, 1, 0,
+    ];
+  }
+};
+
+export function markDeathPending(tokens) {
+  const Color = _ColorMatrixFilter();
+  if (!Color || !canvas?.ready) return;
+
+  for (const token of tokens ?? []) {
+    if (!token?.mesh || _pendingFilters.has(token.id)) continue;
+    const filter = new Color();
+    filter.padding = 0;
+    filter[PENDING] = true;
+    _pendingFilters.set(token.id, filter);
+    token.mesh.filters = [...(token.mesh.filters ?? []), filter];
+  }
+
+  if (_pendingFilters.size && !_pendingTicker) {
+    _pendingTicker = _pendingStep;
+    canvas.app.ticker.add(_pendingTicker);
+  }
+}
+
+export function clearDeathPending(tokens = null) {
+  const ids = tokens ? [...tokens].map((t) => t?.id).filter(Boolean) : [..._pendingFilters.keys()];
+
+  
+  for (const id of _pendingFilters.keys()) {
+    const token = canvas?.tokens?.get(id);
+    if (!token?.mesh || isDeadLooking(token)) ids.push(id);
+  }
+
+  for (const id of new Set(ids)) {
+    const filter = _pendingFilters.get(id);
+    _pendingFilters.delete(id);
+    const mesh = canvas?.tokens?.get(id)?.mesh;
+
+    if (mesh?.filters?.length) mesh.filters = mesh.filters.filter((f) => !f?.[PENDING]);
+    filter?.destroy?.();
+  }
+
+  if (!_pendingFilters.size && _pendingTicker) {
+    canvas.app.ticker.remove(_pendingTicker);
+    _pendingTicker = null;
+    _pendingPhase = 0;
+  }
 }
 
 async function _migrateStoredDeathLook() {
@@ -188,7 +271,7 @@ async function _migrateStoredDeathLook() {
 export function registerDeathVisuals() {
   Hooks.on('drawToken', syncDeathVisual);
   Hooks.on('refreshToken', syncDeathVisual);
-  Hooks.on('canvasReady', resyncDeathVisuals);
+  Hooks.on('canvasReady', () => { clearDeathPending(); resyncDeathVisuals(); });
 
   for (const hook of ['createActiveEffect', 'deleteActiveEffect']) {
     Hooks.on(hook, (effect, options, userId) => {

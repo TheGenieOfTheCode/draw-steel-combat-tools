@@ -2,7 +2,7 @@ import { getSetting, getModuleApi, safeToggleStatusEffect, safeUpdate, getSquadG
 import { setRaisedDeadVisible, addPreviewToken, removePreviewToken, activateTokenLayer, clearPreviewTokens } from './defeated-token-visibility.mjs';
 import { applySquadLabels } from '../squad-labels.mjs';
 import { isDeathDeferred, isTokenDeathDeferred } from './defer-death.mjs';
-import { animateDeathVisual, deathVisualSettled, syncDeathVisual } from './death-visuals.mjs';
+import { animateDeathVisual, deathVisualSettled, syncDeathVisual, markDeathPending, clearDeathPending } from './death-visuals.mjs';
 import { beginPickerOverlay, endPickerOverlay, setPickerTarget, removePickerTarget, clearPickerArrows } from '../ability-automation/picker-overlay.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -1711,11 +1711,12 @@ export function registerDeathTrackerHooks() {
       return;
     }
 
-    const applying = dstdStillApplying();
+    const applying = _impatient.has(group.id) ? null : dstdStillApplying();
     if (applying) {
       deferSquadReconcile(group, applying);
       return;
     }
+
 
     const newHp = changes.system?.staminaValue ?? changes.system?.stamina?.value;
     if (dbg) console.log('DSCT | DT | newHp', newHp, 'group.type', group.type);
@@ -1880,28 +1881,40 @@ export function registerDeathTrackerHooks() {
 
   
   
-  const RECONCILE_MS = 900;
-  const RECONCILE_MAX_WAITS = 60;
+  const RECONCILE_MS = 1100;
+  const RECONCILE_MAX_WAITS = 30;
   const _reconcileTimers = new Map();
   const _reconcileWaits = new Map();
 
+  const livingTokensOf = (group) => Array.from(group?.members ?? [])
+    .filter(m => m?.actor?.system?.isMinion && !m.actor.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead'))
+    .map(m => m.token?.object)
+    .filter(Boolean);
+
   const scheduleSquadReconcile = (group, { delay = RECONCILE_MS } = {}) => {
     if (!group?.id) return;
+    markDeathPending(livingTokensOf(group));
     clearTimeout(_reconcileTimers.get(group.id));
     _reconcileTimers.set(group.id, setTimeout(() => {
       _reconcileTimers.delete(group.id);
       const live = game.combat?.groups?.get(group.id);
-      if (!live) { _reconcileWaits.delete(group.id); return; }
+      if (!live) { _reconcileWaits.delete(group.id); clearDeathPending(livingTokensOf(group)); return; }
       _onSquadPoolChanged(live, { system: { staminaValue: live.system?.staminaValue } }, {});
     }, delay));
   };
 
   
+  
+
+  const _impatient = new Set();
+
   const deferSquadReconcile = (group, why) => {
     const waits = (_reconcileWaits.get(group.id) ?? 0) + 1;
     if (waits > RECONCILE_MAX_WAITS) {
       _reconcileWaits.delete(group.id);
-      console.warn(`DSCT | DT | squad reconcile gave up waiting on ${why} for "${group.name ?? group.id}"`);
+      _impatient.add(group.id);
+      console.warn(`DSCT | DT | squad reconcile stopped waiting on ${why} for "${group.name ?? group.id}" and is settling the toll from the pool as it stands`);
+      scheduleSquadReconcile(group, { delay: 50 });
       return;
     }
     _reconcileWaits.set(group.id, waits);
@@ -1909,12 +1922,15 @@ export function registerDeathTrackerHooks() {
     scheduleSquadReconcile(group);
   };
 
-  const clearSquadReconcileWaits = (group) => _reconcileWaits.delete(group?.id);
+  const clearSquadReconcileWaits = (group) => {
+    _reconcileWaits.delete(group?.id);
+    _impatient.delete(group?.id);
+    clearDeathPending(livingTokensOf(group));
+  };
 
   
   const DSTD = 'draw-steel-target-damage';
   const dstdStillApplying = () => {
-    
     for (const msg of game.messages.contents.slice(-25)) {
       const state = msg?.flags?.[DSTD]?.state;
       const targets = state?.targets?.length ?? 0;
@@ -1924,6 +1940,8 @@ export function registerDeathTrackerHooks() {
     }
     return null;
   };
+
+  
 
   Hooks.on('updateCombatantGroup', (group, changes, options) => {
     if (isOurTransition(options)) return;
