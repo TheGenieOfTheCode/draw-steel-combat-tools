@@ -170,3 +170,44 @@ export const toggleHideDefeated = async () => {
   await game.user.setFlag(M, 'hideDefeated', next);
   refreshDefeatedVisibility();
 };
+
+const REVIVE_HL = 'dsct-hover-preview-hl';
+
+export const installRevivalHoverPreview = (el, getTokenIds) => {
+  let shown = [];
+
+  el.addEventListener('mouseenter', () => {
+    shown = (getTokenIds() ?? []).filter(id => canvas?.tokens?.get(id));
+    if (!shown.length) return;
+
+    for (const id of shown) addPreviewToken(id);
+    activateTokenLayer();
+
+    const grid = canvas.interface.grid;
+    if (!grid.highlightLayers?.[REVIVE_HL]) grid.addHighlightLayer(REVIVE_HL);
+    grid.clearHighlightLayer(REVIVE_HL);
+
+    for (const id of shown) {
+      const t = canvas.tokens.get(id);
+      if (!t) continue;
+      const w = Math.max(1, Math.round(t.document.width));
+      const h = Math.max(1, Math.round(t.document.height));
+      for (let dx = 0; dx < w; dx++) {
+        for (let dy = 0; dy < h; dy++) {
+          grid.highlightPosition(REVIVE_HL, {
+            x: Math.floor(t.x / canvas.grid.size) * canvas.grid.size + (dx * canvas.grid.size),
+            y: Math.floor(t.y / canvas.grid.size) * canvas.grid.size + (dy * canvas.grid.size),
+            color: 0x00FF00, border: 0x00AA00,
+          });
+        }
+      }
+    }
+  });
+
+  el.addEventListener('mouseleave', () => {
+    for (const id of shown) removePreviewToken(id);
+    shown = [];
+    activateTokenLayer();
+    if (canvas.interface?.grid?.highlightLayers?.[REVIVE_HL]) canvas.interface.grid.clearHighlightLayer(REVIVE_HL);
+  });
+};

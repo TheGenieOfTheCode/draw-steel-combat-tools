@@ -2901,3 +2901,31 @@ label.checkbox.dsct-adv-ignored { opacity: 0.5; text-decoration: line-through; }
   0%, 100% { box-shadow: none; }
   15%, 60% { box-shadow: 0 0 0 2px var(--color-shadow-primary, #ff6400); }
 }
+
+.dsct-revives {
+  position: relative;
+  border-color: rgba(176, 132, 36, 0.95) !important;
+  animation: dsctRevivesGlow 2.4s ease-in-out infinite;
+}
+.dsct-revives:hover:not(:disabled) {
+  animation: none;
+  box-shadow: 0 0 0 1px rgba(160, 118, 28, 0.95), 0 0 10px 2px rgba(243, 206, 100, 0.85), inset 0 0 6px rgba(243, 206, 100, 0.4);
+}
+
+@keyframes dsctRevivesGlow {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(160, 118, 28, 0.55), 0 0 5px 1px rgba(226, 186, 76, 0.4), inset 0 0 4px rgba(226, 186, 76, 0.2); }
+  50%      { box-shadow: 0 0 0 1px rgba(160, 118, 28, 0.95), 0 0 9px 2px rgba(240, 202, 96, 0.75), inset 0 0 6px rgba(240, 202, 96, 0.35); }
+}
+
+.dsct-revives-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 13px;
+  height: 13px;
+  pointer-events: none;
+  background: linear-gradient(170deg, #fff3cd 0%, #f0c657 45%, #b8862b 100%);
+  -webkit-mask: url("../../../icons/svg/angel.svg") no-repeat center / contain;
+  mask: url("../../../icons/svg/angel.svg") no-repeat center / contain;
+  filter: drop-shadow(0 0 2px rgba(60, 40, 0, 0.75));
+}

@@ -7,7 +7,8 @@ import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced
 import { applyGrab, runGrab, endGrab } from '../conditions/grab.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
-import { _addDamagedToken, reviveTokens } from '../death-tracker/death-tracker.mjs';
+import { _addDamagedToken, reviveTokens, deathGroupFor, dstdRowSignature } from '../death-tracker/death-tracker.mjs';
+import { installRevivalHoverPreview } from '../death-tracker/defeated-token-visibility.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
@@ -25,6 +26,81 @@ function _rowTargetDefeated(el) {
   const doc = fromUuidSync(key.replace(/__/g, '.'));
   return !!doc?.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead');
 }
+const REVIVE_CLASS = 'dsct-revives';
+const REVIVE_BADGE = 'dsct-revives-badge';
+
+function _undoWouldRevive(btn) {
+  if (btn.disabled) return null;
+  const key = btn.closest(DSTD_ROW)?.dataset?.targetKey;
+  if (!key || key === 'selected-token') return null;
+  const tokenId = fromUuidSync(key.replace(/__/g, '.'))?.id;
+  if (!tokenId) return null;
+  const ids = deathGroupFor(tokenId);
+  return ids.length ? ids : null;
+}
+
+function _dressRevivingButton(btn, ids) {
+  btn._dsctReviveIds = ids;
+
+  if (!btn.classList.contains(REVIVE_CLASS)) {
+    btn.classList.add(REVIVE_CLASS);
+    btn._dsctPlainTooltip = btn.dataset.tooltip ?? '';
+
+    const badge = document.createElement('span');
+    badge.className = REVIVE_BADGE;
+    btn.appendChild(badge);
+
+    
+    installRevivalHoverPreview(btn, () => btn._dsctReviveIds ?? []);
+  }
+
+  
+  const tally = new Map();
+  for (const id of ids) {
+    const name = canvas?.tokens?.get(id)?.name;
+    if (name) tally.set(name, (tally.get(name) ?? 0) + 1);
+  }
+  const names = [...tally].map(([name, n]) => (n > 1 ? `${name} x${n}` : name));
+  btn.dataset.tooltip = names.length
+    ? game.i18n.format('DSCT.tooltip.undoRevives', { names: names.join(', ') })
+    : game.i18n.localize('DSCT.tooltip.undoRevivesUnknown');
+}
+
+function _undressRevivingButton(btn) {
+  btn._dsctReviveIds = null;
+  btn.classList.remove(REVIVE_CLASS);
+  btn.querySelector(`.${REVIVE_BADGE}`)?.remove();
+  if (btn._dsctPlainTooltip !== undefined) btn.dataset.tooltip = btn._dsctPlainTooltip;
+}
+
+function _markRevivingUndoButtons(panel) {
+  const everyone = new Set();
+
+  for (const btn of panel.querySelectorAll(`${DSTD_ROW} [data-dstd-action="undoDamage"]`)) {
+    const ids = _undoWouldRevive(btn);
+    if (ids) {
+      for (const id of ids) everyone.add(id);
+      _dressRevivingButton(btn, ids);
+    } else if (btn.classList.contains(REVIVE_CLASS)) {
+      _undressRevivingButton(btn);
+    }
+  }
+
+  const undoAll = panel.querySelector(`.dsct-dstd-global-row .${DSTD}-undo-button`);
+  if (!undoAll) return;
+  if (!undoAll.disabled && everyone.size) _dressRevivingButton(undoAll, [...everyone]);
+  else if (undoAll.classList.contains(REVIVE_CLASS)) _undressRevivingButton(undoAll);
+}
+
+let _remarkTimer = null;
+
+function remarkRevivingUndoButtons() {
+  clearTimeout(_remarkTimer);
+  _remarkTimer = setTimeout(() => {
+    for (const panel of document.querySelectorAll(DSTD_PANEL)) _markRevivingUndoButtons(panel);
+  }, 250);
+}
+
 const M          = 'draw-steel-combat-tools';
 
 const _fmState = new Map();
@@ -155,6 +231,14 @@ async function _handleAoeTargeting(region) {
 
 export function registerDstdCompat() {
   const dbg = getSetting('debugMode');
+
+  
+  for (const hook of ['createActiveEffect', 'deleteActiveEffect']) {
+    Hooks.on(hook, (effect) => {
+      if (!effect?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead')) return;
+      remarkRevivingUndoButtons();
+    });
+  }
 
   
   
@@ -361,6 +445,18 @@ function _installUndoDeathHook(root) {
   const dbg = getSetting('debugMode');
 
   root.addEventListener('click', (e) => {
+    
+    
+    
+    const rowBtn = e.target.closest('[data-dstd-action="applyDamage"], [data-dstd-action="undoDamage"]');
+    if (rowBtn?.closest(DSTD_PANEL)) {
+      const messageId = rowBtn.closest('li.chat-message')?.dataset?.messageId ?? null;
+      const message = messageId ? game.messages.get(messageId) : null;
+      if (message) {
+        window._dsctDstdRowPending = { messageId, signature: dstdRowSignature(message), at: Date.now() };
+      }
+    }
+
     if (getSetting('deathTrackerEnabled') && getSetting('overrideMinionDefeat')) {
       const applyBtn = e.target.closest('[data-dstd-action="applyDamage"]');
       if (applyBtn?.closest(DSTD_PANEL)) {
@@ -474,6 +570,12 @@ function _installGlobalDamageButtons(panel, message) {
 
   
   const _clickSequentially = async (getBtn) => {
+    window._dsctApplyAllRunning = (window._dsctApplyAllRunning ?? 0) + 1;
+    try { await _clickEachRow(getBtn); }
+    finally { window._dsctApplyAllRunning = Math.max(0, (window._dsctApplyAllRunning ?? 1) - 1); }
+  };
+
+  const _clickEachRow = async (getBtn) => {
     const processed = new Set();
     while (true) {
       const li = msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`);
@@ -1215,6 +1317,7 @@ async function _injectFmButtons(message, root) {
         if (_rowTargetDefeated(btn)) btn.disabled = true;
       }
     }
+    _markRevivingUndoButtons(panel);
   }
 
   const parts       = _getMessageParts(message);

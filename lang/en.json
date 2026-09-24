@@ -1552,7 +1552,9 @@
       }
     },
     "tooltip": {
-      "shiftStartCombat": "Shift-Click to Override Saved Squad Labels Rename Preference"
+      "shiftStartCombat": "Shift-Click to Override Saved Squad Labels Rename Preference",
+      "undoRevives": "Undoing this revives {names}",
+      "undoRevivesUnknown": "Undoing this revives the fallen"
     },
     "dialog": {
       "peek": {

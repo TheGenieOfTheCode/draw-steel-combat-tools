@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi, safeToggleStatusEffect, safeUpdate, getSquadGroup, MATERIAL_ICONS, safeCreateEmbedded, safeDelete, tokenAt, toGrid, chooseFreeSquare } from '../helpers.mjs';
-import { setRaisedDeadVisible, addPreviewToken, removePreviewToken, activateTokenLayer, clearPreviewTokens } from './defeated-token-visibility.mjs';
+import { setRaisedDeadVisible, activateTokenLayer, clearPreviewTokens, installRevivalHoverPreview } from './defeated-token-visibility.mjs';
 import { applySquadLabels } from '../squad-labels.mjs';
 import { isDeathDeferred, isTokenDeathDeferred } from './defer-death.mjs';
 import { animateDeathVisual, deathVisualSettled, syncDeathVisual, markDeathPending, clearDeathPending } from './death-visuals.mjs';
@@ -57,6 +57,26 @@ export const mayUndoDeath = (cause, user = game.user) => {
   return !!cause?.userId && cause.userId === user?.id;
 };
 
+
+
+export const deathGroupFor = (tokenId) => {
+  const defeatedId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+  const stillDown = (id) => !!canvas?.tokens?.get(id)?.actor?.statuses?.has(defeatedId);
+  if (!stillDown(tokenId)) return [];
+
+  const group = window._dsctDeathGroups?.get(tokenId);
+  if (group) {
+    const ids = [...group].filter(stillDown);
+    if (ids.length) return ids;
+  }
+
+  
+  for (const msg of game.messages.contents.slice(-30).reverse()) {
+    const ids = msg.getFlag(M, 'deadTokenIds');
+    if (ids?.includes(tokenId)) return ids.filter(stillDown);
+  }
+  return [tokenId];
+};
 
 const TRANSITION = 'dsctTransition';
 let _transitionSeq = 0;
@@ -1225,12 +1245,21 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
   const hlName = 'dsct-manual-pick-hl';
   if (canvas.interface.grid.highlightLayers[hlName]) canvas.interface.grid.destroyHighlightLayer(hlName);
   canvas.interface.grid.addHighlightLayer(hlName);
+
+  
+  for (const orphan of window._dsctPickLayers ?? []) {
+    orphan.parent?.removeChild(orphan);
+    orphan.destroy({ children: true });
+  }
+
   const xContainer = new PIXI.Container();
   canvas.controls.addChild(xContainer);
 
   const dimXContainer = new PIXI.Container();
   dimXContainer.alpha = 0.1;
   canvas.controls.addChild(dimXContainer);
+
+  window._dsctPickLayers = [xContainer, dimXContainer];
 
   let _dpT = 0;
   const _dpTicker = () => {
@@ -1363,6 +1392,7 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
     xContainer.destroy({ children: true });
     dimXContainer.parent?.removeChild(dimXContainer);
     dimXContainer.destroy({ children: true });
+    if (window._dsctPickLayers?.[0] === xContainer) window._dsctPickLayers = null;
     canvas.stage.off('mousedown', onClick);
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('contextmenu', onContextMenu);
@@ -1444,24 +1474,94 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
 });
 
 
+const DSTD_MODULE = 'draw-steel-target-damage';
+
+
+const DSTD_ROW_GRACE_MS = 2000;
+
+export const dstdRowSignature = (message) => {
+  const state = message?.flags?.[DSTD_MODULE]?.state;
+  if (!state) return null;
+  let applied = 0;
+  let undone = 0;
+  for (const [id, a] of Object.entries(state.applications ?? {})) {
+    if (!a || !(a.kind === 'damage' || a.kind === 'healing' || /^(damage|healing)-/.test(id))) continue;
+    if (a.status === 'applied') applied++;
+    else if (a.status === 'undone') undone++;
+  }
+  return `${applied}/${undone}`;
+};
+
+const dstdStillApplying = () => {
+  if (window._dsctApplyAllRunning > 0) return 'an Apply All sweep';
+  const pending = window._dsctDstdRowPending;
+  if (pending) {
+    const stale = Date.now() - pending.at >= DSTD_ROW_GRACE_MS;
+    const landed = dstdRowSignature(game.messages.get(pending.messageId)) !== pending.signature;
+    if (stale || landed) window._dsctDstdRowPending = null;
+    else return 'a row that has just been pressed';
+  }
+
+  for (const msg of game.messages.contents.slice(-25)) {
+    const state = msg?.flags?.[DSTD_MODULE]?.state;
+    const targets = state?.targets?.length ?? 0;
+    if (!targets) continue;
+
+    
+    const rows = Object.entries(state.applications ?? {})
+      .filter(([id, a]) => a && (a.kind === 'damage' || a.kind === 'healing' || /^(damage|healing)-/.test(id)))
+      .map(([, a]) => a.status);
+    if (!rows.length) continue;
+
+    const applied = rows.filter(st => st === 'applied').length;
+    const undone = rows.filter(st => st === 'undone').length;
+    const midPass = (applied > 0 && undone > 0) || rows.length < targets;
+    if (midPass) return `"${msg.flavor || 'a damage card'}" still applying (${applied}/${targets})`;
+  }
+  return null;
+};
+
 const _MANUAL_KILL_ACCUM_MS = 100;
 
-const _flushManualKillAccumulator = async () => {
-  
-  
-  if (window._dsctPendingSquadTimers?.size > 0) {
-    const acc = window._dsctManualKillAccumulator;
-    if (acc) { clearTimeout(acc.timer); acc.timer = setTimeout(_flushManualKillAccumulator, _MANUAL_KILL_ACCUM_MS); }
-    return;
+
+
+
+const _liveContext = (ctx) => {
+  const defeatedId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+  const standing = (id) => {
+    const actor = canvas.tokens.get(id)?.actor;
+    return !!actor && !actor.statuses?.has(defeatedId);
+  };
+  const poolTokenIds = new Set([...ctx.poolTokenIds].filter(standing));
+  if (!poolTokenIds.size) return null;
+
+  const group = ctx.groupId ? game.combat?.groups?.get(ctx.groupId) : null;
+  let numToKill = ctx.numToKill;
+  if (group) {
+    const living = Array.from(group.members ?? [])
+      .filter(m => m?.actor?.system?.isMinion && !m.actor.statuses?.has(defeatedId));
+    const indivHP = living[0]?.actor?.system?.stamina?.max || 1;
+    const pool = Math.max(0, group.system?.staminaValue ?? 0);
+    numToKill = Math.max(0, living.length - Math.ceil(pool / indivHP));
   }
+  numToKill = Math.min(numToKill, poolTokenIds.size);
+  if (numToKill <= 0) return null;
+
+  const lockedIds = new Set([...ctx.lockedIds].filter(id => poolTokenIds.has(id)));
+  const preSelectedIds = new Set([...ctx.preSelectedIds].filter(id => poolTokenIds.has(id)));
+  return { ...ctx, poolTokenIds, lockedIds, preSelectedIds, numToKill };
+};
+
+const _runManualKillFlush = async () => {
   const a = window._dsctManualKillAccumulator;
   window._dsctManualKillAccumulator = null;
   if (!a) return;
   const finalTokenIds = new Set(a.tokenIds);
   if (getSetting('deathTrackerManualMode')) {
     
-    if (a.pickerContexts.length > 0) {
-      const contexts = a.pickerContexts.map((ctx, i) => ({ ...ctx, color: _SQUAD_COLORS[i % _SQUAD_COLORS.length] }));
+    const liveContexts = a.pickerContexts.map(_liveContext).filter(Boolean);
+    if (liveContexts.length > 0) {
+      const contexts = liveContexts.map((ctx, i) => ({ ...ctx, color: _SQUAD_COLORS[i % _SQUAD_COLORS.length] }));
       
       const pickerUserId  = resolvePickerUserId();
       let picked;
@@ -1539,11 +1639,19 @@ const _flushManualKillAccumulator = async () => {
       }
       if (!picked) {
         ui.notifications.warn(game.i18n.localize('DSCT.notice.dt.pickDeathsCancelled'));
+        if (!window._dsctDeclinedDeaths) window._dsctDeclinedDeaths = new Map();
+        for (const id of [...window._dsctDeclinedDeaths.keys()]) {
+          if (!game.combat?.groups?.get(id)) window._dsctDeclinedDeaths.delete(id);
+        }
+        for (const ctx of contexts) {
+          const live = ctx.groupId ? game.combat?.groups?.get(ctx.groupId) : null;
+          if (live) window._dsctDeclinedDeaths.set(ctx.groupId, live.system?.staminaValue ?? null);
+        }
         return;
       }
       for (const id of picked) finalTokenIds.add(id);
     } else {
-      for (const ctx of a.pickerContexts) {
+      for (const ctx of a.pickerContexts.map(_liveContext).filter(Boolean)) {
         for (const id of ctx.lockedIds)      finalTokenIds.add(id);
         for (const id of ctx.preSelectedIds) finalTokenIds.add(id);
       }
@@ -1552,6 +1660,26 @@ const _flushManualKillAccumulator = async () => {
     if (!finalTokenIds.size) return;
     await _doKillV3(finalTokenIds, { skipHpCorrection: true, showNotification: false });
   }
+};
+
+const _FLUSH_MAX_HOLDS = 60;
+let _flushHolds = 0;
+
+
+const _flushManualKillAccumulator = async () => {
+  const acc = window._dsctManualKillAccumulator;
+  const applying = acc?.pickerContexts?.length ? dstdStillApplying() : null;
+  const hold = window._dsctPendingSquadTimers?.size > 0 || window._dsctFlushBusy
+    || (applying && ++_flushHolds <= _FLUSH_MAX_HOLDS);
+  if (hold) {
+    if (acc) { clearTimeout(acc.timer); acc.timer = setTimeout(_flushManualKillAccumulator, _MANUAL_KILL_ACCUM_MS); }
+    return;
+  }
+  if (applying) console.warn(`DSCT | DT | kill flush stopped waiting on ${applying} and is asking now`);
+  _flushHolds = 0;
+  window._dsctFlushBusy = true;
+  try { await _runManualKillFlush(); }
+  finally { window._dsctFlushBusy = false; }
 };
 
 
@@ -1572,6 +1700,12 @@ const _queueManualPickerContext = (ctx, extraLines) => {
     window._dsctManualKillAccumulator = { tokenIds: new Set(), extraLines: [], pickerContexts: [] };
   }
   const acc = window._dsctManualKillAccumulator;
+  
+  
+  if (ctx.groupId) {
+    const at = acc.pickerContexts.findIndex(c => c.groupId === ctx.groupId);
+    if (at >= 0) acc.pickerContexts.splice(at, 1);
+  }
   acc.pickerContexts.push(ctx);
   acc.extraLines.push(...extraLines);
   if (acc.timer) clearTimeout(acc.timer);
@@ -1771,6 +1905,19 @@ export function registerDeathTrackerHooks() {
     if (newHp === undefined) return;
     if (group.type !== 'squad') return;
 
+    
+    
+    const declinedAt = window._dsctDeclinedDeaths?.get(group.id);
+    if (declinedAt !== undefined) {
+      const pool = group.system?.staminaValue ?? null;
+      if (declinedAt === pool) {
+        if (dbg) console.log(`DSCT | DT | "${group.name}" was left standing at ${pool}, not asking again`);
+        clearDeathPending(livingTokensOf(group));
+        return;
+      }
+      window._dsctDeclinedDeaths.delete(group.id);
+    }
+
     if (!window._squadDeathLocks) window._squadDeathLocks = new Set();
     if (window._squadDeathLocks.has(group.id)) { deferSquadReconcile(group, 'its own squad lock'); return; }
     window._squadDeathLocks.add(group.id);
@@ -1877,6 +2024,7 @@ export function registerDeathTrackerHooks() {
           poolTokenIds:   new Set(eligibleDamaged),
           numToKill:      killCount,
           groupName,
+          groupId:        group.id,
         }, extraLines);
         return;
       }
@@ -1892,6 +2040,7 @@ export function registerDeathTrackerHooks() {
         poolTokenIds:   new Set(pickable.map(m => m.tokenId).filter(Boolean)),
         numToKill:      killCount,
         groupName,
+        groupId:        group.id,
       }, extraLines);
     };
 
@@ -1920,10 +2069,11 @@ export function registerDeathTrackerHooks() {
       window._squadBreakpointPolls.set(group.id, poll);
     } else {
       
+      
       window._squadBreakpointPolls.set(group.id, setTimeout(async () => {
         await processDeath();
         window._dsctPendingSquadTimers?.delete(group.id);
-      }, 500));
+      }, 50));
     }
   };
 
@@ -1939,9 +2089,23 @@ export function registerDeathTrackerHooks() {
     .map(m => m.token?.object)
     .filter(Boolean);
 
+  
+  const squadOwesDeaths = (group) => {
+    const living = livingTokensOf(group);
+    if (!living.length) return 0;
+    const indivHP = living[0].actor?.system?.stamina?.max || 1;
+    const pool = Math.max(0, group?.system?.staminaValue ?? 0);
+    return Math.max(0, living.length - Math.ceil(pool / indivHP));
+  };
+
+  const syncDeathPulse = (group) => {
+    if (squadOwesDeaths(group) > 0) markDeathPending(livingTokensOf(group));
+    else clearDeathPending(livingTokensOf(group));
+  };
+
   const scheduleSquadReconcile = (group, { delay = RECONCILE_MS } = {}) => {
     if (!group?.id) return;
-    markDeathPending(livingTokensOf(group));
+    syncDeathPulse(group);
     clearTimeout(_reconcileTimers.get(group.id));
     _reconcileTimers.set(group.id, setTimeout(() => {
       _reconcileTimers.delete(group.id);
@@ -1956,7 +2120,14 @@ export function registerDeathTrackerHooks() {
 
   const _impatient = new Set();
 
+  const _reconcileWhy = new Map();
+
   const deferSquadReconcile = (group, why) => {
+    
+    if (_reconcileWhy.get(group.id) !== why) {
+      _reconcileWhy.set(group.id, why);
+      _reconcileWaits.set(group.id, 0);
+    }
     const waits = (_reconcileWaits.get(group.id) ?? 0) + 1;
     if (waits > RECONCILE_MAX_WAITS) {
       _reconcileWaits.delete(group.id);
@@ -1972,22 +2143,13 @@ export function registerDeathTrackerHooks() {
 
   const clearSquadReconcileWaits = (group) => {
     _reconcileWaits.delete(group?.id);
+    _reconcileWhy.delete(group?.id);
     _impatient.delete(group?.id);
-    clearDeathPending(livingTokensOf(group));
+    syncDeathPulse(group);
   };
 
   
-  const DSTD = 'draw-steel-target-damage';
-  const dstdStillApplying = () => {
-    for (const msg of game.messages.contents.slice(-25)) {
-      const state = msg?.flags?.[DSTD]?.state;
-      const targets = state?.targets?.length ?? 0;
-      if (!targets) continue;
-      const done = Object.values(state.applications ?? {}).filter(a => a?.status === 'applied').length;
-      if (done < targets) return `"${msg.flavor || 'a damage card'}" still applying (${done}/${targets})`;
-    }
-    return null;
-  };
+
 
   
 
@@ -2234,33 +2396,7 @@ export function registerDeathTrackerHooks() {
         await _doReviveV3({ tokenIds: new Set(deadTokenIds) });
       }
     });
-    const hlName = 'dsct-hover-preview-hl';
-    btn.addEventListener('mouseenter', () => {
-      for (const id of deadTokenIds) addPreviewToken(id);
-      activateTokenLayer();
-      if (!canvas.interface.grid.highlightLayers?.[hlName]) canvas.interface.grid.addHighlightLayer(hlName);
-      canvas.interface.grid.clearHighlightLayer(hlName);
-      for (const id of deadTokenIds) {
-        const t = canvas.tokens.get(id);
-        if (!t) continue;
-        const w = Math.max(1, Math.round(t.document.width));
-        const h = Math.max(1, Math.round(t.document.height));
-        for (let dx = 0; dx < w; dx++) {
-          for (let dy = 0; dy < h; dy++) {
-            canvas.interface.grid.highlightPosition(hlName, {
-              x: Math.floor(t.x / canvas.grid.size) * canvas.grid.size + (dx * canvas.grid.size),
-              y: Math.floor(t.y / canvas.grid.size) * canvas.grid.size + (dy * canvas.grid.size),
-              color: 0x00FF00, border: 0x00AA00,
-            });
-          }
-        }
-      }
-    });
-    btn.addEventListener('mouseleave', () => {
-      for (const id of deadTokenIds) removePreviewToken(id);
-      activateTokenLayer();
-      if (canvas.interface.grid.highlightLayers?.[hlName]) canvas.interface.grid.clearHighlightLayer(hlName);
-    });
+    installRevivalHoverPreview(btn, () => deadTokenIds);
 
     let btnArea = el.querySelector('.message-part-buttons');
     if (!btnArea) {
@@ -2638,16 +2774,18 @@ const executeRevival = async (tokenId, { skipGroupHpUpdate = false } = {}) => {
 };
 
 export const cleanupPixi = () => {
-  const layers = ['dsct-hover-preview-hl', 'dsct-raise-dead-hl', 'dsct-pwk-hl', 'dsct-fm-undo-hl'];
+  const layers = ['dsct-hover-preview-hl', 'dsct-raise-dead-hl', 'dsct-pwk-hl', 'dsct-fm-undo-hl', 'dsct-manual-pick-hl'];
   for (const name of layers) {
     if (canvas.interface.grid.highlightLayers?.[name]) canvas.interface.grid.clearHighlightLayer(name);
   }
 
-  if (window._dsctPwkXContainer) {
-    window._dsctPwkXContainer.parent?.removeChild(window._dsctPwkXContainer);
-    window._dsctPwkXContainer.destroy({ children: true });
-    window._dsctPwkXContainer = null;
+  for (const container of [window._dsctPwkXContainer, ...(window._dsctPickLayers ?? [])]) {
+    if (!container) continue;
+    container.parent?.removeChild(container);
+    container.destroy({ children: true });
   }
+  window._dsctPwkXContainer = null;
+  window._dsctPickLayers = null;
 
   if (window._dsctPwkNotif) { ui.notifications.remove(window._dsctPwkNotif); window._dsctPwkNotif = null; }
   if (window._dsctRaiseDeadNotif) { ui.notifications.remove(window._dsctRaiseDeadNotif); window._dsctRaiseDeadNotif = null; }
@@ -2655,6 +2793,8 @@ export const cleanupPixi = () => {
   clearPickerArrows();
 
   window._pwkActive = false;
+  window._dsctFlushBusy = false;
+  window._dsctDeclinedDeaths = null;
   window._pwkQueue = [];
   window._raiseDeadActive = false;
   setRaisedDeadVisible(false);
