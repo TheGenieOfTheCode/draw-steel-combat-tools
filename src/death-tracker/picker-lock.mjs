@@ -94,6 +94,19 @@ export function releasePickerLock() {
   ui.notifications.info(game.i18n.localize('DSCT.notice.dt.pickerLockReleased'));
 }
 
+export async function resyncPickerLock() {
+  const socket = getModuleApi(false)?.socket;
+  clearPickerLockLocal();
+
+  if (game.user.isGM) {
+    socket?.executeForOthers('dsct.clearPickerLock').catch(() => {});
+    return;
+  }
+  if (!socket) return;
+  const stillAsking = await socket.executeAsGM('dsct.queryPickerLock').catch(() => false);
+  if (stillAsking) setPickerLockLocal(true);
+}
+
 export function registerPickerLock() {
   document.addEventListener('click', _onClickCapture, { capture: true });
 
@@ -106,5 +119,5 @@ export function registerPickerLock() {
   });
 
   
-  Hooks.on('canvasReady', () => clearPickerLockLocal());
+  Hooks.on('canvasReady', () => { resyncPickerLock().catch(() => clearPickerLockLocal()); });
 }

@@ -201,6 +201,9 @@ const _pendingStep = () => {
   }
 };
 
+const _paintPending = () => document.body?.classList.toggle('dsct-death-pending', _pendingFilters.size > 0);
+
+export const deathSettlementPending = () => _pendingFilters.size > 0;
 export function markDeathPending(tokens) {
   const Color = _ColorMatrixFilter();
   if (!Color || !canvas?.ready) return;
@@ -214,6 +217,7 @@ export function markDeathPending(tokens) {
     token.mesh.filters = [...(token.mesh.filters ?? []), filter];
   }
 
+  _paintPending();
   if (_pendingFilters.size && !_pendingTicker) {
     _pendingTicker = _pendingStep;
     canvas.app.ticker.add(_pendingTicker);
@@ -238,6 +242,7 @@ export function clearDeathPending(tokens = null) {
     filter?.destroy?.();
   }
 
+  _paintPending();
   if (!_pendingFilters.size && _pendingTicker) {
     canvas.app.ticker.remove(_pendingTicker);
     _pendingTicker = null;

@@ -1569,6 +1569,11 @@ const syncDeathPulse = (group) => {
   else clearDeathPending(livingTokensOf(group));
 };
 
+
+let _forceSettleNow = null;
+
+export const resolveDeathsNow = () => _forceSettleNow?.() ?? false;
+
 const _MANUAL_KILL_ACCUM_MS = 100;
 
 
@@ -1731,7 +1736,9 @@ let _flushHolds = 0;
 
 const _flushManualKillAccumulator = async () => {
   const acc = window._dsctManualKillAccumulator;
-  const applying = acc?.pickerContexts?.length ? dstdStillApplying() : null;
+  
+  const asked = window._dsctSettleNow === true;
+  const applying = (!asked && acc?.pickerContexts?.length) ? dstdStillApplying() : null;
   const hold = window._dsctPendingSquadTimers?.size > 0 || window._dsctFlushBusy
     || (applying && ++_flushHolds <= _FLUSH_MAX_HOLDS);
   if (hold) {
@@ -1740,6 +1747,7 @@ const _flushManualKillAccumulator = async () => {
   }
   if (applying) console.warn(`DSCT | DT | kill flush stopped waiting on ${applying} and is asking now`);
   _flushHolds = 0;
+  window._dsctSettleNow = false;
   window._dsctFlushBusy = true;
   try { await _runManualKillFlush(); }
   finally { window._dsctFlushBusy = false; }
@@ -2197,6 +2205,28 @@ export function registerDeathTrackerHooks() {
 
 
   
+
+  _forceSettleNow = () => {
+    let stirred = false;
+    window._dsctSettleNow = true;
+
+    for (const [groupId, timer] of [..._reconcileTimers]) {
+      clearTimeout(timer);
+      _reconcileTimers.delete(groupId);
+      const live = game.combat?.groups?.get(groupId);
+      if (!live) continue;
+      
+      _impatient.add(groupId);
+      _reconcileWaits.delete(groupId);
+      stirred = true;
+      _onSquadPoolChanged(live, { system: { staminaValue: live.system?.staminaValue } }, {});
+    }
+
+    const acc = window._dsctManualKillAccumulator;
+    if (acc) { clearTimeout(acc.timer); stirred = true; _flushManualKillAccumulator(); }
+    if (!stirred) window._dsctSettleNow = false;
+    return stirred;
+  };
 
   Hooks.on('updateCombatantGroup', (group, changes, options) => {
     if (isOurTransition(options)) return;

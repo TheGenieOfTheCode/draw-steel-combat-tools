@@ -9,6 +9,8 @@ import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automa
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { _addDamagedToken, reviveTokens, deathGroupFor, dstdRowSignature } from '../death-tracker/death-tracker.mjs';
 import { installRevivalHoverPreview } from '../death-tracker/defeated-token-visibility.mjs';
+import { resolveDeathsNow } from '../death-tracker/death-tracker.mjs';
+import { releasePickerLock } from '../death-tracker/picker-lock.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
@@ -551,6 +553,42 @@ export async function runDstdUndoRevival(tokenUuid) {
   } finally {
     _dsctPendingRevival.delete(tokenUuid);
   }
+}
+
+
+function _installDirectorFooter(panel) {
+  if (!game.user.isGM) return;
+  panel.querySelector('.dsct-dt-footer')?.remove();
+
+  const footer = document.createElement('div');
+  footer.className = 'dsct-dt-footer';
+
+  const settle = document.createElement('button');
+  settle.type = 'button';
+  settle.className = DSTD + '-action-button dsct-dt-settle';
+  settle.append(_makeIcon('fa-solid fa-forward'));
+  settle.appendChild(document.createTextNode(' ' + game.i18n.localize('DSCT.button.settleDeathsNow')));
+  settle.dataset.tooltip = game.i18n.localize('DSCT.tooltip.settleDeathsNow');
+  settle.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!resolveDeathsNow()) ui.notifications.info(game.i18n.localize('DSCT.notice.dt.nothingToSettle'));
+  });
+
+  const release = document.createElement('button');
+  release.type = 'button';
+  release.className = DSTD + '-action-button dsct-dt-release';
+  release.append(_makeIcon('fa-solid fa-hand'));
+  release.appendChild(document.createTextNode(' ' + game.i18n.localize('DSCT.button.releasePicker')));
+  release.dataset.tooltip = game.i18n.localize('DSCT.tooltip.releasePicker');
+  release.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    releasePickerLock();
+  });
+
+  footer.append(settle, release);
+  panel.appendChild(footer);
 }
 
 function _installGlobalDamageButtons(panel, message) {
@@ -1308,6 +1346,7 @@ async function _injectFmButtons(message, root) {
     }
 
     _installGlobalDamageButtons(panel, message);
+    _installDirectorFooter(panel);
     if (!game.users.activeGM?.isSelf && !getSetting('playerCanUndoCausedDeaths')) {
       for (const btn of panel.querySelectorAll('[data-dstd-action="undoDamage"]')) {
         if (_rowTargetDefeated(btn)) btn.disabled = true;

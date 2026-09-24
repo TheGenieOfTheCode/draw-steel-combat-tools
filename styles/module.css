@@ -2944,3 +2944,34 @@ body.dsct-picker-lock .dsct-undo-death {
   margin: 0 0 6px;
   font-style: italic;
 }
+
+.dsct-dt-footer {
+  display: none;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 4px;
+  background: rgba(128, 128, 128, 0.08);
+}
+
+body.dsct-death-pending:not(.dsct-damage-flowing) .dsct-dt-footer,
+body.dsct-picker-lock .dsct-dt-footer {
+  display: flex;
+}
+
+.dsct-dt-footer .dsct-dt-settle,
+.dsct-dt-footer .dsct-dt-release {
+  display: none;
+  flex: 1;
+}
+
+body.dsct-death-pending:not(.dsct-picker-lock):not(.dsct-damage-flowing) .dsct-dt-footer .dsct-dt-settle {
+  display: inline-flex;
+}
+
+body.dsct-picker-lock .dsct-dt-footer .dsct-dt-release {
+  display: inline-flex;
+  border-color: rgba(198, 92, 92, 0.6);
+  background: rgba(198, 92, 92, 0.14);
+}

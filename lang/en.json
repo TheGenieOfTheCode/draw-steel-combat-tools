@@ -1553,6 +1553,8 @@
     },
     "tooltip": {
       "shiftStartCombat": "Shift-Click to Override Saved Squad Labels Rename Preference",
+      "settleDeathsNow": "Stop waiting for the rest of the damage and settle this squad now",
+      "releasePicker": "Close any open death picker and unlock damage for everyone",
       "undoRevives": "Undoing this revives {names}",
       "undoRevivesUnknown": "Undoing this revives the fallen"
     },
@@ -1733,6 +1735,7 @@
       "dt": {
         "lockedByPicker": "A death picker is open. Damage is locked until it is answered.",
       "pickerLockReleased": "Death picker released and damage unlocked.",
+      "nothingToSettle": "No deaths are waiting to be settled.",
       "gmOnly": "Revive is a GM-only tool.",
         "noSkulls": "No defeated creatures found.",
         "noDefeated": "No defeated creatures on the board.",
@@ -1909,6 +1912,7 @@
     "button": {
       "undo": "Undo",
       "releasePicker": "Release the Death Picker",
+      "settleDeathsNow": "Settle Deaths Now",
       "acceptEscape": "Accept Escape",
       "stayGrabbed": "Stay Grabbed",
       "undoBleeding": "Undo Bleeding",

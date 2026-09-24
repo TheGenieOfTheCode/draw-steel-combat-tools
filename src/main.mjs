@@ -46,7 +46,7 @@ import { registerSettings, registerCompatibilityChecks } from './settings/regist
 import { registerSystemPatches } from './system-patches.mjs';
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, queueDstdUndoRevival, markPendingRevival, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
-import { registerPickerLock, setPickerLockLocal, clearPickerLockLocal, releasePickerLock } from './death-tracker/picker-lock.mjs';
+import { registerPickerLock, setPickerLockLocal, clearPickerLockLocal, releasePickerLock, isPickerLocked } from './death-tracker/picker-lock.mjs';
 import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
 import {
   registerDstdDamagePills, openDamageEditor, foldDamagePills, damagePillDisplayList,
@@ -538,6 +538,7 @@ Hooks.once('socketlib.ready', () => {
   socket.register('dsct.dstdPendingRevival', (tokenUuid) => { markPendingRevival(tokenUuid); });
   socket.register('dsct.setPickerLock',      (active) => setPickerLockLocal(active));
   socket.register('dsct.clearPickerLock',    () => clearPickerLockLocal());
+  socket.register('dsct.queryPickerLock',    () => isPickerLocked());
   socket.register('dsct.fmRowExecuting', (stateKey, executing) => setFmRowRemoteExecuting(stateKey, executing));
 
   socket.register('dsct.injectJudgementBane', ({ actorId, tokenId }) => {

@@ -1582,6 +1582,13 @@ export const applyRollMod = (el, baneData, delta) => {
 
 export const damageBatch = async (fn) => {
   window._dsctDamageBatchDepth = (window._dsctDamageBatchDepth ?? 0) + 1;
+  _paintDamageFlowing();
   try { return await fn(); }
-  finally { window._dsctDamageBatchDepth = Math.max(0, (window._dsctDamageBatchDepth ?? 1) - 1); }
+  finally {
+    window._dsctDamageBatchDepth = Math.max(0, (window._dsctDamageBatchDepth ?? 1) - 1);
+    _paintDamageFlowing();
+  }
 };
+
+const _paintDamageFlowing = () =>
+  document.body?.classList.toggle('dsct-damage-flowing', (window._dsctDamageBatchDepth ?? 0) > 0);
