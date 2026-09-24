@@ -270,7 +270,7 @@
     "format": 1,
     "content": "<p><strong>Death Deferred</strong> keeps a creature from dying while it lasts. The creature can sit at 0 Stamina, holding its token, its effects and its place in the initiative order, until the status is removed or disabled. Taking it off asks the question again: if the creature should have died, it dies then.</p><p>It exists for the handful of abilities that step in at the moment somebody would die. The Devil Defector offers a dying enemy their life back at 1 Stamina in exchange for a debt; the War Dog Ground Commander sends a soldier reduced to 0 on one last errand before they fall; a Conduit reaches a creature in the instant before death. It is just as useful by hand, for any scene where somebody should die on a cue rather than on the arithmetic.</p><h2>Minions and squads</h2><p>A squad does not lose minions one at a time. Its stamina pool takes the damage and the squad then owes a number of deaths, which is why only the last minion standing ever reaches 0 Stamina alone.</p><p>So a deferred minion is taken <em>out of the running</em> rather than taken off the bill. The squad still loses the same number of minions; they simply fall elsewhere. Only one minion in a squad can carry the status at a time, because holding two back starts eating into that arithmetic. If the squad owes more deaths than it has other bodies to give, the deferred minion is left standing alone at 0.</p>"
    },
-   "_key": "!journal.pages!DSCTrulesJournal.DSCTruleCleanse0"
+   "_key": "!journal.pages!DSCTrulesJournal.DSCTruleDeferDth"
   }
  ],
  "folder": null,

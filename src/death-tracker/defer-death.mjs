@@ -4,6 +4,8 @@ const M = 'draw-steel-combat-tools';
 
 export const DEFER_DEATH = 'dsctDeferDeath';
 
+const RULES = 'Compendium.draw-steel-combat-tools.rules.JournalEntry.DSCTrulesJournal.JournalEntryPage.';
+
 const _status = () => ({
   id: DEFER_DEATH,
   _id: DEFER_DEATH.padEnd(16, '0'),
@@ -11,12 +13,21 @@ const _status = () => ({
   name: 'DSCT.status.deferDeath',
   img: 'icons/svg/angel.svg',
   description: game.i18n.localize('DSCT.status.deferDeathDescription'),
+  rule: `${RULES}DSCTruleDeferDth`,
 });
 
 export function registerDeferDeath() {
   if (!getSetting('deathTrackerEnabled')) return;
   
   Hooks.once('i18nInit', () => { CONFIG.statusEffects[DEFER_DEATH] = _status(); });
+
+  Hooks.once('ready', async () => {
+    const status = CONFIG.statusEffects?.[DEFER_DEATH];
+    if (!status?.rule) return;
+    if (await fromUuid(status.rule).catch(() => null)) return;
+    console.warn(`DSCT | defer death | rules page missing, tooltip disabled: ${status.rule}`);
+    delete status.rule;
+  });
   registerDefeatBlock();
   registerReleaseRecheck();
 

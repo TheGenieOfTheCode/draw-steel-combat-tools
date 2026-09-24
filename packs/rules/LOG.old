@@ -1,5 +1,0 @@
-2026/09/22-17:04:42.357 247c Delete type=3 #1
-2026/09/22-17:04:42.361 9a6c Level-0 table #5: started
-2026/09/22-17:04:42.366 9a6c Level-0 table #5: 5788 bytes OK
-2026/09/22-17:04:42.367 9a6c Delete type=0 #3
-2026/09/22-17:04:42.367 9a6c Manual compaction at level-0 from '!journal!DSCTrulesJournal' @ 72057594037927935 : 1 .. '!journal.pages!DSCTrulesJournal.DSCTruleSneakPth' @ 0 : 0; will stop at (end)
