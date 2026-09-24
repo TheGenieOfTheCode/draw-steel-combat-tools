@@ -1731,7 +1731,9 @@
         "appliedToCount": "Applied to {count} target{s}."
       },
       "dt": {
-        "gmOnly": "Revive is a GM-only tool.",
+        "lockedByPicker": "A death picker is open. Damage is locked until it is answered.",
+      "pickerLockReleased": "Death picker released and damage unlocked.",
+      "gmOnly": "Revive is a GM-only tool.",
         "noSkulls": "No defeated creatures found.",
         "noDefeated": "No defeated creatures on the board.",
         "reviveInstruction": "REVIVE | Click skulls to select them, press ENTER to revive, or Right-Click to cancel.",
@@ -1906,6 +1908,7 @@
     },
     "button": {
       "undo": "Undo",
+      "releasePicker": "Release the Death Picker",
       "acceptEscape": "Accept Escape",
       "stayGrabbed": "Stay Grabbed",
       "undoBleeding": "Undo Bleeding",
@@ -1945,7 +1948,8 @@
         "destroyed": "<strong>{name}</strong> was destroyed.",
         "fallenMultiple": "{names} have fallen.",
         "destroyedMultiple": "{names} were destroyed.",
-        "undoFromCard": "Undo from the damage card"
+        "undoFromCard": "Undo from the damage card",
+      "pickerStuckNote": "A death picker is still open and damage is locked. If it will not close, release it here."
       },
       "tactical": {
         "judged": "<strong>Judgement:</strong> {name} is judged.",

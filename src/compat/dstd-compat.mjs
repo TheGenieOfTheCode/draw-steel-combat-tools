@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank } from '../helpers.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch } from '../helpers.mjs';
 import { triggerRollData, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
@@ -569,11 +569,7 @@ function _installGlobalDamageButtons(panel, message) {
   const msgDoc = panel.ownerDocument;
 
   
-  const _clickSequentially = async (getBtn) => {
-    window._dsctApplyAllRunning = (window._dsctApplyAllRunning ?? 0) + 1;
-    try { await _clickEachRow(getBtn); }
-    finally { window._dsctApplyAllRunning = Math.max(0, (window._dsctApplyAllRunning ?? 1) - 1); }
-  };
+  const _clickSequentially = (getBtn) => damageBatch(() => _clickEachRow(getBtn));
 
   const _clickEachRow = async (getBtn) => {
     const processed = new Set();

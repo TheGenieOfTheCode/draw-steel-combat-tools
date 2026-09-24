@@ -2929,3 +2929,18 @@ label.checkbox.dsct-adv-ignored { opacity: 0.5; text-decoration: line-through; }
   mask: url("../../../icons/svg/angel.svg") no-repeat center / contain;
   filter: drop-shadow(0 0 2px rgba(60, 40, 0, 0.75));
 }
+
+body.dsct-picker-lock [data-dstd-action="applyDamage"],
+body.dsct-picker-lock [data-dstd-action="undoDamage"],
+body.dsct-picker-lock .dsct-dstd-global-row button,
+body.dsct-picker-lock [data-action="execute-dc"],
+body.dsct-picker-lock .dsct-undo-death {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.8);
+}
+
+.dsct-killswitch-note {
+  margin: 0 0 6px;
+  font-style: italic;
+}

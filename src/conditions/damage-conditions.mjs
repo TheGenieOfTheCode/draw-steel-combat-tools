@@ -1,5 +1,5 @@
 import {
-  getSetting, getWindowById, getSquadGroup, applyDamage,
+  getSetting, getWindowById, getSquadGroup, applyDamage, damageBatch,
   safeToggleStatusEffect, safeCreateEmbedded, safeDelete, getItemDsid,
   tokFootprintDist, confirmRangeOverride,
 } from '../helpers.mjs';
@@ -450,24 +450,26 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       }
     }
 
-    for (const targetToken of this._targetTokens) {
-      const actor = targetToken.actor;
-      if (!actor) continue;
+    await damageBatch(async () => {
+      for (const targetToken of this._targetTokens) {
+        const actor = targetToken.actor;
+        if (!actor) continue;
 
-      if (this._amount > 0) {
-        await applyDamage(actor, this._amount, undefined, { damageType: this._damageType, ignoreImmunity: this._ignoreImmunity, isArea });
-      }
-      if (this._condition) {
-        switch (this._condition) {
-          case 'frightened': if (sourceActor) await applyFrightened(targetToken, sourceActor, sourceTokenId, endStr); break;
-          case 'taunted':    if (sourceActor) await applyTaunted(targetToken, sourceActor, sourceTokenId, endStr); break;
-          case 'grabbed':    if (sourceToken) await applyGrab(sourceToken, targetToken, { maxGrabs: this._targetTokens.length }); break;
-          case 'judged':     if (sourceActor) await applyJudgedEffect(targetToken, sourceActor, sourceTokenId, endStr); break;
-          case 'marked':     if (sourceActor) await applyMarkedEffect(targetToken, sourceActor, sourceTokenId, endStr); break;
-          default:           await applyNativeCondition(actor, this._condition, endStr); break;
+        if (this._amount > 0) {
+          await applyDamage(actor, this._amount, undefined, { damageType: this._damageType, ignoreImmunity: this._ignoreImmunity, isArea });
+        }
+        if (this._condition) {
+          switch (this._condition) {
+            case 'frightened': if (sourceActor) await applyFrightened(targetToken, sourceActor, sourceTokenId, endStr); break;
+            case 'taunted':    if (sourceActor) await applyTaunted(targetToken, sourceActor, sourceTokenId, endStr); break;
+            case 'grabbed':    if (sourceToken) await applyGrab(sourceToken, targetToken, { maxGrabs: this._targetTokens.length }); break;
+            case 'judged':     if (sourceActor) await applyJudgedEffect(targetToken, sourceActor, sourceTokenId, endStr); break;
+            case 'marked':     if (sourceActor) await applyMarkedEffect(targetToken, sourceActor, sourceTokenId, endStr); break;
+            default:           await applyNativeCondition(actor, this._condition, endStr); break;
+          }
         }
       }
-    }
+    });
 
     const count = this._targetTokens.length;
     ui.notifications.info(game.i18n.format('DSCT.notice.dc.appliedToCount', { count, s: count !== 1 ? 's' : '' }));

@@ -166,6 +166,12 @@ export function beginPickerOverlay({ title, status = '', detail = '', tokens = [
   };
 }
 
+export function revealPickerUi() {
+  document.body.classList.remove('dsct-prominent-picker');
+  const toggle = document.querySelector('.dsct-picker-uitoggle');
+  toggle?.classList.remove('dsct-active');
+}
+
 export function endPickerOverlay(focus = null) {
   if (!_ov) return;
   clearTimeout(_ov.warnTimer);
