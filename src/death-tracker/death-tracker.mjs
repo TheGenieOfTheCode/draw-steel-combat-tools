@@ -381,7 +381,10 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
     _tm('300ms pause done');
 
     
+    const txn = beginTransition('death');
     const step3GroupHpDeltas = new Map();
+
+    
     for (const t of tokens) {
       if (!canvas.tokens.get(t.id)) continue;
       if (window._activeGrabs) {
@@ -400,6 +403,13 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
         const te = a.appliedEffects?.find(e => e.getFlag(M, 'taunted')?.sourceTokenId === t.id);
         if (te) { _tm(`step 3: deleting Taunted on ${a.name}`); await safeDelete(te); }
       }
+    }
+
+    
+    const tokenUpdates = [];
+    const combatantIds = [];
+    for (const t of tokens) {
+      if (!canvas.tokens.get(t.id)) continue;
       const combatant = game.combat?.combatants.find(c => c.tokenId === t.id);
       const groupId   = combatant?._source?.group ?? null;
       const flagData  = { savedDisplayBars: t.document.displayBars };
@@ -407,22 +417,33 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
       _noteGroupName(groupId);
       const captainOf = _captainSeatOf(combatant);
       if (captainOf) { flagData.savedCaptainOf = captainOf; _noteGroupName(captainOf); }
-      _tm(`step 3: token flags + combatant.delete -- ${t.actor.name}`);
-      await Promise.all([
-        t.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
-        combatant ? combatant.delete() : Promise.resolve(),
-      ]);
-      _tm(`step 3: done -- ${t.actor.name}`);
+
+      tokenUpdates.push({ _id: t.id, displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } });
+      if (combatant) combatantIds.push(combatant.id);
+
       if (!skipHpCorrection && getSetting('cleanOrphanedCombatants') && t.actor.system?.isMinion && groupId) {
         const hp = t.actor.system.stamina?.max ?? 0;
         if (hp > 0) step3GroupHpDeltas.set(groupId, (step3GroupHpDeltas.get(groupId) ?? 0) + hp);
       }
     }
+
+    if (tokenUpdates.length) {
+      _tm(`step 3: ${tokenUpdates.length} token(s) in one update`);
+      await _updateTokens(tokenUpdates, txn);
+      _tm('step 3: tokens done');
+    }
+    if (combatantIds.length && game.combat) {
+      _tm(`step 3: ${combatantIds.length} combatant(s) in one delete`);
+      await game.combat.deleteEmbeddedDocuments('Combatant', combatantIds, txn).catch(() => {});
+      _tm('step 3: combatants done');
+    }
+
+    
     for (const [gid, delta] of step3GroupHpDeltas) {
       const group = game.combat?.groups.get(gid);
       if (group) {
         _tm(`step 3: HP correction for group ${gid} (-${delta})`);
-        await group.update({ 'system.staminaValue': Math.max(0, (group.system.staminaValue ?? 0) - delta) });
+        await group.update({ 'system.staminaValue': Math.max(0, (group.system.staminaValue ?? 0) - delta) }, txn);
         _tm('step 3: HP correction done');
       }
     }
