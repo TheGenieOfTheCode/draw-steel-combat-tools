@@ -607,7 +607,7 @@ function _installDirectorFooter(panel) {
   panel.appendChild(footer);
 }
 
-const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null) => damageBatch(async () => {
+const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock = false) => damageBatch(async () => {
   const processed = new Set();
   while (true) {
     const li = msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`);
@@ -619,6 +619,8 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null) => damag
       if (processed.has(key)) continue;
       if (onlyKeys && !onlyKeys.has(key)) continue;
       const btn = getBtn(row);
+      
+      if (unlock && btn?.classList.contains('dsct-squad-undo-locked')) btn.disabled = false;
       if (btn && !btn.disabled) {
         processed.add(key);
         btn.click();
@@ -647,7 +649,7 @@ function _installGlobalDamageButtons(panel, message) {
   const msgId  = message.id;
   const msgDoc = panel.ownerDocument;
 
-  const _clickSequentially = (getBtn) => _clickRowsSequentially(msgId, msgDoc, getBtn);
+  const _clickSequentially = (getBtn, unlock = false) => _clickRowsSequentially(msgId, msgDoc, getBtn, null, unlock);
 
   const applyAllBtn = document.createElement('button');
   applyAllBtn.type = 'button';
@@ -667,14 +669,19 @@ function _installGlobalDamageButtons(panel, message) {
     e.stopPropagation(); e.preventDefault();
     if (applyAllBtn.disabled) return;
     applyAllBtn.disabled = true;
+
+    const squadsOnCard = targetRows.map(r => _squadOfRow(r)?.id).filter(Boolean);
     await _clickSequentially(row => row.querySelector('[data-dstd-action="applyDamage"]'));
+    await _noteSquadsSwept(message, squadsOnCard);
   });
 
   undoAllBtn.addEventListener('click', async (e) => {
     e.stopPropagation(); e.preventDefault();
     if (undoAllBtn.disabled) return;
     undoAllBtn.disabled = true;
-    await _clickSequentially(row => row.querySelector('[data-dstd-action="undoDamage"]'));
+    const squadsOnCard = targetRows.map(r => _squadOfRow(r)?.id).filter(Boolean);
+    await _clickSequentially(row => row.querySelector('[data-dstd-action="undoDamage"]'), true);
+    await _clearSquadsSwept(message, squadsOnCard);
   });
 
   const globalRow = document.createElement('div');
@@ -728,6 +735,41 @@ function _unwrapSquadSections(list) {
   }
 }
 
+const _sweptSquads = (message) => new Set(message?.flags?.[M]?.sweptSquads ?? []);
+
+const _writeSwept = async (message, ids) => {
+  const payload = { [`flags.${M}.sweptSquads`]: ids };
+  if (game.user.isGM || message.isOwner) await message.update(payload).catch(() => {});
+  else getModuleApi(false)?.socket?.executeAsGM('dsct.updateDocument', message.uuid, payload);
+};
+
+const _noteSquadsSwept = async (message, groupIds) => {
+  const ids = [...new Set([...(_sweptSquads(message)), ...groupIds])].filter(Boolean);
+  if (!ids.length) return;
+  await _writeSwept(message, ids);
+};
+
+const _clearSquadsSwept = async (message, groupIds) => {
+  const drop = new Set(groupIds.filter(Boolean));
+  const left = [...(_sweptSquads(message))].filter(id => !drop.has(id));
+  if (left.length === _sweptSquads(message).size) return;
+  await _writeSwept(message, left);
+};
+
+function _lockSweptSquadUndos(panel, message) {
+  const swept = _sweptSquads(message);
+  if (!swept.size) return;
+  for (const row of panel.querySelectorAll(DSTD_ROW)) {
+    const squad = _squadOfRow(row);
+    if (!squad || !swept.has(squad.id)) continue;
+    const undo = row.querySelector('[data-dstd-action="undoDamage"]');
+    if (!undo || undo.disabled) continue;
+    undo.disabled = true;
+    undo.classList.add('dsct-squad-undo-locked');
+    undo.dataset.tooltip = game.i18n.format('DSCT.tooltip.undoWholeSquad', { group: squad.name });
+  }
+}
+
 function _installSquadButtons(hdr, message, panel, squad) {
   const keys = new Set(squad.rows.map(r => r.dataset.targetKey));
   const msgId = message.id;
@@ -750,10 +792,15 @@ function _installSquadButtons(hdr, message, panel, squad) {
       e.stopPropagation();
       if (btn.disabled) return;
       btn.disabled = true;
-      await _clickRowsSequentially(msgId, msgDoc, row => row.querySelector(`[data-dstd-action="${action}"]`), keys);
+      await _clickRowsSequentially(msgId, msgDoc, row => row.querySelector(`[data-dstd-action="${action}"]`), keys, action === 'undoDamage');
 
       
-      if (action === 'applyDamage') resolveDeathsNow();
+      if (action === 'applyDamage') {
+        await _noteSquadsSwept(message, [squad.id]);
+        resolveDeathsNow();
+      } else {
+        await _clearSquadsSwept(message, [squad.id]);
+      }
     });
     return btn;
   };
@@ -1513,6 +1560,7 @@ async function _injectFmButtons(message, root) {
 
     _installGlobalDamageButtons(panel, message);
     _installSquadSections(panel, message);
+    _lockSweptSquadUndos(panel, message);
     _installDirectorFooter(panel);
     if (!game.users.activeGM?.isSelf && !getSetting('playerCanUndoCausedDeaths')) {
       for (const btn of panel.querySelectorAll('[data-dstd-action="undoDamage"]')) {

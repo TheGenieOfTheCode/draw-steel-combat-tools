@@ -1565,6 +1565,7 @@
       "releasePicker": "Close any open death picker and unlock damage for everyone",
       "undoRevives": "Undoing this revives {names}",
       "undoRevivesUnknown": "Undoing this revives the fallen",
+      "undoWholeSquad": "Damage was applied to all of {group} at once, so undo the squad rather than one of its members.",
       "squadApplyAll": "Apply this damage to every member of {group}",
       "squadUndoAll": "Undo this damage for every member of {group}",
       "pingDead": "Left click to ping {name}",

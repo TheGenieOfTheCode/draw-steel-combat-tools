@@ -2930,6 +2930,11 @@ label.checkbox.dsct-adv-ignored { opacity: 0.5; text-decoration: line-through; }
   filter: drop-shadow(0 0 2px rgba(60, 40, 0, 0.75));
 }
 
+.dsct-squad-undo-locked {
+  opacity: 0.3;
+  cursor: not-allowed;
+  filter: grayscale(0.7);
+}
 .dsct-dstd-squad {
   margin: 2px 0;
   border: 1px solid color-mix(in srgb, currentColor 16%, transparent);

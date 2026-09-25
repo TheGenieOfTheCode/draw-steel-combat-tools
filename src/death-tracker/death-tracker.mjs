@@ -5,7 +5,7 @@ import { beginPickerLock, endPickerLock, clearPickerLockLocal } from './picker-l
 import { applySquadLabels } from '../squad-labels.mjs';
 import { hasLiveCaptain } from '../squad-hud.mjs';
 import { isDeathDeferred, isTokenDeathDeferred } from './defer-death.mjs';
-import { animateDeathVisual, deathVisualSettled, syncDeathVisual, markDeathPending, clearDeathPending } from './death-visuals.mjs';
+import { animateDeathVisual, deathVisualSettled, syncDeathVisual, markDeathPending, clearDeathPending, deathSettlementPending } from './death-visuals.mjs';
 import { beginPickerOverlay, endPickerOverlay, setPickerTarget, removePickerTarget, clearPickerArrows } from '../ability-automation/picker-overlay.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -1654,6 +1654,38 @@ const _liveContext = (ctx) => {
   return { ...ctx, poolTokenIds, lockedIds, preSelectedIds, numToKill };
 };
 
+const FORCED_COLOR = 0xBBBBBB;
+
+const _forcedContexts = (tokenIds, alreadyShown) => {
+  const defeated = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+  const out = [];
+  for (const id of tokenIds) {
+    if (alreadyShown.has(id)) continue;
+    
+    const actor = canvas.tokens.get(id)?.actor;
+    if (!actor || actor.statuses?.has(defeated)) continue;
+    out.push({
+      groupId: null,
+      poolTokenIds: new Set([id]),
+      lockedIds: new Set([id]),
+      preSelectedIds: new Set(),
+      numToKill: 1,
+      forced: true,
+    });
+  }
+  return out;
+};
+
+const _withForced = (liveContexts, tokenIds) => {
+  const shown = new Set(liveContexts.flatMap(c => [...c.poolTokenIds]));
+  const forced = _forcedContexts(tokenIds, shown);
+  let n = 0;
+  return [...liveContexts, ...forced].map(ctx => ({
+    ...ctx,
+    color: ctx.forced ? FORCED_COLOR : _SQUAD_COLORS[n++ % _SQUAD_COLORS.length],
+  }));
+};
+
 const _announceForcedDeaths = (ids) => {
   const names = [...ids].map(id => canvas?.tokens?.get(id)?.name).filter(Boolean);
   if (!names.length) return;
@@ -1666,7 +1698,7 @@ const _settleKillFlush = async (a) => {
     
     const liveContexts = a.pickerContexts.map(_liveContext).filter(Boolean);
     if (liveContexts.length > 0) {
-      const contexts = liveContexts.map((ctx, i) => ({ ...ctx, color: _SQUAD_COLORS[i % _SQUAD_COLORS.length] }));
+      const contexts = _withForced(liveContexts, finalTokenIds);
       
       const pickerUserId  = resolvePickerUserId();
       let picked;
@@ -1720,7 +1752,7 @@ const _settleKillFlush = async (a) => {
     
     const liveContexts = a.pickerContexts.map(_liveContext).filter(Boolean);
     if (getSetting('pickDeathsEnabled') && liveContexts.length > 0) {
-      const contexts     = liveContexts.map((ctx, i) => ({ ...ctx, color: _SQUAD_COLORS[i % _SQUAD_COLORS.length] }));
+      const contexts     = _withForced(liveContexts, finalTokenIds);
       const pickerUserId = resolvePickerUserId();
       let picked;
       if (pickerUserId === game.user.id) {
@@ -1800,9 +1832,15 @@ const _flushManualKillAccumulator = async () => {
   const acc = window._dsctManualKillAccumulator;
   
   const asked = window._dsctSettleNow === true;
-  const applying = (!asked && acc?.pickerContexts?.length) ? dstdStillApplying() : null;
+  
+  const hasWork = !!(acc?.pickerContexts?.length || acc?.tokenIds?.size);
+  const applying = (!asked && hasWork) ? dstdStillApplying() : null;
+
+  
+  const squadAboutToBeAsked = !asked && hasWork && !acc.pickerContexts.length && deathSettlementPending();
+
   const hold = window._dsctPendingSquadTimers?.size > 0 || window._dsctFlushBusy
-    || (applying && ++_flushHolds <= _FLUSH_MAX_HOLDS);
+    || ((applying || squadAboutToBeAsked) && ++_flushHolds <= _FLUSH_MAX_HOLDS);
   if (hold) {
     if (acc) { clearTimeout(acc.timer); acc.timer = setTimeout(_flushManualKillAccumulator, _MANUAL_KILL_ACCUM_MS); }
     return;
