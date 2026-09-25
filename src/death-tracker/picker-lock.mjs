@@ -10,8 +10,10 @@ const LOCKED = [
   '[data-dstd-action="applyDamage"]',
   '[data-dstd-action="undoDamage"]',
   '.dsct-dstd-global-row button',
+  '.dsct-dstd-squad-btn',
   '[data-action="execute-dc"]',
   '.dsct-undo-death',
+  '.dsct-death-revive-group',
 ].join(', ');
 
 let _depth = 0;

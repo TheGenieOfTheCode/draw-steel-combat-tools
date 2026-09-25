@@ -775,6 +775,14 @@ export const registerSettings = () => {
     name: L('rollDialogPillUI.name'), hint: L('rollDialogPillUI.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'dstdSquadSections', {
+    name: L('dstdSquadSections.name'), hint: L('dstdSquadSections.hint'),
+    scope: 'client', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'dstdSquadSectionsOpen', {
+    name: L('dstdSquadSectionsOpen.name'), hint: L('dstdSquadSectionsOpen.hint'),
+    scope: 'client', config: false, type: Boolean, default: false,
+  });
   game.settings.register(M, 'dstdRollPills', {
     name: L('dstdRollPills.name'), hint: L('dstdRollPills.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

@@ -2667,6 +2667,7 @@ const flushDeathBatch = async (batch) => {
 
   await ChatMessage.create({
     content: _deathMessageContent(deaths),
+    speaker: { alias: game.i18n.localize('DSCT.chat.dt.speaker') },
     flags: { [M]: { isDeathMessage: true, deadTokenIds: deaths.map(d => d.tokenId), deaths, cause } },
   });
   cleanBaseNpcActors();

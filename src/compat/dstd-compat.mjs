@@ -77,15 +77,30 @@ function _undressRevivingButton(btn) {
 
 function _markRevivingUndoButtons(panel) {
   const everyone = new Set();
+  const perSquad = new Map();
 
   for (const btn of panel.querySelectorAll(`${DSTD_ROW} [data-dstd-action="undoDamage"]`)) {
     const ids = _undoWouldRevive(btn);
     if (ids) {
       for (const id of ids) everyone.add(id);
+
+      const section = btn.closest('.dsct-dstd-squad');
+      if (section) {
+        if (!perSquad.has(section)) perSquad.set(section, new Set());
+        for (const id of ids) perSquad.get(section).add(id);
+      }
       _dressRevivingButton(btn, ids);
     } else if (btn.classList.contains(REVIVE_CLASS)) {
       _undressRevivingButton(btn);
     }
+  }
+
+  for (const section of panel.querySelectorAll('.dsct-dstd-squad')) {
+    const btn = section.querySelector('.dsct-dstd-squad-undo');
+    if (!btn) continue;
+    const ids = perSquad.get(section);
+    if (!btn.disabled && ids?.size) _dressRevivingButton(btn, [...ids]);
+    else if (btn.classList.contains(REVIVE_CLASS)) _undressRevivingButton(btn);
   }
 
   const undoAll = panel.querySelector(`.dsct-dstd-global-row .${DSTD}-undo-button`);
@@ -399,6 +414,8 @@ function _makePanelCallback() {
           li = node.closest?.('li.chat-message[data-message-id]');
           if (getSetting('debugMode')) console.log(`DSCT | DSTD compat | observer: panel added msgId=${li?.dataset?.messageId}`);
         } else if (node.matches?.(DSTD_ROW_CLS) || node.querySelector?.(DSTD_ROW_CLS)) {
+
+          if (node.classList?.contains('dsct-dstd-squad') || node.closest?.('.dsct-dstd-squad')) continue;
           li = node.closest?.('li.chat-message[data-message-id]');
           if (getSetting('debugMode')) console.log(`DSCT | DSTD compat | observer: row added msgId=${li?.dataset?.messageId}`);
         }
@@ -555,7 +572,6 @@ export async function runDstdUndoRevival(tokenUuid) {
   }
 }
 
-
 function _installDirectorFooter(panel) {
   if (!game.user.isGM) return;
   panel.querySelector('.dsct-dt-footer')?.remove();
@@ -591,6 +607,31 @@ function _installDirectorFooter(panel) {
   panel.appendChild(footer);
 }
 
+const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null) => damageBatch(async () => {
+  const processed = new Set();
+  while (true) {
+    const li = msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`);
+    const cur = li?.querySelector(DSTD_PANEL);
+    if (!cur) break;
+    let clicked = false;
+    for (const row of cur.querySelectorAll(DSTD_ROW)) {
+      const key = row.dataset.targetKey;
+      if (processed.has(key)) continue;
+      if (onlyKeys && !onlyKeys.has(key)) continue;
+      const btn = getBtn(row);
+      if (btn && !btn.disabled) {
+        processed.add(key);
+        btn.click();
+        clicked = true;
+        await new Promise(r => setTimeout(r, 500));
+        break;
+      }
+      processed.add(key);
+    }
+    if (!clicked) break;
+  }
+});
+
 function _installGlobalDamageButtons(panel, message) {
   panel.querySelector('.dsct-dstd-global-row')?.remove();
 
@@ -606,32 +647,7 @@ function _installGlobalDamageButtons(panel, message) {
   const msgId  = message.id;
   const msgDoc = panel.ownerDocument;
 
-  
-  const _clickSequentially = (getBtn) => damageBatch(() => _clickEachRow(getBtn));
-
-  const _clickEachRow = async (getBtn) => {
-    const processed = new Set();
-    while (true) {
-      const li = msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`);
-      const cur = li?.querySelector(DSTD_PANEL);
-      if (!cur) break;
-      let clicked = false;
-      for (const row of cur.querySelectorAll(DSTD_ROW)) {
-        const key = row.dataset.targetKey;
-        if (processed.has(key)) continue;
-        const btn = getBtn(row);
-        if (btn && !btn.disabled) {
-          processed.add(key);
-          btn.click();
-          clicked = true;
-          await new Promise(r => setTimeout(r, 500));
-          break;
-        }
-        processed.add(key);
-      }
-      if (!clicked) break;
-    }
-  };
+  const _clickSequentially = (getBtn) => _clickRowsSequentially(msgId, msgDoc, getBtn);
 
   const applyAllBtn = document.createElement('button');
   applyAllBtn.type = 'button';
@@ -671,6 +687,152 @@ function _installGlobalDamageButtons(panel, message) {
   const targetList = panel.querySelector(`.${DSTD}-target-list`);
   if (targetList) panel.insertBefore(globalRow, targetList);
   else panel.appendChild(globalRow);
+}
+
+const _squadKey = (msgId) => `dsct-dstd-squads-${msgId}`;
+
+const _squadStateRead = (msgId) => {
+  try { return JSON.parse(localStorage.getItem(_squadKey(msgId))) ?? {}; } catch { return {}; }
+};
+
+const _squadStateWrite = (msgId, panel) => {
+  const state = {};
+  for (const sec of panel.querySelectorAll('.dsct-dstd-squad')) state[sec.dataset.groupId] = sec.open;
+  try {
+    if (Object.keys(state).length) localStorage.setItem(_squadKey(msgId), JSON.stringify(state));
+    else localStorage.removeItem(_squadKey(msgId));
+  } catch {  }
+};
+
+const _squadOfRow = (row) => {
+  const key = row?.dataset?.targetKey;
+  if (!key || key === 'selected-token') return null;
+  const doc = fromUuidSync(key.replace(/__/g, '.'));
+  const tokenId = doc?.id;
+  if (!tokenId) return null;
+
+  const groupId = game.combat?.combatants.find(c => c.tokenId === tokenId)?._source?.group
+    ?? doc.getFlag?.(M, 'savedGroupId')
+    ?? null;
+  if (!groupId) return null;
+
+  const group = game.combat?.groups?.get(groupId);
+  if (group && group.type !== 'squad') return null;
+  return { id: groupId, name: group?.name ?? game.i18n.localize('DSCT.chat.squads.squadSectionFallback') };
+};
+
+function _unwrapSquadSections(list) {
+  for (const sec of [...list.querySelectorAll('.dsct-dstd-squad')]) {
+    for (const row of [...sec.querySelectorAll(DSTD_ROW)]) list.insertBefore(row, sec);
+    sec.remove();
+  }
+}
+
+function _installSquadButtons(hdr, message, panel, squad) {
+  const keys = new Set(squad.rows.map(r => r.dataset.targetKey));
+  const msgId = message.id;
+  const msgDoc = panel.ownerDocument;
+
+  const enabled = (action) => squad.rows.some((r) => {
+    const b = r.querySelector(`[data-dstd-action="${action}"]`);
+    return b && !b.disabled;
+  });
+
+  const make = (cls, icon, tooltip, action, extra = '') => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `${DSTD}-icon-button dsct-dstd-squad-btn ${cls} ${extra}`.trim();
+    btn.dataset.tooltip = game.i18n.format(tooltip, { group: squad.name });
+    btn.disabled = !enabled(action);
+    btn.append(_makeIcon(icon));
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (btn.disabled) return;
+      btn.disabled = true;
+      await _clickRowsSequentially(msgId, msgDoc, row => row.querySelector(`[data-dstd-action="${action}"]`), keys);
+
+      
+      if (action === 'applyDamage') resolveDeathsNow();
+    });
+    return btn;
+  };
+
+  hdr.append(
+    make('dsct-dstd-squad-apply', 'fa-solid fa-check-double', 'DSCT.tooltip.squadApplyAll', 'applyDamage'),
+    make('dsct-dstd-squad-undo', 'fa-solid fa-rotate-left', 'DSCT.tooltip.squadUndoAll', 'undoDamage', `${DSTD}-undo-button`),
+  );
+}
+
+function _installSquadSections(panel, message) {
+  const list = panel.querySelector(`.${DSTD}-target-list`);
+  if (!list) return;
+
+  if (!getSetting('dstdSquadSections')) {
+    _unwrapSquadSections(list);
+    delete list.dataset.dsctSquadSig;
+    return;
+  }
+
+  const rows = [...list.querySelectorAll(DSTD_ROW)];
+
+  
+  const want = rows.map(r => `${r.dataset.targetKey}:${_squadOfRow(r)?.id ?? ''}`).sort().join('|');
+  if (list.dataset.dsctSquadSig === want) return;
+
+  _unwrapSquadSections(list);
+  list.dataset.dsctSquadSig = want;
+  if (rows.length <= 1) return;
+
+  const squads = new Map();
+  for (const row of rows) {
+    const squad = _squadOfRow(row);
+    if (!squad) continue;
+    if (!squads.has(squad.id)) squads.set(squad.id, { ...squad, rows: [] });
+    squads.get(squad.id).rows.push(row);
+  }
+
+  const saved = _squadStateRead(message.id);
+  const openByDefault = !!getSetting('dstdSquadSectionsOpen');
+
+  for (const [groupId, squad] of squads) {
+
+    if (squad.rows.length < 2) continue;
+
+    const section = document.createElement('details');
+    section.className = 'dsct-dstd-squad';
+    section.dataset.groupId = groupId;
+    section.open = saved[groupId] ?? openByDefault;
+
+    const hdr = document.createElement('summary');
+    hdr.className = 'dsct-dstd-squad-hdr';
+
+    const chevron = document.createElement('i');
+    chevron.className = 'fa-solid fa-chevron-right dsct-dstd-squad-chevron';
+    hdr.appendChild(chevron);
+
+    const label = document.createElement('span');
+    label.className = 'dsct-dstd-squad-label';
+    label.textContent = squad.name;
+    hdr.appendChild(label);
+
+    const badge = document.createElement('span');
+    badge.className = 'dsct-dstd-squad-badge';
+    badge.textContent = String(squad.rows.length);
+    hdr.appendChild(badge);
+
+    _installSquadButtons(hdr, message, panel, squad);
+    section.appendChild(hdr);
+
+    const body = document.createElement('div');
+    body.className = 'dsct-dstd-squad-rows';
+    section.appendChild(body);
+
+    list.insertBefore(section, squad.rows[0]);
+    for (const row of squad.rows) body.appendChild(row);
+
+    section.addEventListener('toggle', () => _squadStateWrite(message.id, panel));
+  }
 }
 
 function _saveCollapseState(msgId, panel) {
@@ -1350,6 +1512,7 @@ async function _injectFmButtons(message, root) {
     }
 
     _installGlobalDamageButtons(panel, message);
+    _installSquadSections(panel, message);
     _installDirectorFooter(panel);
     if (!game.users.activeGM?.isSelf && !getSetting('playerCanUndoCausedDeaths')) {
       for (const btn of panel.querySelectorAll('[data-dstd-action="undoDamage"]')) {

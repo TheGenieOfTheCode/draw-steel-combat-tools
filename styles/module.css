@@ -2930,6 +2930,83 @@ label.checkbox.dsct-adv-ignored { opacity: 0.5; text-decoration: line-through; }
   filter: drop-shadow(0 0 2px rgba(60, 40, 0, 0.75));
 }
 
+.dsct-dstd-squad {
+  margin: 2px 0;
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 4px;
+  background: rgba(128, 128, 128, 0.06);
+  overflow: hidden;
+}
+.dsct-dstd-squad > .dsct-dstd-squad-hdr {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.dsct-dstd-squad > .dsct-dstd-squad-hdr::-webkit-details-marker { display: none; }
+.dsct-dstd-squad > .dsct-dstd-squad-hdr:hover { background: rgba(128, 128, 128, 0.1); }
+.dsct-dstd-squad[open] > .dsct-dstd-squad-hdr {
+  border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+}
+.dsct-dstd-squad .dsct-dstd-squad-chevron {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  opacity: 0.6;
+  transition: transform 192ms ease;
+}
+.dsct-dstd-squad[open] > .dsct-dstd-squad-hdr .dsct-dstd-squad-chevron { transform: rotate(90deg); }
+.dsct-dstd-squad .dsct-dstd-squad-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.dsct-dstd-squad .dsct-dstd-squad-badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(128, 128, 128, 0.16);
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dsct-dstd-squad .dsct-dstd-squad-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  position: relative;
+  width: 22px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  line-height: 1;
+}
+.dsct-dstd-squad .dsct-dstd-squad-apply {
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  color: inherit;
+  background: rgba(128, 128, 128, 0.12);
+}
+.dsct-dstd-squad .dsct-dstd-squad-apply:hover:not(:disabled) { background: rgba(128, 128, 128, 0.26); }
+.dsct-dstd-squad .dsct-dstd-squad-btn:disabled { opacity: 0.35; cursor: default; }
+.dsct-dstd-squad > .dsct-dstd-squad-rows { display: none; }
+.dsct-dstd-squad[open] > .dsct-dstd-squad-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+}
+
 .dsct-death-card {
   display: flex;
   flex-direction: column;
@@ -3107,6 +3184,7 @@ body.dsct-picker-lock [data-dstd-action="applyDamage"],
 body.dsct-picker-lock [data-dstd-action="undoDamage"],
 body.dsct-picker-lock .dsct-dstd-global-row button,
 body.dsct-picker-lock [data-action="execute-dc"],
+body.dsct-picker-lock .dsct-dstd-squad-btn,
 body.dsct-picker-lock .dsct-death-revive-group,
 body.dsct-picker-lock .dsct-undo-death {
   opacity: 0.35;

@@ -570,6 +570,14 @@
         "name": "Alternative Ability Roll UI",
         "hint": "Replaces the standard ability roll UI with an enhanced variant which displays modifiers by name, sometimes with their sources. Includes various unimplemented situational banes and edges that exist within the rules."
       },
+      "dstdSquadSections": {
+        "name": "Group Squads in Damage Panels",
+        "hint": "Folds a damage panel's target rows into a collapsible section per squad, so a card that hits a whole minion squad reads as one line instead of eight. Targets outside a squad are left where they are."
+      },
+      "dstdSquadSectionsOpen": {
+        "name": "Open Squad Sections by Default",
+        "hint": "Squad sections start open rather than collapsed. Whichever way a section is left is remembered on this device for that message."
+      },
       "dstdRollPills": {
         "name": "Power Roll Modifiers in Chat",
         "hint": "Shows each target's power roll modifiers by name under the roll result in ability messages. Rolls made through the Alternative Ability Roll UI keep their modifier names and sources, and retroactive roll edits appear as removable modifiers."
@@ -1557,6 +1565,8 @@
       "releasePicker": "Close any open death picker and unlock damage for everyone",
       "undoRevives": "Undoing this revives {names}",
       "undoRevivesUnknown": "Undoing this revives the fallen",
+      "squadApplyAll": "Apply this damage to every member of {group}",
+      "squadUndoAll": "Undo this damage for every member of {group}",
       "pingDead": "Left click to ping {name}",
       "pingDeadCaptain": "Left click to ping {name}. Right click to hand on the crown.",
       "reviveGroup": "Bring this whole group back"
@@ -1958,6 +1968,7 @@
         "destroyed": "<strong>{name}</strong> was destroyed.",
         "fallenMultiple": "{names} have fallen.",
         "destroyedMultiple": "{names} were destroyed.",
+        "speaker": "Death Tracker",
         "undoFromCard": "Undo from the damage card",
         "summaryFallenOne": "1 has fallen.",
         "summaryFallen": "{count} have fallen.",
@@ -2012,7 +2023,8 @@
       "squads": {
         "captainFell": "<strong>Captain fallen:</strong> {name} has fallen as captain of {group}.",
         "captainLostSquad": "<strong>Squad wiped:</strong> {name} is no longer the captain of {group}. Their entire squad has been wiped out.",
-        "newCaptain": "<strong>I Am The Captain Now:</strong> {name} is now the captain of {group}."
+        "newCaptain": "<strong>I Am The Captain Now:</strong> {name} is now the captain of {group}.",
+        "squadSectionFallback": "Squad"
       },
       "tp": {
         "teleported": "<strong>{name}</strong> teleported {dist} square{s}",
