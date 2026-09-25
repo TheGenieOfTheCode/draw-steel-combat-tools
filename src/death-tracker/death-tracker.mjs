@@ -8,13 +8,10 @@ import { beginPickerOverlay, endPickerOverlay, setPickerTarget, removePickerTarg
 
 const M = 'draw-steel-combat-tools';
 
-
 const _dropFlag = () => new foundry.data.operators.ForcedDeletion();
-
 
 const CAUSE_TTL_MS = 8000;
 let _damageCause = null;
-
 
 const _latestDstdCardId = () => game.messages?.contents
   ?.slice(-25)
@@ -28,6 +25,8 @@ export const noteDamageCause = ({ dstd = false, userId = null, sourceActorUuid =
   const keepStated = fresh?.stated && !stated;
   _damageCause = {
     at: now,
+    
+    causeId: fresh?.causeId ?? foundry.utils.randomID(),
     dstd: dstd || !!fresh?.dstd,
     stated: stated || !!fresh?.stated,
     messageId: messageId ?? fresh?.messageId ?? null,
@@ -39,14 +38,31 @@ export const noteDamageCause = ({ dstd = false, userId = null, sourceActorUuid =
 };
 
 const _currentDamageCause = () => {
+  if (_causeOverride) return _causeOverride;
   if (!_damageCause || Date.now() - _damageCause.at > CAUSE_TTL_MS) return {};
   const { at, stated, ...cause } = _damageCause;
   return cause;
 };
 
+let _causeOverride = null;
+const _withCause = async (cause, fn) => {
+  if (!cause || !Object.keys(cause).length) return fn();
+  const prev = _causeOverride;
+  _causeOverride = cause;
+  try { return await fn(); }
+  finally { _causeOverride = prev; }
+};
+
+const _groupNames = new Map();
+const _noteGroupName = (groupId) => {
+  if (!groupId) return;
+  const name = game.combat?.groups?.get(groupId)?.name;
+  if (name) _groupNames.set(groupId, name);
+};
+const _groupNameFor = (groupId) => !groupId ? null
+  : (game.combat?.groups?.get(groupId)?.name ?? _groupNames.get(groupId) ?? null);
 
 export const isDstdDeath = (message) => !!message?.getFlag(M, 'cause')?.dstd;
-
 
 export const mayUndoDeath = (cause, user = game.user) => {
   if (user?.isGM) return true;
@@ -57,8 +73,6 @@ export const mayUndoDeath = (cause, user = game.user) => {
   }
   return !!cause?.userId && cause.userId === user?.id;
 };
-
-
 
 export const deathGroupFor = (tokenId) => {
   const defeatedId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
@@ -73,8 +87,13 @@ export const deathGroupFor = (tokenId) => {
 
   
   for (const msg of game.messages.contents.slice(-30).reverse()) {
-    const ids = msg.getFlag(M, 'deadTokenIds');
-    if (ids?.includes(tokenId)) return ids.filter(stillDown);
+    const flag = msg.flags?.[M];
+    const ids = flag?.deadTokenIds;
+    if (!ids?.includes(tokenId)) continue;
+    const deaths = Array.isArray(flag.deaths) ? flag.deaths : null;
+    const batch = deaths?.find(d => d.tokenId === tokenId)?.batch;
+    const sameBatch = batch ? deaths.filter(d => d.batch === batch).map(d => d.tokenId) : ids;
+    return sameBatch.filter(stillDown);
   }
   return [tokenId];
 };
@@ -83,9 +102,6 @@ const TRANSITION = 'dsctTransition';
 let _transitionSeq = 0;
 export const beginTransition = (kind) => ({ [TRANSITION]: { kind, id: `${kind}-${++_transitionSeq}` } });
 export const isOurTransition = (options) => !!options?.[TRANSITION];
-
-
-
 
 const _updateTokens = async (updates, options = {}) => {
   if (!updates.length) return;
@@ -119,7 +135,6 @@ const _waitUntil = async (test, timeoutMs = 2000, stepMs = 25) => {
 let _deathBatch = [];
 let _deathBatchTimer = null;
 const DEATH_BATCH_MS = 200;
-
 
 const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) => {
   if (!window._deathTrackerLocks) window._deathTrackerLocks = new Set();
@@ -159,13 +174,13 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
   const groupId   = combatant?._source?.group ?? null;
   const flagData = { savedDisplayBars: token.document.displayBars };
   if (groupId) flagData.savedGroupId = groupId;
+  _noteGroupName(groupId);
   await Promise.all([
     token.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
     combatant ? combatant.delete() : Promise.resolve(),
   ]);
 
   const isObject = actor.type === 'object';
-
 
   await deathVisualSettled(token);
 
@@ -232,7 +247,6 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
   }
 };
 
-
 const _manualConfirm = (msg, step) => new Promise((resolve) => {
   
   const existing = msg.getFlag(M, 'manualDecision') ?? '';
@@ -256,7 +270,6 @@ const _manualConfirm = (msg, step) => new Promise((resolve) => {
     resolve(false);
   });
 });
-
 
 const _manualDecision = (msg, step) => new Promise((resolve) => {
   const parse = (d) => {
@@ -332,7 +345,6 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
     
     
 
-
     
     for (const t of tokens) {
       if (!canvas.tokens.get(t.id)) continue;
@@ -370,6 +382,7 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
       const groupId   = combatant?._source?.group ?? null;
       const flagData  = { savedDisplayBars: t.document.displayBars };
       if (groupId) flagData.savedGroupId = groupId;
+      _noteGroupName(groupId);
       _tm(`step 3: token flags + combatant.delete -- ${t.actor.name}`);
       await Promise.all([
         t.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
@@ -615,6 +628,7 @@ const _doKillManual = async ({ tokenIds, squadGroup, processQueue, step1Extra = 
           const groupId   = combatant?._source?.group ?? null;
           const flagData  = { savedDisplayBars: t.document.displayBars };
 if (groupId) flagData.savedGroupId = groupId;
+_noteGroupName(groupId);
           await Promise.all([
             t.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
             combatant ? combatant.delete() : Promise.resolve(),
@@ -847,7 +861,6 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
       staminaValue: t.actor.system?.isMinion ? (t.actor.system.stamina?.max ?? 1) : 1,
     }));
 
-
   
   _tm(`step 2: ${woken.length} status(es) in sequence`);
   for (const { t } of woken) {
@@ -919,8 +932,6 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
     _tm('step 3b: combatants done');
   }
 
-
-
   if (!skipGroupHpRestore) {
     const poolDeltas = new Map();
     for (const p2 of plan) {
@@ -930,7 +941,6 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
     for (const [groupId, delta] of poolDeltas) {
       const group = game.combat?.groups.get(groupId);
       if (!group) continue;
-
 
       const living = Array.from(group.members ?? []).filter(m => m?.actor?.system?.isMinion && !m.defeated);
       const ceiling = living.length * (living[0]?.actor?.system?.stamina?.max ?? 0);
@@ -946,7 +956,6 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
   await Promise.all(plan.map(({ t }) => animateDeathVisual(t)));
   _tm('step 3 complete');
   await _resolveReviveSpaceConflicts(tokens);
-
 
   const markerTileIds = plan.map(p2 => p2.markerTileId).filter(id => id && canvas.scene.tiles.get(id));
   if (markerTileIds.length) {
@@ -986,7 +995,6 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
     }, 500);
   }
 };
-
 
 const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
   if (!window._dsctManualReviveTokenIds) window._dsctManualReviveTokenIds = new Set();
@@ -1226,9 +1234,7 @@ await _resolveReviveSpaceConflicts(tokens);
   }
 };
 
-
 export const _SQUAD_COLORS = [0xFF4444, 0x4488FF, 0xAA44FF, 0xFFCC00, 0x00FFCC, 0xFF88AA];
-
 
 export const _runManualModePicker = (contexts) => new Promise((resolve) => {
   
@@ -1497,9 +1503,7 @@ export const _runManualModePicker = (contexts) => new Promise((resolve) => {
   }, 3000);
 });
 
-
 const DSTD_MODULE = 'draw-steel-target-damage';
-
 
 const DSTD_ROW_GRACE_MS = 2000;
 
@@ -1550,7 +1554,6 @@ const livingTokensOf = (group) => Array.from(group?.members ?? [])
   .map(m => m.token?.object)
   .filter(Boolean);
 
-
 const squadOwesDeaths = (group) => {
   const living = livingTokensOf(group);
   if (!living.length) return 0;
@@ -1569,15 +1572,11 @@ const syncDeathPulse = (group) => {
   else clearDeathPending(livingTokensOf(group));
 };
 
-
 let _forceSettleNow = null;
 
 export const resolveDeathsNow = () => _forceSettleNow?.() ?? false;
 
 const _MANUAL_KILL_ACCUM_MS = 100;
-
-
-
 
 const _liveContext = (ctx) => {
   const defeatedId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
@@ -1650,10 +1649,10 @@ const _settleKillFlush = async (a) => {
     }
     if (!finalTokenIds.size) return;
     const _ver = game.modules.get(M)?.version ?? '?';
-    await _doKillManual({
+    await _withCause(a.cause, () => _doKillManual({
       tokenIds: finalTokenIds, squadGroup: null, processQueue: () => {},
       step1Extra: a.extraLines.join(''), label: `DT Debug v${_ver}`, skipHpCorrection: true,
-    });
+    }));
   } else {
     
     
@@ -1712,7 +1711,7 @@ const _settleKillFlush = async (a) => {
     }
 
     if (!finalTokenIds.size) return;
-    await _doKillV3(finalTokenIds, { skipHpCorrection: true, showNotification: false });
+    await _withCause(a.cause, () => _doKillV3(finalTokenIds, { skipHpCorrection: true, showNotification: false }));
   }
 };
 
@@ -1733,7 +1732,6 @@ const _runManualKillFlush = async () => {
 const _FLUSH_MAX_HOLDS = 60;
 let _flushHolds = 0;
 
-
 const _flushManualKillAccumulator = async () => {
   const acc = window._dsctManualKillAccumulator;
   
@@ -1753,25 +1751,32 @@ const _flushManualKillAccumulator = async () => {
   finally { window._dsctFlushBusy = false; }
 };
 
+const _newAccumulator = () => ({ tokenIds: new Set(), extraLines: [], pickerContexts: [], cause: {} });
+
+const _keepCause = (acc) => {
+  if (acc.cause && Object.keys(acc.cause).length) return;
+  acc.cause = _currentDamageCause();
+};
 
 const _queueManualKillTargets = (tokenIds, extraLines) => {
   if (!window._dsctManualKillAccumulator) {
-    window._dsctManualKillAccumulator = { tokenIds: new Set(), extraLines: [], pickerContexts: [] };
+    window._dsctManualKillAccumulator = _newAccumulator();
   }
   const acc = window._dsctManualKillAccumulator;
+  _keepCause(acc);
   for (const id of tokenIds) acc.tokenIds.add(id);
   acc.extraLines.push(...extraLines);
   if (acc.timer) clearTimeout(acc.timer);
   acc.timer = setTimeout(_flushManualKillAccumulator, _MANUAL_KILL_ACCUM_MS);
 };
 
-
 const _queueManualPickerContext = (ctx, extraLines) => {
   if (!window._dsctManualKillAccumulator) {
-    window._dsctManualKillAccumulator = { tokenIds: new Set(), extraLines: [], pickerContexts: [] };
+    window._dsctManualKillAccumulator = _newAccumulator();
   }
   const acc = window._dsctManualKillAccumulator;
-  
+  _keepCause(acc);
+
   
   if (ctx.groupId) {
     const at = acc.pickerContexts.findIndex(c => c.groupId === ctx.groupId);
@@ -1783,11 +1788,9 @@ const _queueManualPickerContext = (ctx, extraLines) => {
   acc.timer = setTimeout(_flushManualKillAccumulator, _MANUAL_KILL_ACCUM_MS);
 };
 
-
 const oneMustDie = (eligibleDamaged, extraLines) => {
   _queueManualKillTargets(new Set(eligibleDamaged), extraLines);
 };
-
 
 export const _addDamagedToken = (tokenId, userId = null) => {
   if (!window._lastSquadDamagedTokenIds) window._lastSquadDamagedTokenIds = new Set();
@@ -1803,7 +1806,6 @@ export const _addDamagedToken = (tokenId, userId = null) => {
 export const deathTrackerExcludedTypes = new Set();
 const _isDTExcluded = (actor) => actor.type === 'hero' || actor.type === 'retainer' || deathTrackerExcludedTypes.has(actor.type);
 
-
 function _suppressSystemMinionPrompt() {
   if (!getSetting('overrideMinionDefeat')) return;
 
@@ -1813,7 +1815,6 @@ function _suppressSystemMinionPrompt() {
     return;
   }
   apps.DefeatedMinionSelection.create = async () => null;
-
 
   const _closeIfItGetsThrough = (app) => {
     if (!getSetting('overrideMinionDefeat')) return;
@@ -1969,7 +1970,6 @@ export function registerDeathTrackerHooks() {
       deferSquadReconcile(group, applying);
       return;
     }
-
 
     const newHp = changes.system?.staminaValue ?? changes.system?.stamina?.value;
     if (dbg) console.log('DSCT | DT | newHp', newHp, 'group.type', group.type);
@@ -2155,7 +2155,6 @@ export function registerDeathTrackerHooks() {
   const _reconcileTimers = new Map();
   const _reconcileWaits = new Map();
 
-
   const scheduleSquadReconcile = (group, { delay = RECONCILE_MS } = {}) => {
     if (!group?.id) return;
     syncDeathPulse(group);
@@ -2202,7 +2201,6 @@ export function registerDeathTrackerHooks() {
   };
 
   
-
 
   
 
@@ -2543,28 +2541,88 @@ const cleanBaseNpcActors = async () => {
   }
 };
 
+const _deathRecords = (batch) => {
+  const batchId = foundry.utils.randomID();
+  return batch.map((b) => {
+    const doc = canvas.tokens?.get(b.tokenId)?.document;
+    const groupId = doc?.getFlag(M, 'savedGroupId')
+      ?? game.combat?.combatants.find(c => c.tokenId === b.tokenId)?._source?.group
+      ?? null;
+    return {
+      tokenId:   b.tokenId,
+      name:      b.name,
+      img:       doc?.texture?.src ?? doc?.actor?.img ?? null,
+      isObject:  !!b.isObject,
+      batch:     batchId,
+      groupId,
+      groupName: _groupNameFor(groupId),
+    };
+  });
+};
+
+const _deathMessageContent = (deaths) => {
+  const creatures = deaths.filter(d => !d.isObject);
+  const objects   = deaths.filter(d => d.isObject);
+  if (deaths.length === 1) {
+    return game.i18n.format(deaths[0].isObject ? 'DSCT.chat.dt.destroyed' : 'DSCT.chat.dt.fallen', { name: deaths[0].name });
+  }
+  const lines = [];
+  if (creatures.length) lines.push(game.i18n.format('DSCT.chat.dt.fallenMultiple', { names: formatNames(creatures.map(d => d.name)) }));
+  if (objects.length)   lines.push(game.i18n.format('DSCT.chat.dt.destroyedMultiple', { names: formatNames(objects.map(d => d.name)) }));
+  return lines.join('<br>');
+};
+
+const DEATH_MESSAGE_APPEND_MS = 60000;
+
+const _deletingDeathMessages = new Set();
+
+const _deathMessageToGrow = (cause) => {
+  const key  = cause?.causeId ?? null;
+  const card = cause?.messageId ?? null;
+  if (!key && !card) return null;
+  const cutoff = Date.now() - DEATH_MESSAGE_APPEND_MS;
+  for (const msg of game.messages.contents.slice(-30).reverse()) {
+    if (msg.timestamp < cutoff) return null;
+    const flag = msg?.flags?.[M];
+    if (!flag?.isDeathMessage || _deletingDeathMessages.has(msg.id)) continue;
+    const seen = flag.cause ?? {};
+    if (key ? seen.causeId === key : seen.messageId === card) return msg;
+  }
+  return null;
+};
+
+const _existingDeaths = (msg) => {
+  const flag = msg?.flags?.[M] ?? {};
+  if (Array.isArray(flag.deaths)) return flag.deaths;
+  const ids = Array.isArray(flag.deadTokenIds) ? flag.deadTokenIds : (flag.deadTokenId ? [flag.deadTokenId] : []);
+  return ids.map(id => ({ tokenId: id, name: canvas.tokens?.get(id)?.name ?? '?', isObject: false, groupId: null, groupName: null }));
+};
+
 const flushDeathBatch = async (batch) => {
   if (!batch.length) return;
-  
-  
+
   const cause = batch.find(b => b?.cause && Object.keys(b.cause).length)?.cause ?? _currentDamageCause();
-  if (batch.length === 1) {
-    const { name, tokenId, isObject } = batch[0];
-    await ChatMessage.create({
-      content: game.i18n.format(isObject ? 'DSCT.chat.dt.destroyed' : 'DSCT.chat.dt.fallen', { name }),
-      flags: { [M]: { isDeathMessage: true, deadTokenIds: [tokenId], cause } },
-    });
-  } else {
-    const creatures = batch.filter(b => !b.isObject);
-    const objects   = batch.filter(b => b.isObject);
-    const lines = [];
-    if (creatures.length) lines.push(game.i18n.format('DSCT.chat.dt.fallenMultiple', { names: formatNames(creatures.map(b => b.name)) }));
-    if (objects.length)   lines.push(game.i18n.format('DSCT.chat.dt.destroyedMultiple', { names: formatNames(objects.map(b => b.name)) }));
-    await ChatMessage.create({
-      content: lines.join('<br>'),
-      flags: { [M]: { isDeathMessage: true, deadTokenIds: batch.map(b => b.tokenId), cause } },
-    });
+  const deaths = _deathRecords(batch);
+
+  
+  const grow = _deathMessageToGrow(cause);
+  if (grow) {
+    const known = _existingDeaths(grow);
+    const seen  = new Set(known.map(d => d.tokenId));
+    const all   = [...known, ...deaths.filter(d => !seen.has(d.tokenId))];
+    const ok = await grow.update({
+      content: _deathMessageContent(all),
+      [`flags.${M}.deaths`]: all,
+      [`flags.${M}.deadTokenIds`]: all.map(d => d.tokenId),
+    }).then(() => true).catch(() => false);
+    if (ok) { cleanBaseNpcActors(); return; }
+    
   }
+
+  await ChatMessage.create({
+    content: _deathMessageContent(deaths),
+    flags: { [M]: { isDeathMessage: true, deadTokenIds: deaths.map(d => d.tokenId), deaths, cause } },
+  });
   cleanBaseNpcActors();
 };
 
@@ -2585,8 +2643,13 @@ const deleteDeathMessagesFor = async (tokenIds) => {
       return !token || !token.actor?.statuses?.has(defeatedStatus);
     });
   });
-  for (const msg of toDelete) {
-    if (msg.isOwner || game.user.isGM) await msg.delete().catch(() => {});
+  for (const msg of toDelete) _deletingDeathMessages.add(msg.id);
+  try {
+    for (const msg of toDelete) {
+      if (msg.isOwner || game.user.isGM) await msg.delete().catch(() => {});
+    }
+  } finally {
+    for (const msg of toDelete) _deletingDeathMessages.delete(msg.id);
   }
 };
 
@@ -2756,7 +2819,6 @@ export const runRaiseDeadUI = () => {
   document.addEventListener('keydown', onKey);
   document.addEventListener('contextmenu', onContextMenu);
 };
-
 
 export const reviveTokens = async (tokenIds, { skipGroupHpRestore = false } = {}) => {
   if (!game.users.activeGM?.isSelf) return;
