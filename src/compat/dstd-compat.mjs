@@ -608,6 +608,9 @@ function _installDirectorFooter(panel) {
 }
 
 const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock = false) => damageBatch(async () => {
+  
+  if (unlock) _squadSweepRunning = true;
+  try {
   const processed = new Set();
   while (true) {
     const li = msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`);
@@ -619,8 +622,6 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock =
       if (processed.has(key)) continue;
       if (onlyKeys && !onlyKeys.has(key)) continue;
       const btn = getBtn(row);
-      
-      if (unlock && btn?.classList.contains('dsct-squad-undo-locked')) btn.disabled = false;
       if (btn && !btn.disabled) {
         processed.add(key);
         btn.click();
@@ -631,6 +632,9 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock =
       processed.add(key);
     }
     if (!clicked) break;
+  }
+  } finally {
+    if (unlock) _squadSweepRunning = false;
   }
 });
 
@@ -756,15 +760,30 @@ const _clearSquadsSwept = async (message, groupIds) => {
   await _writeSwept(message, left);
 };
 
+let _squadSweepRunning = false;
+let _lockedUndoGuard = false;
+
+const _guardLockedUndos = () => {
+  if (_lockedUndoGuard) return;
+  _lockedUndoGuard = true;
+  document.addEventListener('click', (e) => {
+    if (_squadSweepRunning) return;
+    const btn = e.target?.closest?.('.dsct-squad-undo-locked');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    ui.notifications.info(btn.dataset.tooltip || game.i18n.format('DSCT.tooltip.undoWholeSquad', { group: '' }));
+  }, true);
+};
+
 function _lockSweptSquadUndos(panel, message) {
+  _guardLockedUndos();
   const swept = _sweptSquads(message);
-  if (!swept.size) return;
   for (const row of panel.querySelectorAll(DSTD_ROW)) {
     const squad = _squadOfRow(row);
-    if (!squad || !swept.has(squad.id)) continue;
     const undo = row.querySelector('[data-dstd-action="undoDamage"]');
-    if (!undo || undo.disabled) continue;
-    undo.disabled = true;
+    if (!undo) continue;
+    if (!squad || !swept.has(squad.id)) { undo.classList.remove('dsct-squad-undo-locked'); continue; }
     undo.classList.add('dsct-squad-undo-locked');
     undo.dataset.tooltip = game.i18n.format('DSCT.tooltip.undoWholeSquad', { group: squad.name });
   }

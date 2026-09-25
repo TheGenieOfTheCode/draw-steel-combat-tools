@@ -2931,7 +2931,7 @@ label.checkbox.dsct-adv-ignored { opacity: 0.5; text-decoration: line-through; }
 }
 
 .dsct-squad-undo-locked {
-  opacity: 0.3;
+  opacity: 0.4;
   cursor: not-allowed;
   filter: grayscale(0.7);
 }
