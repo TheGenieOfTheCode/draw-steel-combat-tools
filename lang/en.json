@@ -1747,6 +1747,7 @@
       },
       "dt": {
         "tokenGone": "{name} is no longer on this scene.",
+        "forcedDeathsAnyway": "{names} fell regardless: that death was not one of the choices.",
         "lockedByPicker": "A death picker is open. Damage is locked until it is answered.",
       "pickerLockReleased": "Death picker released and damage unlocked.",
       "nothingToSettle": "No deaths are waiting to be settled.",

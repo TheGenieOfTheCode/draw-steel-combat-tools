@@ -1654,6 +1654,12 @@ const _liveContext = (ctx) => {
   return { ...ctx, poolTokenIds, lockedIds, preSelectedIds, numToKill };
 };
 
+const _announceForcedDeaths = (ids) => {
+  const names = [...ids].map(id => canvas?.tokens?.get(id)?.name).filter(Boolean);
+  if (!names.length) return;
+  ui.notifications.info(game.i18n.format('DSCT.notice.dt.forcedDeathsAnyway', { names: names.join(', ') }));
+};
+
 const _settleKillFlush = async (a) => {
   const finalTokenIds = new Set(a.tokenIds);
   if (getSetting('deathTrackerManualMode')) {
@@ -1694,8 +1700,12 @@ const _settleKillFlush = async (a) => {
           });
         }
       }
-      if (!picked) { ui.notifications.warn(game.i18n.localize('DSCT.notice.dt.pickDeathsCancelled')); return; }
-      for (const id of picked) finalTokenIds.add(id);
+      if (!picked) {
+        ui.notifications.warn(game.i18n.localize('DSCT.notice.dt.pickDeathsCancelled'));
+        _announceForcedDeaths(finalTokenIds);
+      } else {
+        for (const id of picked) finalTokenIds.add(id);
+      }
     }
     if (!finalTokenIds.size) return;
     const _ver = game.modules.get(M)?.version ?? '?';
@@ -1750,9 +1760,11 @@ const _settleKillFlush = async (a) => {
           const live = ctx.groupId ? game.combat?.groups?.get(ctx.groupId) : null;
           if (live) window._dsctDeclinedDeaths.set(ctx.groupId, live.system?.staminaValue ?? null);
         }
-        return;
+
+        _announceForcedDeaths(finalTokenIds);
+      } else {
+        for (const id of picked) finalTokenIds.add(id);
       }
-      for (const id of picked) finalTokenIds.add(id);
     } else {
       for (const ctx of liveContexts) {
         for (const id of ctx.lockedIds)      finalTokenIds.add(id);
