@@ -1826,7 +1826,9 @@ const _runManualKillFlush = async () => {
 };
 
 const _FLUSH_MAX_HOLDS = 60;
+const _FORCED_HOLD_MAX = 20;
 let _flushHolds = 0;
+let _forcedHolds = 0;
 
 const _flushManualKillAccumulator = async () => {
   const acc = window._dsctManualKillAccumulator;
@@ -1839,14 +1841,17 @@ const _flushManualKillAccumulator = async () => {
   
   const squadAboutToBeAsked = !asked && hasWork && !acc.pickerContexts.length && deathSettlementPending();
 
+  
   const hold = window._dsctPendingSquadTimers?.size > 0 || window._dsctFlushBusy
-    || ((applying || squadAboutToBeAsked) && ++_flushHolds <= _FLUSH_MAX_HOLDS);
+    || (applying && ++_flushHolds <= _FLUSH_MAX_HOLDS)
+    || (squadAboutToBeAsked && ++_forcedHolds <= _FORCED_HOLD_MAX);
   if (hold) {
     if (acc) { clearTimeout(acc.timer); acc.timer = setTimeout(_flushManualKillAccumulator, _MANUAL_KILL_ACCUM_MS); }
     return;
   }
   if (applying) console.warn(`DSCT | DT | kill flush stopped waiting on ${applying} and is asking now`);
   _flushHolds = 0;
+  _forcedHolds = 0;
   window._dsctSettleNow = false;
   window._dsctFlushBusy = true;
   try { await _runManualKillFlush(); }
@@ -2724,29 +2729,39 @@ const flushDeathBatch = async (batch) => {
 };
 
 const deleteDeathMessagesFor = async (tokenIds) => {
-  const idSet = new Set(tokenIds);
+  const gone = new Set(tokenIds);
   const defeatedStatus = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
-  const toDelete = game.messages.contents.filter(msg => {
+  const risen = (id) => {
+    if (gone.has(id)) return true;
+    const token = canvas.tokens.get(id);
+    return !token || !token.actor?.statuses?.has(defeatedStatus);
+  };
+
+  for (const msg of game.messages.contents) {
     const flag = msg.flags?.[M];
-    if (!flag?.isDeathMessage) return false;
-    const msgIds = Array.isArray(flag.deadTokenIds) ? flag.deadTokenIds :
-                   (flag.deadTokenId ? [flag.deadTokenId] : []);
-    if (!msgIds.length) return false;
-    
-    
-    return msgIds.every(id => {
-      if (idSet.has(id)) return true;
-      const token = canvas.tokens.get(id);
-      return !token || !token.actor?.statuses?.has(defeatedStatus);
-    });
-  });
-  for (const msg of toDelete) _deletingDeathMessages.add(msg.id);
-  try {
-    for (const msg of toDelete) {
-      if (msg.isOwner || game.user.isGM) await msg.delete().catch(() => {});
+    if (!flag?.isDeathMessage) continue;
+    const ids = Array.isArray(flag.deadTokenIds) ? flag.deadTokenIds
+      : (flag.deadTokenId ? [flag.deadTokenId] : []);
+    if (!ids.length) continue;
+
+    const keep = ids.filter(id => !risen(id));
+    if (keep.length === ids.length) continue;
+    if (!msg.isOwner && !game.user.isGM) continue;
+
+    if (!keep.length) {
+      _deletingDeathMessages.add(msg.id);
+      try { await msg.delete().catch(() => {}); }
+      finally { _deletingDeathMessages.delete(msg.id); }
+      continue;
     }
-  } finally {
-    for (const msg of toDelete) _deletingDeathMessages.delete(msg.id);
+
+    const kept = new Set(keep);
+    const deaths = _existingDeaths(msg).filter(d => kept.has(d.tokenId));
+    await msg.update({
+      content: _deathMessageContent(deaths),
+      [`flags.${M}.deaths`]: deaths,
+      [`flags.${M}.deadTokenIds`]: keep,
+    }).catch(() => {});
   }
 };
 
