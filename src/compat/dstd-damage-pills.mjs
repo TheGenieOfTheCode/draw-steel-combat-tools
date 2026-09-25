@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi } from '../helpers.mjs';
+import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
 
 const M    = 'draw-steel-combat-tools';
@@ -469,7 +469,7 @@ async function _writePillsToOps(message, entries, pills, srcGrp = null) {
     const removeAll = !own.length;
     if (removeAll && !ov.additional && (ov.dstOrigType !== undefined || !ov.damageType)) {
       if (direct && FD) payload[`flags.${DSTD}.state.damageOverrides.${id}`] = new FD();
-      else payload[`flags.${DSTD}.state.damageOverrides.-=${id}`] = null;
+      else payload[`flags.${DSTD}.state.damageOverrides.${id}`] = dropKeyOverSocket();
       continue;
     }
     const data = _pillOpData(ov, own);

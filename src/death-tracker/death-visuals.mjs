@@ -1,4 +1,4 @@
-import { getSetting } from '../helpers.mjs';
+import { getSetting , dropKey } from '../helpers.mjs';
 import { isDeathDeferred } from './defer-death.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -262,8 +262,7 @@ async function _migrateStoredDeathLook() {
         _id: doc.id,
         'texture.tint': tint ?? '#ffffff',
         alpha: alpha ?? 1,
-        [`flags.${M}.-=preDeathTint`]: null,
-        [`flags.${M}.-=preDeathAlpha`]: null,
+        flags: { [M]: { preDeathTint: dropKey(), preDeathAlpha: dropKey() } },
       });
     }
     if (!updates.length) continue;

@@ -204,12 +204,14 @@ const updateWithCaptainEffects = async () => {
   }
 };
 
+const _deathTrackerAnnounces = () => getSetting('deathTrackerEnabled');
+
 let _relabelTimer = null;
 let _suppressGroupDeleteRelabel = false;
 let _suppressCaptainRelabel = false;
 const _captainFellSent = new Set();
 
-const _assignCaptain = async (chosenToken, group, combat) => {
+export const assignSquadCaptain = async (chosenToken, group, combat = game.combat) => {
   const chosenCombatant = combat.combatants.find(c => c.tokenId === chosenToken.id);
   if (!chosenCombatant) return;
 
@@ -270,7 +272,7 @@ const _processCaptainQueue = async (groups, combat) => {
       const candidates = _findCaptainCandidates(group, combat).filter(t => !assignedIds.has(t.id));
       if (!candidates.length) continue;
       assignedIds.add(candidates[0].id);
-      await _assignCaptain(candidates[0], group, combat);
+      await assignSquadCaptain(candidates[0], group, combat);
     }
     return;
   }
@@ -310,7 +312,7 @@ const _processCaptainQueue = async (groups, combat) => {
       );
       if (!squad) continue;
 
-      await _assignCaptain(candidateToken, squad, combat);
+      await assignSquadCaptain(candidateToken, squad, combat);
       remainingGroups = remainingGroups.filter(g => g.id !== squad.id);
     }
   } else {
@@ -327,7 +329,7 @@ const _processCaptainQueue = async (groups, combat) => {
         maxTargets: 1,
       });
       if (!picked?.length) continue;
-      await _assignCaptain(picked[0], group, combat);
+      await assignSquadCaptain(picked[0], group, combat);
     }
   }
 };
@@ -465,17 +467,21 @@ export const registerSquadLabelHooks = () => {
 
       const captainCombatant = game.combat?.combatants.get(group.system.captainId);
       const captainName = captainCombatant?.actor?.name ?? captainCombatant?.name ?? 'Unknown';
-      ChatMessage.create({ content: game.i18n.format('DSCT.chat.squads.captainLostSquad', {
-        name: captainName, group: group.name,
-      }) });
+      if (!_deathTrackerAnnounces()) {
+        ChatMessage.create({ content: game.i18n.format('DSCT.chat.squads.captainLostSquad', {
+          name: captainName, group: group.name,
+        }) });
+      }
       await group.update({ 'system.captainId': null });
       if (getSetting('squadLabelApplyEffects')) await applySquadLabels();
     } else if (combatant.system?.isCaptain) {
       _captainFellSent.add(combatant.id);
       setTimeout(() => _captainFellSent.delete(combatant.id), 2000);
-      ChatMessage.create({ content: game.i18n.format('DSCT.chat.squads.captainFell', {
-        name: combatant.actor?.name ?? combatant.name, group: group.name,
-      }) });
+      if (!_deathTrackerAnnounces()) {
+        ChatMessage.create({ content: game.i18n.format('DSCT.chat.squads.captainFell', {
+          name: combatant.actor?.name ?? combatant.name, group: group.name,
+        }) });
+      }
       await updateWithCaptainEffects();
     }
   });
@@ -504,9 +510,11 @@ export const registerSquadLabelHooks = () => {
 
     _captainFellSent.add(combatant.id);
     setTimeout(() => _captainFellSent.delete(combatant.id), 2000);
-    ChatMessage.create({ content: game.i18n.format('DSCT.chat.squads.captainFell', {
-      name: combatant.actor?.name ?? combatant.name, group: group.name,
-    }) });
+    if (!_deathTrackerAnnounces()) {
+      ChatMessage.create({ content: game.i18n.format('DSCT.chat.squads.captainFell', {
+        name: combatant.actor?.name ?? combatant.name, group: group.name,
+      }) });
+    }
     await updateWithCaptainEffects();
   });
 

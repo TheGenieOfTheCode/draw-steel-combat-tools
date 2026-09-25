@@ -1,4 +1,4 @@
-import { getModuleApi, safeDelete, getSetting } from '../helpers.mjs';
+import { getModuleApi, safeDelete, getSetting , dropKey } from '../helpers.mjs';
 import { ONGOING, ENDS, defaultEnd, expiryOptions } from './template-lifetime.mjs';
 
 const M  = 'draw-steel-combat-tools';
@@ -114,7 +114,7 @@ function _injectLifetimeFields(app, root, item, typeGroup) {
     const on = event.currentTarget.checked;
     if (select) select.disabled = !on;
     if (on) await item.setFlag(M, ONGOING, true);
-    else await item.update({ [`flags.${M}.-=${ONGOING}`]: null });
+    else await item.update({ flags: { [M]: { [ONGOING]: dropKey() } } });
   });
 
   select?.addEventListener('change', (event) => {

@@ -1,4 +1,5 @@
 import {
+  dropKey,
   replayUndo, safeUpdate, safeDelete, safeToggleStatusEffect, safeUnsetFlag, safeCreateEmbedded,
   getSetting, getTokenById, getModuleApi,
 } from '../helpers.mjs';
@@ -99,7 +100,7 @@ const handleStaminaRevival = async (undoLog) => {
       if (savedDisplayBars !== undefined) {
         await safeUpdate(tokenDoc, {
           displayBars: savedDisplayBars,
-          'flags.draw-steel-combat-tools.-=savedDisplayBars': null,
+          flags: { 'draw-steel-combat-tools': { savedDisplayBars: dropKey() } },
         });
       }
     }
@@ -148,7 +149,6 @@ const handleStaminaRevival = async (undoLog) => {
   return revivedNames;
 };
 
-
 const isEntryExpired = (entry) => {
   if (!getSetting('undoExpirationCheck')) return false;
   if (canvas.scene?.id !== entry.targetSceneId) {
@@ -178,7 +178,6 @@ const isEntryExpired = (entry) => {
   return false;
 };
 
-
 const makeStatusDiv = (text) => {
   const div = document.createElement('div');
   div.className = 'dsct-undo-status';
@@ -194,7 +193,6 @@ const makeUndoBtn = (label, onClick) => {
   btn.addEventListener('click', async (e) => { e.preventDefault(); await onClick(); });
   return btn;
 };
-
 
 const addFmUndoPreview = (btn, previews) => {
   const hlName = 'dsct-fm-undo-hl';

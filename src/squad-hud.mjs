@@ -1,5 +1,6 @@
 ﻿import { getSetting, monsterFilter as filter } from './helpers.mjs';
 import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
+import { assignSquadCaptain } from './squad-labels.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -18,6 +19,59 @@ const GROUP_TINTS = {
 };
 
 const _squadHuds = new Map();
+
+export const captainCandidates = (groupId) => {
+  const isLeader = filter.organization('leader');
+  const isSolo   = filter.organization('solo');
+  const isMount  = filter.keyword('mount');
+  const takenIds = new Set(
+    [...(game.combat?.groups ?? [])]
+      .filter(g => g.id !== groupId)
+      .map(g => g.system?.captainId)
+      .filter(Boolean)
+  );
+  return [...(game.combat?.combatants ?? [])]
+    .filter(c => {
+      const a = c.actor;
+      if (!a || a.type !== 'npc') return false;
+      if (a.system?.isMinion) return false;
+      if (isLeader(a) || isSolo(a) || isMount(a)) return false;
+      if (takenIds.has(c.id)) return false;
+      return !c.defeated;
+    })
+    .map(c => canvas.tokens.placeables.find(t => t.id === c.tokenId))
+    .filter(Boolean);
+};
+
+export const hasLiveCaptain = (groupId) => {
+  const id = game.combat?.groups?.get(groupId)?.system?.captainId;
+  return !!id && !!game.combat?.combatants?.get(id);
+};
+
+export const reassignSquadCaptain = async (groupId) => {
+  const group = game.combat?.groups?.get(groupId);
+  if (!group) return false;
+
+  if (group.system?.captainId) await group.update({ 'system.captainId': null });
+
+  const candidateTokens = captainCandidates(groupId);
+  if (!candidateTokens.length) {
+    ui.notifications.info(game.i18n.format('DSCT.notice.squads.noCaptainCandidates', { group: group.name }));
+    return false;
+  }
+
+  const colorMap = new Map(candidateTokens.map(t => [t.id, '#ffcc00']));
+  const picked   = await runColoredTokenPicker({
+    tokens: candidateTokens,
+    colorMap,
+    hint: game.i18n.format('DSCT.notice.squads.pickCaptain', { group: group.name }),
+  });
+
+  if (!picked) return false;
+  
+  await assignSquadCaptain(picked, group, game.combat);
+  return true;
+};
 let _hudTicker   = null;
 let _moveHandler = null;
 let _upHandler   = null;
@@ -298,48 +352,7 @@ function _buildContainer(data, entry, vis = 'all') {
     crownSprite.cursor = 'pointer';
     crownSprite.on('pointerdown', async (event) => {
       event.stopPropagation();
-      const group = game.combat?.groups?.get(data.groupId);
-      if (!group) return;
-
-      if (group.system?.captainId) await group.update({ 'system.captainId': null });
-
-      const isLeader = filter.organization('leader');
-      const isSolo   = filter.organization('solo');
-      const isMount  = filter.keyword('mount');
-      const takenIds = new Set(
-        [...(game.combat?.groups ?? [])]
-          .filter(g => g.id !== group.id)
-          .map(g => g.system?.captainId)
-          .filter(Boolean)
-      );
-      const candidateTokens = [...(game.combat?.combatants ?? [])]
-        .filter(c => {
-          const a = c.actor;
-          if (!a || a.type !== 'npc') return false;
-          if (a.system?.isMinion) return false;
-          if (isLeader(a) || isSolo(a) || isMount(a)) return false;
-          if (takenIds.has(c.id)) return false;
-          return !c.defeated;
-        })
-        .map(c => canvas.tokens.placeables.find(t => t.id === c.tokenId))
-        .filter(Boolean);
-
-      if (!candidateTokens.length) {
-        ui.notifications.info(game.i18n.format('DSCT.notice.squads.noCaptainCandidates', { group: group.name }));
-        return;
-      }
-
-      const colorMap = new Map(candidateTokens.map(t => [t.id, '#ffcc00']));
-      const picked   = await runColoredTokenPicker({
-        tokens: candidateTokens,
-        colorMap,
-        hint: game.i18n.format('DSCT.notice.squads.pickCaptain', { group: group.name }),
-      });
-
-      if (!picked) return;
-      const combatant = game.combat?.combatants?.find(c => c.tokenId === picked.id);
-      if (!combatant) return;
-      await group.update({ 'system.captainId': combatant.id });
+      await reassignSquadCaptain(data.groupId);
     });
   }
 

@@ -1556,7 +1556,10 @@
       "settleDeathsNow": "Stop waiting for the rest of the damage and settle this squad now",
       "releasePicker": "Close any open death picker and unlock damage for everyone",
       "undoRevives": "Undoing this revives {names}",
-      "undoRevivesUnknown": "Undoing this revives the fallen"
+      "undoRevivesUnknown": "Undoing this revives the fallen",
+      "pingDead": "Left click to ping {name}",
+      "pingDeadCaptain": "Left click to ping {name}. Right click to hand on the crown.",
+      "reviveGroup": "Bring this whole group back"
     },
     "dialog": {
       "peek": {
@@ -1733,6 +1736,7 @@
         "appliedToCount": "Applied to {count} target{s}."
       },
       "dt": {
+        "tokenGone": "{name} is no longer on this scene.",
         "lockedByPicker": "A death picker is open. Damage is locked until it is answered.",
       "pickerLockReleased": "Death picker released and damage unlocked.",
       "nothingToSettle": "No deaths are waiting to be settled.",
@@ -1768,6 +1772,7 @@
         "renamedOnly": "Combat squads renamed.",
         "labelsAppliedExisting": "Squad labels applied to existing groups.",
         "noCaptainCandidates": "No valid captain candidates found for {group}.",
+        "squadGone": "That squad is no longer in the encounter.",
         "pickCaptain": "Click a token to become captain of {group}. Escape to skip.",
         "captainAssigned": "{name} is now captain of {group}.",
         "pickSquadForCaptain": "Click a minion to assign {name} as their captain (colors indicate squads). Escape to skip."
@@ -1944,7 +1949,8 @@
       "cancelCollision": "Cancel",
       "ignoreAlly": "Ignore Ally",
       "configureTemplate": "Configure Template",
-      "hideDefeated": "Hide Defeated Tokens"
+      "hideDefeated": "Hide Defeated Tokens",
+      "undoAllDeaths": "Undo All"
     },
     "chat": {
       "dt": {
@@ -1953,6 +1959,13 @@
         "fallenMultiple": "{names} have fallen.",
         "destroyedMultiple": "{names} were destroyed.",
         "undoFromCard": "Undo from the damage card",
+        "summaryFallenOne": "1 has fallen.",
+        "summaryFallen": "{count} have fallen.",
+        "summaryDestroyedOne": "1 was destroyed.",
+        "summaryDestroyed": "{count} were destroyed.",
+        "rankCaptain": "Captain",
+        "rankMinions": "Minions",
+        "rankOthers": "Others",
       "pickerStuckNote": "A death picker is still open and damage is locked. If it will not close, release it here."
       },
       "tactical": {

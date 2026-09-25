@@ -1,4 +1,4 @@
-import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken, getModuleApi } from '../helpers.mjs';
+import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken, getModuleApi , dropKey } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
 import { playDetected } from './detected-flash.mjs';
 import { stealthTraits, observerBlocksHiding, coverCountingCreatures, widestCover, forbiddenToHide } from './stealth-traits.mjs';
@@ -428,7 +428,7 @@ const _snapshotReveal = (token, ids, reason) =>
 
 const _forgetSnapshot = (token) =>
   token.document.getFlag(M, SNAPSHOT)
-    ? safeUpdate(token.document, { [`flags.${M}.-=${SNAPSHOT}`]: null })
+    ? safeUpdate(token.document, { flags: { [M]: { [SNAPSHOT]: dropKey() } } })
     : Promise.resolve();
 
 async function _restoreFromSnapshot(token) {
@@ -485,11 +485,14 @@ export async function clearRevealPending(token, reasons) {
   if (!pending) return;
   const drop = reasons.filter(r => r in pending);
   if (!drop.length) return;
-  const update = {};
+  const pendingDrops = {};
+  const detailDrops = {};
   for (const r of drop) {
-    update[`flags.${M}.${PENDING}.-=${r}`] = null;
-    if (effect.getFlag(M, DETAIL)?.[r]) update[`flags.${M}.${DETAIL}.-=${r}`] = null;
+    pendingDrops[r] = dropKey();
+    if (effect.getFlag(M, DETAIL)?.[r]) detailDrops[r] = dropKey();
   }
+  const update = { flags: { [M]: { [PENDING]: pendingDrops } } };
+  if (Object.keys(detailDrops).length) update.flags[M][DETAIL] = detailDrops;
   await safeUpdate(effect, update);
   Hooks.callAll('dsct.stealthChanged');
 }
@@ -531,11 +534,11 @@ export async function setHiddenFrom(token, ids, { keepPending = false } = {}) {
   if (!keepPending) await _forgetSnapshot(token);
 
   if (effect) {
-    const update = { [`flags.${M}.${FLAG}`]: list };
 
-    if (!keepPending && effect.getFlag(M, PENDING)) update[`flags.${M}.-=${PENDING}`] = null;
-    if (!keepPending && effect.getFlag(M, DETAIL)) update[`flags.${M}.-=${DETAIL}`] = null;
-    await safeUpdate(effect, update);
+    const mine = { [FLAG]: list };
+    if (!keepPending && effect.getFlag(M, PENDING)) mine[PENDING] = dropKey();
+    if (!keepPending && effect.getFlag(M, DETAIL)) mine[DETAIL] = dropKey();
+    await safeUpdate(effect, { flags: { [M]: mine } });
   }
   else await token.actor?.toggleStatusEffect?.(HIDDEN, { active: true })
     .then(() => safeUpdate(_hiddenEffect(token), { [`flags.${M}.${FLAG}`]: list }));

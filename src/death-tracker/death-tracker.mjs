@@ -1,7 +1,9 @@
 import { getSetting, getModuleApi, safeToggleStatusEffect, safeUpdate, getSquadGroup, MATERIAL_ICONS, safeCreateEmbedded, safeDelete, tokenAt, toGrid, chooseFreeSquare } from '../helpers.mjs';
 import { setRaisedDeadVisible, activateTokenLayer, clearPreviewTokens, installRevivalHoverPreview } from './defeated-token-visibility.mjs';
+import { renderDeathMessage, registerDeathCardRefresh } from './death-message.mjs';
 import { beginPickerLock, endPickerLock, clearPickerLockLocal } from './picker-lock.mjs';
 import { applySquadLabels } from '../squad-labels.mjs';
+import { hasLiveCaptain } from '../squad-hud.mjs';
 import { isDeathDeferred, isTokenDeathDeferred } from './defer-death.mjs';
 import { animateDeathVisual, deathVisualSettled, syncDeathVisual, markDeathPending, clearDeathPending } from './death-visuals.mjs';
 import { beginPickerOverlay, endPickerOverlay, setPickerTarget, removePickerTarget, clearPickerArrows } from '../ability-automation/picker-overlay.mjs';
@@ -37,9 +39,19 @@ export const noteDamageCause = ({ dstd = false, userId = null, sourceActorUuid =
   };
 };
 
+const CAUSE_MAX_MS = 5 * 60 * 1000;
+
+const _stillSettling = () => (window._dsctDamageBatchDepth ?? 0) > 0
+  || !!window._dsctManualKillAccumulator
+  || (window._dsctPendingSquadTimers?.size ?? 0) > 0
+  || window._dsctFlushBusy === true
+  || window._dsctKillLockActive === true;
+
 const _currentDamageCause = () => {
   if (_causeOverride) return _causeOverride;
-  if (!_damageCause || Date.now() - _damageCause.at > CAUSE_TTL_MS) return {};
+  if (!_damageCause) return {};
+  const age = Date.now() - _damageCause.at;
+  if (age > CAUSE_MAX_MS || (age > CAUSE_TTL_MS && !_stillSettling())) return {};
   const { at, stated, ...cause } = _damageCause;
   return cause;
 };
@@ -51,6 +63,14 @@ const _withCause = async (cause, fn) => {
   _causeOverride = cause;
   try { return await fn(); }
   finally { _causeOverride = prev; }
+};
+
+const _captainSeatOf = (combatant) => {
+  if (!combatant) return null;
+  for (const group of (game.combat?.groups ?? [])) {
+    if (group.system?.captainId === combatant.id) return group.id;
+  }
+  return null;
 };
 
 const _groupNames = new Map();
@@ -175,6 +195,8 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
   const flagData = { savedDisplayBars: token.document.displayBars };
   if (groupId) flagData.savedGroupId = groupId;
   _noteGroupName(groupId);
+  const captainOf = _captainSeatOf(combatant);
+  if (captainOf) { flagData.savedCaptainOf = captainOf; _noteGroupName(captainOf); }
   await Promise.all([
     token.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
     combatant ? combatant.delete() : Promise.resolve(),
@@ -383,6 +405,8 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
       const flagData  = { savedDisplayBars: t.document.displayBars };
       if (groupId) flagData.savedGroupId = groupId;
       _noteGroupName(groupId);
+      const captainOf = _captainSeatOf(combatant);
+      if (captainOf) { flagData.savedCaptainOf = captainOf; _noteGroupName(captainOf); }
       _tm(`step 3: token flags + combatant.delete -- ${t.actor.name}`);
       await Promise.all([
         t.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
@@ -629,6 +653,8 @@ const _doKillManual = async ({ tokenIds, squadGroup, processQueue, step1Extra = 
           const flagData  = { savedDisplayBars: t.document.displayBars };
 if (groupId) flagData.savedGroupId = groupId;
 _noteGroupName(groupId);
+const captainOf = _captainSeatOf(combatant);
+if (captainOf) { flagData.savedCaptainOf = captainOf; _noteGroupName(captainOf); }
           await Promise.all([
             t.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
             combatant ? combatant.delete() : Promise.resolve(),
@@ -896,6 +922,7 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
       t,
       isMinion,
       savedGroupId:     t.document.getFlag(M, 'savedGroupId'),
+      savedCaptainOf:   t.document.getFlag(M, 'savedCaptainOf'),
       savedDisplayBars: t.document.getFlag(M, 'savedDisplayBars'),
       markerTileId:     t.document.getFlag(M, 'deathMarkerTileId'),
       minionMaxHP:      isMinion ? (t.actor.system.stamina?.max ?? 0) : 0,
@@ -908,6 +935,7 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
       _id: t.id,
       flags: { [M]: {
         savedGroupId:      _dropFlag(),
+        savedCaptainOf:    _dropFlag(),
         savedDisplayBars:  _dropFlag(),
         deathMarkerTileId: _dropFlag(),
       } },
@@ -930,6 +958,16 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
     _tm(`step 3b: ${newCombatants.length} combatant(s) in one create`);
     await game.combat.createEmbeddedDocuments('Combatant', newCombatants, txn);
     _tm('step 3b: combatants done');
+  }
+
+  for (const { t, savedCaptainOf } of plan) {
+    if (!savedCaptainOf) continue;
+    const group = game.combat?.groups?.get(savedCaptainOf);
+    if (!group || hasLiveCaptain(savedCaptainOf)) continue;
+    const combatant = game.combat?.combatants?.find(c => c.tokenId === t.id);
+    if (!combatant) continue;
+    _tm(`step 3b: ${t.actor?.name} takes the crown of ${group.name} back`);
+    await group.update({ 'system.captainId': combatant.id }, txn);
   }
 
   if (!skipGroupHpRestore) {
@@ -965,14 +1003,16 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
   }
 
   if (getSetting('clearEffectsOnRevive')) {
-    await Promise.all(plan.map(async ({ t }) => {
-      if (!canvas.tokens.get(t.id)) return;
-      const validEffectIds = t.actor.effects.filter(e => !e.id.endsWith('0000000000')).map(e => e.id);
-      if (!validEffectIds.length) return;
-      _tm(`step 4: deleteEmbeddedDocuments ActiveEffect x${validEffectIds.length} -- ${t.actor.name}`);
-      try { await t.actor.deleteEmbeddedDocuments('ActiveEffect', validEffectIds); }
+    
+    for (const { t } of plan) {
+      const actor = canvas.tokens.get(t.id)?.actor;
+      if (!actor) continue;
+      const validEffectIds = actor.effects.filter(e => !e.id.endsWith('0000000000')).map(e => e.id);
+      if (!validEffectIds.length) continue;
+      _tm(`step 4: deleteEmbeddedDocuments ActiveEffect x${validEffectIds.length} -- ${actor.name}`);
+      try { await actor.deleteEmbeddedDocuments('ActiveEffect', validEffectIds); }
       catch (e) { console.warn('DSCT | DT | Minor error clearing effects on revive:', e); }
-    }));
+    }
     _tm('step 4: effects done');
   }
   _tm('step 4 complete; deleteDeathMessages');
@@ -1127,12 +1167,14 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
         for (const t of tokens) {
           if (!canvas.tokens.get(t.id)) continue;
           const savedGroupId    = t.document.getFlag(M, 'savedGroupId');
+          const savedCaptainOf  = t.document.getFlag(M, 'savedCaptainOf');
           const savedDisplayBars = t.document.getFlag(M, 'savedDisplayBars');
           const isMinion        = t.actor.system?.isMinion ?? false;
           const minionMaxHP     = isMinion ? (t.actor.system.stamina?.max ?? 0) : 0;
 
           const flagClear = { flags: { [M]: {
             savedGroupId:    _dropFlag(),
+            savedCaptainOf:  _dropFlag(),
             savedDisplayBars: _dropFlag(),
           } } };
           if (savedDisplayBars !== undefined) flagClear.displayBars = savedDisplayBars;
@@ -1149,7 +1191,12 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
               if (group) await group.update({ 'system.staminaValue': (group.system.staminaValue ?? 0) + minionMaxHP });
             }
           }
-          step3Data.push({ t, newCombatantId, savedGroupId, savedDisplayBars, isMinion, minionMaxHP });
+
+          if (newCombatantId && savedCaptainOf && !hasLiveCaptain(savedCaptainOf)) {
+            const led = game.combat?.groups?.get(savedCaptainOf);
+            if (led) await led.update({ 'system.captainId': newCombatantId });
+          }
+          step3Data.push({ t, newCombatantId, savedGroupId, savedCaptainOf, savedDisplayBars, isMinion, minionMaxHP });
         }
         await new Promise(r => setTimeout(r, 200));
         step3Applied = true;
@@ -1171,9 +1218,11 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
         sections.push(mkSection(3, 'Restored to Combat', s3Lines, null, { done: true }));
         currentStep = 4;
       } else { 
-        for (const { t, newCombatantId, savedGroupId, savedDisplayBars, isMinion, minionMaxHP } of step3Data) {
+        for (const { t, newCombatantId, savedGroupId, savedCaptainOf, savedDisplayBars, isMinion, minionMaxHP } of step3Data) {
           if (!canvas.tokens.get(t.id)) continue;
           if (newCombatantId) {
+            const led = savedCaptainOf ? game.combat?.groups?.get(savedCaptainOf) : null;
+            if (led && led.system?.captainId === newCombatantId) await led.update({ 'system.captainId': null });
             const comb = game.combat?.combatants.get(newCombatantId);
             if (comb) await safeDelete(comb);
           }
@@ -1183,6 +1232,7 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
           }
           const flagRestore = {};
           if (savedGroupId) flagRestore.savedGroupId = savedGroupId;
+          if (savedCaptainOf) flagRestore.savedCaptainOf = savedCaptainOf;
           if (savedDisplayBars !== undefined) flagRestore.savedDisplayBars = savedDisplayBars;
           if (Object.keys(flagRestore).length) await t.document.update({ flags: { [M]: flagRestore } });
         }
@@ -1720,6 +1770,8 @@ const _runManualKillFlush = async () => {
   window._dsctManualKillAccumulator = null;
   if (!a) return;
 
+  _keepCause(a);
+
   const asked = [...new Set(a.pickerContexts.map(c => c.groupId).filter(Boolean))];
   try {
     await _settleKillFlush(a);
@@ -1754,8 +1806,10 @@ const _flushManualKillAccumulator = async () => {
 const _newAccumulator = () => ({ tokenIds: new Set(), extraLines: [], pickerContexts: [], cause: {} });
 
 const _keepCause = (acc) => {
-  if (acc.cause && Object.keys(acc.cause).length) return;
-  acc.cause = _currentDamageCause();
+  const live = _currentDamageCause();
+  if (!Object.keys(live).length) return;
+  const held = acc.cause ?? {};
+  if (!Object.keys(held).length || held.causeId === live.causeId) acc.cause = live;
 };
 
 const _queueManualKillTargets = (tokenIds, extraLines) => {
@@ -1827,6 +1881,8 @@ function _suppressSystemMinionPrompt() {
 }
 
 export function registerDeathTrackerHooks() {
+
+  registerDeathCardRefresh();
 
   
 
@@ -2422,62 +2478,28 @@ export function registerDeathTrackerHooks() {
 
     const cause = msg.getFlag(M, 'cause') ?? {};
 
-    
-    if (cause.dstd) {
-      const note = document.createElement('p');
-      note.className = 'dsct-undo-elsewhere';
-      const label = game.i18n.localize('DSCT.chat.dt.undoFromCard');
-      const card = cause.messageId ? game.messages.get(cause.messageId) : null;
+    const stored = msg.getFlag(M, 'deaths');
+    const deaths = Array.isArray(stored) && stored.length
+      ? stored
+      : deadTokenIds.map(id => ({
+          tokenId: id,
+          name: canvas?.tokens?.get(id)?.actor?.name ?? canvas?.tokens?.get(id)?.name ?? '?',
+          img: canvas?.tokens?.get(id)?.document?.texture?.src ?? null,
+          isObject: false, groupId: null, groupName: null,
+        }));
 
-      if (card) {
-        const link = document.createElement('a');
-        link.textContent = label;
-        link.addEventListener('click', (e) => {
-          e.preventDefault();
-          const row = document.querySelector(`#chat-log [data-message-id="${card.id}"], .chat-log [data-message-id="${card.id}"]`);
-          if (!row) return;
-          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-          row.classList.add('dsct-card-found');
-          setTimeout(() => row.classList.remove('dsct-card-found'), 1600);
-        });
-        note.appendChild(link);
-      } else {
-        note.textContent = label;
-      }
-
-      el.querySelector('.message-content')?.appendChild(note) ?? el.appendChild(note);
-      return;
-    }
-
-    if (!mayUndoDeath(cause)) return;
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'dsct-undo-death';
-    btn.innerHTML = `<i class="fa-solid fa-rotate-left"></i> ${game.i18n.localize('DSCT.button.undo')}`;
-    btn.addEventListener('click', async (e) => {
-      e.preventDefault();
-
+    const revive = async (ids) => {
+      if (!ids?.length) return;
       if (!game.users.activeGM?.isSelf) {
-        getModuleApi(false)?.socket?.executeAsGM('dsct.undoDeathMessage', msg.id, game.userId);
+        getModuleApi(false)?.socket?.executeAsGM('dsct.undoDeathMessage', msg.id, game.userId, ids);
         return;
       }
-      if (getSetting('deathTrackerManualMode')) {
-        await _doReviveManual({ tokenIds: new Set(deadTokenIds) });
-      } else {
-        await _doReviveV3({ tokenIds: new Set(deadTokenIds) });
-      }
-    });
-    installRevivalHoverPreview(btn, () => deadTokenIds);
+      if (getSetting('deathTrackerManualMode')) await _doReviveManual({ tokenIds: new Set(ids) });
+      else await _doReviveV3({ tokenIds: new Set(ids) });
+    };
 
-    let btnArea = el.querySelector('.message-part-buttons');
-    if (!btnArea) {
-      btnArea = document.createElement('div');
-      btnArea.className = 'message-part-buttons';
-      (el.querySelector('.message-content') ?? el).appendChild(btnArea);
-    }
-    btnArea.appendChild(btn);
+    const fromACard = !!cause.dstd || !!(cause.messageId && game.messages.get(cause.messageId));
+    renderDeathMessage(msg, el, { deaths, cause, canRevive: !fromACard && mayUndoDeath(cause), revive });
   });
 
   Hooks.on('renderChatMessageHTML', (msg, el) => {
@@ -2548,14 +2570,17 @@ const _deathRecords = (batch) => {
     const groupId = doc?.getFlag(M, 'savedGroupId')
       ?? game.combat?.combatants.find(c => c.tokenId === b.tokenId)?._source?.group
       ?? null;
+    const captainOf = doc?.getFlag(M, 'savedCaptainOf') ?? null;
     return {
       tokenId:   b.tokenId,
       name:      b.name,
       img:       doc?.texture?.src ?? doc?.actor?.img ?? null,
       isObject:  !!b.isObject,
+      isMinion:  !!doc?.actor?.system?.isMinion,
       batch:     batchId,
+      captainOf,
       groupId,
-      groupName: _groupNameFor(groupId),
+      groupName: _groupNameFor(groupId) ?? _groupNameFor(captainOf),
     };
   });
 };
@@ -2591,6 +2616,23 @@ const _deathMessageToGrow = (cause) => {
   return null;
 };
 
+const _bestCause = (held, next) => {
+  if (!next || !Object.keys(next).length) return held ?? {};
+  if (!held || !Object.keys(held).length) return next;
+  if (held.causeId && next.causeId && held.causeId !== next.causeId) return held;
+  const merged = {
+    ...held,
+    dstd:            !!held.dstd || !!next.dstd,
+    messageId:       held.messageId ?? next.messageId ?? null,
+    userId:          held.userId ?? next.userId ?? null,
+    sourceActorUuid: held.sourceActorUuid ?? next.sourceActorUuid ?? null,
+    causeId:         held.causeId ?? next.causeId ?? null,
+  };
+  const unchanged = Object.keys(merged).length === Object.keys(held).length
+    && Object.keys(merged).every(k => merged[k] === held[k]);
+  return unchanged ? held : merged;
+};
+
 const _existingDeaths = (msg) => {
   const flag = msg?.flags?.[M] ?? {};
   if (Array.isArray(flag.deaths)) return flag.deaths;
@@ -2601,22 +2643,26 @@ const _existingDeaths = (msg) => {
 const flushDeathBatch = async (batch) => {
   if (!batch.length) return;
 
-  const cause = batch.find(b => b?.cause && Object.keys(b.cause).length)?.cause ?? _currentDamageCause();
+  const batchCause = batch.find(b => b?.cause && Object.keys(b.cause).length)?.cause ?? {};
+  const cause = _bestCause(batchCause, _currentDamageCause());
   const deaths = _deathRecords(batch);
 
-  
   const grow = _deathMessageToGrow(cause);
   if (grow) {
     const known = _existingDeaths(grow);
     const seen  = new Set(known.map(d => d.tokenId));
     const all   = [...known, ...deaths.filter(d => !seen.has(d.tokenId))];
-    const ok = await grow.update({
+    const update = {
       content: _deathMessageContent(all),
       [`flags.${M}.deaths`]: all,
       [`flags.${M}.deadTokenIds`]: all.map(d => d.tokenId),
-    }).then(() => true).catch(() => false);
+    };
+
+    const better = _bestCause(grow.flags?.[M]?.cause ?? {}, cause);
+    if (better !== (grow.flags?.[M]?.cause ?? {})) update[`flags.${M}.cause`] = better;
+    const ok = await grow.update(update).then(() => true).catch(() => false);
     if (ok) { cleanBaseNpcActors(); return; }
-    
+
   }
 
   await ChatMessage.create({

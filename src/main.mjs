@@ -3,7 +3,7 @@ import { runColoredTokenPicker, _getValidTargets } from './ability-automation/ta
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
-import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners} from './helpers.mjs';
+import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes, reviveTokens, mayUndoDeath, noteDamageCause } from './death-tracker/death-tracker.mjs';
 import { registerDeferDeath, isDeathDeferred, DEFER_DEATH } from './death-tracker/defer-death.mjs';
@@ -472,7 +472,7 @@ Hooks.once('socketlib.ready', () => {
   const socket = socketlib.registerModule('draw-steel-combat-tools');
   api.socket = socket;
 
-  socket.register('dsct.updateDocument',    async (uuid, data, options = {}) => { const doc = await fromUuid(uuid); if (doc) return await doc.update(data, options); });
+  socket.register('dsct.updateDocument',    async (uuid, data, options = {}) => { const doc = await fromUuid(uuid); if (doc) return await doc.update(reviveDropKeys(data), options); });
   socket.register('dsct.deleteDocument',    async (uuid, options = {}) => { const doc = await fromUuid(uuid); if (doc) return await doc.delete(options); });
   socket.register('dsct.createEmbedded',    async (parentUuid, type, data) => { const parent = await fromUuid(parentUuid); if (parent) return await parent.createEmbeddedDocuments(type, data); });
   socket.register('dsct.toggleStatusEffect',async (uuid, effectId, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.toggleStatusEffect(effectId, options); });
@@ -526,13 +526,15 @@ Hooks.once('socketlib.ready', () => {
   });
   socket.register('dsct.dstdUndoDeath', (tokenUuid) => { queueDstdUndoRevival(tokenUuid); });
   
-  socket.register('dsct.undoDeathMessage', async (messageId, userId) => {
+  socket.register('dsct.undoDeathMessage', async (messageId, userId, onlyIds = null) => {
     const msg = game.messages.get(messageId);
     if (!msg?.getFlag('draw-steel-combat-tools', 'isDeathMessage')) return;
     const cause = msg.getFlag('draw-steel-combat-tools', 'cause') ?? {};
     const user = game.users.get(userId);
     if (!user || !mayUndoDeath(cause, user)) return;
-    const ids = msg.getFlag('draw-steel-combat-tools', 'deadTokenIds') ?? [];
+    const named = msg.getFlag('draw-steel-combat-tools', 'deadTokenIds') ?? [];
+
+    const ids = onlyIds?.length ? named.filter(id => onlyIds.includes(id)) : named;
     if (ids.length) await reviveTokens(ids);
   });
   socket.register('dsct.dstdPendingRevival', (tokenUuid) => { markPendingRevival(tokenUuid); });

@@ -171,15 +171,72 @@ export const toggleHideDefeated = async () => {
   refreshDefeatedVisibility();
 };
 
+
+const PING_REVEAL_MS = 4000;
+const _pingTimers = new Map();
+
+export const pingDeadToken = async (tokenId) => {
+  const token = canvas?.tokens?.get(tokenId);
+  if (!token) return false;
+
+  addPreviewToken(tokenId);
+  activateTokenLayer();
+  clearTimeout(_pingTimers.get(tokenId));
+  _pingTimers.set(tokenId, setTimeout(() => {
+    _pingTimers.delete(tokenId);
+    removePreviewToken(tokenId);
+    activateTokenLayer();
+  }, PING_REVEAL_MS));
+
+  
+  canvas.ping({ x: token.center?.x ?? token.x, y: token.center?.y ?? token.y });
+  return true;
+};
+
+
 const REVIVE_HL = 'dsct-hover-preview-hl';
+
+
+let _activePreview = null;
+
+export const clearRevivalPreview = () => {
+  const active = _activePreview;
+  _activePreview = null;
+  active?.hide();
+};
+
+export const clearRevivalPreviewIfOrphaned = () => {
+  if (_activePreview && !_activePreview.el.isConnected) clearRevivalPreview();
+};
+
+
+let _watchingForOrphans = false;
+const _watchForOrphans = () => {
+  if (_watchingForOrphans) return;
+  _watchingForOrphans = true;
+  document.addEventListener('pointermove', () => {
+    if (_activePreview && !_activePreview.el.isConnected) clearRevivalPreview();
+  }, { capture: true, passive: true });
+};
 
 export const installRevivalHoverPreview = (el, getTokenIds) => {
   let shown = [];
+  _watchForOrphans();
+
+  const hide = () => {
+    for (const id of shown) removePreviewToken(id);
+    shown = [];
+    activateTokenLayer();
+    if (canvas.interface?.grid?.highlightLayers?.[REVIVE_HL]) canvas.interface.grid.clearHighlightLayer(REVIVE_HL);
+  };
 
   el.addEventListener('mouseenter', () => {
+
+    clearRevivalPreview();
     shown = (getTokenIds() ?? []).filter(id => canvas?.tokens?.get(id));
     if (!shown.length) return;
 
+    _activePreview = { el, hide };
     for (const id of shown) addPreviewToken(id);
     activateTokenLayer();
 
@@ -205,9 +262,7 @@ export const installRevivalHoverPreview = (el, getTokenIds) => {
   });
 
   el.addEventListener('mouseleave', () => {
-    for (const id of shown) removePreviewToken(id);
-    shown = [];
-    activateTokenLayer();
-    if (canvas.interface?.grid?.highlightLayers?.[REVIVE_HL]) canvas.interface.grid.clearHighlightLayer(REVIVE_HL);
+    if (_activePreview?.el === el) _activePreview = null;
+    hide();
   });
 };

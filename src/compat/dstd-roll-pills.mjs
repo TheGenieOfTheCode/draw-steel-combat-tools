@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi } from '../helpers.mjs';
+import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { DSCTAddModifierDialog } from '../ability-automation/roll-dialog-hooks.mjs';
 import { drawSourceLines, clearSourceLines } from '../ability-automation/source-lines.mjs';
 
@@ -559,10 +559,10 @@ async function _writeOverride(message, targetKey, overrideData) {
   } else if (game.user.isGM || message.isOwner) {
     const FD = foundry.data?.operators?.ForcedDeletion;
     if (FD) payload[`flags.${DSTD}.state.tierOverrides.${targetKey}`] = new FD();
-    else payload[`flags.${DSTD}.state.tierOverrides.-=${targetKey}`] = null;
+    else payload[`flags.${DSTD}.state.tierOverrides.${targetKey}`] = dropKeyOverSocket();
     return message.update(payload);
   } else {
-    payload[`flags.${DSTD}.state.tierOverrides.-=${targetKey}`] = null;
+    payload[`flags.${DSTD}.state.tierOverrides.${targetKey}`] = dropKeyOverSocket();
   }
   if (game.user.isGM || message.isOwner) return message.update(payload);
   const api = getModuleApi(false);
@@ -628,7 +628,7 @@ async function _recomputeAllTargets(message, globalPills, globalBaseOffList = nu
     if (!stillNeeded) {
       if (override) {
         if (direct && FD) payload[`flags.${DSTD}.state.tierOverrides.${targetKey}`] = new FD();
-        else payload[`flags.${DSTD}.state.tierOverrides.-=${targetKey}`] = null;
+        else payload[`flags.${DSTD}.state.tierOverrides.${targetKey}`] = dropKeyOverSocket();
       }
       continue;
     }

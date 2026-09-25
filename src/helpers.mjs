@@ -805,7 +805,10 @@ export const safeUpdate = async (document, data, options = {}) => {
 };
 
 export const safeDelete = async (document, options = {}) => {
+  if (!document?.uuid) return;
   try {
+    
+    if (!(await fromUuid(document.uuid))) return;
     if (document.isOwner) return await document.delete(options);
     return await getSocket().executeAsGM('dsct.deleteDocument', document.uuid, options);
   } catch (_) {}
@@ -816,8 +819,24 @@ export const safeCreateEmbedded = async (parent, type, data) => {
   return await getSocket().executeAsGM('dsct.createEmbedded', parent.uuid, type, data);
 };
 
+
+export const dropKey = () => new foundry.data.operators.ForcedDeletion();
+
+
+export const DELETE_MARKER = '__dsctDropKey';
+export const dropKeyOverSocket = () => ({ [DELETE_MARKER]: true });
+
+export const reviveDropKeys = (data) => {
+  if (Array.isArray(data)) return data.map(reviveDropKeys);
+  if (!data || typeof data !== 'object') return data;
+  if (data[DELETE_MARKER] === true) return dropKey();
+  const out = {};
+  for (const [k, v] of Object.entries(data)) out[k] = reviveDropKeys(v);
+  return out;
+};
+
 export const safeUnsetFlag = async (document, scope, key) =>
-  safeUpdate(document, { [`flags.${scope}.-=${key}`]: null });
+  safeUpdate(document, { flags: { [scope]: { [key]: dropKey() } } });
 
 export const safeSetFlag = async (document, scope, key, value) =>
   safeUpdate(document, { [`flags.${scope}.${key}`]: value });

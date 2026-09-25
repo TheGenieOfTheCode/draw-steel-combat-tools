@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch } from '../helpers.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey } from '../helpers.mjs';
 import { triggerRollData, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
@@ -1024,25 +1024,29 @@ async function _undoFmRedirect(message, origSubKey, origStateKey, movementType, 
     else ui.notifications.warn('DSCT | Could not find the redirected FM undo button in the chat log');
   }
 
-  const upd = { [`flags.${DSTD}.state.updatedAt`]: Date.now() };
+  
+  const fmState = {};
+  const dstdState = { updatedAt: Date.now() };
+  const upd = { flags: { [DSTD]: { state: dstdState }, [M]: { dstdFmState: fmState } } };
+
   const origEntry = allState[origSubKey];
   const origKept  = (origEntry?.modStack ?? []).filter(e => !(e.dstTrigger && e.noteName === red.modName));
   const origBare  = origEntry && !origEntry.applied && !origEntry.undoMsgId && !origKept.length;
   if (origBare) {
-    upd[`flags.${M}.dstdFmState.-=${origSubKey}`] = null;
+    fmState[origSubKey] = dropKey();
   } else {
-    upd[`flags.${M}.dstdFmState.${origSubKey}.-=redirected`] = null;
-    upd[`flags.${M}.dstdFmState.${origSubKey}.modStack`] = origKept;
+    fmState[origSubKey] = { redirected: dropKey(), modStack: origKept };
   }
 
   if (red.newWasTarget) {
-    upd[`flags.${M}.dstdFmState.${newSubKey}.applied`] = false;
-    upd[`flags.${M}.dstdFmState.${newSubKey}.modStack`] =
-      (allState[newSubKey]?.modStack ?? []).filter(e => !e.dstRedirect);
+    fmState[newSubKey] = {
+      applied: false,
+      modStack: (allState[newSubKey]?.modStack ?? []).filter(e => !e.dstRedirect),
+    };
   } else {
-    upd[`flags.${M}.dstdFmState.-=${newSubKey}`] = null;
+    fmState[newSubKey] = dropKey();
     const st = foundry.utils.getProperty(message.flags, `${DSTD}.state`) ?? {};
-    upd[`flags.${DSTD}.state.targets`] = (st.targets ?? []).filter(t =>
+    dstdState.targets = (st.targets ?? []).filter(t =>
       t.tokenUuid !== red.newTargetUuid
       && String(t.tokenUuid ?? '').replace(/\./g, '__') !== red.newTargetKey);
   }

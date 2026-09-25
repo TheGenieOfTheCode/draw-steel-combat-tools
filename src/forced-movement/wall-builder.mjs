@@ -1,4 +1,5 @@
 import {
+  dropKey,
   MATERIAL_ICONS, WALL_RESTRICTIONS,
   BASE_MATERIALS, getCustomMaterials,
   getMaterial, getMaterialIcon, getMaterialAlpha, getAllMaterials,
@@ -14,10 +15,8 @@ const BASE_MAT_COLORS = { glass: 0x88ddff, wood: 0xaa6622, stone: 0x888888, meta
 const MATERIAL_COLORS = BASE_MAT_COLORS;
 const MODE_COLORS     = { build: 0x44cc44, destroy: 0xcc4444, fix: 0x44aacc, transmute: 0xcc8800, break: 0xff6600, inspect: 0xaaaaff };
 
-
 const getBlockTag   = (obj) => getTags(obj).find(t => t.startsWith('wall-block-'));
 const getBlockWalls = (blockTag) => blockTag ? getByTag(blockTag).filter(o => Array.isArray(o.c)) : [];
-
 
 const wallsTouch = (a, b) => {
   const [ax1, ay1, ax2, ay2] = a.c;
@@ -202,7 +201,6 @@ const suppressOverlappingSight = async (wall) => {
     if (pw.sight !== 0) await pw.update({ sight: 0 });
   }
 };
-
 
 const wallsCollinear = (a, b) => {
   const [ax1, ay1, ax2, ay2] = a.c;
@@ -440,7 +438,6 @@ const transmuteBlock = async (tile, newMaterial) => {
     }
   }
 };
-
 
 export const convertWalls = async (material = 'stone', heightBottom = '', heightTop = '', invisible = true, stable = true, retainRestrictions = false) => {
   if (!game.user.isGM) { ui.notifications.warn(game.i18n.localize('DSCT.notice.wb.gmOnlyConvert')); return; }
@@ -1020,7 +1017,6 @@ export class WallBuilderPanel extends ds.applications.api.DSApplication {
   }
 }
 
-
 export const registerWallDoorHooks = () => {
   const M = 'draw-steel-combat-tools';
   Hooks.on('updateWall', async (wallDoc, changes) => {
@@ -1040,7 +1036,7 @@ export const registerWallDoorHooks = () => {
       if (getSetting('debugMode')) console.log(`DSCT | WB | broken door hidden: wall=${wallDoc.id} was=${doorType}`);
     } else {
       if (saved == null) return;
-      await wallDoc.update({ door: saved, [`flags.${M}.-=preBreakDoor`]: null });
+      await wallDoc.update({ door: saved, flags: { [M]: { preBreakDoor: dropKey() } } });
       if (getSetting('debugMode')) console.log(`DSCT | WB | fixed door restored: wall=${wallDoc.id} to=${saved}`);
     }
   });
