@@ -321,6 +321,20 @@ const _manualDecision = (msg, step) => new Promise((resolve) => {
   });
 });
 
+const _drainSwallowedDeaths = async (ourIds) => {
+  const late = [...(window._dsctKillLockSkipped ?? [])].filter(id => !ourIds.has(id));
+  window._dsctKillLockSkipped = null;
+  if (!late.length) return;
+  const batchEntries = [];
+  for (const tokenId of late) {
+    const t = canvas.tokens.get(tokenId);
+    if (!t?.actor?.statuses?.has('dead')) continue;
+    if (getSetting('debugMode')) console.log(`DSCT | DT | kill lock: a death landed late, processing ${t.actor.name} (${t.id})`);
+    await _processTokenDeath(t, t.actor, { batchEntries });
+  }
+  if (batchEntries.length) flushDeathBatch(batchEntries);
+};
+
 const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification = true } = {}) => {
   if (!window._dsctManualKillTokenIds) window._dsctManualKillTokenIds = new Set();
   const _myTokenIds = new Set(tokenIds);
@@ -331,6 +345,7 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
   
   const _prevKillLock = window._dsctKillLockActive;
   window._dsctKillLockActive = true;
+  if (!_prevKillLock) window._dsctKillLockSkipped = new Set();
   try {
     
     const tokens = [...tokenIds].map(id => canvas.tokens.get(id)).filter(t => t?.actor);
@@ -503,6 +518,19 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
       batchEntries.push({ name: t.actor.name, tokenId: t.id, isObject, cause: _currentDamageCause() });
     }));
 
+    
+    
+    if (!_prevKillLock) {
+      const swallowed = [...(window._dsctKillLockSkipped ?? [])].filter(id => !_myTokenIds.has(id));
+      window._dsctKillLockSkipped = new Set();
+      for (const tokenId of swallowed) {
+        const t = canvas.tokens.get(tokenId);
+        if (!t?.actor?.statuses?.has('dead')) continue;
+        _tm(`step 4: a collateral death the kill lock swallowed -- ${t.actor.name}`);
+        await _processTokenDeath(t, t.actor, { batchEntries });
+      }
+    }
+
     _tm('step 4 complete; flushing death batch');
     if (batchEntries.length) flushDeathBatch(batchEntries);
     _tm('death batch flushed');
@@ -529,7 +557,7 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
     if (showNotification) ui.notifications.info(tokens.length > 1 ? 'MASS POWER WORD: KILL' : 'POWER WORD: KILL');
   } finally {
     for (const id of _myTokenIds) window._dsctManualKillTokenIds.delete(id);
-    if (!_prevKillLock) setTimeout(() => { window._dsctKillLockActive = false; }, 1500);
+    if (!_prevKillLock) setTimeout(() => { window._dsctKillLockActive = false; _drainSwallowedDeaths(_myTokenIds); }, 1500);
   }
 };
 
@@ -720,10 +748,7 @@ if (captainOf) { flagData.savedCaptainOf = captainOf; _noteGroupName(captainOf);
         }
         for (const { t, groupId, hadCombatant } of (step3PreData ?? [])) {
           if (!canvas.tokens.get(t.id)) continue;
-          await t.document.update({ flags: { [M]: {
-            savedDisplayBars: _dropFlag(),
-            savedGroupId:     _dropFlag(),
-          } } });
+          await t.document.update({ flags: { [M]: { savedGroupId: _dropFlag() } } });
 if (hadCombatant && game.combat && !game.combat.combatants.find(c => c.tokenId === t.id)) {
             const combatantData = { tokenId: t.id, sceneId: canvas.scene.id, actorId: t.document.actorId };
             if (groupId) combatantData.group = groupId;
@@ -944,7 +969,6 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
       isMinion,
       savedGroupId:     t.document.getFlag(M, 'savedGroupId'),
       savedCaptainOf:   t.document.getFlag(M, 'savedCaptainOf'),
-      savedDisplayBars: t.document.getFlag(M, 'savedDisplayBars'),
       markerTileId:     t.document.getFlag(M, 'deathMarkerTileId'),
       minionMaxHP:      isMinion ? (t.actor.system.stamina?.max ?? 0) : 0,
       needsCombatant:   !!game.combat && !game.combat.combatants.find(c => c.tokenId === t.id),
@@ -952,19 +976,14 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
   }
 
   
-  const tokenUpdates = plan.map(({ t, savedDisplayBars }) => {
-    const data = {
-      _id: t.id,
-      flags: { [M]: {
-        savedGroupId:      _dropFlag(),
-        savedCaptainOf:    _dropFlag(),
-        savedDisplayBars:  _dropFlag(),
-        deathMarkerTileId: _dropFlag(),
-      } },
-    };
-    if (savedDisplayBars !== undefined) data.displayBars = savedDisplayBars;
-    return data;
-  });
+  const tokenUpdates = plan.map(({ t }) => ({
+    _id: t.id,
+    flags: { [M]: {
+      savedGroupId:      _dropFlag(),
+      savedCaptainOf:    _dropFlag(),
+      deathMarkerTileId: _dropFlag(),
+    } },
+  }));
   if (tokenUpdates.length) {
     _tm(`step 3a: ${tokenUpdates.length} token(s) in one update`);
     await _updateTokens(tokenUpdates, txn);
@@ -1067,9 +1086,16 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
   if (!tokens.length) return;
   for (const t of tokens) window._dsctManualReviveTokenIds.add(t.id);
 
+  const txn = beginTransition('revive');
+  const _live = () => tokens.filter(t => canvas.tokens.get(t.id));
+
+  const _paint = async (data) => {
+    const updates = _live().map(t => ({ _id: t.id, ...(typeof data === 'function' ? data(t) : data) }));
+    await _updateTokens(updates, txn);
+  };
+
   try {
 
-  
   const deathSnap = new Map(tokens.map(t => [t.id, {
     tint:  t.document.texture.tint ?? '#ffffff',
     alpha: t.document.alpha       ?? 1,
@@ -1094,18 +1120,16 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
   let currentStep   = 1;
   let step2Applied  = false;
   let step3Applied  = false;
-  let step2Data     = null; 
-  let step3Data     = null; 
-  let s2Lines       = null; 
+  let step2Data     = null;
+  let step3Data     = null;
+  let step3Pools    = null;
+  let s2Lines       = null;
   let s2Section     = null;
 
   while (true) {
 
-    
     if (currentStep === 1) {
-      await Promise.all(tokens.map(t =>
-        canvas.tokens.get(t.id) ? t.document.update({ 'texture.tint': '#44dd44' }) : Promise.resolve()
-      ));
+      await _paint({ 'texture.tint': '#44dd44' });
       const s1 = mkSection(1, 'Confirm Revival', tokens.map(t => t.actor.name),
         'Tokens tinted green. Confirm to remove dead status.');
       if (!msg) {
@@ -1119,13 +1143,11 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
 
       const d = await _manualDecision(msg, 1);
       if (d !== 'confirm') {
-        
-        await Promise.all(tokens.map(t => {
+
+        await _paint((t) => {
           const snap = deathSnap.get(t.id);
-          return canvas.tokens.get(t.id)
-            ? t.document.update({ 'texture.tint': snap?.tint ?? '#ffffff', alpha: snap?.alpha ?? 1 })
-: Promise.resolve();
-        }));
+          return { 'texture.tint': snap?.tint ?? '#ffffff', alpha: snap?.alpha ?? 1 };
+        });
         await msg.update({ content: buildContent(s1 + '<p><em>&#x2715; Aborted.</em></p>') });
         return;
       }
@@ -1133,23 +1155,33 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
       currentStep = 2;
     }
 
-    
     else if (currentStep === 2) {
       if (!step2Applied) {
-        step2Data = [];
-        for (const t of tokens) {
-          if (!canvas.tokens.get(t.id)) continue;
-          const prevStamina = t.actor.system.stamina?.value ?? 0;
-          await safeToggleStatusEffect(t.actor, defeatedStatusId, { overlay: true, active: false });
-          if ((t.actor.system.stamina?.value ?? 0) <= 0) {
-            const _staminaRestoreVal = t.actor.system?.isMinion ? (t.actor.system.stamina?.max ?? 1) : 1;
+        step2Data = _live().map(t => ({
+          t,
+          prevStamina:  t.actor.system.stamina?.value ?? 0,
+          needsStamina: (t.actor.system.stamina?.value ?? 0) <= 0,
+          staminaValue: t.actor.system?.isMinion ? (t.actor.system.stamina?.max ?? 1) : 1,
+        }));
 
-            if (t.document.actorLink) await safeUpdate(t.actor, { 'system.stamina.value': _staminaRestoreVal });
-            else await canvas.scene.updateEmbeddedDocuments('Token', [{ _id: t.id, 'delta.system.stamina.value': _staminaRestoreVal }]);
-          }
-          step2Data.push({ t, prevStamina });
+        for (const { t } of step2Data) {
+          await safeToggleStatusEffect(t.actor, defeatedStatusId, { overlay: true, active: false });
         }
-        await new Promise(r => setTimeout(r, 300));
+
+        const hungry = step2Data.filter(w => w.needsStamina);
+        const deltaWrites = hungry
+          .filter(({ t }) => !t.document.actorLink)
+          .map(({ t, staminaValue }) => ({ _id: t.id, 'delta.system.stamina.value': staminaValue }));
+        if (deltaWrites.length) await _updateTokens(deltaWrites, txn);
+        for (const { t, staminaValue } of hungry.filter(({ t }) => t.document.actorLink)) {
+          await safeUpdate(t.actor, { 'system.stamina.value': staminaValue }, txn);
+          if (!t.actor.isOwner) t.actor.updateSource({ 'system.stamina.value': staminaValue });
+        }
+
+        const settled = await _waitUntil(() => step2Data.every(({ t, needsStamina, staminaValue }) =>
+          !t.actor?.statuses?.has(defeatedStatusId)
+          && (!needsStamina || (t.actor.system.stamina?.value ?? 0) >= staminaValue)));
+        if (!settled) console.warn('DSCT | DT | manual revival: the board did not catch up with step 2, carrying on anyway');
         step2Applied = true;
       }
       const step2Checks = tokens.map(t => ({
@@ -1157,9 +1189,7 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
         ok: !(t.actor.statuses?.has(defeatedStatusId) ||
               t.actor.appliedEffects?.some(e => e.statuses?.has(defeatedStatusId))),
       }));
-      await Promise.all(tokens.map(t =>
-        canvas.tokens.get(t.id) ? t.document.update({ 'texture.tint': '#aa44ff' }) : Promise.resolve()
-      ));
+      await _paint({ 'texture.tint': '#aa44ff' });
       s2Lines   = step2Checks.map(({ t, ok }) =>
         `${ok ? '&#x2713;' : '&#x2717;'} ${t.actor.name} &mdash; ${ok ? 'dead status removed' : '<strong>status NOT removed!</strong>'}`);
       s2Section = mkSection(2, 'Dead Status Removed', s2Lines,
@@ -1170,65 +1200,96 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
       if (d === 'confirm') {
         sections.push(mkSection(2, 'Dead Status Removed', s2Lines, null, { done: true }));
         currentStep = 3;
-      } else { 
-        for (const { t, prevStamina } of step2Data) {
-          if (!canvas.tokens.get(t.id)) continue;
+      } else {
+        const back = step2Data.filter(({ t }) => canvas.tokens.get(t.id));
+        for (const { t } of back) {
           await safeToggleStatusEffect(t.actor, defeatedStatusId, { overlay: true, active: true });
-          await safeUpdate(t.actor, { 'system.stamina.value': prevStamina });
+        }
+
+        const deltaBack = back
+          .filter(({ t }) => !t.document.actorLink)
+          .map(({ t, prevStamina }) => ({ _id: t.id, 'delta.system.stamina.value': prevStamina }));
+        if (deltaBack.length) await _updateTokens(deltaBack, txn);
+        for (const { t, prevStamina } of back.filter(({ t }) => t.document.actorLink)) {
+          await safeUpdate(t.actor, { 'system.stamina.value': prevStamina }, txn);
         }
         step2Applied = false; step2Data = null; s2Lines = null; s2Section = null;
-        sections.pop(); 
+        sections.pop();
         currentStep = 1;
       }
     }
 
-    
     else if (currentStep === 3) {
       if (!step3Applied) {
-        step3Data = [];
-        for (const t of tokens) {
-          if (!canvas.tokens.get(t.id)) continue;
-          const savedGroupId    = t.document.getFlag(M, 'savedGroupId');
-          const savedCaptainOf  = t.document.getFlag(M, 'savedCaptainOf');
-          const savedDisplayBars = t.document.getFlag(M, 'savedDisplayBars');
-          const isMinion        = t.actor.system?.isMinion ?? false;
-          const minionMaxHP     = isMinion ? (t.actor.system.stamina?.max ?? 0) : 0;
+        step3Data = _live().map((t) => {
+          const isMinion = t.actor.system?.isMinion ?? false;
+          return {
+            t,
+            isMinion,
+            newCombatantId: null,
+            savedGroupId:   t.document.getFlag(M, 'savedGroupId'),
+            savedCaptainOf: t.document.getFlag(M, 'savedCaptainOf'),
+            minionMaxHP:    isMinion ? (t.actor.system.stamina?.max ?? 0) : 0,
+            needsCombatant: !!game.combat && !game.combat.combatants.find(c => c.tokenId === t.id),
+          };
+        });
 
-          const flagClear = { flags: { [M]: {
-            savedGroupId:    _dropFlag(),
-            savedCaptainOf:  _dropFlag(),
-            savedDisplayBars: _dropFlag(),
-          } } };
-          if (savedDisplayBars !== undefined) flagClear.displayBars = savedDisplayBars;
-          await t.document.update(flagClear);
+        await _updateTokens(step3Data.map(({ t }) => ({
+          _id: t.id,
+          flags: { [M]: {
+            savedGroupId:   _dropFlag(),
+            savedCaptainOf: _dropFlag(),
+          } },
+        })), txn);
 
-          let newCombatantId = null;
-          if (game.combat && !game.combat.combatants.find(c => c.tokenId === t.id)) {
-            const combatantData = { tokenId: t.id, sceneId: canvas.scene.id, actorId: t.document.actorId };
-            if (savedGroupId) combatantData.group = savedGroupId;
-            const [newCombatant] = await game.combat.createEmbeddedDocuments('Combatant', [combatantData]);
-            newCombatantId = newCombatant?.id ?? null;
-            if (savedGroupId && isMinion && minionMaxHP > 0) {
-              const group = game.combat.groups.get(savedGroupId);
-              if (group) await group.update({ 'system.staminaValue': (group.system.staminaValue ?? 0) + minionMaxHP });
-            }
+        const joining = step3Data.filter(p => p.needsCombatant);
+        if (joining.length) {
+
+          window._dsctReviveActive = true;
+          try {
+            const made = await game.combat.createEmbeddedDocuments('Combatant', joining.map(({ t, savedGroupId }) => {
+              const data = { tokenId: t.id, sceneId: canvas.scene.id, actorId: t.document.actorId };
+              if (savedGroupId) data.group = savedGroupId;
+              return data;
+            }), txn);
+            for (const p of joining) p.newCombatantId = made.find(c => c.tokenId === p.t.id)?.id ?? null;
+          } finally {
+            window._dsctReviveActive = false;
           }
-
-          if (newCombatantId && savedCaptainOf && !hasLiveCaptain(savedCaptainOf)) {
-            const led = game.combat?.groups?.get(savedCaptainOf);
-            if (led) await led.update({ 'system.captainId': newCombatantId });
-          }
-          step3Data.push({ t, newCombatantId, savedGroupId, savedCaptainOf, savedDisplayBars, isMinion, minionMaxHP });
         }
-        await new Promise(r => setTimeout(r, 200));
+
+        step3Pools = new Map();
+        const poolDeltas = new Map();
+        for (const p of joining) {
+          if (!p.savedGroupId || !p.isMinion || p.minionMaxHP <= 0) continue;
+          poolDeltas.set(p.savedGroupId, (poolDeltas.get(p.savedGroupId) ?? 0) + p.minionMaxHP);
+        }
+        for (const [groupId, delta] of poolDeltas) {
+          const group = game.combat?.groups.get(groupId);
+          if (!group) continue;
+          const living  = Array.from(group.members ?? []).filter(m => m?.actor?.system?.isMinion && !m.defeated);
+          const ceiling = living.length * (living[0]?.actor?.system?.stamina?.max ?? 0);
+          let restored  = Math.max(0, (group.system.staminaValue ?? 0) + delta);
+          if (ceiling > 0) restored = Math.min(restored, ceiling);
+          step3Pools.set(groupId, group.system.staminaValue ?? 0);
+          await group.update({ 'system.staminaValue': restored }, txn);
+        }
+
+        for (const { newCombatantId, savedCaptainOf } of joining) {
+          if (!newCombatantId || !savedCaptainOf || hasLiveCaptain(savedCaptainOf)) continue;
+          const led = game.combat?.groups?.get(savedCaptainOf);
+          if (led) await led.update({ 'system.captainId': newCombatantId }, txn);
+        }
+
+        const seated = await _waitUntil(() => step3Data.every(p =>
+          !p.needsCombatant || !!game.combat?.combatants.find(c => c.tokenId === p.t.id)));
+        if (!seated) console.warn('DSCT | DT | manual revival: not everyone was back in the tracker, carrying on anyway');
         step3Applied = true;
       }
       const s3Checks = tokens.map(t => ({
         t, ok: !!(game.combat?.combatants.find(c => c.tokenId === t.id)),
       }));
-      await Promise.all(tokens.map(t =>
-        canvas.tokens.get(t.id) ? t.document.update({ 'texture.tint': '#ffaa00' }) : Promise.resolve()
-      ));
+      await _paint({ 'texture.tint': '#ffaa00' });
       const s3Lines = s3Checks.map(({ t, ok }) =>
         `${ok ? '&#x2713;' : '&#x2717;'} ${t.actor.name} &mdash; ${ok ? 'added to combat' : 'not in combat (no active encounter?)'}`);
       const s3Section = mkSection(3, 'Restored to Combat', s3Lines,
@@ -1239,64 +1300,75 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
       if (d === 'confirm') {
         sections.push(mkSection(3, 'Restored to Combat', s3Lines, null, { done: true }));
         currentStep = 4;
-      } else { 
-        for (const { t, newCombatantId, savedGroupId, savedCaptainOf, savedDisplayBars, isMinion, minionMaxHP } of step3Data) {
-          if (!canvas.tokens.get(t.id)) continue;
-          if (newCombatantId) {
-            const led = savedCaptainOf ? game.combat?.groups?.get(savedCaptainOf) : null;
-            if (led && led.system?.captainId === newCombatantId) await led.update({ 'system.captainId': null });
-            const comb = game.combat?.combatants.get(newCombatantId);
-            if (comb) await safeDelete(comb);
-          }
-          if (savedGroupId && isMinion && minionMaxHP > 0) {
-            const group = game.combat?.groups.get(savedGroupId);
-            if (group) await group.update({ 'system.staminaValue': Math.max(0, (group.system.staminaValue ?? 0) - minionMaxHP) });
-          }
-          const flagRestore = {};
-          if (savedGroupId) flagRestore.savedGroupId = savedGroupId;
-          if (savedCaptainOf) flagRestore.savedCaptainOf = savedCaptainOf;
-          if (savedDisplayBars !== undefined) flagRestore.savedDisplayBars = savedDisplayBars;
-          if (Object.keys(flagRestore).length) await t.document.update({ flags: { [M]: flagRestore } });
+      } else {
+
+        for (const { newCombatantId, savedCaptainOf } of step3Data) {
+          if (!newCombatantId || !savedCaptainOf) continue;
+          const led = game.combat?.groups?.get(savedCaptainOf);
+          if (led?.system?.captainId === newCombatantId) await led.update({ 'system.captainId': null }, txn);
         }
-        step3Applied = false; step3Data = null;
-        sections.pop(); 
-        
+        const leaving = step3Data.map(p => p.newCombatantId).filter(id => id && game.combat?.combatants.get(id));
+        if (leaving.length) await game.combat.deleteEmbeddedDocuments('Combatant', leaving, txn).catch(() => {});
+
+        for (const [groupId, previous] of (step3Pools ?? new Map())) {
+          const group = game.combat?.groups.get(groupId);
+          if (group) await group.update({ 'system.staminaValue': previous }, txn);
+        }
+
+        const flagWrites = [];
+        for (const { t, savedGroupId, savedCaptainOf } of step3Data) {
+          if (!canvas.tokens.get(t.id)) continue;
+          const flags = {};
+          if (savedGroupId) flags.savedGroupId = savedGroupId;
+          if (savedCaptainOf) flags.savedCaptainOf = savedCaptainOf;
+          if (Object.keys(flags).length) flagWrites.push({ _id: t.id, flags: { [M]: flags } });
+        }
+        if (flagWrites.length) await _updateTokens(flagWrites, txn);
+
+        step3Applied = false; step3Data = null; step3Pools = null;
+        sections.pop();
+
         currentStep = 2;
       }
     }
 
-    
     else if (currentStep === 4) {
-      const s4Lines = [];
-      for (const t of tokens) {
-        if (!canvas.tokens.get(t.id)) continue;
-        const markerTileId = t.document.getFlag(M, 'deathMarkerTileId');
-        if (markerTileId) {
-          const tile = canvas.scene.tiles.get(markerTileId);
-          if (tile) await tile.delete().catch(() => {});
-          await t.document.unsetFlag(M, 'deathMarkerTileId');
-        }
-        if (getSetting('clearEffectsOnRevive')) {
+      const live = _live();
+      const tileIds = live
+        .map(t => t.document.getFlag(M, 'deathMarkerTileId'))
+        .filter(id => id && canvas.scene.tiles.get(id));
+      if (tileIds.length) {
+        await canvas.scene.deleteEmbeddedDocuments('Tile', tileIds, txn).catch(() => {});
+      }
+      const tileFlagClears = live
+        .filter(t => t.document.getFlag(M, 'deathMarkerTileId'))
+        .map(t => ({ _id: t.id, flags: { [M]: { deathMarkerTileId: _dropFlag() } } }));
+      if (tileFlagClears.length) await _updateTokens(tileFlagClears, txn);
+
+      if (getSetting('clearEffectsOnRevive')) {
+
+        for (const t of live) {
           const validEffectIds = t.actor.effects
             .filter(e => !e.id.endsWith('0000000000'))
             .map(e => e.id);
-          if (validEffectIds.length) {
-            try { await t.actor.deleteEmbeddedDocuments('ActiveEffect', validEffectIds); }
-            catch (e) { console.warn('DSCT | DT | Minor error clearing effects on revive:', e); }
-          }
+          if (!validEffectIds.length) continue;
+          try { await t.actor.deleteEmbeddedDocuments('ActiveEffect', validEffectIds); }
+          catch (e) { console.warn('DSCT | DT | Minor error clearing effects on revive:', e); }
         }
-        await animateDeathVisual(t);
-        s4Lines.push(`&#x2713; ${t.actor.name} &mdash; revival complete`);
       }
-await _resolveReviveSpaceConflicts(tokens);
+
+      await Promise.all(live.map(t => animateDeathVisual(t)));
+      const s4Lines = live.map(t => `&#x2713; ${t.actor.name} &mdash; revival complete`);
+      await _resolveReviveSpaceConflicts(tokens);
       if (s4Lines.length === 1) {
-        ui.notifications.info(game.i18n.format('DSCT.notice.dt.revived', { name: tokens[0].actor.name }));
+        ui.notifications.info(game.i18n.format('DSCT.notice.dt.revived', { name: live[0].actor.name }));
       } else if (s4Lines.length > 1) {
-        ui.notifications.info(`Revived ${formatNames(tokens.map(t => t.actor.name))}.`);
+        ui.notifications.info(`Revived ${formatNames(live.map(t => t.actor.name))}.`);
       }
       sections.push(mkSection(4, 'Revival Complete', s4Lines, null, { done: true }));
       await msg.update({ content: buildContent('') });
       await deleteDeathMessagesFor(tokens.map(t => t.id));
+      _schedulePostReviveLabels();
       break;
     }
   }
@@ -3020,12 +3092,6 @@ const executeRevival = async (tokenId, { skipGroupHpUpdate = false } = {}) => {
     }
   }
 
-  const savedDisplayBars = tokenDoc.getFlag('draw-steel-combat-tools', 'savedDisplayBars');
-  const restoreUpdate = {
-    flags: { [M]: { savedDisplayBars: _dropFlag() } },
-  };
-  if (savedDisplayBars !== undefined) restoreUpdate.displayBars = savedDisplayBars;
-  await tokenDoc.update(restoreUpdate);
   if (tokenDoc.object) await animateDeathVisual(tokenDoc.object);
 
   if (game.combat && !game.combat.combatants.find(c => c.tokenId === tokenId)) {

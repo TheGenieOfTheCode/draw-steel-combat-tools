@@ -1,5 +1,4 @@
 import {
-  dropKey,
   replayUndo, safeUpdate, safeDelete, safeToggleStatusEffect, safeUnsetFlag, safeCreateEmbedded,
   getSetting, getTokenById, getModuleApi,
 } from '../helpers.mjs';
@@ -93,20 +92,6 @@ const handleStaminaRevival = async (undoLog) => {
       if (isDying) await safeToggleStatusEffect(tokenDoc.actor, 'dying', { active: false });
     }
 
-    
-    if (isDead) {
-
-      const savedDisplayBars = tokenDoc.getFlag('draw-steel-combat-tools', 'savedDisplayBars');
-      if (savedDisplayBars !== undefined) {
-        await safeUpdate(tokenDoc, {
-          displayBars: savedDisplayBars,
-          flags: { 'draw-steel-combat-tools': { savedDisplayBars: dropKey() } },
-        });
-      }
-    }
-
-    
-    
     
     if (game.combat) {
       const savedGroupId = tokenDoc.getFlag('draw-steel-combat-tools', 'savedGroupId');
