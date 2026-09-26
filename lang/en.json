@@ -249,7 +249,7 @@
       },
       "pickDeathsEnabled": {
         "name": "Pick Ambiguous Deaths",
-        "hint": "Director only. Shows a canvas picker when it is unclear which minions should die (more or fewer must die than took damage, or no damage was tracked at all). When off, the system picks automatically."
+        "hint": "Shows a canvas picker when it is unclear which minions should die (more or fewer must die than took damage, or no damage was tracked at all). The picker opens for whoever dealt the damage, player or Director; Director Controls All Death Picks keeps it with the Director. When off, the system picks automatically."
       },
       "deathPickerDimAll": {
         "name": "Dim Highlight All Candidates",
@@ -471,7 +471,7 @@
       },
       "groupActionsEnabled": {
         "name": "Group Actions",
-        "hint": "Enables automated group actions for minion squads. When a squad member uses a signature attack, all squad members within range coordinate to target the same enemy. Requires Draw Steel: Target Damage."
+        "hint": "Enables automated group actions for minion squads. When a squad member uses a signature attack, all squad members within range coordinate to target the same enemy."
       },
       "judgementAutomation": {
         "name": "Judgement",
@@ -532,7 +532,7 @@
       },
       "nullGrabIntuition": {
         "name": "Psionic Martial Arts Size Check",
-        "hint": "Actors with Psionic Martial Arts use Intuition instead of Might for grab size checks. Requires Grab Automation."
+        "hint": "Actors with Psionic Martial Arts use Intuition instead of Might for grab size checks. Requires Conditions."
       },
       "psionicMartialArts": {
         "name": "No Speed Penalty While Grabbing",
