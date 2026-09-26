@@ -192,13 +192,13 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
 
   const combatant = game.combat?.combatants.find(c => c.tokenId === token.id);
   const groupId   = combatant?._source?.group ?? null;
-  const flagData = { savedDisplayBars: token.document.displayBars };
+  const flagData = {};
   if (groupId) flagData.savedGroupId = groupId;
   _noteGroupName(groupId);
   const captainOf = _captainSeatOf(combatant);
   if (captainOf) { flagData.savedCaptainOf = captainOf; _noteGroupName(captainOf); }
   await Promise.all([
-    token.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
+    token.document.update({ flags: { [M]: flagData } }),
     combatant ? combatant.delete() : Promise.resolve(),
   ]);
 
@@ -412,13 +412,13 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
       if (!canvas.tokens.get(t.id)) continue;
       const combatant = game.combat?.combatants.find(c => c.tokenId === t.id);
       const groupId   = combatant?._source?.group ?? null;
-      const flagData  = { savedDisplayBars: t.document.displayBars };
+      const flagData  = {};
       if (groupId) flagData.savedGroupId = groupId;
       _noteGroupName(groupId);
       const captainOf = _captainSeatOf(combatant);
       if (captainOf) { flagData.savedCaptainOf = captainOf; _noteGroupName(captainOf); }
 
-      tokenUpdates.push({ _id: t.id, displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } });
+      tokenUpdates.push({ _id: t.id, flags: { [M]: flagData } });
       if (combatant) combatantIds.push(combatant.id);
 
       if (!skipHpCorrection && getSetting('cleanOrphanedCombatants') && t.actor.system?.isMinion && groupId) {
@@ -671,13 +671,13 @@ const _doKillManual = async ({ tokenIds, squadGroup, processQueue, step1Extra = 
           }
           const combatant = game.combat?.combatants.find(c => c.tokenId === t.id);
           const groupId   = combatant?._source?.group ?? null;
-          const flagData  = { savedDisplayBars: t.document.displayBars };
+          const flagData  = {};
 if (groupId) flagData.savedGroupId = groupId;
 _noteGroupName(groupId);
 const captainOf = _captainSeatOf(combatant);
 if (captainOf) { flagData.savedCaptainOf = captainOf; _noteGroupName(captainOf); }
           await Promise.all([
-            t.document.update({ displayBars: CONST.TOKEN_DISPLAY_MODES.NONE, flags: { [M]: flagData } }),
+            t.document.update({ flags: { [M]: flagData } }),
             combatant ? combatant.delete() : Promise.resolve(),
           ]);
         }
@@ -951,6 +951,7 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
     });
   }
 
+  
   const tokenUpdates = plan.map(({ t, savedDisplayBars }) => {
     const data = {
       _id: t.id,

@@ -106,6 +106,9 @@ export function syncDeathVisual(token) {
     return;
   }
 
+  
+  if (token.bars) token.bars.visible = false;
+
   if (token[PROGRESS] === 1 && token[FILTERS]) { _attach(token, token[FILTERS]); return; }
   _apply(token, 1, _deadAlpha(token));
 }
@@ -257,13 +260,17 @@ async function _migrateStoredDeathLook() {
     for (const doc of scene.tokens) {
       const tint = doc.getFlag(M, 'preDeathTint');
       const alpha = doc.getFlag(M, 'preDeathAlpha');
-      if (tint === undefined && alpha === undefined) continue;
-      updates.push({
+      
+      const bars = doc.getFlag(M, 'savedDisplayBars');
+      if (tint === undefined && alpha === undefined && bars === undefined) continue;
+      const data = {
         _id: doc.id,
         'texture.tint': tint ?? '#ffffff',
         alpha: alpha ?? 1,
-        flags: { [M]: { preDeathTint: dropKey(), preDeathAlpha: dropKey() } },
-      });
+        flags: { [M]: { preDeathTint: dropKey(), preDeathAlpha: dropKey(), savedDisplayBars: dropKey() } },
+      };
+      if (bars !== undefined) data.displayBars = bars;
+      updates.push(data);
     }
     if (!updates.length) continue;
     console.log(`DSCT | death visuals | restoring ${updates.length} token(s) on "${scene.name}" that stored the old death look`);
