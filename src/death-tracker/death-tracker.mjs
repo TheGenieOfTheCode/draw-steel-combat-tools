@@ -884,7 +884,7 @@ const _resolveReviveSpaceConflicts = async (tokens) => {
     const chosen = await chooseFreeSquare(t, blocker, { forceOnCancel: true });
     if (chosen) {
       trackedPos.set(t.id, chosen);
-      await safeUpdate(t.document, { x: chosen.x * canvas.grid.size, y: chosen.y * canvas.grid.size });
+      await safeUpdate(t.document, { x: chosen.x * canvas.grid.size, y: chosen.y * canvas.grid.size }, { dsMovement: true });
     }
   }
 };

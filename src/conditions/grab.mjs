@@ -80,7 +80,7 @@ const ensureGrabHooks = () => {
         const gt = getTokenById(gid);
         if (gt) {
           window._grabFollowActive.add(gid);
-          await gt.document.update({ x: gt.document.x + deltaX, y: gt.document.y + deltaY });
+          await gt.document.update({ x: gt.document.x + deltaX, y: gt.document.y + deltaY }, { dsMovement: true });
           window._grabFollowActive.delete(gid);
         }
       }
@@ -456,7 +456,7 @@ export const startGrabReposition = async (grabbedTokenId) => {
   if (chosen) {
     const dest = toWorld(chosen);
     window._grabFollowActive.add(grabbedTokenId);
-    await safeUpdate(grabbedTok.document, { x: dest.x, y: dest.y });
+    await safeUpdate(grabbedTok.document, { x: dest.x, y: dest.y }, { dsMovement: true });
     window._grabFollowActive.delete(grabbedTokenId);
     grab.offsetX = dest.x - grabberTok.document.x;
     grab.offsetY = dest.y - grabberTok.document.y;

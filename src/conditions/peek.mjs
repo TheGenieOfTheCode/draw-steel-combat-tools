@@ -135,7 +135,7 @@ export async function unpeek(token, { settle = true } = {}) {
     if (settle && token.document) {
       const home = _settled(token.document);
       if (home.x !== token.document.x || home.y !== token.document.y) {
-        await token.document.update({ x: home.x, y: home.y }, { animation: { duration: peekDuration() }, pan: false });
+        await token.document.update({ x: home.x, y: home.y }, { animation: { duration: peekDuration() }, pan: false, dsMovement: true });
         await _settled_anim(token);
       }
     }
