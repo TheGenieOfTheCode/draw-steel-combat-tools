@@ -430,6 +430,96 @@ export function squareIsConcealed(gx, gy, regions = null) {
   });
 }
 
+const _spaceRect = (token) => {
+  const GS = canvas.grid.size;
+  const doc = token.document;
+  return {
+    x: doc.x,
+    y: doc.y,
+    w: Math.max(1, Math.round(doc.width)) * GS,
+    h: Math.max(1, Math.round(doc.height)) * GS,
+  };
+};
+
+const _spaceCorners = (token) => {
+  const { x, y, w, h } = _spaceRect(token);
+  return clampOutsetPoints(spaceSamplePoints(x, y, w, h), { x: x + w / 2, y: y + h / 2 }).slice(1);
+};
+
+const _spaceCentre = (token) => {
+  const { x, y, w, h } = _spaceRect(token);
+  return { x: x + w / 2, y: y + h / 2 };
+};
+
+
+export const atLeastHalfBlocked = (visible, total) => visible * 2 <= total;
+
+
+const _formSquares = (token) => {
+  const GS = canvas.grid.size;
+  const doc = token.document;
+  const cw = Math.max(1, Math.round(doc.width));
+  const ch = Math.max(1, Math.round(doc.height));
+  const out = [];
+  for (let dx = 0; dx < cw; dx++) {
+    for (let dy = 0; dy < ch; dy++) out.push({ x: doc.x + dx * GS, y: doc.y + dy * GS, w: GS, h: GS });
+  }
+  return out;
+};
+
+const _rectCorners = (r) =>
+  clampOutsetPoints(spaceSamplePoints(r.x, r.y, r.w, r.h), { x: r.x + r.w / 2, y: r.y + r.h / 2 }).slice(1);
+
+const _blockedSquares = (origin, squares, blockers, cover) => {
+  let blocked = 0;
+  for (const sq of squares) {
+    const pts = _rectCorners(sq);
+    let seen = 0;
+    for (const p of pts) {
+      if (segmentBlocksSight(origin, p)) continue;
+      if (blockers.some(b => _segCrossesToken(origin, p, b))) continue;
+      if (segmentBlockedByCover(origin, p, cover)) continue;
+      seen++;
+    }
+    if (atLeastHalfBlocked(seen, pts.length)) blocked++;
+  }
+  return blocked;
+};
+
+
+export const footprintCoverCells = (fromToken, gx, gy, cellsW = 1, cellsH = 1) => {
+  const cw = Math.max(1, Math.round(cellsW));
+  const ch = Math.max(1, Math.round(cellsH));
+  const total = cw * ch;
+  if (!fromToken || !canvas?.grid) return { blocked: total, total };
+
+  const GS = canvas.grid.size;
+  const cap = loeRangeCap(fromToken);
+  if (cap) {
+    const from = _spaceCentre(fromToken);
+    const to = { x: gx * GS + (cw * GS) / 2, y: gy * GS + (ch * GS) / 2 };
+    const dist = canvas.grid.measurePath([from, to]).distance;
+    if (dist >= cap * (canvas.grid.distance || 1)) return { blocked: total, total };
+  }
+
+  const squares = [];
+  for (let dx = 0; dx < cw; dx++) {
+    for (let dy = 0; dy < ch; dy++) squares.push({ x: (gx + dx) * GS, y: (gy + dy) * GS, w: GS, h: GS });
+  }
+
+  const origins  = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [_spaceCentre(fromToken)];
+  const blockers = [...loeBlockersFor(fromToken, null), ...fullCoverBlockersFor(fromToken, null)];
+  const cover    = coverObstaclesFor(fromToken, null);
+
+  let fewest = Infinity;
+  for (const origin of origins) {
+    const blocked = _blockedSquares(origin, squares, blockers, cover);
+    if (blocked < fewest) fewest = blocked;
+    if (fewest === 0) break;
+  }
+  return { blocked: fewest, total };
+};
+
 export function visibleSquareCorners(fromToken, gx, gy, cellsW = 1, cellsH = 1) {
   if (!fromToken || !canvas?.grid) return 0;
   const GS = canvas.grid.size;
@@ -470,21 +560,16 @@ export function visibleSquareCorners(fromToken, gx, gy, cellsW = 1, cellsH = 1) 
 
 export const hasSightToSquare = (fromToken, gx, gy) => visibleSquareCorners(fromToken, gx, gy) > 0;
 
-export const coveredInSquare = (fromToken, gx, gy, w = 1, h = 1, regions = null) =>
-  squareIsConcealed(gx, gy, regions) || visibleSquareCorners(fromToken, gx, gy, w, h) <= 2;
+export const coveredInSquare = (fromToken, gx, gy, w = 1, h = 1, regions = null) => {
+  if (squareIsConcealed(gx, gy, regions)) return true;
+  const { blocked, total } = footprintCoverCells(fromToken, gx, gy, w, h);
+  return atLeastHalfBlocked(total - blocked, total);
+};
 
-export const seenPlainlyInSquare = (fromToken, gx, gy, w = 1, h = 1, regions = null) =>
-  !squareIsConcealed(gx, gy, regions) && visibleSquareCorners(fromToken, gx, gy, w, h) >= 3;
-
-const _spaceRect = (token) => {
-  const GS = canvas.grid.size;
-  const doc = token.document;
-  return {
-    x: doc.x,
-    y: doc.y,
-    w: Math.max(1, Math.round(doc.width)) * GS,
-    h: Math.max(1, Math.round(doc.height)) * GS,
-  };
+export const seenPlainlyInSquare = (fromToken, gx, gy, w = 1, h = 1, regions = null) => {
+  if (squareIsConcealed(gx, gy, regions)) return false;
+  const { blocked, total } = footprintCoverCells(fromToken, gx, gy, w, h);
+  return !atLeastHalfBlocked(total - blocked, total);
 };
 
 function _segCrossesToken(a, b, token) {
@@ -495,16 +580,6 @@ function _segCrossesToken(a, b, token) {
   }
   return false;
 }
-
-const _spaceCorners = (token) => {
-  const { x, y, w, h } = _spaceRect(token);
-  return clampOutsetPoints(spaceSamplePoints(x, y, w, h), { x: x + w / 2, y: y + h / 2 }).slice(1);
-};
-
-const _spaceCentre = (token) => {
-  const { x, y, w, h } = _spaceRect(token);
-  return { x: x + w / 2, y: y + h / 2 };
-};
 
 export const visibleTargetCorners = (fromToken, token) => {
   if (!fromToken || !token) return 0;
@@ -532,9 +607,26 @@ export const visibleTargetCorners = (fromToken, token) => {
   return best;
 };
 
+
 export const hasCover = (fromToken, token) => {
+  if (!fromToken || !token) return false;
   if (!hasSightToToken(fromToken, token)) return false;
-  return visibleTargetCorners(fromToken, token) <= 2;
+  if (loeRangeBlocked(fromToken, token)) return true;
+
+  const squares  = _formSquares(token);
+  const origins  = getSetting('trueDrawSteelLos') ? _spaceCorners(fromToken) : [_spaceCentre(fromToken)];
+  const blockers = [...loeBlockersFor(fromToken, token), ...fullCoverBlockersFor(fromToken, token)];
+  const cover    = coverObstaclesFor(fromToken, token);
+
+  
+  let fewestBlocked = Infinity;
+  for (const origin of origins) {
+    const blocked = _blockedSquares(origin, squares, blockers, cover);
+    if (blocked < fewestBlocked) fewestBlocked = blocked;
+    if (fewestBlocked === 0) break;
+  }
+
+  return atLeastHalfBlocked(squares.length - fewestBlocked, squares.length);
 };
 
 const COVER_IMMUNITY_FLAG = 'coverImmunity';
@@ -855,10 +947,35 @@ export const safeTakeDamage = async (actor, amount, options = {}) => {
   return await getSocket().executeAsGM('dsct.takeDamage', actor.uuid, amount, options, game.userId);
 };
 
+
+let _staminaLossDepth = 0;
+
+const _markStaminaLossUpdates = () => {
+  if (window._dsctStaminaLossHook) return;
+  window._dsctStaminaLossHook = true;
+  
+  const stamp = (doc, changed, options) => {
+    if (_staminaLossDepth <= 0) return;
+    if (changed?.system?.stamina === undefined && changed?.system?.staminaValue === undefined) return;
+    options.staminaLoss = true;
+  };
+  Hooks.on('preUpdateActor', stamp);
+  Hooks.on('preUpdateCombatantGroup', stamp);
+};
+
+
+export const asStaminaLoss = async (fn) => {
+  _markStaminaLossUpdates();
+  _staminaLossDepth++;
+  try { return await fn(); }
+  finally { _staminaLossDepth--; }
+};
+
 export const applyDamage = async (actor, amount, squadGroupOverride = undefined, {
   damageType     = 'untyped',
   ignoreImmunity = false,
   isArea         = false,
+  staminaLoss    = false,
 } = {}) => {
   const prevValue   = actor.system.stamina.value;
   const prevTemp    = actor.system.stamina.temporary;
@@ -879,10 +996,13 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
       getModuleApi(false)?.socket?.executeAsGM('dsct.reportDamagedToken', _dmgTokenId, game.user.id);
     }
   }
-  const type              = damageType || 'untyped';
-  const ignoredImmunities = ignoreImmunity ? [type] : [];
+  const type = damageType || 'untyped';
+  
+  const ignoredImmunities = staminaLoss ? ['all'] : (ignoreImmunity ? [type] : []);
   const effectiveAmt      = (isArea && squadGroup) ? Math.min(amount, actor.system.stamina.max ?? amount) : amount;
-  await safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities });
+
+  const take = () => safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities, staminaLoss });
+  await (staminaLoss ? asStaminaLoss(take) : take());
   return { prevTemp, prevValue, prevSquadHP, squadGroup, squadCombatantIds, squadTokenIds };
 };
 

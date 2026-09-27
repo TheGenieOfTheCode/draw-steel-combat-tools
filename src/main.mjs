@@ -3,7 +3,7 @@ import { runColoredTokenPicker, _getValidTargets } from './ability-automation/ta
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
-import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys} from './helpers.mjs';
+import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys, asStaminaLoss} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes, reviveTokens, mayUndoDeath, noteDamageCause } from './death-tracker/death-tracker.mjs';
 import { registerDeferDeath, isDeathDeferred, DEFER_DEATH } from './death-tracker/defer-death.mjs';
@@ -481,7 +481,7 @@ Hooks.once('socketlib.ready', () => {
   socket.register('dsct.searchPointOut',    (messageId) => pointOut(messageId));
   socket.register('dsct.askObservation',    (hiderId, observerIds) => handleObservationRequest(hiderId, observerIds));
   socket.register('dsct.spendHeroToken',    () => spendHeroToken());
-  socket.register('dsct.takeDamage',        async (uuid, amount, options, originUserId = null) => { const actor = await fromUuid(uuid); if (!actor) return; if (originUserId) noteDamageCause({ userId: originUserId, stated: true }); return await actor.system.takeDamage(amount, options); });
+  socket.register('dsct.takeDamage',        async (uuid, amount, options, originUserId = null) => { const actor = await fromUuid(uuid); if (!actor) return; if (originUserId) noteDamageCause({ userId: originUserId, stated: true }); const run = () => actor.system.takeDamage(amount, options); return await (options?.staminaLoss ? asStaminaLoss(run) : run()); });
   socket.register('dsct.rollFreeStrike',    async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });
   socket.register('dsct.executeHIWTurn',    async (actorUuid, msgId) => await executeHIWTurn(actorUuid, msgId));
   socket.register('dsct.applyEffectAsGM',   async (pseudoUuid, tierKey, effectId, targetActorUuids) => {

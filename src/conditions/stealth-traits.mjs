@@ -1,4 +1,4 @@
-import { getSetting, segmentBlocksSight, spaceSamplePoints, clampOutsetPoints, tokFootprintDist, hasSightToToken } from '../helpers.mjs';
+import { getSetting, segmentBlocksSight, spaceSamplePoints, clampOutsetPoints, tokFootprintDist, hasSightToToken, atLeastHalfBlocked } from '../helpers.mjs';
 import { registerEffectFlag } from '../effect-flag-picker.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -135,7 +135,7 @@ export function coverCountingCreatures(observer, hider, mode) {
     }
     if (seen > best) best = seen;
   }
-  return best <= 2;
+  return atLeastHalfBlocked(best, corners.length);
 }
 
 const FLAGS = [
