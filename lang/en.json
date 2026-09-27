@@ -31,6 +31,10 @@
         "name": "Enhanced Abilities Prompt",
         "hint": "When to offer adding the Enhanced Abilities compendium (Hide, Search, and more to come) to every actor in the world."
       },
+      "onlineNoticeCheck": {
+        "name": "Check Online for Module News",
+        "hint": "Ask the Combat Tools page for its list of recommended modules each time the world opens, so new ones and new versions can be mentioned without waiting for an update here. Switch it off to use the list this copy came with and never reach out."
+      },
       "enhancedAutoAdd": {
         "name": "Keep Enhanced Abilities Current",
         "hint": "On every load, and for every actor created, adds the Enhanced Abilities an actor is missing and brings older copies up to date. Answering the prompt sets this; switch it off here."
@@ -2064,6 +2068,8 @@
         "notes": "Release Notes",
         "wiki": "Wiki",
         "kofi": "Ko-fi",
+        "update": "Version {version} is out.",
+        "updateLink": "Release Notes",
         "remind": "Remind me again on next startup",
         "remindOn": "You will be reminded on next startup",
         "clash": "Heads up about {title}",

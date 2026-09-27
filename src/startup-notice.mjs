@@ -1,6 +1,7 @@
 
 
 import { getSetting } from './helpers.mjs';
+import { remoteNotices, refreshRemoteNotices } from './remote-notices.mjs';
 
 const M = 'draw-steel-combat-tools';
 const STATE = 'startupNoticeState';
@@ -14,6 +15,15 @@ const LINKS = {
 
 const self = () => game.modules.get(M);
 
+const listed = (kind) => remoteNotices()?.[kind] ?? [...(self()?.relationships?.[kind] ?? [])];
+
+const newerVersion = () => {
+  const latest = remoteNotices()?.latest;
+  if (!latest?.version) return null;
+  if (!foundry.utils.isNewerVersion(latest.version, self().version)) return null;
+  return latest;
+};
+
 const localTitle = (id) => {
   const key = `DSCT.recommend.${id}`;
   const text = game.i18n.localize(key);
@@ -22,12 +32,12 @@ const localTitle = (id) => {
 
 const recommended = () => {
   const out = [];
-  for (const rel of self()?.relationships?.recommends ?? []) {
+  for (const rel of listed('recommends')) {
     const installed = game.modules.get(rel.id);
     out.push({
       id:      rel.id,
       reason:  rel.reason ?? '',
-      title:   installed?.title || localTitle(rel.id),
+      title:   installed?.title || rel.title || localTitle(rel.id),
       state:   !installed ? 'missing' : (installed.active ? 'on' : 'off'),
     });
   }
@@ -38,24 +48,25 @@ const worthMentioning = () => recommended().filter((r) => r.state !== 'on');
 
 const conflicting = () => {
   const out = [];
-  for (const rel of self()?.relationships?.conflicts ?? []) {
+  for (const rel of listed('conflicts')) {
     const installed = game.modules.get(rel.id);
     if (!installed?.active) continue;
     out.push({
       id:     rel.id,
       reason: rel.reason ?? '',
-      title:  installed.title || localTitle(rel.id),
+      title:  installed.title || rel.title || localTitle(rel.id),
       issues: installed.bugs || installed.url || null,
     });
   }
   return out;
 };
 
-const anythingToSay = () => worthMentioning().length > 0 || conflicting().length > 0;
+const anythingToSay = () => worthMentioning().length > 0 || conflicting().length > 0 || !!newerVersion();
 
 const signature = () => [
   ...recommended().map((r) => r.id),
-  ...[...(self()?.relationships?.conflicts ?? [])].map((r) => `!${r.id}`),
+  ...listed('conflicts').map((r) => `!${r.id}`),
+  ...(newerVersion() ? [`v${newerVersion().version}`] : []),
 ].sort().join(',');
 
 const readState = () => {
@@ -90,6 +101,23 @@ const buildCard = () => {
   head.className = 'dsct-startup-head';
   head.textContent = game.i18n.format('DSCT.chat.startup.title', { version: self().version });
   card.append(head);
+
+  const update = newerVersion();
+  if (update) {
+    const row = document.createElement('p');
+    row.className = 'dsct-startup-update';
+    row.innerHTML = '<i class="fa-solid fa-circle-arrow-up"></i>';
+    row.append(document.createTextNode(game.i18n.format('DSCT.chat.startup.update', { version: update.version })));
+    if (update.url) {
+      const a = document.createElement('a');
+      a.href = update.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = game.i18n.localize('DSCT.chat.startup.updateLink');
+      row.append(document.createTextNode(' '), a);
+    }
+    card.append(row);
+  }
 
   if (worthMentioning().length) {
     const blurb = document.createElement('p');
@@ -197,6 +225,7 @@ const post = async () => {
 
 export const showStartupNotice = async ({ force = true } = {}) => {
   if (!game.user.isGM) return null;
+  await refreshRemoteNotices();
   if (!force && !shouldPost()) return null;
   if (!anythingToSay()) {
     ui.notifications.info(game.i18n.localize('DSCT.notice.startup.nothingToSay'));
@@ -226,6 +255,7 @@ export const registerStartupNotice = () => {
   Hooks.once('ready', async () => {
     
     if (!game.users.activeGM?.isSelf) return;
+    await refreshRemoteNotices();
     if (!shouldPost()) return;
     try { await post(); }
     catch (err) { console.warn('DSCT | startup notice | could not post:', err); }
