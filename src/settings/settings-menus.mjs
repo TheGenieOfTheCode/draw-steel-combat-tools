@@ -672,19 +672,23 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
     }
 
     const judgementToggle     = this.element.querySelector('[name="judgementAutomation"]');
-    const baneLockGroup       = this.element.querySelector('[name="judgementBaneLock"]')?.closest('.form-group');
+    const baneLockInput       = this.element.querySelector('[name="judgementBaneLock"]');
+    const baneLockGroup       = baneLockInput?.closest('.form-group');
     const baneLockDurGroup    = this.element.querySelector('[name="judgementBaneLockDuration"]')?.closest('.form-group');
     const judgedIconGroup     = this.element.querySelector('[name="judgedEffectIcon"]')?.closest('.form-group');
     if (judgementToggle) {
+      const setGroup = (grp, on) => {
+        if (!grp) return;
+        grp.classList.toggle('dsct-sub-disabled', !on);
+        grp.querySelectorAll('input, select, button').forEach(i => { i.disabled = !on; });
+      };
       const syncJudgement = () => {
         const on = (aaEnableInput?.checked ?? true) && judgementToggle.checked;
-        for (const grp of [baneLockGroup, baneLockDurGroup, judgedIconGroup]) {
-          if (!grp) continue;
-          grp.classList.toggle('dsct-sub-disabled', !on);
-          grp.querySelectorAll('input, select, button').forEach(i => { i.disabled = !on; });
-        }
+        for (const grp of [baneLockGroup, judgedIconGroup]) setGroup(grp, on);
+        setGroup(baneLockDurGroup, on && (baneLockInput?.checked ?? true));
       };
       judgementToggle.addEventListener('change', syncJudgement);
+      baneLockInput?.addEventListener('change', syncJudgement);
       aaEnableInput?.addEventListener('change', syncJudgement);
       syncJudgement();
     }

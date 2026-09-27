@@ -1,4 +1,4 @@
-import { getSetting, tokFootprintDist, getItemRange, hasSightToToken, sightLinesToToken, isSelfAndSelf } from '../helpers.mjs';
+import { getSetting, rangeEnforced, tokFootprintDist, getItemRange, hasSightToToken, sightLinesToToken, isSelfAndSelf } from '../helpers.mjs';
 import { chooseTargeting } from './choose-effect.mjs';
 import { isHiddenFrom } from '../conditions/stealth.mjs';
 import { burrowBlocksLineOfEffect } from '../conditions/burrow.mjs';
@@ -353,7 +353,7 @@ async function _runTargetPicker(ability, casterToken, { maxTargets: maxOverride 
   const maxTargets  = Number(target.value) || maxOverride || 1;
   const targetType  = target.type;
   const range       = getItemRange(ability, view?.distance);
-  const isRangeEnforced = getSetting('enforceAbilityRange');
+  const isRangeEnforced = rangeEnforced();
   const needsReveal = /object/i.test(targetType);
   const isStrike    = keywords?.has('strike') ?? false;
   const excludeSelf = isStrike || (keywords?.has('weapon') ?? false);
@@ -992,7 +992,7 @@ export function checkAndRunTargetPicker(dialog) {
   const peekRescue = getSetting('peekHouseRule') && !isPeeking(casterToken.actor) && wallAdjacent(casterToken) && _peekOptions(casterToken, { targetType: target.type, range, filter: { excludeSelf, checkLOS: true, respectHidden } }).length > 0;
 
   if (!validTokens.length && !peekRescue) {
-    if (getSetting('enforceAbilityRange') || !_getValidTargets(casterToken, target.type, 0, { excludeSelf, checkLOS: true }).length) {
+    if (rangeEnforced() || !_getValidTargets(casterToken, target.type, 0, { excludeSelf, checkLOS: true }).length) {
       ui.notifications.warn(game.i18n.localize('DSCT.notice.targetPicker.noValidTargets'));
       return null;
     }

@@ -1,6 +1,23 @@
 import { beginPickerOverlay } from './ability-automation/picker-overlay.mjs';
 
-export const getSetting = (key) => game.settings.get('draw-steel-combat-tools', key);
+
+const MASTER_TOGGLE = {
+  autoSquadLabelsEnabled: 'squadToolsEnabled',
+  squadSimultaneousTurns: 'squadToolsEnabled',
+  pairSimultaneousTurns:  'squadToolsEnabled',
+  squadGlowMarker:        'squadToolsEnabled',
+  squadHudEnabled:        'squadToolsEnabled',
+  squadTargetBonus:       'squadToolsEnabled',
+};
+
+export const getSetting = (key) => {
+  const master = MASTER_TOGGLE[key];
+  if (master && !game.settings.get('draw-steel-combat-tools', master)) return false;
+  return game.settings.get('draw-steel-combat-tools', key);
+};
+
+export const rangeEnforced = () =>
+  getSetting('enforceAbilityRange') && !(game.user.isGM && getSetting('gmBypassRangeEnforcement'));
 
 const PALETTE_DARK = {
   '--dsct-bg':           '#0e0c14',

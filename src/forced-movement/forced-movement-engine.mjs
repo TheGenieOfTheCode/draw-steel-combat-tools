@@ -10,7 +10,7 @@ import {
   canCurrentlyFly, getWallBlockTileAt,
   sizeRank,
   safeUpdate, safeDelete, safeToggleStatusEffect,
-  getSetting, getTokenById,
+  getSetting, rangeEnforced, getTokenById,
   confirmFriendlyFireCase1, confirmFriendlyFireCase2,
   tokFootprintDist,
 } from '../helpers.mjs';
@@ -2665,7 +2665,7 @@ export async function runForcedMovement(macroArgs = []) {
       targetsToProcess = picked;
     }
 
-    if (range > 0 && getSetting('enforceAbilityRange') && !(game.user.isGM && getSetting('gmBypassRangeEnforcement')) && source) {
+    if (range > 0 && rangeEnforced() && source) {
       targetsToProcess = targetsToProcess.filter(t => {
         const hDist   = tokFootprintDist(source, t);
         const vDist   = Math.abs((source.document.elevation ?? 0) - (t.document.elevation ?? 0));

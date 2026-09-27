@@ -60,7 +60,7 @@
       },
       "macroPromptMode": {
         "name": "Sample Macro Import Prompt",
-        "hint": "Controls when or if Draw Steel: Combat Tools should prompt the Director to import sample macros on load.",
+        "hint": "When to offer the Director the sample macros on load.",
         "choice": {
           "ask": "Ask on every initialization",
           "skipUpdate": "Ask only when the module updates",
@@ -77,11 +77,11 @@
       },
       "squadTargetBonus": {
         "name": "Squad Action Bonus Free Strikes",
-        "hint": "When a minion squad uses a signature attack and multiple minions target the same enemy, adds the extra free strike damage to that target's damage total in the Target Damage panel."
+        "hint": "When several minions of a squad pick the same enemy for a signature ability, add the extra free strike damage to that enemy’s total in the Target Damage panel."
       },
       "squadTargetingIcon": {
         "name": "Squad Targeting Icon",
-        "hint": "Icon displayed on each minion token during squad target selection."
+        "hint": "Icon shown on each minion while the squad’s targets are being picked."
       },
       "minionHealthEstimate": {
         "name": "Minion Health Estimate Display",
@@ -107,7 +107,7 @@
       },
       "fallDamageCap": {
         "name": "Fall Damage Cap",
-        "hint": "Maximum damage an actor can take from a single fall."
+        "hint": "The most damage one fall can deal, however far the drop."
       },
       "fallConfirmation": {
         "name": "Fall Confirmation",
@@ -123,15 +123,15 @@
       },
       "corpsesBlock": {
         "name": "Corpses Block Movement",
-        "hint": "Defeated tokens act as indestructible obstacles during forced movement."
+        "hint": "Creatures that have fallen still block forced movement, and cannot be shifted out of the way."
       },
       "negativeElevationIsBurrowing": {
-        "name": "Negative Elevation Blocks FM",
-        "hint": "Tokens at negative elevation cannot be forced-moved, treating underground position as burrowing. Disable on maps where terrain goes below elevation 0. Tokens with the Burrow status are still blocked when this is off."
+        "name": "Below the Ground Counts as Burrowing",
+        "hint": "A creature at a negative elevation cannot be moved by force, since it counts as burrowing. Turn this off on maps whose ground goes below elevation 0. A creature with the Burrow status is still safe either way."
       },
       "statusDrivesMovementType": {
-        "name": "Status Determines Movement Mode",
-        "hint": "When enabled, the Burrow and Fly Foundry statuses alone determine movement mode regardless of elevation. Burrowing tokens cannot be forced-moved at any elevation; flying tokens always receive vertical forced movement."
+        "name": "Burrow and Fly Statuses Decide",
+        "hint": "The Burrow and Fly statuses settle how a creature is moved, whatever its elevation: a burrowing creature cannot be moved by force at all, and a flying one is always moved up or down rather than across."
       },
       "fmModifyGmOnly": {
         "name": "Restrict Modify Button to Director",
@@ -290,66 +290,66 @@
         "hint": "Configure squad labels, simultaneous turns, and the squad HUD."
       },
       "squadToolsEnabled": {
-        "name": "Enable Squad Tools",
-        "hint": "Master toggle for all squad tools features. Disabling this turns off squad labels, simultaneous turns, and the squad HUD."
+        "name": "Squad Tools",
+        "hint": "Squad labels, turns taken together, the squad bar and squad targeting. Turn this off and none of the settings below do anything."
       },
       "autoSquadLabelsEnabled": {
-        "name": "Enable Squad Labels",
-        "hint": "Prompts to apply purely visual squad label effects to squads when combat starts. Optionally renames squads to match numbers with labels."
+        "name": "Squad Labels",
+        "hint": "At the start of combat, offer to number each minion squad and show that number on every minion token, with its own icon for the captain."
       },
       "squadGlowMarker": {
         "name": "Subtle Turn Markers",
-        "hint": "Replace turn markers on active combatant tokens with a soft pulsing glow."
+        "hint": "Replace the turn marker under whoever is acting with a soft pulsing glow."
       },
       "squadGlowMarkerColored": {
         "name": "Colored Glow",
-        "hint": "Tint the glow with the group color. Player tokens use their player color; numbered squads use their group color."
+        "hint": "Tint the glow to match the token: a player’s own colour, or a numbered squad’s colour."
       },
       "squadLabelApplyEffects": {
-        "name": "Auto-Apply Label Effects",
-        "hint": "When enabled, label effects (the group number and role icons visible on tokens) are applied automatically. When disabled, groups are still renamed at combat start but label effects must be applied manually via the Squad Labels macro."
+        "name": "Show Labels on Tokens",
+        "hint": "Put the labels on the tokens for you. With this off, squads are still renamed at the start of combat and the Squad Labels macro adds the labels when you want them."
       },
       "squadLabelAutoRelabel": {
-        "name": "Auto-Relabel on Group Changes",
-        "hint": "When a squad is fully wiped or all its minions die, automatically rename remaining groups to fill numbering gaps and reapply labels."
+        "name": "Renumber After Losses",
+        "hint": "When a squad is gone, renumber the squads that are left so there are no gaps in the numbering, and free its captain of a squad they no longer have."
       },
       "squadLabelCaptainNow": {
         "name": "I Am The Captain Now",
-        "hint": "Prompt the Director to assign a captain to minion squads that lack one at the start of combat or start of the round."
+        "hint": "Ask the Director to pick a captain for any minion squad without one, at the start of combat and at the start of each round."
       },
       "squadCaptainShortcut": {
-        "name": "Captain Shortcut Assignment",
-        "hint": "When enabled and the number of available captain candidates exactly matches the number of squads needing a captain, automatically assign each candidate to a squad without opening the picker."
+        "name": "Skip the Captain Picker When Obvious",
+        "hint": "When there are exactly as many candidates as there are squads needing a captain, hand them out without asking."
       },
       "squadLabelRenamePreference": {
         "name": "Auto-Rename Preference",
-        "hint": "Controls what happens at combat start when squad labels are applied. Choose a saved preference or reset to always ask.",
+        "hint": "Whether to ask before renaming squads at the start of combat, or always do the same thing.",
         "ask": "Ask every time",
         "rename": "Always rename and apply",
         "apply": "Always just apply labels"
       },
       "squadSimultaneousTurns": {
-        "name": "Simultaneous Squad Turns",
-        "hint": "When a squad group takes its turn, all minions in the squad activate simultaneously. Each member's initiative is decremented, start-of-turn effects fire for all of them, and the combat marker appears under every squad token."
+        "name": "Squads Take Their Turn Together",
+        "hint": "A minion squad acts all at once: every minion takes the same turn, start of turn effects fire for all of them, and the turn marker sits under each one."
       },
       "pairSimultaneousTurns": {
-        "name": "Mentor Pair Turns",
-        "hint": "When a hero, their retainer, or their companion takes a turn, the whole pair activates together without needing a combatant group. The partner's initiative is decremented, start and end of turn effects fire for both, and the combat marker appears under both tokens."
+        "name": "Mentor Pairs Take Their Turn Together",
+        "hint": "A hero and their retainer or companion act on the same turn without being put in a group. Start and end of turn effects fire for both, and the turn marker sits under both."
       },
       "squadHudEnabled": {
         "name": "Squad HUD",
-        "hint": "Replaces individual minion token health bars with a shared floating bar for each squad. The bar shows the squad name, a segmented fill per minion, and live HP numbers. Hovering any minion or the bar fades in lines linking the bar to each squad member."
+        "hint": "One floating bar for each minion squad, instead of a Stamina bar on every minion. It shows the squad name, a segment for each minion still standing, and the squad’s Stamina. Hovering a minion or the bar draws lines to the rest of the squad."
       },
       "squadHudScale": {
         "name": "Squad HUD Size",
-        "hint": "Scales the size of the floating Squad HUD. Per-client: each player sets it independently. The HUD is sized proportionally to the scene grid, so this is a fine-tuning knob."
+        "hint": "How big the floating squad bar is. Everyone sets their own. It already scales with the scene grid, so small changes go a long way."
       },
       "squadHudPlayerVisibility": {
         "name": "Squad HUD Player Visibility",
-        "hint": "Controls what players see of the Squad HUD. Directors always see the full HUD.",
+        "hint": "How much of the squad bar players see. The Director always sees all of it.",
         "choice": {
-          "all": "Full (bar and HP numbers)",
-          "bar": "Bar only (no HP numbers)",
+          "all": "Full (bar and Stamina numbers)",
+          "bar": "Bar only (no Stamina numbers)",
           "none": "Hidden (individual token bars restored)"
         }
       },
@@ -363,7 +363,7 @@
       },
       "autoTriggeredActionsEnabled": {
         "name": "Triggered Action Tracker",
-        "hint": "Automatically place the Unspent Triggered Action effect on set combatants when combat starts, which then gets removed upon using a Triggered Action ability and is refreshed at round start."
+        "hint": "Mark combatants with an Unspent Triggered Action when combat starts, take the mark away when they use a triggered action, and give it back at the start of each round."
       },
       "triggeredActionsSettings": {
         "name": "Triggered Actions Settings",
@@ -372,7 +372,7 @@
       },
       "autoTriggeredActionsTarget": {
         "name": "Triggered Action Tracker Targets",
-        "hint": "Who should receive the Triggered Action tracker at the start of combat?",
+        "hint": "Who is marked when combat starts.",
         "choice": {
           "ALL": "All Combatants",
           "HEROES": "Heroes Only",
@@ -381,11 +381,11 @@
       },
       "triggeredActionsRequireAbility": {
         "name": "Only Track Combatants With Triggered Abilities",
-        "hint": "Apply Unspent Triggered Action effect only to combatants that have at least one triggered ability on their sheet."
+        "hint": "Only mark a creature that actually has a triggered ability on its sheet."
       },
       "teleportEnabled": {
-        "name": "Enable Teleport Tool",
-        "hint": "UI and API to enable teleporting a controlled token across the battlemap."
+        "name": "Teleport Tool",
+        "hint": "Teleporting a controlled token across the map: the toolbar button, and a Teleport button on any ability that teleports."
       },
       "abilityAutomationSettings": {
         "name": "Ability Automation Settings",
@@ -398,31 +398,31 @@
         "hint": "Enable or disable flat special effects and set the default values new flat effects are created with."
       },
       "flatEffectsEnabled": {
-        "name": "Enable Flat Effects",
-        "hint": "Master switch for flat special effects. When off, no flat effect buttons or automation appear in chat and the flat types are hidden from the new effect picker. Existing flat effects on abilities are kept safe and untouched."
+        "name": "Flat Effects",
+        "hint": "Effects on an ability that happen however the power roll turns out. Turn this off and none of the settings below do anything, and no flat effect buttons appear in chat. Anything already set up on an ability is left untouched."
       },
       "flatDefaultSpendEnabled": {
         "name": "Spend Resource On By Default",
-        "hint": "New flat effects of any type start with the Spend Resource toggle enabled."
+        "hint": "A new flat effect starts with Spend Resource already ticked."
       },
       "flatDefaultSpendValue": {
         "name": "Default Spend Cost",
-        "hint": "The resource cost new flat effects start with when Spend Resource is enabled."
+        "hint": "What a new flat effect costs to use, when Spend Resource is ticked."
       },
       "flatDefaultDamageFormula": {
         "name": "Default Damage Formula",
-        "hint": "The damage formula new flat damage effects start with."
+        "hint": "The damage a new flat damage effect starts with."
       },
       "flatDefaultDamageType": {
         "name": "Default Damage Type",
-        "hint": "The damage type new flat damage effects start with.",
+        "hint": "The damage type a new flat damage effect starts with.",
         "choice": {
           "untyped": "Untyped"
         }
       },
       "flatDefaultMovement": {
         "name": "Default Movement Type",
-        "hint": "The movement type new flat forced movement effects start with.",
+        "hint": "Whether a new flat forced movement effect starts as a push, a pull or a slide.",
         "choice": {
           "push": "Push",
           "pull": "Pull",
@@ -431,95 +431,95 @@
       },
       "flatDefaultForcedDistance": {
         "name": "Default Distance",
-        "hint": "The distance formula new flat forced movement effects start with."
+        "hint": "How many squares a new flat forced movement effect starts out moving a creature."
       },
       "flatDefaultPotencyStrength": {
         "name": "Default Potency Strength",
-        "hint": "The potency strength new flat applied condition effects start with."
+        "hint": "The potency a new flat condition effect starts at."
       },
       "flatDefaultAppliedEnd": {
         "name": "Default End Condition",
-        "hint": "The effect end new flat applied condition effects start with."
+        "hint": "When a condition from a new flat effect ends: the end of a turn, a save, or the end of the encounter."
       },
       "flatDefaultResourceType": {
         "name": "Default Resource Type",
-        "hint": "The resource type key new flat resource gain effects start with, such as surge."
+        "hint": "Which resource a new flat resource effect gives, a Surge for instance."
       },
       "flatDefaultResourceAmount": {
         "name": "Default Resource Amount",
-        "hint": "The amount new flat resource gain effects start with."
+        "hint": "How much of it a new flat resource effect gives."
       },
       "flatDefaultHealAmountType": {
         "name": "Default Heal Amount Type",
-        "hint": "Whether new flat heal effects start using the recovery value or a custom formula."
+        "hint": "Whether a new flat heal effect starts from the target’s recovery value or from a formula you write."
       },
       "flatDefaultHealTempStamina": {
         "name": "Temporary Stamina By Default",
-        "hint": "New flat heal effects start set to grant temporary Stamina instead of healing."
+        "hint": "A new flat heal effect starts out granting temporary Stamina instead of healing."
       },
       "flatDefaultCleanseRepeatable": {
         "name": "Repeatable Cleanse By Default",
-        "hint": "New flat cleanse effects start with the Repeatable toggle enabled."
+        "hint": "A new flat cleanse effect starts with Repeatable already ticked."
       },
       "abilityAutomationEnabled": {
         "name": "Ability Automation",
-        "hint": "Master toggle for all ability automation."
+        "hint": "Help with abilities: picking targets, checking distance, class features and their reminders. Turn this off and none of the settings below do anything."
       },
       "abilityTargetingEnabled": {
         "name": "Ability Targeting",
-        "hint": "Intercepts ability macro rolls to show a target picker before the roll dialog. Disable if you prefer to set targets manually before rolling."
+        "hint": "Ask you to pick an ability’s targets on the map before the roll window opens. Turn it off if you would rather target by hand first."
       },
       "groupActionsEnabled": {
         "name": "Group Actions",
-        "hint": "Enables automated group actions for minion squads. When a squad member uses a signature attack, all squad members within range coordinate to target the same enemy."
+        "hint": "When a minion uses a signature ability, choose a target for every minion in the squad that can reach one, and roll the squad’s ability against all of them at once."
       },
       "judgementAutomation": {
         "name": "Judgement",
-        "hint": "Adds an action button to the Judgement chat card to mark the target, then tracks the judged creature and posts chat reminders for each trigger and a prompt to reapply Judgement as a free triggered action when the judged is defeated."
+        "hint": "Adds a button to the Judgement chat card to judge your target, then follows the judged creature: a reminder in chat each time Judgement can be used, and a prompt to judge someone new when the judged creature falls."
       },
       "judgedEffectIcon": {
         "name": "Judged Effect Icon",
-        "hint": "Icon used for the Judged active effect applied by DSCT."
+        "hint": "Icon shown on a judged creature."
       },
       "judgementBaneLock": {
-        "name": "Lock Ability Roll UI on Judgement Bane Trigger",
-        "hint": "When a judged creature makes a power roll, the Ability Roll UI is disabled briefly so the Censor has time to impose the bane or decline."
+        "name": "Hold the Roll for the Censor",
+        "hint": "When a judged creature makes a power roll, its roll buttons are held briefly so the Censor has time to impose the bane or decline."
       },
       "judgementBaneLockDuration": {
-        "name": "Bane Reminder Lock Duration (seconds)",
-        "hint": "How long in seconds the Ability Roll UI is locked when a Judgement bane reminder is posted."
+        "name": "Seconds to Hold the Roll",
+        "hint": "How long the roll is held when a Judgement bane reminder is posted."
       },
       "markAutomation": {
         "name": "Mark",
-        "hint": "Adds an Apply Mark button to the chat cards of all Mark-applying abilities, then posts a prompt to reapply Mark as a free triggered action when the marked target is defeated. Keeps track of marks which override when reapplied and those that don't."
+        "hint": "Adds an Apply Mark button to every chat card that can mark, and prompts the Tactician to mark someone new within 10 squares when the marked creature falls. Knows which marks replace an earlier one and which do not."
       },
       "markedEffectIcon": {
         "name": "Marked Effect Icon",
-        "hint": "Icon used for the Mark active effect applied by DSCT."
+        "hint": "Icon shown on a marked creature."
       },
       "aidAttackAutomation": {
         "name": "Aid Attack",
-        "hint": "Adds an Aid Attack button to the Aid Attack chat card which applies and sets a hook to remove the effect."
+        "hint": "Adds an Aid Attack button to the Aid Attack chat card. It marks the enemy you targeted so the next ally ability roll against them has an edge, and clears the mark once someone rolls against them or combat ends."
       },
       "aidAttackEffectIcon": {
         "name": "Aid Attack Effect Icon",
-        "hint": "Icon used for the Aid Attack active effect applied by DSCT."
+        "hint": "Icon shown on a creature that has been aided."
       },
       "imNoThreatEnabled": {
         "name": "I'm No Threat",
-        "hint": "Adds an I'm No Threat button to the I'm No Threat chat card. The buttons open a UI that allows picking a visual for the illusion, adds the active effect, and removes it when a power roll is made."
+        "hint": "Adds a button to the I'm No Threat chat card for choosing what the illusion looks like. The token takes that look until the Shadow makes a strike."
       },
       "imNoThreatEffectIcon": {
         "name": "I'm No Threat Effect Icon",
-        "hint": "Icon used for the I'm No Threat active effects applied by DSCT."
+        "hint": "Icon shown on a creature hidden behind an I'm No Threat illusion."
       },
       "abyssalEvolutionEnabled": {
-        "name": "Enable Abyssal Evolution Button",
-        "hint": "Injects an Abyssal Evolution button into chat when the Abyssal Evolution ability is used."
+        "name": "Abyssal Evolution",
+        "hint": "Adds a button to the Abyssal Evolution chat card for turning an abyssal minion into a horde creature of the same level."
       },
       "squadAutoAssignStaminaPriority": {
         "name": "Auto-Assign Stamina Priority",
-        "hint": "When auto-assigning targets for a squad action, determines which enemies receive extra free strikes from overflow minions. Coverage (one minion per enemy) is always resolved first.",
+        "hint": "Which enemies take the extra free strikes when a squad has more minions than enemies. Every enemy is covered by one minion first.",
         "choice": {
           "high": "Focus Healthy (More Stamina)",
           "low": "Finish Wounded (Less Stamina)",
@@ -527,32 +527,32 @@
         }
       },
       "crossfadeEnabled": {
-        "name": "Enable Crossfade Automation",
-        "hint": "Automates the Crossfade feature from SurfingBird's (bendking) Shadow Reshade supplement. Automatically adds an edge to the power roll when Crossfade applies, and posts a Disengage reminder to chat."
+        "name": "Crossfade",
+        "hint": "Adds the edge to a power roll when Crossfade applies, and posts a Disengage reminder in chat. Homebrew from SurfingBird’s (bendking) Shadow Reshade."
       },
       "nullGrabIntuition": {
         "name": "Psionic Martial Arts Size Check",
-        "hint": "Actors with Psionic Martial Arts use Intuition instead of Might for grab size checks. Requires Conditions."
+        "hint": "A hero with Psionic Martial Arts uses Intuition instead of Might to work out whether they can grab a creature bigger than they are. Needs Conditions turned on."
       },
       "psionicMartialArts": {
         "name": "No Speed Penalty While Grabbing",
-        "hint": "Actors with Psionic Martial Arts do not have their speed halved while grabbing a creature of equal or larger size. Homebrew from Matte's Null Unbroken."
+        "hint": "A hero with Psionic Martial Arts keeps their full speed while grabbing a creature their own size or larger. Homebrew from Matte’s Null Unbroken."
       },
       "hiwEnabled": {
         "name": "Hesitation Is Weakness",
-        "hint": "Posts a chat notification with a Start Turn button when another hero ends their turn and the Hesitation Is Weakness ability can be triggered. Stands down while Draw Steel: Triggers is active, which holds the turn change itself."
+        "hint": "Posts a chat notice with a Start Turn button when another hero’s turn ends and Hesitation Is Weakness can be used. Steps aside while Draw Steel: Triggers is handling turn changes."
       },
       "combatTurnLog": {
         "name": "Combat Turn Log",
-        "hint": "Posts a chat message each time a combatant starts or ends their turn."
+        "hint": "Announce in chat each time a combatant starts or ends their turn."
       },
       "combatRoundLog": {
         "name": "Combat Round Log",
-        "hint": "Posts a chat message at the start of each new combat round."
+        "hint": "Announce each round in chat, along with the start and the end of the encounter."
       },
       "purifyingFireEnabled": {
         "name": "Purifying Fire",
-        "hint": "Adds an Apply Fire Damage button alongside holy damage buttons when the acting hero has the Purifying Fire ability, so they can deal fire damage instead and trigger the target's fire weakness."
+        "hint": "Adds an Apply Fire Damage button beside holy damage when the acting hero has Purifying Fire, so the damage can be dealt as fire and set off a target’s weakness to it."
       },
       "neutralizeEnrichers": {
         "name": "Replace Apply Links in Ability Text",
@@ -560,15 +560,15 @@
       },
       "alwaysRepickTargets": {
         "name": "Always Re-Pick Targets",
-        "hint": "Clear whatever you had targeted before an ability resolves, so the target picker always opens instead of accepting the selection you already had."
+        "hint": "Clear whatever you had targeted before an ability resolves, so you are always asked to pick again."
       },
       "autoConfirmSelection": {
         "name": "Auto-Confirm Target Selection",
-        "hint": "When the required number of targets are selected in a target picker (ability targeting, Power Word: Kill, Raise Dead), automatically confirm without needing to press Enter. Also skips the picker entirely when the valid target count is at or below the ability's target maximum."
+        "hint": "Confirm as soon as you have picked as many targets as the ability allows, with no need to press Enter. When there are no more valid targets than it allows, they are picked for you."
       },
       "rollDialogPillUI": {
         "name": "Alternative Ability Roll UI",
-        "hint": "Replaces the standard ability roll UI with an enhanced variant which displays modifiers by name, sometimes with their sources. Includes various unimplemented situational banes and edges that exist within the rules."
+        "hint": "A different roll window that lists every bane and edge by name, and often where it came from. It also offers the situational banes and edges the rules describe but nothing tracks for you, ready to tick on."
       },
       "dstdSquadSections": {
         "name": "Group Squads in Damage Panels",
@@ -580,27 +580,27 @@
       },
       "dstdRollPills": {
         "name": "Power Roll Modifiers in Chat",
-        "hint": "Shows each target's power roll modifiers by name under the roll result in ability messages. Rolls made through the Alternative Ability Roll UI keep their modifier names and sources, and retroactive roll edits appear as removable modifiers."
+        "hint": "Lists each target’s banes and edges by name under the roll result in chat. Rolls made in the Alternative Ability Roll UI keep their names and sources, and a later edit to a roll is listed too and can be taken off again."
       },
       "dstdRollEditor": {
         "name": "Modifier Roll Editor",
-        "hint": "Replaces the edit roll window on ability messages with a compact modifier editor in the Alternative Ability Roll UI style. Modifiers added there become removable modifiers under the roll."
+        "hint": "Replaces the edit roll window on an ability in chat with a compact editor in the Alternative Ability Roll UI style. What you add there is listed under the roll and can be taken off again."
       },
       "pillDamageEditor": {
         "name": "Modifier Damage Editor",
-        "hint": "Replaces the edit damage window on ability messages with a modifier editor in the Alternative Ability Roll UI style, including surge spending, damage type changes, and named modifiers that appear under the damage button."
+        "hint": "Replaces the edit damage window on an ability in chat with an editor in the Alternative Ability Roll UI style, covering spent Surges, a change of damage type, and named changes listed under the damage button."
       },
       "skipPillEditor": {
         "name": "Cog Opens Add Modifier Directly",
-        "hint": "Clicking the edit cog on damage and power roll rows jumps straight to the Add Modifier dialog instead of opening the modifier editor window first. Existing modifiers stay toggleable and removable in chat, and holding Shift while clicking the cog still opens the full editor."
+        "hint": "The cog on a damage or power roll row goes straight to adding one modifier, instead of opening the editor first. Hold Shift while clicking it for the full editor."
       },
       "multiplierOverride": {
         "name": "Damage Multiplier Override",
-        "hint": "Half and Double damage modifiers always apply after bonuses, penalties, and surges, regardless of the order they were added in."
+        "hint": "Half and Double damage always apply last, after bonuses, penalties and Surges, whatever order they were added in."
       },
       "noMultiplierStacking": {
         "name": "No Multiplier Stacking",
-        "hint": "Duplicate Half (or Double) damage modifiers beyond the first have no effect and render dimmed."
+        "hint": "A second Half, or a second Double, has no effect and shows dimmed."
       },
       "highGroundEnabled": {
         "name": "High Ground Edge",
@@ -612,11 +612,11 @@
       },
       "abilityTemplateConfigEnabled": {
         "name": "Configure Ability Templates",
-        "hint": "Adds a Configure Template button to any ability with an area, where its colour, visibility, highlighting and region behaviours can be set once and reused every time that ability places its area. Owners can configure their own abilities without the Director."
+        "hint": "Adds a Configure Template button to any ability with an area, where its colour, visibility, highlighting and region behaviours are set once and reused every time that ability places its area. Players can set up their own abilities without the Director."
       },
       "abilityTemplateCleanup": {
         "name": "Clear Placed Areas",
-        "hint": "Removes an ability’s placed area once it has stopped mattering, rather than leaving it on the map. An area is cleared five seconds after it lands, or at the end of the turn if that comes first. Abilities marked Ongoing instead keep theirs until the chosen moment, tracked by a hidden effect on the one who placed it."
+        "hint": "Clear an ability’s area off the map once it has stopped mattering. An area goes at the end of the turn, or after the time set below, whichever comes first. Abilities marked Ongoing keep theirs until the moment chosen for them."
       },
       "abilityTemplateSeconds": {
         "name": "Seconds Before Clearing",
@@ -640,7 +640,7 @@
       },
       "enforceAbilityRange": {
         "name": "Enforce Ability Range",
-        "hint": "Prevents Ability Roll UI from opening if target is out of range."
+        "hint": "Only let an ability, a grab or forced movement reach as far as its distance allows. With this off, a target out of range can still be chosen."
       },
       "suppressTrackerAutoDefeat": {
         "name": "Own Death Instead of the Combat Tracker",
@@ -648,12 +648,12 @@
       },
       "gmBypassRangeEnforcement": {
         "name": "Director Bypasses Range Enforcement",
-        "hint": "Director is exempt from range enforcement."
+        "hint": "The Director is never held to an ability’s distance, when targeting, grabbing or forcing movement."
       },
       "intAnimalsMenu": {
         "name": "I'm No Threat Animals",
         "label": "Configure Animals",
-        "hint": "Edit the list of animal disguises (name, icon, emoji) available in the I'm No Threat panel."
+        "hint": "Edit the animals a Shadow can disguise themselves as in the I'm No Threat panel."
       },
       "wallBuilderSettings": {
         "name": "Wall Builder Settings",
@@ -666,7 +666,7 @@
       },
       "showWallBuilderButton": {
         "name": "Show Wall Builder Button",
-        "hint": "Show the Wall Builder toolbar button in the Walls layer controls (GM only)."
+        "hint": "Show the Wall Builder button in the Walls controls. Director only."
       },
       "moduleButtonsSettings": {
         "name": "Module Button Visibility",
@@ -675,27 +675,27 @@
       },
       "toolboxEnabled": {
         "name": "Group Buttons in Toolbox",
-        "hint": "Group the token control buttons under a single collapsible Combat Toolbox toggle."
+        "hint": "Tuck this module’s buttons under a single Combat Toolbox button in the token controls, instead of listing them all."
       },
       "showForcedMovementButton": {
         "name": "Show Forced Movement Button",
-        "hint": "Show the Forced Movement toolbar button in the token controls."
+        "hint": "Show the Forced Movement button in the token controls. Needs Forced Movement turned on."
       },
       "showGrabButton": {
         "name": "Show Grab Button",
-        "hint": "Show the Grab Panel toolbar button in the token controls."
+        "hint": "Show the Grab panel button in the token controls. Needs Conditions and Grab turned on."
       },
       "showTeleportButton": {
         "name": "Show Teleport Button",
-        "hint": "Show the Teleport toolbar button in the token controls."
+        "hint": "Show the Teleport button in the token controls. Needs the Teleport Tool turned on."
       },
       "showDamageConditionsButton": {
         "name": "Show Damage & Conditions Button",
-        "hint": "Show the Damage & Conditions toolbar button in the token controls."
+        "hint": "Show the Damage & Conditions button in the token controls. Needs Conditions turned on."
       },
       "debugMode": {
         "name": "Debug Mode",
-        "hint": "For developers trying to figure out problems with the module, provides verbose debug messages into the console."
+        "hint": "Print detailed messages to the browser console, for chasing down a problem with the module."
       },
       "experimentalObstacleArrow": {
         "name": "Experimental Obstacle Arrow",
@@ -703,7 +703,7 @@
       },
       "cornerCutMode": {
         "name": "Corner Cut Movement",
-        "hint": "Collide on Corner Cuts (default): Diagonal movement clipping a wall to trigger collision damage.\nBlock Corner Cutting: Diagonal movement through a wall corner is illegal for pathfinding, may be buggy.",
+        "hint": "What happens when forced movement cuts the corner of a wall. Collide on Corner Cuts treats it as hitting the wall. Block Corner Cutting refuses the path instead, which is rougher going.",
         "choice": {
           "block": "Block Corner Cutting",
           "collide": "Collide on Corner Cuts"
@@ -711,7 +711,7 @@
       },
       "allowCrookedPushPull": {
         "name": "Wiggly Lines for Push/Pull",
-        "hint": "Push and Pull are not restricted to a straight line during manual path selection, strictly against the rules but it's fun so it's here."
+        "hint": "A push or a pull you draw by hand does not have to travel in a straight line. Strictly against the rules, but it is fun, so it is here."
       },
       "undoExpirationCheck": {
         "name": "Undo Expiration Check",
@@ -719,15 +719,15 @@
       },
       "cancelOnRightClick": {
         "name": "Cancel Pickers on Right Click",
-        "hint": "Right-clicking on the canvas cancels any active DSCT selection UI."
+        "hint": "Right-click on the map to cancel whatever this module is asking you to pick."
       },
       "targetDistanceLines": {
         "name": "Distance Lines to Targets",
-        "hint": "While controlling a single token, targeting other tokens draws a dashed line in your player color to each target with the distance in squares. Per client."
+        "hint": "While you have one token selected, a dashed line in your own colour runs to each creature you target, with the distance in squares. Everyone sets their own."
       },
       "greyscaleNoLos": {
         "name": "Grey Out What You Cannot See",
-        "hint": "While a token is selected, any creature it has no line of effect to is drawn in black and white, the way an unseen combatant is. A quick read of who is actually reachable. Per client."
+        "hint": "While a token is selected, any creature it has no line of effect to is drawn in black and white, the way an unseen combatant is. A quick read of who is actually reachable. Everyone sets their own."
       },
       "trueDrawSteelLos": {
         "name": "True Line of Effect",
@@ -774,11 +774,11 @@
       },
       "homeRulesEnabled": {
         "name": "Home Rules",
-        "hint": "Master toggle for all home rule options."
+        "hint": "Unlock the house rules below. Each one still has its own switch, and they keep whatever you set them to."
       },
       "homebrewOptions": {
         "name": "Homebrew Options",
-        "hint": "Enable support for third-party supplements and homebrew content."
+        "hint": "Show the settings for third party supplements and homebrew, such as the Null and Shadow options in Ability Automation."
       },
       "compatibilitySettings": {
         "name": "Compatibility",
@@ -2200,7 +2200,7 @@
       },
       "dsCombatTracker": {
         "name": "Draw Steel - Combat Tracker",
-        "hint": "With Simultaneous Squad Turns on, every minion in a squad shows as able to act during their squad’s turn."
+        "hint": "With Squads Take Their Turn Together on, every minion in a squad shows as able to act during their squad’s turn."
       },
       "dsMovementLab": {
         "name": "Draw Steel: Movement Lab",

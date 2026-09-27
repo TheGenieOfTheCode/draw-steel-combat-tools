@@ -1,4 +1,4 @@
-import { getSetting, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf } from '../helpers.mjs';
+import { getSetting, rangeEnforced, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
 import { stackedPrompt } from '../ability-automation/stacked-prompt.mjs';
@@ -655,8 +655,7 @@ function _checkAbilityRange(dialog) {
     range,
   }));
 
-  if (game.user.isGM && getSetting('gmBypassRangeEnforcement')) return null;
-  return getSetting('enforceAbilityRange') ? 'block' : null;
+  return rangeEnforced() ? 'block' : null;
 }
 
 const _mrChosen = new Map();
