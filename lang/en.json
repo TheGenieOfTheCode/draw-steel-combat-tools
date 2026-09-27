@@ -960,26 +960,26 @@
           "values": "true"
         },
         "cannotHide": {
-        "label": "Cannot hide",
-        "description": "This creature cannot use the Hide maneuver at all, so it is never offered the option and no enemy can lose track of it (e.g. a creature judged by a Censor with Saint’s Vigilance, a target bleeding from a Carving Dagger).",
-        "values": "true"
-      },
-      "ignoresConcealmentBane": {
-        "label": "Ignores the concealment bane",
-        "description": "Strikes by this creature take no bane against a concealed target, so the Concealment pill never appears in its roll window (e.g. Foresight, a target of Fire Up the Night).",
-        "values": "true"
-      },
-      "observedBy": {
-        "label": "Always observed by whoever applied this",
-        "description": "The creature that applied this effect is always observing the bearer, so the bearer cannot hide from that one creature. Everyone else is unaffected. Only works on an effect applied by an ability, which is what records who applied it (e.g. Apex Predator).",
-        "values": "true"
-      },
-      "concealmentBaneDoubled": {
-        "label": "Doubles the cover and concealment bane",
-        "description": "Any bane an ability takes from this creature’s cover or concealment is doubled (e.g. Masking Glamor).",
-        "values": "true"
-      },
-      "cannotBeHiddenRange": {
+          "label": "Cannot hide",
+          "description": "This creature cannot use the Hide maneuver at all, so it is never offered the option and no enemy can lose track of it (e.g. a creature judged by a Censor with Saint’s Vigilance, a target bleeding from a Carving Dagger).",
+          "values": "true"
+        },
+        "ignoresConcealmentBane": {
+          "label": "Ignores the concealment bane",
+          "description": "Strikes by this creature take no bane against a concealed target, so the Concealment pill never appears in its roll window (e.g. Foresight, a target of Fire Up the Night).",
+          "values": "true"
+        },
+        "observedBy": {
+          "label": "Always observed by whoever applied this",
+          "description": "The creature that applied this effect is always observing the bearer, so the bearer cannot hide from that one creature. Everyone else is unaffected. Only works on an effect applied by an ability, which is what records who applied it (e.g. Apex Predator).",
+          "values": "true"
+        },
+        "concealmentBaneDoubled": {
+          "label": "Doubles the cover and concealment bane",
+          "description": "Any bane an ability takes from this creature’s cover or concealment is doubled (e.g. Masking Glamor).",
+          "values": "true"
+        },
+        "cannotBeHiddenRange": {
           "label": "Range for nobody can hide",
           "description": "Squares within which the flag above applies. Leave it out, or 0, for any distance (e.g. Soulsight uses 2).",
           "values": "A whole number of squares, with the Override type."
@@ -1750,9 +1750,9 @@
         "tokenGone": "{name} is no longer on this scene.",
         "forcedDeathsAnyway": "{names} fell regardless: that death was not one of the choices.",
         "lockedByPicker": "A death picker is open. Damage is locked until it is answered.",
-      "pickerLockReleased": "Death picker released and damage unlocked.",
-      "nothingToSettle": "No deaths are waiting to be settled.",
-      "gmOnly": "Revive is a GM-only tool.",
+        "pickerLockReleased": "Death picker released and damage unlocked.",
+        "nothingToSettle": "No deaths are waiting to be settled.",
+        "gmOnly": "Revive is a GM-only tool.",
         "noSkulls": "No defeated creatures found.",
         "noDefeated": "No defeated creatures on the board.",
         "reviveInstruction": "REVIVE | Click skulls to select them, press ENTER to revive, or Right-Click to cancel.",
@@ -1979,7 +1979,7 @@
         "rankCaptain": "Captain",
         "rankMinions": "Minions",
         "rankOthers": "Others",
-      "pickerStuckNote": "A death picker is still open and damage is locked. If it will not close, release it here."
+        "pickerStuckNote": "A death picker is still open and damage is locked. If it will not close, release it here."
       },
       "tactical": {
         "judged": "<strong>Judgement:</strong> {name} is judged.",
@@ -2188,7 +2188,7 @@
       },
       "dsTokenOverride": {
         "name": "DS Token Override",
-        "hint": "A squad’s Stamina bar uses the tick marks you set up in Token Override, and Token Override’s own health labels are hidden for minions the squad bar already covers."
+        "hint": "A squad’s Stamina bar follows Token Override’s Squad Threshold Marks setting, and Token Override’s own health labels are hidden for minions the squad bar already covers."
       },
       "healthEstimate": {
         "name": "Health Estimate",

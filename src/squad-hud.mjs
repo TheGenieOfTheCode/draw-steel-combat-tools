@@ -226,13 +226,12 @@ function _drawBarGfx(barGfx, repToken, hp, maxHP, total, nativeW, nativeH) {
   
   
   if (total > 1) {
-    let ticksEnabled = true, tickColor = 0x000000;
+    
+    let ticksEnabled = true;
+    const tickColor = 0x000000;
     if (game.modules.get('ds-token-override')?.active) {
-      try {
-        ticksEnabled = game.settings.get('ds-token-override', 'enableHealthbarTicks') ?? true;
-        const hex = game.settings.get('ds-token-override', 'tickColor') ?? '#000000';
-        tickColor = parseInt(hex.replace('#', ''), 16);
-      } catch {  }
+      try { ticksEnabled = game.settings.get('ds-token-override', 'minionHealthbars') ?? true; }
+      catch {  }
     }
     if (ticksEnabled) {
       barGfx.lineStyle({ color: tickColor, width: 2 });

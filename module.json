@@ -21,7 +21,7 @@
     "recommends": [
       { "id": "tagger", "type": "module", "reason": "[Compatible] Wall Builder tags the walls it makes through Tagger." },
       { "id": "ds-terrain-designer", "type": "module", "reason": "[Compatible] Forced movement follows the terrain’s slopes and heights, and High Ground uses its edges." },
-      { "id": "ds-token-override", "type": "module", "reason": "[Compatible] A squad’s Stamina bar uses the tick marks you set there, and doubled up health labels are hidden." },
+      { "id": "ds-token-override", "type": "module", "reason": "[Compatible] A squad’s Stamina bar follows its Squad Threshold Marks setting, and doubled up health labels are hidden." },
       { "id": "draw-steel-combat-tracker", "type": "module", "reason": "[Compatible] Every minion of a squad shows as able to act during the squad’s turn." },
       { "id": "draw-steel-ability-hud", "type": "module", "reason": "[Compatible] The HUD’s triggered action button follows the tracker here, for everyone at the table." },
       { "id": "healthEstimate", "type": "module", "reason": "[Compatible] What it shows for a minion in a squad follows the Minion Health Estimate Display setting." },
