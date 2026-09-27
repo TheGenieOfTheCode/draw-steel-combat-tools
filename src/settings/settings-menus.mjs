@@ -110,16 +110,19 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
     if (Object.keys(deps).length) {
       const masterOn = () => !enableKey || (el.querySelector(`[name="${enableKey}"]`)?.checked ?? true);
       const syncDeps = () => {
-        for (const [child, parent] of Object.entries(deps)) {
+        for (const [child, spec] of Object.entries(deps)) {
+          
+          const invert = spec.startsWith('!');
+          const parent = invert ? spec.slice(1) : spec;
           const parentInput = el.querySelector(`[name="${parent}"]`);
           const group = el.querySelector(`[name="${child}"]`)?.closest('.form-group');
           if (!parentInput || !group) continue;
-          const off = !parentInput.checked || !masterOn();
+          const off = (invert ? parentInput.checked : !parentInput.checked) || !masterOn();
           group.classList.toggle('dsct-sub-disabled', off);
           group.querySelectorAll('input, select').forEach(i => { i.disabled = off; });
         }
       };
-      for (const parent of new Set(Object.values(deps))) {
+      for (const parent of new Set(Object.values(deps).map(v => v.replace(/^!/, '')))) {
         el.querySelector(`[name="${parent}"]`)?.addEventListener('change', syncDeps);
       }
       if (enableKey) el.querySelector(`[name="${enableKey}"]`)?.addEventListener('change', syncDeps);
@@ -141,9 +144,6 @@ export class SettingsSubmenu extends ds.applications.api.DSApplication {
         }).render(true);
       });
     });
-
-
-
 
     el.querySelectorAll('select[name]').forEach((select) => {
       const baseHint = select.closest('.form-group')?.querySelector('.hint');
@@ -404,7 +404,7 @@ export class StealthSettingsMenu extends SettingsSubmenu {
   static get enableKey() { return 'stealthSystemEnabled'; }
 
   static get dependencies() {
-    return { stealthRevealPromptSeconds: 'stealthAutoReveal' };
+    return { stealthRevealPromptSeconds: '!stealthAutoReveal' };
   }
 
   static get regularKeys() {
@@ -839,7 +839,6 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
       compatInfo('draw-steel-combat-tracker', 'DSCT.compat.dsCombatTracker.name', 'DSCT.compat.dsCombatTracker.hint'),
       compatInfo('ds-movement-lab',           'DSCT.compat.dsMovementLab.name',   'DSCT.compat.dsMovementLab.hint'),
       compatInfo('draw-steel-companion',      'DSCT.compat.dsCompanion.name',     'DSCT.compat.dsCompanion.hint'),
-      compatInfo('draw-steel-plus',           'DSCT.compat.dsPlus.name',          'DSCT.compat.dsPlus.hint'),
     ].filter(e => debugMode || e.isActive);
 
     if (autoEntries.length) {
@@ -855,7 +854,6 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
     return keys;
   }
 
-
   async render(...args) {
     const debugMode = game.settings.get(M, 'debugMode');
     if (!debugMode && !this.constructor.regularKeys.length) {
@@ -864,7 +862,6 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
     }
     return super.render(...args);
   }
-
 
 }
 

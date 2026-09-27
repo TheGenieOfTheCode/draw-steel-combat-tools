@@ -69,11 +69,11 @@
       },
       "dstdQuickFmButton": {
         "name": "Quick Forced Movement Button",
-        "hint": "When multiple targets are present, adds a condensed Forced Movement button to the collapsed target header alongside the damage button. The damage button is shortened to icon and number only to fit both."
+        "hint": "With more than one target, add a small forced movement button to the collapsed target header, beside the damage button. The damage button shrinks to an icon and a number to make room."
       },
       "playerCanUndoCausedDeaths": {
         "name": "Players Can Undo Deaths Their Owned Actors Caused",
-        "hint": "Lets a player undo a death from its chat message when the damage came from an actor they own, or failing that when they were the one who dealt it. Deaths dealt through a Target Damage card are always undone from that card instead."
+        "hint": "Players can undo a death they caused, from the chat message that reports it. Deaths dealt from a damage card are undone on the card itself."
       },
       "squadTargetBonus": {
         "name": "Squad Action Bonus Free Strikes",
@@ -85,7 +85,7 @@
       },
       "minionHealthEstimate": {
         "name": "Minion Health Estimate Display",
-        "hint": "Controls how Health Estimate behaves on minion tokens that are part of an active combat squad. Outside of combat, or when a minion has no squad group, Health Estimate is unaffected.",
+        "hint": "What Health Estimate shows for minions in a squad during an encounter. Minions with no squad, or outside an encounter, are unaffected.",
         "choice": {
           "hide": "Hide Label",
           "count": "Squad Count Label",
@@ -94,16 +94,16 @@
       },
       "forcedMovementEnabled": {
         "name": "Forced Movement",
-        "hint": "Controls all Forced Movement functionality like the panel and chat messages, as well as all related automation."
+        "hint": "Resolve forced movement for you: the panel for setting up a push, slide or pull, and the chat messages that report what happened."
       },
       "forcedMovementSettings": {
         "name": "Forced Movement Settings",
         "label": "Configure Forced Movement",
-        "hint": "Adjust animation speed, fall and friendly fire confirmation prompts, and Director-only movement restrictions."
+        "hint": "Animation speed, the prompts before a fall or before hitting an ally, and who may change a move afterwards."
       },
       "animationStepDelay": {
         "name": "Animation Step Delay (ms)",
-        "hint": "Time in milliseconds between each square of animated forced movement. Set to 0 to disable animation."
+        "hint": "How long a forced move pauses on each square it crosses. Set it to 0 for no animation."
       },
       "fallDamageCap": {
         "name": "Fall Damage Cap",
@@ -111,11 +111,11 @@
       },
       "fallConfirmation": {
         "name": "Fall Confirmation",
-        "hint": "Show a confirmation prompt in chat before resolving a token falls."
+        "hint": "Ask in chat before resolving a fall, rather than dropping the creature straight away."
       },
       "friendlyFireConfirmation": {
         "name": "Friendly Fire Confirmation",
-        "hint": "Show a confirmation prompt in chat when forced movement would cause an ally to take collision damage."
+        "hint": "Ask in chat when a forced move would send an ally into something and hurt them."
       },
       "ignoreAllyEnabled": {
         "name": "Allow Allies to Dodge",
@@ -135,80 +135,80 @@
       },
       "fmModifyGmOnly": {
         "name": "Restrict Modify Button to Director",
-        "hint": "Only the Director can see the pencil modify button on forced movement chat messages. Disable to let all players use it."
+        "hint": "Only the Director sees the pencil for changing a forced move after the fact. Turn it off to let players use it too."
       },
       "grabEnabled": {
         "name": "Grab",
-        "hint": "Automates all aspects of the grab condition as per the Draw Steel rules, active grabs can be ended via the Grab panel."
+        "hint": "A grabbed creature takes a bane on abilities that do not target whoever holds it, and is dragged along when they move. Grabs can be ended from the Grab panel."
       },
       "grabbedEffectIcon": {
         "name": "Grabbed Effect Icon",
-        "hint": "Icon used for the Grabbed active effect applied by DSCT."
+        "hint": "The image used for the creature being held."
       },
       "grabberEffectIcon": {
         "name": "Grabber Effect Icon",
-        "hint": "Icon used for the Grabber active effect applied to the grabbing token."
+        "hint": "The image used for the one holding them."
       },
       "gmBypassesSizeCheck": {
         "name": "Director Bypasses Size Check",
-        "hint": "The Director can execute Knockback and Grab regardless of target size."
+        "hint": "The Director can grab or knock back a creature of any size, ignoring the size limit."
       },
       "restrictGrabButtons": {
         "name": "Restrict Automatic Grab Buttons to Director",
-        "hint": "Only the Director can see and click the Apply Grab and End Grab buttons in the Grab Panel, which bypass the need for a check."
+        "hint": "Only the Director sees the buttons that apply or end a grab outright, with nobody rolling for it."
       },
       "allowIllegalMovement": {
         "name": "Allow Illegal Movement",
-        "hint": "Allow actors to move even under conditions that would forbid it, but provide a reminder of the condition that should prevent movement."
+        "hint": "Let a creature move anyway when a condition should stop it, warning you instead of blocking the move."
       },
       "conditionsEnabled": {
         "name": "Conditions",
-        "hint": "Controls all Condition automation functionality."
+        "hint": "Handle frightened, taunted, bleeding, grabs and area damage for you. Turn this off and none of the settings below do anything."
       },
       "frightenedEnabled": {
         "name": "Frightened",
-        "hint": "Automates all aspects of the frightened condition as per the Draw Steel rules."
+        "hint": "A frightened creature takes a bane against whatever frightens it, gives that creature an edge in return, and cannot willingly move closer to it."
       },
       "frightenedEffectIcon": {
         "name": "Frightened Effect Icon",
-        "hint": "Icon used for the Frightened active effect applied by DSCT."
+        "hint": "The image used for frightened."
       },
       "appliedEffectEnabled": {
-        "name": "Applied Effect Retargeting",
-        "hint": "Makes it so applied effect buttons on ability messages apply to Targeted token instead of selected token, and allows players to apply effects to unowned tokens if Director is online."
+        "name": "Effect Buttons Follow Your Target",
+        "hint": "Effect buttons in chat apply to the creature you have targeted rather than the one you have selected, and players can use them on creatures they do not own while the Director is online."
       },
       "applyDamageEnabled": {
-        "name": "Applied Damage Retargeting",
-        "hint": "Makes it so damage buttons on ability messages apply to Targeted tokens instead of selected tokens, and allows players to apply damage to unowned tokens if Director is online."
+        "name": "Damage Buttons Follow Your Target",
+        "hint": "Damage buttons in chat apply to the creatures you have targeted rather than the ones you have selected, and players can use them on creatures they do not own while the Director is online."
       },
       "tauntedEnabled": {
         "name": "Taunted",
-        "hint": "Automates all aspects of the taunted condition as per the Draw Steel rules."
+        "hint": "A taunted creature takes a double bane on any ability that does not target whoever taunted it, as long as it can still see them."
       },
       "tauntedEffectIcon": {
         "name": "Taunted Effect Icon",
-        "hint": "Icon used for the Taunted active effect applied by DSCT."
+        "hint": "The image used for taunted."
       },
       "conditionsSettings": {
         "name": "Conditions & Damage",
         "label": "Configure Conditions & Damage",
-        "hint": "Toggle and configure automation for Frightened, Taunted, Bleeding, Grab, and area damage."
+        "hint": "Frightened, taunted, bleeding, grabs, and damage that hits an area."
       },
       "areaDamageEnabled": {
         "name": "Area Damage Automation",
-        "hint": "Labels damage buttons on area abilities and caps area damage dealt to squad minions at their max stamina."
+        "hint": "Name the damage buttons on area abilities, and stop a minion in a squad losing more Stamina to one area than it has."
       },
       "bleedingEnabled": {
         "name": "Bleeding",
-        "hint": "Automates all aspects of the bleeding condition as per the Draw Steel rules."
+        "hint": "A bleeding creature loses 1d6 + their level Stamina whenever they use a main action, use a triggered action, or make a test or ability roll using Might or Agility. Once per action."
       },
       "bleedingEffectIcon": {
         "name": "Bleeding Effect Icon",
-        "hint": "Icon used for the Bleeding active effect applied by DSCT."
+        "hint": "The image used for bleeding."
       },
       "bleedingMode": {
         "name": "Bleeding Automation Mode",
-        "hint": "Controls whether Bleeding automatically applies damage and offers an undo, or just reminds to roll damage.",
+        "hint": "Whether that Stamina loss is applied for you, with an undo, or just rolled for you to apply yourself.",
         "choice": {
           "auto": "Auto-Apply (with undo)",
           "manual": "Manual (post roll to apply)"
@@ -216,68 +216,68 @@
       },
       "deathTrackerEnabled": {
         "name": "Death Tracker",
-        "hint": "Automatically hide defeated enemies from combat, preceded by an optional death animation, log their defeat in chat. Defeated creatures stay in place, tinted red, and can still be force moved."
+        "hint": "A defeated creature leaves the Combat Tracker but stays where it fell, red and faded, and can still be moved by forced movement. Deaths are announced in chat."
       },
       "deathTrackerManualMode": {
         "name": "Manual Mode",
-        "hint": "Disables all automatic death processing (death animation, chat log, minion defeat handling). Orphaned combatant cleanup still runs. Use this if you want to trigger kills through macros or your own workflow."
+        "hint": "Step through every death and revival in chat, approving or undoing each stage. For testing, not for play."
       },
       "deathTrackerSettings": {
         "name": "Death Tracker Settings",
         "label": "Configure Death Tracker",
-        "hint": "Adjust animation duration, end-of-combat cleanup, revive behavior, and minion defeat options."
+        "hint": "The death animation, clearing the fallen when an encounter ends, what a revival brings back, and how minion deaths are decided."
       },
       "deathAnimationDuration": {
         "name": "Death Animation Duration (ms)",
-        "hint": "How long the red fade-out animation lasts before the token settles into its defeated state. Set to 0 to skip."
+        "hint": "How long a creature takes to fade out as it falls. Set it to 0 to skip."
       },
       "batchAnimationSafety": {
         "name": "Skip Animation on Mass Kill",
-        "hint": "When 8 or more tokens are killed simultaneously, skip the red fade animation to reduce lag. Tokens still snap to their final defeated state instantly."
+        "hint": "Skip the fade when eight or more creatures fall at once, to keep things smooth."
       },
       "clearSkullsOnCombatEnd": {
         "name": "Clear Defeated Tokens at Combat End",
-        "hint": "All defeated tokens are removed from the scene when combat ends."
+        "hint": "Clear the fallen off the map when the encounter ends."
       },
       "clearEffectsOnRevive": {
         "name": "Clear Effects on Revive",
-        "hint": "Reviving a creature automatically removes all active conditions and effects."
+        "hint": "A revived creature comes back free of its conditions and effects."
       },
       "autoAssignDamagedMinion": {
         "name": "Auto-Assign Damaged Minion on Death",
-        "hint": "Controls automated minion death selection. On: the Death Tracker tracks which minion was hit and automatically chooses who dies when a squad takes partial damage. Off: only full squad wipes are resolved automatically; partial kills require the Director to assign deaths manually."
+        "hint": "When a squad loses only part of its Stamina, the minions that were hit are the ones that die. Turn it off to decide those yourself; a whole squad going down is still handled for you."
       },
       "pickDeathsEnabled": {
         "name": "Pick Ambiguous Deaths",
-        "hint": "Shows a canvas picker when it is unclear which minions should die (more or fewer must die than took damage, or no damage was tracked at all). The picker opens for whoever dealt the damage, player or Director; Director Controls All Death Picks keeps it with the Director. When off, the system picks automatically."
+        "hint": "Ask who dies when it is not clear, by picking minions on the map. Whoever dealt the damage chooses. Turn it off and the deaths are assigned for you."
       },
       "deathPickerDimAll": {
         "name": "Dim Highlight All Candidates",
-        "hint": "In the death picker, show a faint targeting reticle (50% opacity) and ghost X mark (10% opacity) on all valid candidates. Hovering a token brings its reticle to full brightness. Turn off if you prefer a cleaner canvas."
+        "hint": "Faintly mark every minion you could pick, so the choices are easy to see. Turn it off for a cleaner map."
       },
       "gmControlsAllDeathPickers": {
         "name": "Director Controls All Death Picks",
-        "hint": "Forces the death picker to always open for the Director, regardless of which player triggered the damage. Hides the per-player cede option."
+        "hint": "The Director always chooses who dies, even when a player dealt the damage."
       },
       "cedeDeathPickerToGM": {
         "name": "Let Director Pick Deaths",
-        "hint": "When on, the Director receives your death picker instead of you. Useful if you prefer not to manage death picks during play."
+        "hint": "Let the Director choose who dies instead of you."
       },
       "overrideMinionDefeat": {
         "name": "Alternative Minion Defeat UI",
-        "hint": "Replace the Draw Steel system's minion defeat selection dialog with the Death Tracker's automated defeat processing."
+        "hint": "Let this module work out which minions die, instead of the system asking you."
       },
       "cleanOrphanedCombatants": {
         "name": "Clean Up Orphaned Combat Tracker Entries",
-        "hint": "Automatically removes Combat Tracker entries whose token or actor no longer exists. Runs on load and whenever a token or actor is deleted."
+        "hint": "Tidy away Combat Tracker entries for creatures that are no longer there, and keep a squad’s Stamina in step as its minions die. Best left on."
       },
       "deathMarkerEnabled": {
         "name": "Show Death Marker",
-        "hint": "Place a Death Marker tile under defeated NPC tokens. The tile follows if the token is moved and disappears when revived."
+        "hint": "Mark the spot where a creature fell. The mark follows if it is moved, and goes when it is revived."
       },
       "deathMarkerIcon": {
         "name": "Death Marker Icon",
-        "hint": "Icon for the Death Marker tile."
+        "hint": "The image used to mark where a creature fell."
       },
       "combatLogsSettings": {
         "name": "Combat Logs",
@@ -555,8 +555,8 @@
         "hint": "Adds an Apply Fire Damage button alongside holy damage buttons when the acting hero has the Purifying Fire ability, so they can deal fire damage instead and trigger the target's fire weakness."
       },
       "neutralizeEnrichers": {
-        "name": "Neutralize Ability Enrichers",
-        "hint": "Replaces clickable [[/apply]] buttons in ability chat messages with plain text and injects DSCT-handled apply buttons instead. Disable if you prefer the DS system's default enricher behavior."
+        "name": "Replace Apply Links in Ability Text",
+        "hint": "Turn the apply links written into an ability’s description into plain text, and offer this module’s own buttons instead."
       },
       "alwaysRepickTargets": {
         "name": "Always Re-Pick Targets",
@@ -604,7 +604,7 @@
       },
       "highGroundEnabled": {
         "name": "High Ground Edge",
-        "hint": "Shows a High Ground edge modifier in the roll dialog when the attacker is standing on terrain at a higher elevation than the target."
+        "hint": "Offer the High Ground edge when the attacker is standing higher than the target."
       },
       "coverBaneEnabled": {
         "name": "Cover Bane",
@@ -624,7 +624,7 @@
       },
       "concealmentBlur": {
         "name": "Blur Concealed Creatures",
-        "hint": "Blurs the artwork of a concealed creature, leaving its bars and name readable. Per client, and 0 turns it off."
+        "hint": "Blurs the artwork of a concealed creature, leaving its bars and name readable. Changes only your own screen, and 0 turns it off."
       },
       "lowCoverEnabled": {
         "name": "Low Cover",
@@ -644,7 +644,7 @@
       },
       "suppressTrackerAutoDefeat": {
         "name": "Own Death Instead of the Combat Tracker",
-        "hint": "Draw Steel Combat Tracker marks any Director-controlled creature defeated the moment its Stamina reaches 0, applying the Dead condition itself, with no setting of its own to stop it. That is the same moment this module's Death Tracker handles, so the two end up declaring the same death twice and Death Deferred cannot hold. With this on, that one behaviour is switched off and this module decides when a creature dies; the Combat Tracker's dock still refreshes normally and nothing else about it changes. Turn it off to hand death back."
+        "hint": "Let this module decide when a creature dies, rather than the Combat Tracker calling it dead the moment its Stamina reaches 0. Without this the same death is announced twice and Death Deferred cannot hold."
       },
       "gmBypassRangeEnforcement": {
         "name": "Director Bypasses Range Enforcement",
@@ -699,7 +699,7 @@
       },
       "experimentalObstacleArrow": {
         "name": "Experimental Obstacle Arrow",
-        "hint": "A discarded arrow design that seeks to display which sections of the movement overlap obstacles."
+        "hint": "A discarded arrow design that shaded the parts of a move crossing an obstacle. Kept for reference, and it needs debug mode as well."
       },
       "cornerCutMode": {
         "name": "Corner Cut Movement",
@@ -715,7 +715,7 @@
       },
       "undoExpirationCheck": {
         "name": "Undo Expiration Check",
-        "hint": "When enabled, undo buttons check whether the token has moved from its last position before allowing undo."
+        "hint": "An undo stops working once the creature has moved on from where the move left it."
       },
       "cancelOnRightClick": {
         "name": "Cancel Pickers on Right Click",
@@ -765,7 +765,7 @@
       },
       "collisionOnUnitStep": {
         "name": "Collide on 1-Square Elevation Steps",
-        "hint": "Forced movement into a square 1 elevation higher triggers a collision instead of climbing it freely. Steps down are unaffected."
+        "hint": "A creature pushed into ground one square higher collides with it instead of climbing up. Steps down are unaffected."
       },
       "homeRulesSettings": {
         "name": "Home Rules",
@@ -787,7 +787,7 @@
       },
       "stealthSystemEnabled": {
         "name": "Draw Steel Stealth",
-        "hint": "Adds the Hidden and Concealment statuses Draw Steel has but the system does not, and stops Foundry erasing invisible and burrowing tokens from everyone's vision."
+        "hint": "Adds the Hidden and Concealment the Draw Steel rules have but the Draw Steel system does not, and stops Foundry hiding invisible and burrowing creatures from everyone else entirely."
       },
       "hiddenMarkers": {
         "name": "Stealth Markers",
@@ -1943,7 +1943,7 @@
       "endIllusion": "End Illusion",
       "grabbed": "Grabbed",
       "teleport": "Teleport",
-      "rollBleedingDamage": "Roll Bleeding Damage (1d6 + level)",
+      "rollBleedingDamage": "Roll Bleeding (1d6 + level)",
       "applyDamage": "Apply {amount} Damage",
       "purifyingFireDamage": "Apply {amount} Fire Damage",
       "judgementImposeBane": "Impose Bane (Judgement)",
@@ -2017,10 +2017,10 @@
         "freeStrikePrompt": "<strong>{grabber}</strong> may make a free strike:"
       },
       "bleeding": {
-        "applied": "Bleeding damage applied.",
-        "applying": "Bleeding: applying damage...",
+        "applied": "Bleeding Stamina loss applied.",
+        "applying": "Bleeding: applying Stamina loss...",
         "rollTitle": "Bleeding: {name}",
-        "rollCreated": "Bleeding damage rolled."
+        "rollCreated": "Bleeding Stamina loss rolled."
       },
       "squads": {
         "captainFell": "<strong>Captain fallen:</strong> {name} has fallen as captain of {group}.",
@@ -2180,43 +2180,35 @@
     "compat": {
       "dsTerrain": {
         "name": "DS Terrain Designer",
-        "hint": "Forced Movement reads terrain elevation data to resolve slopes and surface heights, ensuring pushed tokens land correctly on multi-level terrain. The High Ground roll modifier automatically defers to DS Terrain Designer's edge calculation when this module is active."
+        "hint": "Forced movement follows the terrain’s slopes and heights, so a pushed creature lands where it should, and High Ground uses Terrain Designer’s own edges."
       },
       "tagger": {
         "name": "Tagger",
-        "hint": "Wall tagging in Forced Movement uses the Tagger module API. Without Tagger, an internal flag-based fallback is used instead."
-      },
-      "wallHeight": {
-        "name": "Wall Height",
-        "hint": "The Wall Builder exposes height controls for setting the top and bottom elevation of individual walls."
+        "hint": "The Wall Builder tags walls through Tagger when you have it, and keeps its own tags when you do not."
       },
       "dsTokenOverride": {
         "name": "DS Token Override",
-        "hint": "Death Tracker accounts for Token Override's combatant animation hooks during kill and revival. Squad stamina tick bars are manually redrawn after minion deaths, and tint/alpha restoration on revival uses explicit targets instead of reading mid-animation document values."
+        "hint": "A squad’s Stamina bar uses the tick marks you set up in Token Override, and Token Override’s own health labels are hidden for minions the squad bar already covers."
       },
       "healthEstimate": {
         "name": "Health Estimate",
-        "hint": "DSCT patches Health Estimate's break conditions and estimation logic for minion tokens in active combat squads, based on the Minion Health Estimate Display setting."
+        "hint": "What Health Estimate shows for minions in a squad follows the Minion Health Estimate Display setting."
       },
       "abilityHud": {
         "name": "Draw Steel: Ability HUD",
-        "hint": "The Triggered Action button mirrors DSCT's Unspent Triggered Action effect whenever the viewed actor carries one: enabled shows available, disabled shows spent, on every client, overriding the HUD's own per-client Combat Action Tracking. Tracked actors also get the lightning bolt icon tinted green to show DSCT is driving the state. Actors without the effect keep the HUD's native behavior. Hide and Search are also moved out of Special Maneuver and in with the basic ones, since they are only filed as special for coming from this module rather than the system."
+        "hint": "The HUD’s triggered action button follows this module for any creature tracking one, green while it is available and orange once it is spent, and everyone at the table sees the same thing. Hide and Search sit with the other basic maneuvers."
       },
       "dsCombatTracker": {
         "name": "Draw Steel - Combat Tracker",
-        "hint": "The combat tracker dock recognizes squad turns: DSCT patches the dock's turn logic so minions sharing a squad activation show as able to act while their squad's turn is active."
+        "hint": "With Simultaneous Squad Turns on, every minion in a squad shows as able to act during their squad’s turn."
       },
       "dsMovementLab": {
         "name": "Draw Steel: Movement Lab",
-        "hint": "DSCT marks all of its own token movement (forced movement steps, teleports, collision nudges, and landing placements) so Movement Lab can tell module-driven movement apart from a creature moving on its own."
+        "hint": "Movement Lab leaves the moves this module makes on a creature’s behalf alone, such as forced movement, teleports, and a grabbed creature dragged along."
       },
       "dsCompanion": {
         "name": "Draw Steel: Companion",
-        "hint": "Triggered action tracking is shared between a companion and their mentor: spending either one's triggered action also spends the other's. Damage modifier sources on companion abilities resolve through the mentor where relevant."
-      },
-      "dsPlus": {
-        "name": "Draw Steel Plus",
-        "hint": "DSCT buttons, panels, and chat elements are styled to render correctly alongside Draw Steel Plus's restyled sheets and messages."
+        "hint": "A companion and their mentor share one triggered action, so spending either spends both."
       }
     },
     "healthEstimate": {
