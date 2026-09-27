@@ -53,9 +53,9 @@ const _portrait = (death, { isCaptain = false } = {}) => {
   btn.appendChild(img);
 
   if (isCaptain) {
-    const crown = document.createElement('i');
-    crown.className = 'fa-solid fa-crown dsct-death-crown';
-    btn.appendChild(crown);
+    const mark = document.createElement('i');
+    mark.className = 'fa-solid fa-helmet-battle dsct-death-captain';
+    btn.appendChild(mark);
   }
 
   

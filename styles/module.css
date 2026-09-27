@@ -3147,7 +3147,7 @@ details[open] > .dsct-death-tokens.is-captain-row {
 .dsct-death-card .dsct-death-token.is-risen { opacity: 0.5; }
 .dsct-death-card .dsct-death-token.is-risen .dsct-death-art { filter: none; }
 
-.dsct-death-crown {
+.dsct-death-captain {
   position: absolute;
   top: -5px;
   left: -5px;
