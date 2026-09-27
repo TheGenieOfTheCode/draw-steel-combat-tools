@@ -10,7 +10,8 @@ const _status = () => ({
   id: DEFER_DEATH,
   _id: DEFER_DEATH.padEnd(16, '0'),
   order: 2,
-  name: 'DSCT.status.deferDeath',
+  
+  name: game.i18n.localize('DSCT.status.deferDeath'),
   img: 'icons/svg/angel.svg',
   description: game.i18n.localize('DSCT.status.deferDeathDescription'),
   rule: `${RULES}DSCTruleDeferDth`,
