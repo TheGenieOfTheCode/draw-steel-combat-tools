@@ -56,7 +56,6 @@ import {
 } from './compat/dstd-damage-pills.mjs';
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerAbilityHudCompat } from './compat/ability-hud-compat.mjs';
-import { registerCombatLogHooks } from './combat-logs.mjs';
 import { registerFlatEffects, setPendingTriggerDamage } from './ability-automation/flat-special-effects.mjs';
 import { registerTieredEffects } from './ability-automation/tiered-effects.mjs';
 import { registerChooseEffect } from './ability-automation/choose-effect.mjs';
@@ -209,7 +208,6 @@ Hooks.once('init', () => {
   registerCrossfadeHooks();
   registerHIWHooks();
   registerCompleteEncounterHooks();
-  registerCombatLogHooks();
   registerSystemPatches();
   registerCornerVision();
   registerDefeatedTokenVisibility();

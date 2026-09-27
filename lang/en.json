@@ -279,11 +279,6 @@
         "name": "Death Marker Icon",
         "hint": "The image used to mark where a creature fell."
       },
-      "combatLogsSettings": {
-        "name": "Combat Logs",
-        "label": "Configure Combat Logs",
-        "hint": "Configure combat event logging to the chat window."
-      },
       "squadToolsSettings": {
         "name": "Squad Tools Settings",
         "label": "Configure Squad Tools",
@@ -541,14 +536,6 @@
       "hiwEnabled": {
         "name": "Hesitation Is Weakness",
         "hint": "Posts a chat notice with a Start Turn button when another hero’s turn ends and Hesitation Is Weakness can be used. Steps aside while Draw Steel: Triggers is handling turn changes."
-      },
-      "combatTurnLog": {
-        "name": "Combat Turn Log",
-        "hint": "Announce in chat each time a combatant starts or ends their turn."
-      },
-      "combatRoundLog": {
-        "name": "Combat Round Log",
-        "hint": "Announce each round in chat, along with the start and the end of the encounter."
       },
       "purifyingFireEnabled": {
         "name": "Purifying Fire",
@@ -1345,7 +1332,6 @@
         "HomeRulesSettings": "Home Rules",
         "CompatibilitySettings": "Compatibility",
         "SquadToolsSettings": "Squad Tools Settings",
-        "CombatLogsSettings": "Combat Logs",
         "PartyToolsSettings": "Party Tools",
         "StealthSettings": "Stealth Settings"
       },

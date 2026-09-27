@@ -18,7 +18,6 @@ import {
   HomeRulesSettingsMenu,
   CompatibilitySettingsMenu,
   SquadToolsSettingsMenu,
-  CombatLogsSettingsMenu,
   PartyToolsSettingsMenu,
   StealthSettingsMenu,
 } from './settings-menus.mjs';
@@ -667,20 +666,6 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'flatDefaultCleanseRepeatable', {
     name: L('flatDefaultCleanseRepeatable.name'), hint: L('flatDefaultCleanseRepeatable.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
-  });
-
-  game.settings.registerMenu(M, 'combatLogsSettings', {
-    name: L('combatLogsSettings.name'), label: L('combatLogsSettings.label'),
-    hint: L('combatLogsSettings.hint'),
-    icon: 'fas fa-clipboard-list', type: CombatLogsSettingsMenu, restricted: true,
-  });
-  game.settings.register(M, 'combatTurnLog', {
-    name: L('combatTurnLog.name'), hint: L('combatTurnLog.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
-  });
-  game.settings.register(M, 'combatRoundLog', {
-    name: L('combatRoundLog.name'), hint: L('combatRoundLog.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
 

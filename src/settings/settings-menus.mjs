@@ -888,17 +888,6 @@ export class PartyToolsSettingsMenu extends SettingsSubmenu {
   }
 }
 
-export class CombatLogsSettingsMenu extends SettingsSubmenu {
-  static DEFAULT_OPTIONS = {
-    id:     'dsct-combat-logs-settings',
-    window: { title: 'DSCT.panel.title.CombatLogsSettings' },
-  };
-
-  static get regularKeys() {
-    return ['combatTurnLog', 'combatRoundLog'];
-  }
-}
-
 export class SquadToolsSettingsMenu extends SettingsSubmenu {
   static DEFAULT_OPTIONS = {
     id:     'dsct-squad-tools-settings',
