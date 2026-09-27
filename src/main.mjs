@@ -39,6 +39,7 @@ import { openTransformPicker, runTransform } from './ability-automation/transfor
 import { triggerAbyssalEvolution, registerMaliceInjectors } from './ability-automation/malice/malice-features.mjs';
 import { registerCrossfadeHooks } from './ability-automation/class-shadow/crossfade.mjs';
 import { registerSquadTargetingHooks, _pendingSquadMap } from './ability-automation/squad-targeting.mjs';
+import { registerStartupNotice, showStartupNotice } from './startup-notice.mjs';
 import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-shadow/hesitation.mjs';
 import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
 import { registerDefeatedTokenVisibility } from './death-tracker/defeated-token-visibility.mjs';
@@ -95,6 +96,7 @@ const api = {
   endGrab:          endGrab,
   revive:           runRaiseDeadUI,
   raiseDead:        runRaiseDeadUI,
+  startupNotice:    showStartupNotice,
   reviveAll:        reviveAll,
   powerWordKill:    runPowerWordKillUI,
   judgement:        applyJudgement,
@@ -213,6 +215,7 @@ Hooks.once('init', () => {
   registerDefeatedTokenVisibility();
   registerRollDialogPillHooks();
   registerSquadTargetingHooks();
+  registerStartupNotice();
   registerMaliceInjectors();
   registerFlatEffects();
   registerTieredEffects();

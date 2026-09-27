@@ -1867,6 +1867,9 @@
       },
       "flatApplied": {
         "noEffect": "DSCT | That applied effect is no longer on the ability, so nothing was applied."
+      },
+      "startup": {
+        "nothingToSay": "Everything Combat Tools recommends is already installed and enabled."
       }
     },
     "lowCover": {
@@ -2052,6 +2055,23 @@
           "pointedOut": "after being pointed out",
           "pointedOutNamed": "after being pointed out by {detail}"
         }
+      },
+      "startup": {
+        "title": "Draw Steel: Combat Tools {version}",
+        "blurb": "These work well alongside Combat Tools and are not turned on here. Nothing below is needed for it to run.",
+        "state": {
+          "missing": "not installed",
+          "off": "installed, not enabled"
+        },
+        "notes": "Release Notes",
+        "wiki": "Wiki",
+        "kofi": "Ko-fi",
+        "remind": "Remind me again on next startup",
+        "remindOn": "You will be reminded on next startup",
+        "clash": "Heads up about {title}",
+        "clashAsk": "Compatibility is not planned",
+        "clashAskLink": "Issue Tracker",
+        "clashAskPlain": "Compatibility is not planned; {title} is the place to ask."
       }
     },
     "label": {
@@ -2280,6 +2300,21 @@
     },
     "coverImmunity": {
       "name": "Covered by {name}"
+    },
+    "recommend": {
+      "tagger": "Tagger",
+      "ds-terrain-designer": "DS Terrain Designer",
+      "ds-token-override": "Draw Steel: Token Override",
+      "draw-steel-combat-tracker": "Draw Steel - Combat Tracker",
+      "draw-steel-ability-hud": "Draw Steel - Ability HUD",
+      "healthEstimate": "Health Estimate",
+      "draw-steel-encounter-builder": "Draw Steel - Encounter Builder",
+      "draw-steel-resources-ui": "Draw Steel - Resources UI",
+      "ds-tokens-max-hamm": "Hand Drawn Tokens for Draw Steel by Max Hamm",
+      "draw-steel-hideout": "Draw Steel - Hideout",
+      "z-scatter": "Z Scatter",
+      "visual-active-effects": "Visual Active Effects",
+      "smarttarget": "Smart Target"
     }
   },
   "TYPES": {
