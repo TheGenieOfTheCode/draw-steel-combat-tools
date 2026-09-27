@@ -607,6 +607,9 @@ function _installDirectorFooter(panel) {
   panel.appendChild(footer);
 }
 
+const ROW_SETTLE_MAX_MS = 500;
+const ROW_REDRAW_MS = 60;
+
 const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock = false) => damageBatch(async () => {
   
   if (unlock) _squadSweepRunning = true;
@@ -624,9 +627,16 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock =
       const btn = getBtn(row);
       if (btn && !btn.disabled) {
         processed.add(key);
+
+        const before = dstdRowSignature(game.messages.get(msgId));
         btn.click();
         clicked = true;
-        await new Promise(r => setTimeout(r, 500));
+        const until = Date.now() + ROW_SETTLE_MAX_MS;
+        while (Date.now() < until && dstdRowSignature(game.messages.get(msgId)) === before) {
+          await new Promise(r => setTimeout(r, 25));
+        }
+
+        await new Promise(r => setTimeout(r, ROW_REDRAW_MS));
         break;
       }
       processed.add(key);
