@@ -607,10 +607,64 @@ function _installDirectorFooter(panel) {
   panel.appendChild(footer);
 }
 
+const _SWEEP_TOASTS = {
+  applied:  ['DSTD.Notify.DealtDamage', 'DSTD.Notify.DealtTypedDamage', 'DSTD.Notify.HealedTarget'],
+  reverted: ['DSTD.Notify.UndoneDamage', 'DSTD.Notify.UndoneHealing'],
+};
+
+let _toastPatterns = null;
+const _sweepPatterns = () => {
+  if (_toastPatterns) return _toastPatterns;
+  const build = (key) => new RegExp('^' + game.i18n.localize(key)
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\\\{\w+\\\}/g, '.+?') + '$');
+  _toastPatterns = {
+    applied:  _SWEEP_TOASTS.applied.map(build),
+    reverted: _SWEEP_TOASTS.reverted.map(build),
+  };
+  return _toastPatterns;
+};
+
+const _withOneToast = async (fn) => {
+  const notes = ui.notifications;
+  if (!notes?.notify) return fn();
+
+  const original = notes.notify;
+  const caught = { applied: 0, reverted: 0 };
+  let only = null;
+
+  notes.notify = function (message, type, options) {
+    if (typeof message === 'string') {
+      const pat = _sweepPatterns();
+      for (const kind of ['applied', 'reverted']) {
+        if (pat[kind].some((re) => re.test(message))) {
+          caught[kind]++;
+          only = only === null ? { message, type, options } : undefined;
+          
+          console.log(`DSCT | DSTD | ${message}`);
+          return null;
+        }
+      }
+    }
+    return original.call(this, message, type, options);
+  };
+
+  try { return await fn(); }
+  finally {
+    notes.notify = original;
+    const total = caught.applied + caught.reverted;
+    if (total === 1 && only) original.call(notes, only.message, only.type, only.options);
+    else if (total > 1) {
+      const key = caught.reverted > caught.applied ? 'DSCT.notice.dstd.sweepReverted' : 'DSCT.notice.dstd.sweepApplied';
+      original.call(notes, game.i18n.format(key, { count: total }), 'info');
+    }
+  }
+};
+
 const ROW_SETTLE_MAX_MS = 500;
 const ROW_REDRAW_MS = 60;
 
-const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock = false) => damageBatch(async () => {
+const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock = false) => damageBatch(() => _withOneToast(async () => {
   
   if (unlock) _squadSweepRunning = true;
   try {
@@ -627,7 +681,7 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock =
       const btn = getBtn(row);
       if (btn && !btn.disabled) {
         processed.add(key);
-
+        
         const before = dstdRowSignature(game.messages.get(msgId));
         btn.click();
         clicked = true;
@@ -635,7 +689,7 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock =
         while (Date.now() < until && dstdRowSignature(game.messages.get(msgId)) === before) {
           await new Promise(r => setTimeout(r, 25));
         }
-
+        
         await new Promise(r => setTimeout(r, ROW_REDRAW_MS));
         break;
       }
@@ -646,7 +700,7 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock =
   } finally {
     if (unlock) _squadSweepRunning = false;
   }
-});
+}));
 
 function _installGlobalDamageButtons(panel, message) {
   panel.querySelector('.dsct-dstd-global-row')?.remove();

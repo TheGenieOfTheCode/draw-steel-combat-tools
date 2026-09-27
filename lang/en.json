@@ -1863,7 +1863,9 @@
         "noPool": "{name} has no pool for that resource, so nothing was gained."
       },
       "dstd": {
-        "noTargetUtils": "DSCT | Could not reach the Target Damage targeting helpers, so targets were not updated."
+        "noTargetUtils": "DSCT | Could not reach the Target Damage targeting helpers, so targets were not updated.",
+        "sweepApplied": "Applied to {count} targets.",
+        "sweepReverted": "Reverted on {count} targets."
       },
       "flatApplied": {
         "noEffect": "DSCT | That applied effect is no longer on the ability, so nothing was applied."
