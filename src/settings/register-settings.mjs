@@ -108,10 +108,6 @@ export const registerSettings = () => {
       console.warn('DSCT | could not carry the old player undo setting across:', err);
     }
   });
-  game.settings.register(M, 'squadTargetBonus', {
-    name: L('squadTargetBonus.name'), hint: L('squadTargetBonus.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
-  });
   game.settings.register(M, 'squadTargetingIcon', {
     name: L('squadTargetingIcon.name'), hint: L('squadTargetingIcon.hint'),
     scope: 'world', config: false, type: String, default: 'icons/svg/dice-target.svg',

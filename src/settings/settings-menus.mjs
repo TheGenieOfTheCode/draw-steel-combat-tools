@@ -561,6 +561,8 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       autoConfirmSelection: 'abilityTargetingEnabled',
       gmBypassRangeEnforcement: 'enforceAbilityRange',
       abilityTemplateSeconds: 'abilityTemplateCleanup',
+      squadAutoAssignStaminaPriority: 'groupActionsEnabled',
+      squadTargetingIcon: 'groupActionsEnabled',
     };
   }
 
@@ -571,7 +573,10 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       'abilityTargetingEnabled',
       'alwaysRepickTargets',
       'autoConfirmSelection',
+      header('Group Actions'),
       'groupActionsEnabled',
+      'squadAutoAssignStaminaPriority',
+      'squadTargetingIcon',
       header('Ability Range'),
       'enforceAbilityRange',
       'gmBypassRangeEnforcement',
@@ -614,7 +619,7 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
     ];
   }
 
-  static _FILE_PICKER_KEYS = new Set(['judgedEffectIcon', 'markedEffectIcon', 'aidAttackEffectIcon', 'imNoThreatEffectIcon']);
+  static _FILE_PICKER_KEYS = new Set(['judgedEffectIcon', 'markedEffectIcon', 'aidAttackEffectIcon', 'imNoThreatEffectIcon', 'squadTargetingIcon']);
 
   _buildEntry(key) {
     const entry = super._buildEntry(key);
@@ -902,18 +907,6 @@ export class SquadToolsSettingsMenu extends SettingsSubmenu {
 
   static get enableKey()   { return 'squadToolsEnabled'; }
 
-  static get dependencies() {
-    return { squadAutoAssignStaminaPriority: 'squadTargetBonus' };
-  }
-
-  static _FILE_PICKER_KEYS = new Set(['squadTargetingIcon']);
-
-  _buildEntry(key) {
-    const entry = super._buildEntry(key);
-    if (entry && SquadToolsSettingsMenu._FILE_PICKER_KEYS.has(key)) entry.isFilePicker = true;
-    return entry;
-  }
-
   static get regularKeys() {
     return [
       'squadToolsEnabled',
@@ -934,10 +927,6 @@ export class SquadToolsSettingsMenu extends SettingsSubmenu {
       'squadHudEnabled',
       'squadHudScale',
       'squadHudPlayerVisibility',
-      header('Squad Targeting'),
-      'squadTargetBonus',
-      'squadAutoAssignStaminaPriority',
-      'squadTargetingIcon',
     ];
   }
 

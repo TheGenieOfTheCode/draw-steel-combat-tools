@@ -7,7 +7,6 @@ const MASTER_TOGGLE = {
   pairSimultaneousTurns:  'squadToolsEnabled',
   squadGlowMarker:        'squadToolsEnabled',
   squadHudEnabled:        'squadToolsEnabled',
-  squadTargetBonus:       'squadToolsEnabled',
 };
 
 export const getSetting = (key) => {

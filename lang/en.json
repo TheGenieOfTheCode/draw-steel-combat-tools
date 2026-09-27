@@ -75,10 +75,6 @@
         "name": "Players Can Undo Deaths Their Owned Actors Caused",
         "hint": "Players can undo a death they caused, from the chat message that reports it. Deaths dealt from a damage card are undone on the card itself."
       },
-      "squadTargetBonus": {
-        "name": "Squad Action Bonus Free Strikes",
-        "hint": "When several minions of a squad pick the same enemy for a signature ability, add the extra free strike damage to that enemy’s total in the Target Damage panel."
-      },
       "squadTargetingIcon": {
         "name": "Squad Targeting Icon",
         "hint": "Icon shown on each minion while the squad’s targets are being picked."

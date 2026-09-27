@@ -1750,8 +1750,8 @@ async function _injectFmButtons(message, root) {
       consumePendingSquadMap();
     }
   }
-  const doSquad = !!squadTargetMap && getSetting('squadTargetBonus');
-  if (getSetting('debugMode')) console.log(`DSCT | squadMap | doSquad=${doSquad} squadTargetBonus=${getSetting('squadTargetBonus')} squadTargetMap=${!!squadTargetMap}`);
+  const doSquad = !!squadTargetMap;
+  if (getSetting('debugMode')) console.log(`DSCT | squadMap | doSquad=${doSquad} squadTargetMap=${!!squadTargetMap}`);
 
   if (!tier && !doMark && !doJudgement && !descEnrichers.length && !doSquad && !doFlatEffects) return;
 
