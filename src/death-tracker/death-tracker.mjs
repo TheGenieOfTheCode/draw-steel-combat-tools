@@ -1,5 +1,6 @@
 import { getSetting, getModuleApi, safeToggleStatusEffect, safeUpdate, getSquadGroup, MATERIAL_ICONS, safeCreateEmbedded, safeDelete, tokenAt, toGrid, chooseFreeSquare } from '../helpers.mjs';
-import { setRaisedDeadVisible, activateTokenLayer, clearPreviewTokens, installRevivalHoverPreview } from './defeated-token-visibility.mjs';
+import { installRevivalHoverPreview } from './defeated-token-visibility.mjs';
+import { setRaisedDeadVisible, activateTokenLayer, clearPreviewTokens } from '../ctlib.mjs';
 import { renderDeathMessage, registerDeathCardRefresh } from './death-message.mjs';
 import { beginPickerLock, endPickerLock, clearPickerLockLocal } from './picker-lock.mjs';
 import { applySquadLabels } from '../squad-labels.mjs';

@@ -4,7 +4,7 @@ import {
 } from '../helpers.mjs';
 import { markPendingRevival } from '../compat/dstd-compat.mjs';
 import { applyGrab } from '../conditions/grab.mjs';
-import { addPreviewToken, removePreviewToken, activateTokenLayer } from '../death-tracker/defeated-token-visibility.mjs';
+import { addPreviewToken, removePreviewToken, activateTokenLayer } from '../ctlib.mjs';
 
 const restoreGrabs = async (grabsToRestore) => {
   if (!grabsToRestore?.length) return;

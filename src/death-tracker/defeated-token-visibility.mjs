@@ -1,6 +1,7 @@
 import { getSetting } from '../helpers.mjs';
 import { resolveTokenVisibility } from '../conditions/combat-reveal.mjs';
 import { isDeathDeferred } from './defer-death.mjs';
+import { addPreviewToken, removePreviewToken, isPreviewToken, isRaisedDeadVisible, activateTokenLayer } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const DBG = () => getSetting('debugMode');
@@ -9,25 +10,10 @@ const DBG = () => getSetting('debugMode');
 const _deathGrace = new Set();
 
 
-let _raisedDeadVisible = false;
-const _previewTokenIds = new Set();
-
-export const setRaisedDeadVisible = (v) => { _raisedDeadVisible = v; };
-export const addPreviewToken = (id) => { _previewTokenIds.add(id); };
-export const removePreviewToken = (id) => { _previewTokenIds.delete(id); };
-export const clearPreviewTokens = () => { _previewTokenIds.clear(); };
-
-
 const isDefeatedAndHiding = (tokenDoc) =>
   (game.user.getFlag(M, 'hideDefeated') ?? false) === true &&
   (tokenDoc?.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead') ?? false) &&
   !isDeathDeferred(tokenDoc?.actor);
-
-export const activateTokenLayer = () => {
-  
-  if (canvas.tokens._activate) canvas.tokens._activate();
-  else canvas.tokens.activate();
-};
 
 export const registerDefeatedTokenVisibility = () => {
   const usingLibWrapper = !!game.modules.get('lib-wrapper')?.active;
@@ -37,7 +23,7 @@ export const registerDefeatedTokenVisibility = () => {
     libWrapper.register(M, 'CONFIG.Token.objectClass.prototype.isVisible',
       function (wrapped, ...args) {
         const id = this.document?.id;
-        if (!_raisedDeadVisible && !_previewTokenIds.has(id)) {
+        if (!isRaisedDeadVisible() && !isPreviewToken(id)) {
           if (isDefeatedAndHiding(this.document) && !_deathGrace.has(id)) return false;
         }
         return resolveTokenVisibility(this, wrapped(...args));
@@ -73,7 +59,7 @@ export const registerDefeatedTokenVisibility = () => {
       Object.defineProperty(CONFIG.Token.objectClass.prototype, 'isVisible', {
         get() {
           const id = this.document?.id;
-          if (!_raisedDeadVisible && !_previewTokenIds.has(id)) {
+          if (!isRaisedDeadVisible() && !isPreviewToken(id)) {
             if (isDefeatedAndHiding(this.document) && !_deathGrace.has(id)) return false;
           }
           return resolveTokenVisibility(this, _isVisibleOld.call(this));

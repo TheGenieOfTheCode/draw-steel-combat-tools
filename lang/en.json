@@ -1294,17 +1294,13 @@
       }
     },
     "picker": {
-      "confirm": "Confirm",
-      "cancel": "Cancel",
       "titleSource": "Pick a Token",
       "titleTargets": "Pick Targets",
       "titleDeath": "Death Picker",
       "titleRaise": "Raise Dead",
       "titleTeleport": "Teleport",
-      "titleSquare": "Pick a Square",
       "titleReposition": "Reposition",
       "repositionInstruction": "Choose a square adjacent to {grabber} for {name}",
-      "toggleUi": "Toggle the rest of the UI",
       "pickCount": "Pick up to {max} target{s} · {n} selected",
       "selectedCount": "{n} selected"
     },
@@ -1674,7 +1670,6 @@
         "invalidMovementType": "Invalid movement type.",
         "notInRange": "{name} is not within range.",
         "targetNotFound": "DSCT | Target token not found on canvas.",
-        "chooseLanding": "Choose where {name} lands. Escape to skip.",
         "selfPushPull": "DSCT | {name} cannot {type} themselves, since there is no distance between a creature and itself. Use a slide or a teleport instead."
       },
       "grab": {
@@ -2287,9 +2282,6 @@
       "dealer": "Dealer",
       "module": "Other Modules",
       "core": "Foundry"
-    },
-    "coverImmunity": {
-      "name": "Covered by {name}"
     },
     "recommend": {
       "tagger": "Tagger",

@@ -7,7 +7,7 @@ import {
   addPreviewToken,
   removePreviewToken,
   activateTokenLayer,
-} from '../death-tracker/defeated-token-visibility.mjs';
+} from '../ctlib.mjs';
 import { peekSpaces, wallAdjacent, peekTo, peekEffect, isPeeking, unpeek } from '../conditions/peek.mjs';
 import { beginPickerOverlay, setPickerArrow, setPickerTarget, removePickerArrow, removePickerTarget, clearPickerArrows } from './picker-overlay.mjs';
 

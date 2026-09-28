@@ -6,6 +6,7 @@ import {
   tileAt,
   hasTags, getTags, getByTag, addTags, removeTags,
   toGrid, toWorld, GRID as getGRID, getSetting,
+  MATERIAL_RULE_DEFAULTS, WALL_RESTRICTION_DEFAULTS,
 } from '../helpers.mjs';
 import { beginPickerOverlay } from '../ability-automation/picker-overlay.mjs';
 
@@ -1042,19 +1043,7 @@ export const registerWallDoorHooks = () => {
   });
 };
 
-export const MATERIAL_RULE_DEFAULTS = {
-  glass: { cost: 1, damage: 3,  alpha: 0.1 },
-  wood:  { cost: 3, damage: 5,  alpha: 0.8 },
-  stone: { cost: 6, damage: 8,  alpha: 0.8 },
-  metal: { cost: 9, damage: 11, alpha: 0.8 },
-};
-
-export const WALL_RESTRICTION_DEFAULTS = {
-  glass: { move: 20, sight: 0,  light: 0,  sound: 0 },
-  wood:  { move: 20, sight: 10, light: 20, sound: 0 },
-  stone: { move: 20, sight: 10, light: 20, sound: 0 },
-  metal: { move: 20, sight: 10, light: 20, sound: 0 },
-};
+export { MATERIAL_RULE_DEFAULTS, WALL_RESTRICTION_DEFAULTS };
 
 const CUSTOM_MATERIAL_DEFAULTS = { cost: 3, damage: 5, alpha: 0.8, move: 20, sight: 10, light: 20, sound: 0 };
 const DEFAULT_ICON = 'icons/commodities/stone/paver-brick-brown.webp';
