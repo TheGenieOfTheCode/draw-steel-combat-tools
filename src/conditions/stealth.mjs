@@ -1,3 +1,4 @@
+import { services } from '../ctlib.mjs';
 import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken, getModuleApi , dropKey } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
 import { playDetected } from './detected-flash.mjs';
@@ -278,6 +279,7 @@ export async function markObjectFound(token, ids) {
 
 export const isHiddenFrom = (token, observer) =>
   !!observer && hiddenFrom(token).has(observer.id);
+services.provide('isHiddenFrom', isHiddenFrom);
 
 export const isObserving = (observer, token) =>
   !!observer && !!token && !isConcealed(token) && hasSightToToken(observer, token);

@@ -2,7 +2,7 @@ import { services } from '../ctlib.mjs';
 import { getSetting, rangeEnforced, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
-import { stackedPrompt } from '../ability-automation/stacked-prompt.mjs';
+import { stackedPrompt } from '../ctlib.mjs';
 import { checkAndRunTargetPicker, clearRepickStamp, isTriggeredAbility } from '../ability-automation/target-picker.mjs';
 import { toggleDamageConditionsPanel } from './damage-conditions.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';

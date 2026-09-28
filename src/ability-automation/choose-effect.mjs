@@ -1,5 +1,5 @@
 import { normalizeCollection } from '../helpers.mjs';
-import { stackedPrompt } from './stacked-prompt.mjs';
+import { stackedPrompt } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const PARTIAL = `modules/${M}/templates/effects/choose.hbs`;

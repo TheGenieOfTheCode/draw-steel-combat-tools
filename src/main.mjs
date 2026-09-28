@@ -5,7 +5,7 @@ import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
 import { STEALTH_WORKFLOW_READY, applyFall, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys, asStaminaLoss} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
-import { services, registerStatusGroup, clearPickerArrows, activateTokenLayer } from './ctlib.mjs';
+import { services, registerStatusGroup, clearPickerArrows, activateTokenLayer, stackedPrompt } from './ctlib.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { registerSquadTurnHooks } from './squad-turns.mjs';
@@ -59,7 +59,6 @@ import { registerLineOfEffectFlags, registerCoverImmunity } from './conditions/l
 import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
 import { registerEnhancedBadge } from './enhanced-badge.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
-import { stackedPrompt } from './ability-automation/stacked-prompt.mjs';
 import { handleObservationRequest } from './conditions/observation-picker.mjs';
 import { registerLowCover } from './conditions/low-cover.mjs';
 import { registerPeek, unpeek, peekEffect, peekSpaces, peekTo, peekDistance, peekDuration, isPeeking } from './conditions/peek.mjs';
