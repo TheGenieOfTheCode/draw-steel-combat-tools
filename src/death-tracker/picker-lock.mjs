@@ -1,7 +1,6 @@
-import { getModuleApi } from '../helpers.mjs';
+import { DT_ID as M, readFlag, dtSocket } from './dt-core.mjs';
 import { revealPickerUi } from '../ctlib.mjs';
 
-const M = 'draw-steel-combat-tools';
 const BODY_CLASS = 'dsct-picker-lock';
 
 const KILLSWITCH_AFTER_MS = 15000;
@@ -52,7 +51,7 @@ export function clearPickerLockLocal() {
 }
 
 const _broadcast = (active) => {
-  const socket = getModuleApi(false)?.socket;
+  const socket = dtSocket();
   socket?.executeForOthers('dsct.setPickerLock', active).catch(() => {});
 };
 
@@ -91,13 +90,13 @@ export function releasePickerLock() {
     target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }));
   }
   clearPickerLockLocal();
-  getModuleApi(false)?.socket?.executeForOthers('dsct.clearPickerLock').catch(() => {});
+  dtSocket()?.executeForOthers('dsct.clearPickerLock').catch(() => {});
   _dropKillswitch();
   ui.notifications.info(game.i18n.localize('DSCT.notice.dt.pickerLockReleased'));
 }
 
 export async function resyncPickerLock() {
-  const socket = getModuleApi(false)?.socket;
+  const socket = dtSocket();
   clearPickerLockLocal();
 
   if (game.user.isGM) {
@@ -113,7 +112,7 @@ export function registerPickerLock() {
   document.addEventListener('click', _onClickCapture, { capture: true });
 
   Hooks.on('renderChatMessageHTML', (msg, el) => {
-    if (!msg.getFlag(M, 'pickerKillswitch')) return;
+    if (!readFlag(msg, 'pickerKillswitch')) return;
     el.querySelector('[data-dsct-picker-killswitch]')?.addEventListener('click', (e) => {
       e.preventDefault();
       releasePickerLock();

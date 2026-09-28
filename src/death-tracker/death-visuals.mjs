@@ -1,7 +1,6 @@
-import { getSetting , dropKey } from '../helpers.mjs';
+import { readFlag, dropFlags, setting } from './dt-core.mjs';
 import { isDeathDeferred } from './defer-death.mjs';
 
-const M = 'draw-steel-combat-tools';
 
 const FILTERS = 'dsctDeathFilters';
 const TWEEN = 'dsctDeathTween';
@@ -115,7 +114,7 @@ export function syncDeathVisual(token) {
 
 function _animationDuration() {
   if (window._dsctKillLockActive || window._dsctFMActive) return 0;
-  const ms = Number(getSetting('deathAnimationDuration'));
+  const ms = Number(setting('deathAnimationDuration'));
   return Number.isFinite(ms) && ms > 0 ? ms : 0;
 }
 
@@ -258,16 +257,16 @@ async function _migrateStoredDeathLook() {
   for (const scene of game.scenes) {
     const updates = [];
     for (const doc of scene.tokens) {
-      const tint = doc.getFlag(M, 'preDeathTint');
-      const alpha = doc.getFlag(M, 'preDeathAlpha');
+      const tint = readFlag(doc, 'preDeathTint');
+      const alpha = readFlag(doc, 'preDeathAlpha');
       
-      const bars = doc.getFlag(M, 'savedDisplayBars');
+      const bars = readFlag(doc, 'savedDisplayBars');
       if (tint === undefined && alpha === undefined && bars === undefined) continue;
       const data = {
         _id: doc.id,
         'texture.tint': tint ?? '#ffffff',
         alpha: alpha ?? 1,
-        flags: { [M]: { preDeathTint: dropKey(), preDeathAlpha: dropKey(), savedDisplayBars: dropKey() } },
+        flags: dropFlags(doc, 'preDeathTint', 'preDeathAlpha', 'savedDisplayBars'),
       };
       if (bars !== undefined) data.displayBars = bars;
       updates.push(data);

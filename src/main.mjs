@@ -5,9 +5,8 @@ import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
 import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys, asStaminaLoss} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
-import { registerDeathTrackerHooks, runRaiseDeadUI, reviveAll, runPowerWordKillUI, cleanupPixi, _runManualModePicker, _SQUAD_COLORS, _addDamagedToken, deathTrackerExcludedTypes, reviveTokens, mayUndoDeath, noteDamageCause } from './death-tracker/death-tracker.mjs';
-import { registerDeferDeath, isDeathDeferred, DEFER_DEATH } from './death-tracker/defer-death.mjs';
-import { registerDeathVisuals } from './death-tracker/death-visuals.mjs';
+import { registerDeathTrackerHooks, registerPickerLock, registerDeferDeath, registerDeathVisuals, registerDefeatedTokenVisibility, deathTrackerApi, syncCedeDeathPicker, registerDeathTrackerSockets, registerDeathTrackerDstd } from './death-tracker/index.mjs';
+import { services } from './ctlib.mjs';
 import { suppressTrackerAutoDefeat } from './compat/combat-tracker-compat.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
@@ -42,12 +41,10 @@ import { registerSquadTargetingHooks, _pendingSquadMap } from './ability-automat
 import { registerStartupNotice, showStartupNotice } from './startup-notice.mjs';
 import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-shadow/hesitation.mjs';
 import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
-import { registerDefeatedTokenVisibility } from './death-tracker/defeated-token-visibility.mjs';
 import { registerSettings, registerCompatibilityChecks } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill } from './ability-automation/roll-dialog-hooks.mjs';
-import { registerDstdCompat, queueDstdUndoRevival, markPendingRevival, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
-import { registerPickerLock, setPickerLockLocal, clearPickerLockLocal, releasePickerLock, isPickerLocked } from './death-tracker/picker-lock.mjs';
+import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
 import {
   registerDstdDamagePills, openDamageEditor, foldDamagePills, damagePillDisplayList,
@@ -79,7 +76,7 @@ const api = {
   colorTokenPicker: runColoredTokenPicker,
   
   getValidTargets:  _getValidTargets,
-  deferDeath:       { status: DEFER_DEATH, isDeferred: isDeathDeferred },
+  ...deathTrackerApi,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
   stackedPrompt:    stackedPrompt,
   colorFields:      upgradeColorFields,
@@ -93,11 +90,7 @@ const api = {
   mergeWalls:   mergeSelectedWalls,
   grabPanel:        toggleGrabPanel,
   endGrab:          endGrab,
-  revive:           runRaiseDeadUI,
-  raiseDead:        runRaiseDeadUI,
   startupNotice:    showStartupNotice,
-  reviveAll:        reviveAll,
-  powerWordKill:    runPowerWordKillUI,
   judgement:        applyJudgement,
   mark:             applyMark,
   aidAttack:        applyAidAttack,
@@ -124,8 +117,6 @@ const api = {
   transformPicker:          openTransformPicker,
   monsterFilter,
   damageConditionsUI:   toggleDamageConditionsPanel,
-  cleanupPixi:          cleanupPixi,
-  releasePickerLock:    releasePickerLock,
 
   sightLines:       sightLinesToToken,
   hasSightTo:       hasSightToToken,
@@ -133,7 +124,6 @@ const api = {
   getStickBugged:   getStickBugged,
   isFMActive:       () => !!window._dsctFMActive,
   pendingSquadMap:  () => _pendingSquadMap,
-  deathTrackerExcludedTypes,
   damagePills: {
     open: openDamageEditor,
     fold: foldDamagePills,
@@ -220,6 +210,7 @@ Hooks.once('init', () => {
   registerChooseEffect();
   registerHideEffect();
   registerDstdCompat();
+  registerDeathTrackerDstd();
   registerDstdRollPills();
   registerDstdDamagePills();
   registerHealthEstimateCompat();
@@ -329,10 +320,7 @@ Hooks.once('setup', () => {
 
 Hooks.once('ready', () => {
   suppressTrackerAutoDefeat();
-  if (!game.user.isGM) {
-    const M = 'draw-steel-combat-tools';
-    game.user.setFlag(M, 'cedeDeathPickerToGM', game.settings.get(M, 'cedeDeathPickerToGM'));
-  }
+  syncCedeDeathPicker();
 });
 
 Hooks.once('ready', async () => {
@@ -478,7 +466,7 @@ Hooks.once('socketlib.ready', () => {
   socket.register('dsct.searchPointOut',    (messageId) => pointOut(messageId));
   socket.register('dsct.askObservation',    (hiderId, observerIds) => handleObservationRequest(hiderId, observerIds));
   socket.register('dsct.spendHeroToken',    () => spendHeroToken());
-  socket.register('dsct.takeDamage',        async (uuid, amount, options, originUserId = null) => { const actor = await fromUuid(uuid); if (!actor) return; if (originUserId) noteDamageCause({ userId: originUserId, stated: true }); const run = () => actor.system.takeDamage(amount, options); return await (options?.staminaLoss ? asStaminaLoss(run) : run()); });
+  socket.register('dsct.takeDamage',        async (uuid, amount, options, originUserId = null) => { const actor = await fromUuid(uuid); if (!actor) return; if (originUserId) services.get('noteDamageCause')?.({ userId: originUserId, stated: true }); const run = () => actor.system.takeDamage(amount, options); return await (options?.staminaLoss ? asStaminaLoss(run) : run()); });
   socket.register('dsct.rollFreeStrike',    async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });
   socket.register('dsct.executeHIWTurn',    async (actorUuid, msgId) => await executeHIWTurn(actorUuid, msgId));
   socket.register('dsct.applyEffectAsGM',   async (pseudoUuid, tierKey, effectId, targetActorUuids) => {
@@ -488,56 +476,8 @@ Hooks.once('socketlib.ready', () => {
     if (targets.length) await pre.applyEffect(tierKey, effectId, { targets });
   });
 
-  socket.register('dsct.openManualModePicker', async (serializedContexts, requestId) => {
-    const contexts = serializedContexts.map((ctx, i) => ({
-      ...ctx,
-      color:          ctx.color ?? _SQUAD_COLORS[i % _SQUAD_COLORS.length],
-      lockedIds:      new Set(ctx.lockedIds),
-      preSelectedIds: new Set(ctx.preSelectedIds),
-      poolTokenIds:   new Set(ctx.poolTokenIds),
-    }));
-
-    if (!game.settings.get('draw-steel-combat-tools', 'pickDeathsEnabled')) {
-      const autoResult = [];
-      for (const ctx of contexts) {
-        for (const id of ctx.lockedIds)      autoResult.push(id);
-        for (const id of ctx.preSelectedIds) autoResult.push(id);
-      }
-      socket.executeAsGM('dsct.manualModePickerResult', requestId, autoResult);
-      return;
-    }
-    const picked = await _runManualModePicker(contexts);
-    socket.executeAsGM('dsct.manualModePickerResult', requestId, picked ? [...picked] : null);
-  });
-
-  socket.register('dsct.manualModePickerResult', (requestId, pickedArray) => {
-    const resolve = window._dsctPickerRequests?.get(requestId);
-    if (!resolve) return;
-    window._dsctPickerRequests.delete(requestId);
-    resolve(pickedArray ? new Set(pickedArray) : null);
-  });
-
-  socket.register('dsct.reportDamagedToken', (tokenId, userId) => {
-    if (getSetting('debugMode')) console.log(`DSCT | DT | reportDamagedToken received: ${tokenId} from user ${userId}`);
-    _addDamagedToken(tokenId, userId);
-  });
-  socket.register('dsct.dstdUndoDeath', (tokenUuid) => { queueDstdUndoRevival(tokenUuid); });
+  registerDeathTrackerSockets(socket);
   
-  socket.register('dsct.undoDeathMessage', async (messageId, userId, onlyIds = null) => {
-    const msg = game.messages.get(messageId);
-    if (!msg?.getFlag('draw-steel-combat-tools', 'isDeathMessage')) return;
-    const cause = msg.getFlag('draw-steel-combat-tools', 'cause') ?? {};
-    const user = game.users.get(userId);
-    if (!user || !mayUndoDeath(cause, user)) return;
-    const named = msg.getFlag('draw-steel-combat-tools', 'deadTokenIds') ?? [];
-
-    const ids = onlyIds?.length ? named.filter(id => onlyIds.includes(id)) : named;
-    if (ids.length) await reviveTokens(ids);
-  });
-  socket.register('dsct.dstdPendingRevival', (tokenUuid) => { markPendingRevival(tokenUuid); });
-  socket.register('dsct.setPickerLock',      (active) => setPickerLockLocal(active));
-  socket.register('dsct.clearPickerLock',    () => clearPickerLockLocal());
-  socket.register('dsct.queryPickerLock',    () => isPickerLocked());
   socket.register('dsct.fmRowExecuting', (stateKey, executing) => setFmRowRemoteExecuting(stateKey, executing));
 
   socket.register('dsct.injectJudgementBane', ({ actorId, tokenId }) => {

@@ -2,8 +2,6 @@
 import { installRevivalHoverPreview, pingDeadToken, clearRevivalPreview, clearRevivalPreviewIfOrphaned } from './defeated-token-visibility.mjs';
 import { services } from '../ctlib.mjs';
 
-const M = 'draw-steel-combat-tools';
-
 const _open = new Set();
 const _openKey = (msgId, key) => `${msgId}:${key}`;
 

@@ -205,7 +205,7 @@ const updateWithCaptainEffects = async () => {
   }
 };
 
-const _deathTrackerAnnounces = () => getSetting('deathTrackerEnabled');
+const _deathTrackerAnnounces = () => services.get('deathTrackerActive')?.() ?? false;
 
 let _relabelTimer = null;
 let _suppressGroupDeleteRelabel = false;

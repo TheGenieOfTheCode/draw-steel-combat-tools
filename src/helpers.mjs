@@ -1,4 +1,4 @@
-import { config } from './ctlib.mjs';
+import { config, services } from './ctlib.mjs';
 import { GRID, canCurrentlyFly, chooseFreeSquare, getSquadGroup, safeToggleStatusEffect, safeUpdate, sizeRank, tierOf, toGrid, tokenAt } from '../../draw-steel-ctlib/src/helpers.mjs';
 
 export * from '../../draw-steel-ctlib/src/helpers.mjs';
@@ -66,16 +66,7 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   const squadCombatantIds = members.map(m => m.id);
   const squadTokenIds     = members.map(m => m.tokenId).filter(Boolean);
   if (squadGroup && actor.isToken && actor.token?.id) {
-    const _dmgTokenId = actor.token.id;
-    if (game.users.activeGM?.isSelf) {
-      if (!window._lastSquadDamagedTokenIds) window._lastSquadDamagedTokenIds = new Set();
-      window._lastSquadDamagedTokenIds.add(_dmgTokenId);
-      clearTimeout(window._lastSquadDamagedTokenIdsTimer);
-      window._lastSquadDamagedTokenIdsTimer = setTimeout(() => { window._lastSquadDamagedTokenIds = null; }, window._dsctFMActive ? 10000 : 2000);
-    } else {
-      console.log(`DSCT | DT | applyDamage: player client, reporting squad-damaged token ${_dmgTokenId} to GM via socket`);
-      getModuleApi(false)?.socket?.executeAsGM('dsct.reportDamagedToken', _dmgTokenId, game.user.id);
-    }
+    services.get('reportSquadDamage')?.(actor.token.id);
   }
   const type = damageType || 'untyped';
   

@@ -7,11 +7,11 @@ import {
   addPreviewToken,
   removePreviewToken,
   activateTokenLayer,
+  services,
 } from '../ctlib.mjs';
 import { peekSpaces, wallAdjacent, peekTo, peekEffect, isPeeking, unpeek } from '../conditions/peek.mjs';
 import { beginPickerOverlay, setPickerArrow, setPickerTarget, removePickerArrow, removePickerTarget, clearPickerArrows } from './picker-overlay.mjs';
 
-const M = 'draw-steel-combat-tools';
 
 
 const _dsctPreTargeted = new Set();
@@ -29,7 +29,7 @@ const _hasAnySightTo = (casterToken, targetToken, shift = null) => hasSightToTok
 
 const _defeatedStatus = () => CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
 const _isDefeated     = (t) => t.actor?.statuses?.has(_defeatedStatus()) ?? false;
-const _hidingDefeated = () => (game.user.getFlag(M, 'hideDefeated') ?? false) === true;
+const _hidingDefeated = () => services.get('isHidingDefeated')?.() ?? false;
 
 
 

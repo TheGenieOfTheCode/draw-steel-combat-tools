@@ -1,16 +1,15 @@
-import { getSetting } from '../helpers.mjs';
+import { DT_ID as M, readFlag, writeFlag, setting } from './dt-core.mjs';
 import { isDeathDeferred } from './defer-death.mjs';
 import { addPreviewToken, removePreviewToken, isPreviewToken, isRaisedDeadVisible, activateTokenLayer, services } from '../ctlib.mjs';
 
-const M = 'draw-steel-combat-tools';
-const DBG = () => getSetting('debugMode');
+const DBG = () => setting('debugMode');
 
 
 const _deathGrace = new Set();
 
 
 const isDefeatedAndHiding = (tokenDoc) =>
-  (game.user.getFlag(M, 'hideDefeated') ?? false) === true &&
+  (readFlag(game.user, 'hideDefeated') ?? false) === true &&
   (tokenDoc?.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead') ?? false) &&
   !isDeathDeferred(tokenDoc?.actor);
 
@@ -98,9 +97,9 @@ export const registerDefeatedTokenVisibility = () => {
     if (!token) return;
 
     token.setTarget(false, { releaseOthers: false });
-    if ((game.user.getFlag(M, 'hideDefeated') ?? false) === true) token.release();
+    if ((readFlag(game.user, 'hideDefeated') ?? false) === true) token.release();
 
-    const graceDuration = getSetting('deathAnimationDuration') + 500;
+    const graceDuration = setting('deathAnimationDuration') + 500;
     if (DBG()) console.log(`DSCT | DTV | death grace start token=${token.document?.name} duration=${graceDuration}ms`);
     _deathGrace.add(token.document.id);
     setTimeout(() => {
@@ -113,14 +112,14 @@ export const registerDefeatedTokenVisibility = () => {
   Hooks.on('getSceneControlButtons', (controls) => {
     const tokenControl = controls.tokens ?? controls.token;
     if (!tokenControl) return;
-    if (!game.settings.get(M, 'deathTrackerEnabled')) return;
+    if (!setting('deathTrackerEnabled')) return;
 
     const tool = {
       name: 'dsct-hide-defeated',
       title: game.i18n.localize('DSCT.button.hideDefeated'),
       icon: 'fas fa-eye-slash',
       toggle: true,
-      active: (game.user.getFlag(M, 'hideDefeated') ?? false) === true,
+      active: (readFlag(game.user, 'hideDefeated') ?? false) === true,
       visible: true,
       onChange: () => toggleHideDefeated(),
     };
@@ -135,7 +134,7 @@ export const registerDefeatedTokenVisibility = () => {
 };
 
 const refreshDefeatedVisibility = () => {
-  const hiding = (game.user.getFlag(M, 'hideDefeated') ?? false) === true;
+  const hiding = (readFlag(game.user, 'hideDefeated') ?? false) === true;
   const defeatedStatusId = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
   if (DBG()) console.log(`DSCT | DTV | refresh -- hiding=${hiding} tokens=${canvas.tokens.placeables.length}`);
 
@@ -151,10 +150,10 @@ const refreshDefeatedVisibility = () => {
 };
 
 export const toggleHideDefeated = async () => {
-  const current = (game.user.getFlag(M, 'hideDefeated') ?? false) === true;
+  const current = (readFlag(game.user, 'hideDefeated') ?? false) === true;
   const next = !current;
   if (DBG()) console.log(`DSCT | DTV | toggle ${current} -> ${next}`);
-  await game.user.setFlag(M, 'hideDefeated', next);
+  await writeFlag(game.user, 'hideDefeated', next);
   refreshDefeatedVisibility();
 };
 
@@ -253,3 +252,5 @@ export const installRevivalHoverPreview = (el, getTokenIds) => {
     hide();
   });
 };
+
+services.provide('isHidingDefeated', () => readFlag(game.user, 'hideDefeated') === true);

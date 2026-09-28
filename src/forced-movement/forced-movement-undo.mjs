@@ -1,10 +1,9 @@
 import {
-  replayUndo, safeUpdate, safeDelete, safeToggleStatusEffect, safeUnsetFlag, safeCreateEmbedded,
+  replayUndo, safeUpdate, safeDelete, safeToggleStatusEffect, safeCreateEmbedded,
   getSetting, getTokenById, getModuleApi,
 } from '../helpers.mjs';
-import { markPendingRevival } from '../compat/dstd-compat.mjs';
 import { applyGrab } from '../conditions/grab.mjs';
-import { addPreviewToken, removePreviewToken, activateTokenLayer } from '../ctlib.mjs';
+import { addPreviewToken, removePreviewToken, activateTokenLayer, services } from '../ctlib.mjs';
 
 const restoreGrabs = async (grabsToRestore) => {
   if (!grabsToRestore?.length) return;
@@ -58,7 +57,7 @@ const handleStaminaRevival = async (undoLog) => {
   const defeatedStatus = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
   for (const tokenDoc of tokensToRevive.values()) {
     if (!tokenDoc?.uuid || !tokenDoc.actor?.statuses?.has(defeatedStatus)) continue;
-    markPendingRevival(tokenDoc.uuid);
+    services.get('markPendingRevival')?.(tokenDoc.uuid);
     dstdSocket?.executeForEveryone('dsct.dstdPendingRevival', tokenDoc.uuid);
   }
 
@@ -94,10 +93,10 @@ const handleStaminaRevival = async (undoLog) => {
 
     
     if (game.combat) {
-      const savedGroupId = tokenDoc.getFlag('draw-steel-combat-tools', 'savedGroupId');
+      const savedGroupId = services.get('deathSavedSquad')?.(tokenDoc);
       if (combatantDefeated) {
         await safeUpdate(existingCombatant, { defeated: false });
-        if (savedGroupId) await safeUnsetFlag(tokenDoc, 'draw-steel-combat-tools', 'savedGroupId');
+        if (savedGroupId) await services.get('forgetDeathSavedSquad')?.(tokenDoc);
       } else if (!existingCombatant) {
         if (savedGroupId) {
           const squadOp = staminaOps.find(op =>
@@ -116,16 +115,11 @@ const handleStaminaRevival = async (undoLog) => {
         const combatantData = { tokenId: tokenDoc.id, sceneId: canvas.scene.id, actorId: tokenDoc.actorId };
         if (savedGroupId) combatantData.group = savedGroupId;
         await safeCreateEmbedded(game.combat, 'Combatant', [combatantData]);
-        if (savedGroupId) await safeUnsetFlag(tokenDoc, 'draw-steel-combat-tools', 'savedGroupId');
+        if (savedGroupId) await services.get('forgetDeathSavedSquad')?.(tokenDoc);
       }
     }
 
-    const deathMsgs = game.messages.filter(m => {
-      if (!m.getFlag('draw-steel-combat-tools', 'isDeathMessage')) return false;
-      const ids = m.getFlag('draw-steel-combat-tools', 'deadTokenIds') ??
-        (m.getFlag('draw-steel-combat-tools', 'deadTokenId') ? [m.getFlag('draw-steel-combat-tools', 'deadTokenId')] : []);
-      return ids.includes(tokenDoc.id);
-    });
+    const deathMsgs = services.get('deathMessagesFor')?.(tokenDoc.id) ?? [];
     for (const dm of deathMsgs) await safeDelete(dm);
 
     if (isDead || isDying) revivedNames.push(tokenDoc.name);

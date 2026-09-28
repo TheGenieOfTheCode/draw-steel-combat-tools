@@ -1,6 +1,5 @@
-import { getSetting, getSquadGroup, safeDelete } from '../helpers.mjs';
-
-const M = 'draw-steel-combat-tools';
+import { setting } from './dt-core.mjs';
+import { getSquadGroup, safeDelete } from '../ctlib.mjs';
 
 export const DEFER_DEATH = 'dsctDeferDeath';
 
@@ -18,7 +17,7 @@ const _status = () => ({
 });
 
 export function registerDeferDeath() {
-  if (!getSetting('deathTrackerEnabled')) return;
+  if (!setting('deathTrackerEnabled')) return;
   
   Hooks.once('i18nInit', () => { CONFIG.statusEffects[DEFER_DEATH] = _status(); });
 
@@ -60,7 +59,7 @@ function registerDefeatBlock() {
   Hooks.on('preUpdateCombatant', (combatant, changes) => {
     if (changes?.defeated !== true) return;
     if (!isDeathDeferred(combatant?.actor)) return;
-    if (getSetting('debugMode')) console.log(`DSCT | DEFER | refused the defeated flag on ${combatant.actor.name}`);
+    if (setting('debugMode')) console.log(`DSCT | DEFER | refused the defeated flag on ${combatant.actor.name}`);
     return false;
   });
 }
@@ -83,7 +82,7 @@ function registerReleaseRecheck() {
         .filter(a => a && !a.statuses?.has(_defeatedId()));
       const indiv = live[0]?.system?.stamina?.max || 1;
       const owed = live.length - Math.ceil((group.system?.staminaValue ?? 0) / indiv);
-      if (getSetting('debugMode')) console.log(`DSCT | DEFER | released ${actor.name}: live=${live.length} pool=${group.system?.staminaValue} owed=${owed}`);
+      if (setting('debugMode')) console.log(`DSCT | DEFER | released ${actor.name}: live=${live.length} pool=${group.system?.staminaValue} owed=${owed}`);
       if (owed <= 0) return;
     } else if ((actor.system?.stamina?.value ?? 1) > 0) {
       return;
