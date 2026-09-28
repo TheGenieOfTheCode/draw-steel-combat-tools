@@ -16,9 +16,11 @@
       { "id": "socketlib", "type": "module", "compatibility": { "minimum": "1.1.3" } },
       { "id": "color-picker", "type": "module", "compatibility": { "minimum": "1.7" } },
       { "id": "lib-wrapper", "type": "module", "compatibility": { "minimum": "1.12.0" } },
-      { "id": "draw-steel-target-damage", "type": "module", "compatibility": { "minimum": "1.0.8" } }
+      { "id": "draw-steel-target-damage", "type": "module", "compatibility": { "minimum": "1.0.8" } },
+      { "id": "draw-steel-ctlib", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-ctlib/releases/latest/download/module.json", "compatibility": {} }
     ],
     "recommends": [
+      { "id": "draw-steel-death-tracker", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-death-tracker/releases/latest/download/module.json", "reason": "[Combat Tools] Keeps track of who falls: deaths announced in chat with an undo, the right minions taken from a squad, and the fallen left where they fell." },
       { "id": "tagger", "type": "module", "reason": "[Compatible] Wall Builder tags the walls it makes through Tagger." },
       { "id": "ds-terrain-designer", "type": "module", "reason": "[Compatible] Forced movement follows the terrain’s slopes and heights, and High Ground uses its edges." },
       { "id": "ds-token-override", "type": "module", "reason": "[Compatible] A squad’s Stamina bar follows its Squad Threshold Marks setting, and doubled up health labels are hidden." },

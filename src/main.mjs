@@ -5,7 +5,7 @@ import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
 import { STEALTH_WORKFLOW_READY, applyFall, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys, asStaminaLoss} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
-import { services, registerStatusGroup } from './ctlib.mjs';
+import { services, registerStatusGroup, clearPickerArrows, activateTokenLayer } from './ctlib.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { registerSquadTurnHooks } from './squad-turns.mjs';
@@ -75,12 +75,22 @@ const forwardToDeathTracker = (name, { quiet = false } = {}) => (...args) => {
 };
 const _excludedWithoutDeathTracker = new Set();
 
+const cleanupPixi = () => {
+  for (const name of ['dsct-hover-preview-hl', 'dsct-fm-undo-hl']) {
+    if (canvas.interface.grid.highlightLayers?.[name]) canvas.interface.grid.clearHighlightLayer(name);
+  }
+  endPickerOverlay();
+  clearPickerArrows();
+  activateTokenLayer();
+  deathTrackerApi()?.cleanupPixi?.();
+};
+
 const api = {
   revive:            forwardToDeathTracker('revive'),
   raiseDead:         forwardToDeathTracker('raiseDead'),
   reviveAll:         forwardToDeathTracker('reviveAll'),
   powerWordKill:     forwardToDeathTracker('powerWordKill'),
-  cleanupPixi:       forwardToDeathTracker('cleanupPixi', { quiet: true }),
+  cleanupPixi,
   releasePickerLock: forwardToDeathTracker('releasePickerLock', { quiet: true }),
   forcedMovement:   runForcedMovement,
   bypassNextFmGate: bypassNextFmGate,
