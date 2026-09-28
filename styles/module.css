@@ -2123,26 +2123,6 @@ body .draw-steel-target-damage-panel .dsct-solo-quick {
   filter: none;
 }
 
-body #token-hud .status-effects.palette {
-  max-height: none;
-}
-
-body #token-hud .status-effects.palette section.effect-pane {
-  grid-template-columns: repeat(3, 145px);
-  align-items: center;
-}
-
-body #token-hud .status-effects.palette section.effect-pane span.title.ellipsis {
-  overflow: visible;
-  white-space: normal;
-  text-overflow: clip;
-  line-height: 1.15;
-
-  word-break: normal;
-  overflow-wrap: normal;
-  hyphens: none;
-}
-
 #dsct-picker-topbar .dsct-stealth-key {
   margin-right: 1.2em;
   font-weight: bold;

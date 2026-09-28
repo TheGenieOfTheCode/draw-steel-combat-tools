@@ -1000,9 +1000,7 @@
       "system": "Draw Steel",
       "dsct": "Combat Tools",
       "dsctFlat": "Combat Tools: Flat Effects",
-      "dsctTiered": "Combat Tools: Power Roll Effects",
-      "dsd": "Dealer",
-      "gsk": "Gunslinger Kits"
+      "dsctTiered": "Combat Tools: Power Roll Effects"
     },
     "TieredEffect": {
       "enabled": {

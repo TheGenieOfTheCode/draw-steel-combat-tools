@@ -1631,7 +1631,10 @@ function _installTypeGroups() {
       const list = groups.get(g);
       if (!list?.length) continue;
       const key = `DSCT.specialEffectGroups.${g}`;
-      const label = game.i18n.has(key) ? game.i18n.localize(key) : (game.modules.get(g)?.title ?? g);
+      const own = `TYPES.SpecialEffect.${g}.group`;
+      const label = game.i18n.has(key) ? game.i18n.localize(key)
+        : game.i18n.has(own) ? game.i18n.localize(own)
+        : (game.modules.get(g)?.title ?? g);
       const og = document.createElement('optgroup');
       og.label = label;
       for (const opt of list) og.appendChild(opt);
