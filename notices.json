@@ -6,6 +6,16 @@
   },
   "recommends": [
     {
+      "id": "draw-steel-death-tracker",
+      "title": "Draw Steel: Death Tracker",
+      "reason": "[Combat Tools] Keeps track of who falls: deaths announced in chat with an undo, the right minions taken from a squad, and the fallen left where they fell."
+    },
+    {
+      "id": "draw-steel-battle-log",
+      "title": "Draw Steel: Battle Log",
+      "reason": "[Combat Tools] Draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat cards match the dark theme."
+    },
+    {
       "id": "tagger",
       "title": "Tagger",
       "reason": "[Compatible] Wall Builder tags the walls it makes through Tagger."
