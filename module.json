@@ -21,6 +21,7 @@
     ],
     "recommends": [
       { "id": "draw-steel-death-tracker", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-death-tracker/releases/latest/download/module.json", "reason": "[Combat Tools] Keeps track of who falls: deaths announced in chat with an undo, the right minions taken from a squad, and the fallen left where they fell." },
+      { "id": "draw-steel-battle-log", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-battle-log/releases/latest/download/module.json", "reason": "[Combat Tools] Draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat cards match the dark theme." },
       { "id": "tagger", "type": "module", "reason": "[Compatible] Wall Builder tags the walls it makes through Tagger." },
       { "id": "ds-terrain-designer", "type": "module", "reason": "[Compatible] Forced movement follows the terrain’s slopes and heights, and High Ground uses its edges." },
       { "id": "ds-token-override", "type": "module", "reason": "[Compatible] A squad’s Stamina bar follows its Squad Threshold Marks setting, and doubled up health labels are hidden." },
