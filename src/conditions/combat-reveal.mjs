@@ -1,3 +1,4 @@
+import { services } from '../ctlib.mjs';
 import { getSetting, hasSightToToken } from '../helpers.mjs';
 import { hiddenFrom, HIDDEN, isObjectToken } from './stealth.mjs';
 
@@ -223,3 +224,5 @@ export function registerCombatReveal() {
   Hooks.on('drawToken', syncPositionGhost);
   Hooks.on('refreshToken', syncPositionGhost);
 }
+
+services.provide('resolveTokenVisibility', resolveTokenVisibility);

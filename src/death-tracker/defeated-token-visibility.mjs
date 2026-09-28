@@ -1,7 +1,6 @@
 import { getSetting } from '../helpers.mjs';
-import { resolveTokenVisibility } from '../conditions/combat-reveal.mjs';
 import { isDeathDeferred } from './defer-death.mjs';
-import { addPreviewToken, removePreviewToken, isPreviewToken, isRaisedDeadVisible, activateTokenLayer } from '../ctlib.mjs';
+import { addPreviewToken, removePreviewToken, isPreviewToken, isRaisedDeadVisible, activateTokenLayer, services } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const DBG = () => getSetting('debugMode');
@@ -26,7 +25,8 @@ export const registerDefeatedTokenVisibility = () => {
         if (!isRaisedDeadVisible() && !isPreviewToken(id)) {
           if (isDefeatedAndHiding(this.document) && !_deathGrace.has(id)) return false;
         }
-        return resolveTokenVisibility(this, wrapped(...args));
+        const visible = wrapped(...args);
+        return services.get('resolveTokenVisibility')?.(this, visible) ?? visible;
       }, 'MIXED');
 
     const tokenProtoPath = foundry?.canvas?.placeables?.Token
@@ -62,7 +62,8 @@ export const registerDefeatedTokenVisibility = () => {
           if (!isRaisedDeadVisible() && !isPreviewToken(id)) {
             if (isDefeatedAndHiding(this.document) && !_deathGrace.has(id)) return false;
           }
-          return resolveTokenVisibility(this, _isVisibleOld.call(this));
+          const visible = _isVisibleOld.call(this);
+          return services.get('resolveTokenVisibility')?.(this, visible) ?? visible;
         },
         configurable: true,
       });

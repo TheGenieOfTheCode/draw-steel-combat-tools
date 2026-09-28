@@ -1,6 +1,6 @@
 
 import { installRevivalHoverPreview, pingDeadToken, clearRevivalPreview, clearRevivalPreviewIfOrphaned } from './defeated-token-visibility.mjs';
-import { captainCandidates, reassignSquadCaptain } from '../squad-hud.mjs';
+import { services } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -40,9 +40,10 @@ const _portrait = (death, { isCaptain = false } = {}) => {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = isCaptain ? 'dsct-death-token is-captain' : 'dsct-death-token';
+  const canHandOn = isCaptain && services.has('reassignSquadCaptain');
   btn.dataset.tokenId = death.tokenId;
   btn.dataset.tooltip = game.i18n.format(
-    isCaptain && game.user.isGM ? 'DSCT.tooltip.pingDeadCaptain' : 'DSCT.tooltip.pingDead',
+    canHandOn && game.user.isGM ? 'DSCT.tooltip.pingDeadCaptain' : 'DSCT.tooltip.pingDead',
     { name: death.name },
   );
 
@@ -70,7 +71,7 @@ const _portrait = (death, { isCaptain = false } = {}) => {
   });
 
   
-  if (isCaptain) {
+  if (canHandOn) {
     btn.addEventListener('contextmenu', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -80,11 +81,11 @@ const _portrait = (death, { isCaptain = false } = {}) => {
         ui.notifications.info(game.i18n.localize('DSCT.notice.squads.squadGone'));
         return;
       }
-      if (!captainCandidates(death.captainOf).length) {
+      if (!(services.get('captainCandidates')?.(death.captainOf) ?? []).length) {
         ui.notifications.info(game.i18n.format('DSCT.notice.squads.noCaptainCandidates', { group: group.name }));
         return;
       }
-      await reassignSquadCaptain(death.captainOf);
+      await services.get('reassignSquadCaptain')?.(death.captainOf);
       refreshDeathCards();
     });
   }

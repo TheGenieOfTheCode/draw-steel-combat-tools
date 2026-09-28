@@ -1,3 +1,4 @@
+import { services } from './ctlib.mjs';
 ﻿import { getSetting, monsterFilter as filter } from './helpers.mjs';
 import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 import { assignSquadCaptain } from './squad-labels.mjs';
@@ -1067,3 +1068,7 @@ export function registerSquadHudHooks() {
     getStickBugged();
   });
 }
+
+services.provide('captainCandidates', captainCandidates);
+services.provide('reassignSquadCaptain', reassignSquadCaptain);
+services.provide('hasLiveCaptain', hasLiveCaptain);

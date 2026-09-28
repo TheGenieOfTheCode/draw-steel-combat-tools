@@ -1,13 +1,10 @@
 import { getSetting, getModuleApi, safeToggleStatusEffect, safeUpdate, getSquadGroup, MATERIAL_ICONS, safeCreateEmbedded, safeDelete, tokenAt, toGrid, chooseFreeSquare } from '../helpers.mjs';
 import { installRevivalHoverPreview } from './defeated-token-visibility.mjs';
-import { setRaisedDeadVisible, activateTokenLayer, clearPreviewTokens } from '../ctlib.mjs';
+import { setRaisedDeadVisible, activateTokenLayer, clearPreviewTokens, services, beginPickerOverlay, endPickerOverlay, setPickerTarget, removePickerTarget, clearPickerArrows } from '../ctlib.mjs';
 import { renderDeathMessage, registerDeathCardRefresh } from './death-message.mjs';
 import { beginPickerLock, endPickerLock, clearPickerLockLocal } from './picker-lock.mjs';
-import { applySquadLabels } from '../squad-labels.mjs';
-import { hasLiveCaptain } from '../squad-hud.mjs';
 import { isDeathDeferred, isTokenDeathDeferred } from './defer-death.mjs';
 import { animateDeathVisual, deathVisualSettled, syncDeathVisual, markDeathPending, clearDeathPending, deathSettlementPending } from './death-visuals.mjs';
-import { beginPickerOverlay, endPickerOverlay, setPickerTarget, removePickerTarget, clearPickerArrows } from '../ability-automation/picker-overlay.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -170,8 +167,8 @@ const _processTokenDeath = async (token, actor, { batchEntries = null } = {}) =>
   if (window._activeGrabs) {
     for (const [gid, grab] of [...window._activeGrabs.entries()]) {
       if (grab.grabbedTokenId === token.id || grab.grabberTokenId === token.id) {
-        const api = getModuleApi(false);
-        if (api) await api.endGrab(gid, { silent: false, customMsg: `${actor.name} fell, ending the grab.` });
+        const endGrab = services.get('endGrab');
+        if (endGrab) await endGrab(gid, { silent: false, customMsg: `${actor.name} fell, ending the grab.` });
       }
     }
   }
@@ -406,8 +403,8 @@ const _doKillV3 = async (tokenIds, { skipHpCorrection = false, showNotification 
       if (window._activeGrabs) {
         for (const [gid, grab] of [...window._activeGrabs.entries()]) {
           if (grab.grabbedTokenId === t.id || grab.grabberTokenId === t.id) {
-            const api = getModuleApi(false);
-            if (api) await api.endGrab(gid, { silent: false, customMsg: `${t.actor.name} fell, ending the grab.` });
+            const endGrab = services.get('endGrab');
+            if (endGrab) await endGrab(gid, { silent: false, customMsg: `${t.actor.name} fell, ending the grab.` });
           }
         }
       }
@@ -685,8 +682,8 @@ const _doKillManual = async ({ tokenIds, squadGroup, processQueue, step1Extra = 
           if (window._activeGrabs) {
             for (const [gid, grab] of [...window._activeGrabs.entries()]) {
               if (grab.grabbedTokenId === t.id || grab.grabberTokenId === t.id) {
-                const api = getModuleApi(false);
-                if (api) await api.endGrab(gid, { silent: false, customMsg: `${t.actor.name} fell, ending the grab.` });
+                const endGrab = services.get('endGrab');
+                if (endGrab) await endGrab(gid, { silent: false, customMsg: `${t.actor.name} fell, ending the grab.` });
               }
             }
           }
@@ -843,7 +840,7 @@ const _schedulePostReviveLabels = () => {
   if (_postReviveLabelTimer) clearTimeout(_postReviveLabelTimer);
   _postReviveLabelTimer = setTimeout(async () => {
     _postReviveLabelTimer = null;
-    if (getSetting('autoSquadLabelsEnabled') && getSetting('squadLabelApplyEffects') && game.combat) await applySquadLabels();
+    if (getSetting('autoSquadLabelsEnabled') && getSetting('squadLabelApplyEffects') && game.combat) await services.get('applySquadLabels')?.();
   }, 600);
 };
 
@@ -1005,7 +1002,7 @@ const _doReviveV3 = async ({ tokenIds, skipGroupHpRestore = false }) => {
   for (const { t, savedCaptainOf } of plan) {
     if (!savedCaptainOf) continue;
     const group = game.combat?.groups?.get(savedCaptainOf);
-    if (!group || hasLiveCaptain(savedCaptainOf)) continue;
+    if (!group || (services.get('hasLiveCaptain')?.(savedCaptainOf) ?? true)) continue;
     const combatant = game.combat?.combatants?.find(c => c.tokenId === t.id);
     if (!combatant) continue;
     _tm(`step 3b: ${t.actor?.name} takes the crown of ${group.name} back`);
@@ -1277,7 +1274,7 @@ const _doReviveManual = async ({ tokenIds, label = 'DT Debug' }) => {
         }
 
         for (const { newCombatantId, savedCaptainOf } of joining) {
-          if (!newCombatantId || !savedCaptainOf || hasLiveCaptain(savedCaptainOf)) continue;
+          if (!newCombatantId || !savedCaptainOf || (services.get('hasLiveCaptain')?.(savedCaptainOf) ?? true)) continue;
           const led = game.combat?.groups?.get(savedCaptainOf);
           if (led) await led.update({ 'system.captainId': newCombatantId }, txn);
         }

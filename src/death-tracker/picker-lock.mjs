@@ -1,5 +1,5 @@
 import { getModuleApi } from '../helpers.mjs';
-import { revealPickerUi } from '../ability-automation/picker-overlay.mjs';
+import { revealPickerUi } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const BODY_CLASS = 'dsct-picker-lock';

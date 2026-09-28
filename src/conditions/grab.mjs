@@ -1,3 +1,4 @@
+import { services } from '../ctlib.mjs';
 import { getSetting, rangeEnforced, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
@@ -712,3 +713,5 @@ export function registerKnockbackGuard() {
     if (getSetting('abilityAutomationEnabled') && checkAndRunTargetPicker(app) === 'block') return false;
   });
 }
+
+services.provide('endGrab', endGrab);

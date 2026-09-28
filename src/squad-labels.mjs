@@ -1,3 +1,4 @@
+import { services } from './ctlib.mjs';
 import { safeCreateEmbedded, safeDelete, getSetting, monsterFilter as filter } from './helpers.mjs';
 import { runMultiTokenPicker, runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 
@@ -538,3 +539,5 @@ export const registerSquadLabelHooks = () => {
     await updateWithCaptainEffects();
   });
 };
+
+services.provide('applySquadLabels', applySquadLabels);
