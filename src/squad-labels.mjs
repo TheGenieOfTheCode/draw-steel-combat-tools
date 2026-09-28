@@ -541,3 +541,6 @@ export const registerSquadLabelHooks = () => {
 };
 
 services.provide('applySquadLabels', applySquadLabels);
+services.provide('applySquadLabelsAfterDeath', async () => {
+  if (getSetting('autoSquadLabelsEnabled') && getSetting('squadLabelApplyEffects')) await applySquadLabels();
+});

@@ -5,9 +5,7 @@ import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
 import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys, asStaminaLoss} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
-import { registerDeathTrackerHooks, registerPickerLock, registerDeferDeath, registerDeathVisuals, registerDefeatedTokenVisibility, deathTrackerApi, syncCedeDeathPicker, registerDeathTrackerSockets, registerDeathTrackerDstd } from './death-tracker/index.mjs';
-import { services } from './ctlib.mjs';
-import { suppressTrackerAutoDefeat } from './compat/combat-tracker-compat.mjs';
+import { services, registerStatusGroup } from './ctlib.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { registerSquadTurnHooks } from './squad-turns.mjs';
@@ -22,7 +20,6 @@ import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
-import { registerStatusPalette } from './status-palette.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { registerSearch, pointOut, runSearch, spendHeroToken } from './conditions/search.mjs';
 import { registerHiddenMarkers } from './conditions/hidden-markers.mjs';
@@ -41,7 +38,7 @@ import { registerSquadTargetingHooks, _pendingSquadMap } from './ability-automat
 import { registerStartupNotice, showStartupNotice } from './startup-notice.mjs';
 import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-shadow/hesitation.mjs';
 import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
-import { registerSettings, registerCompatibilityChecks } from './settings/register-settings.mjs';
+import { registerSettings } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
@@ -69,14 +66,28 @@ import { registerPeek, unpeek, peekEffect, peekSpaces, peekTo, peekDistance, pee
 import { registerColorFields, upgradeColorFields } from './color-field.mjs';
 import { registerObservationMemory, suggestObserving, obscuredNear, lastSeenOf, lastHarmOf, seesClearly, clearObservationMemory } from './conditions/observation.mjs';
 
+const DEATH_TRACKER = 'draw-steel-death-tracker';
+const deathTrackerApi = () => game.modules.get(DEATH_TRACKER)?.api;
+const forwardToDeathTracker = (name, { quiet = false } = {}) => (...args) => {
+  const fn = deathTrackerApi()?.[name];
+  if (fn) return fn(...args);
+  if (!quiet) ui.notifications.warn(game.i18n.localize('DSCT.notice.needDeathTracker'));
+};
+const _excludedWithoutDeathTracker = new Set();
+
 const api = {
+  revive:            forwardToDeathTracker('revive'),
+  raiseDead:         forwardToDeathTracker('raiseDead'),
+  reviveAll:         forwardToDeathTracker('reviveAll'),
+  powerWordKill:     forwardToDeathTracker('powerWordKill'),
+  cleanupPixi:       forwardToDeathTracker('cleanupPixi', { quiet: true }),
+  releasePickerLock: forwardToDeathTracker('releasePickerLock', { quiet: true }),
   forcedMovement:   runForcedMovement,
   bypassNextFmGate: bypassNextFmGate,
   setTriggerDamage:  setPendingTriggerDamage,
   colorTokenPicker: runColoredTokenPicker,
   
   getValidTargets:  _getValidTargets,
-  ...deathTrackerApi,
   pickerOverlay:    { begin: beginPickerOverlay, end: endPickerOverlay },
   stackedPrompt:    stackedPrompt,
   colorFields:      upgradeColorFields,
@@ -141,6 +152,11 @@ const api = {
   socket:           null,
 };
 
+Object.defineProperties(api, {
+  deferDeath: { enumerable: true, get: () => deathTrackerApi()?.deferDeath },
+  deathTrackerExcludedTypes: { enumerable: true, get: () => deathTrackerApi()?.deathTrackerExcludedTypes ?? _excludedWithoutDeathTracker },
+});
+
 Hooks.once('init', () => {
   game.modules.get('draw-steel-combat-tools').api = api;
 
@@ -148,13 +164,12 @@ Hooks.once('init', () => {
   new MutationObserver(initPalette).observe(document.body, { attributeFilter: ['class'] });
 
   registerSettings();
-  registerCompatibilityChecks();
   registerChatHooks();
   registerGrabHooks();
   registerKnockbackGuard();
   registerGrabTierSync();
   registerConditionHooks();
-  registerStatusPalette();
+  registerStatusGroup({ key: 'combat-tools', label: 'DSCT.statusGroup.dsct', order: 20, statuses: ['invisible', 'burrow'], match: (id) => id.startsWith('dsct') });
   registerStealthSystem();
   registerObservationMemory();
   registerLowCover();
@@ -180,10 +195,6 @@ Hooks.once('init', () => {
   }
   registerDCHooks();
   registerTacticalHooks();
-  registerDeathTrackerHooks();
-  registerPickerLock();
-  registerDeferDeath();
-  registerDeathVisuals();
   registerSquadLabelHooks();
   registerSquadHudHooks();
   registerSquadTurnHooks();
@@ -200,7 +211,6 @@ Hooks.once('init', () => {
   registerCompleteEncounterHooks();
   registerSystemPatches();
   registerCornerVision();
-  registerDefeatedTokenVisibility();
   registerRollDialogPillHooks();
   registerSquadTargetingHooks();
   registerStartupNotice();
@@ -210,7 +220,6 @@ Hooks.once('init', () => {
   registerChooseEffect();
   registerHideEffect();
   registerDstdCompat();
-  registerDeathTrackerDstd();
   registerDstdRollPills();
   registerDstdDamagePills();
   registerHealthEstimateCompat();
@@ -316,11 +325,6 @@ Hooks.once('setup', () => {
       },
     };
   }
-});
-
-Hooks.once('ready', () => {
-  suppressTrackerAutoDefeat();
-  syncCedeDeathPicker();
 });
 
 Hooks.once('ready', async () => {
@@ -476,7 +480,6 @@ Hooks.once('socketlib.ready', () => {
     if (targets.length) await pre.applyEffect(tierKey, effectId, { targets });
   });
 
-  registerDeathTrackerSockets(socket);
   
   socket.register('dsct.fmRowExecuting', (stateKey, executing) => setFmRowRemoteExecuting(stateKey, executing));
 

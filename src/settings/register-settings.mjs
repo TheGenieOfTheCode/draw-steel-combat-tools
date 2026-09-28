@@ -10,7 +10,6 @@ import { InstallMacrosMenu, EnhancedAbilitiesMenu } from '../setup-macros.mjs';
 import {
   ForcedMovementSettingsMenu,
   ConditionsSettingsMenu,
-  DeathTrackerSettingsMenu,
   TriggeredActionsSettingsMenu,
   AbilityAutomationSettingsMenu,
   FlatEffectsSettingsMenu,
@@ -93,25 +92,7 @@ export const registerSettings = () => {
     name: L('dstdQuickFmButton.name'), hint: L('dstdQuickFmButton.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
-  game.settings.register(M, 'playerCanUndoCausedDeaths', {
-    name: L('playerCanUndoCausedDeaths.name'), hint: L('playerCanUndoCausedDeaths.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
-  });
   
-  Hooks.once('ready', () => {
-    if (!game.user.isGM) return;
-    try {
-      const legacy = game.settings.storage.get('world')?.find?.(s => s.key === `${M}.playerCanUndoDstdDeaths`);
-      if (legacy === undefined || legacy === null) return;
-      const wanted = typeof legacy.value === 'string' ? JSON.parse(legacy.value) : legacy.value;
-      if (typeof wanted !== 'boolean') return;
-      if (wanted === game.settings.get(M, 'playerCanUndoCausedDeaths')) return;
-      game.settings.set(M, 'playerCanUndoCausedDeaths', wanted);
-      console.log(`DSCT | carried the old player undo setting across as ${wanted}`);
-    } catch (err) {
-      console.warn('DSCT | could not carry the old player undo setting across:', err);
-    }
-  });
   game.settings.register(M, 'squadTargetingIcon', {
     name: L('squadTargetingIcon.name'), hint: L('squadTargetingIcon.hint'),
     scope: 'world', config: false, type: String, default: 'icons/svg/dice-target.svg',
@@ -366,93 +347,6 @@ export const registerSettings = () => {
   game.settings.register(M, 'applyDamageEnabled', {
     name: L('applyDamageEnabled.name'), hint: L('applyDamageEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
-  });
-
-  game.settings.registerMenu(M, 'deathTrackerSettings', {
-    name: L('deathTrackerSettings.name'), label: L('deathTrackerSettings.label'),
-    hint: L('deathTrackerSettings.hint'),
-    icon: 'fas fa-skull', type: DeathTrackerSettingsMenu, restricted: false,
-  });
-  game.settings.register(M, 'deathTrackerEnabled', {
-    name: L('deathTrackerEnabled.name'), hint: L('deathTrackerEnabled.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
-  });
-  game.settings.register(M, 'deathTrackerManualMode', {
-    name: L('deathTrackerManualMode.name'), hint: L('deathTrackerManualMode.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
-  });
-  game.settings.register(M, 'deathAnimationDuration', {
-    name: L('deathAnimationDuration.name'), hint: L('deathAnimationDuration.hint'),
-    scope: 'world', config: false, type: Number, default: 2000, range: { min: 0, max: 5000, step: 100 },
-  });
-  game.settings.register(M, 'batchAnimationSafety', {
-    name: L('batchAnimationSafety.name'), hint: L('batchAnimationSafety.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
-  });
-  game.settings.register(M, 'clearSkullsOnCombatEnd', {
-    name: L('clearSkullsOnCombatEnd.name'), hint: L('clearSkullsOnCombatEnd.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
-  });
-  game.settings.register(M, 'clearEffectsOnRevive', {
-    name: L('clearEffectsOnRevive.name'), hint: L('clearEffectsOnRevive.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
-  });
-  game.settings.register(M, 'autoAssignDamagedMinion', {
-    name: L('autoAssignDamagedMinion.name'), hint: L('autoAssignDamagedMinion.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
-    onChange: (value) => { if (value) _minionDeathConflict(); },
-  });
-  game.settings.register(M, 'pickDeathsEnabled', {
-    name: L('pickDeathsEnabled.name'), hint: L('pickDeathsEnabled.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
-  });
-  game.settings.register(M, 'deathPickerDimAll', {
-    name: L('deathPickerDimAll.name'), hint: L('deathPickerDimAll.hint'),
-    scope: 'client', config: false, type: Boolean, default: true,
-  });
-  game.settings.register(M, 'gmControlsAllDeathPickers', {
-    name: L('gmControlsAllDeathPickers.name'), hint: L('gmControlsAllDeathPickers.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
-  });
-  game.settings.register(M, 'cedeDeathPickerToGM', {
-    name: L('cedeDeathPickerToGM.name'), hint: L('cedeDeathPickerToGM.hint'),
-    scope: 'client', config: false, type: Boolean, default: false,
-    onChange: (v) => { if (!game.user?.isGM) game.user?.setFlag(M, 'cedeDeathPickerToGM', v); },
-  });
-  game.settings.register(M, 'overrideMinionDefeat', {
-    name: L('overrideMinionDefeat.name'), hint: L('overrideMinionDefeat.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
-  });
-  game.settings.register(M, 'cleanOrphanedCombatants', {
-    name: L('cleanOrphanedCombatants.name'), hint: L('cleanOrphanedCombatants.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
-  });
-  game.settings.register(M, 'deathTrackerSkullIds', { scope: 'world', config: false, type: Array, default: [] });
-
-  game.settings.register(M, 'skullEnabled', { scope: 'world', config: false, type: Boolean, default: false });
-  game.settings.register(M, 'skullIcon',    { scope: 'world', config: false, type: String,  default: '' });
-  game.settings.register(M, 'deathMarkerEnabled', {
-    name: L('deathMarkerEnabled.name'), hint: L('deathMarkerEnabled.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
-    requiresReload: true,
-  });
-  game.settings.register(M, 'deathMarkerIcon', {
-    name: L('deathMarkerIcon.name'), hint: L('deathMarkerIcon.hint'),
-    scope: 'world', config: false, type: String, default: 'icons/commodities/bones/skull-hollow-worn-blue.webp',
-    requiresReload: true,
-  });
-  Hooks.once('ready', async () => {
-    if (!game.users.activeGM?.isSelf) return;
-    const oldEnabled = game.settings.get(M, 'skullEnabled');
-    const oldIcon    = game.settings.get(M, 'skullIcon');
-    if (oldEnabled) {
-      await game.settings.set(M, 'deathMarkerEnabled', true);
-      await game.settings.set(M, 'skullEnabled', false);
-    }
-    if (oldIcon) {
-      await game.settings.set(M, 'deathMarkerIcon', oldIcon);
-      await game.settings.set(M, 'skullIcon', '');
-    }
   });
 
   game.settings.registerMenu(M, 'squadToolsSettings', {
@@ -900,10 +794,6 @@ export const registerSettings = () => {
     name: L('enforceAbilityRange.name'), hint: L('enforceAbilityRange.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
-  game.settings.register(M, 'suppressTrackerAutoDefeat', {
-    name: L('suppressTrackerAutoDefeat.name'), hint: L('suppressTrackerAutoDefeat.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
-  });
   game.settings.register(M, 'gmBypassRangeEnforcement', {
     name: L('gmBypassRangeEnforcement.name'), hint: L('gmBypassRangeEnforcement.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
@@ -983,45 +873,5 @@ export const registerSettings = () => {
     name: L('distributeEnhanced.name'), label: L('distributeEnhanced.label'),
     hint: L('distributeEnhanced.hint'),
     icon: 'fas fa-book-sparkles', type: EnhancedAbilitiesMenu, restricted: true,
-  });
-};
-
-const _DSCT = 'draw-steel-combat-tools';
-const _DSCT_KEY = 'overrideMinionDefeat';
-const _DSCT_CT = 'draw-steel-target-damage';
-const _DSCT_CT_KEY = 'minionDamageAutomation';
-
-const _minionDeathConflict = async () => {
-  if (!game.users.activeGM?.isSelf) return;
-  if (!game.modules.get(_DSCT_CT)?.active) return;
-  if (!game.settings.get(_DSCT, 'deathTrackerEnabled')) return;
-  if (!game.settings.get(_DSCT, _DSCT_KEY)) return;
-  let theirValue;
-  try { theirValue = game.settings.get(_DSCT_CT, _DSCT_CT_KEY); } catch { return; }
-  if (!theirValue) return;
-
-  await game.settings.set(_DSCT_CT, _DSCT_CT_KEY, false);
-
-  const cb = document.querySelector(`[name="${_DSCT_CT}.${_DSCT_CT_KEY}"]`);
-  if (cb) cb.checked = false;
-  ui.notifications.warn(game.i18n.localize('DSCT.notice.conflict.minionDeath'));
-  foundry.applications.settings.SettingsConfig.reloadConfirm({ world: true });
-};
-
-export const registerCompatibilityChecks = () => {
-  Hooks.once('ready', () => {
-    _minionDeathConflict();
-  });
-  Hooks.on('updateSetting', (setting) => {
-    if (setting.key === `${_DSCT_CT}.${_DSCT_CT_KEY}`) {
-      if (!setting.value) return;
-      _minionDeathConflict();
-    }
-    if (setting.key === `${_DSCT}.${_DSCT_KEY}` && setting.value) {
-      _minionDeathConflict();
-    }
-    if (setting.key === `${_DSCT}.deathTrackerEnabled` && setting.value) {
-      _minionDeathConflict();
-    }
   });
 };

@@ -1,10 +1,9 @@
 import { ImNoThreatSettingsMenu } from '../ability-automation/ability-automation.mjs';
 import { WallBuilderSettingsMenu } from '../forced-movement/wall-builder.mjs';
-import { getSetting, STEALTH_WORKFLOW_READY } from '../helpers.mjs';
+import { STEALTH_WORKFLOW_READY } from '../helpers.mjs';
 import { SettingsSubmenu as LibSettingsSubmenu } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
-
 export class SettingsSubmenu extends LibSettingsSubmenu {
   static get moduleId()         { return M; }
   static get choiceHintPrefix() { return 'DSCT.setting'; }
@@ -211,80 +210,6 @@ export class StealthSettingsMenu extends SettingsSubmenu {
       'coverBaneEnabled',
       'lowCoverEnabled',
     ];
-  }
-}
-
-export class DeathTrackerSettingsMenu extends SettingsSubmenu {
-  static DEFAULT_OPTIONS = {
-    id:     'dsct-death-tracker-settings',
-    window: { title: 'DSCT.panel.title.DeathTrackerSettings' },
-  };
-
-  static get enableKey()   { return 'deathTrackerEnabled'; }
-
-  static get regularKeys() {
-    return [
-      'deathTrackerEnabled',
-      'overrideMinionDefeat',
-      'autoAssignDamagedMinion',
-      'pickDeathsEnabled',
-      'deathPickerDimAll',
-      'gmControlsAllDeathPickers',
-      'cedeDeathPickerToGM',
-      'deathAnimationDuration',
-      'batchAnimationSafety',
-      'deathMarkerEnabled',
-      'deathMarkerIcon',
-      'clearSkullsOnCombatEnd',
-      'clearEffectsOnRevive',
-      'cleanOrphanedCombatants',
-      'playerCanUndoCausedDeaths',
-    ];
-  }
-
-  static get debugKeys() {
-    return ['deathTrackerManualMode'];
-  }
-
-  _buildEntry(key) {
-    if (key === 'cedeDeathPickerToGM' && game.user.isGM) return null;
-    if (key === 'cedeDeathPickerToGM' && getSetting('gmControlsAllDeathPickers')) return null;
-    const entry = super._buildEntry(key);
-    if (entry && key === 'deathMarkerIcon') entry.isFilePicker = true;
-    return entry;
-  }
-
-  _onRender(context, options) {
-    super._onRender(context, options);
-    const el = this.element;
-
-    const skullToggle   = el.querySelector('[name="deathMarkerEnabled"]');
-    const iconGroup     = el.querySelector('[name="deathMarkerIcon"]')?.closest('.form-group');
-    const dtEnableInput = el.querySelector(`[name="${this.constructor.enableKey}"]`);
-    if (skullToggle && iconGroup) {
-      const sync = () => {
-        const on = (dtEnableInput?.checked ?? true) && skullToggle.checked;
-        iconGroup.classList.toggle('dsct-sub-disabled', !on);
-        iconGroup.querySelectorAll('input, button').forEach(i => { i.disabled = !on; });
-      };
-      skullToggle.addEventListener('change', sync);
-      dtEnableInput?.addEventListener('change', sync);
-      sync();
-    }
-
-    const overrideToggle = el.querySelector('[name="overrideMinionDefeat"]');
-    const autoAssignGroup = el.querySelector('[name="autoAssignDamagedMinion"]')?.closest('.form-group');
-    if (overrideToggle && autoAssignGroup) {
-      const sync = () => {
-        const on = (dtEnableInput?.checked ?? true) && overrideToggle.checked;
-        autoAssignGroup.classList.toggle('dsct-sub-disabled', !on);
-        autoAssignGroup.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
-      };
-      overrideToggle.addEventListener('change', sync);
-      dtEnableInput?.addEventListener('change', sync);
-      sync();
-    }
-
   }
 }
 
@@ -642,11 +567,6 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
     if (autoEntries.length) {
       keys.push(header('Automatic Integrations'));
       keys.push(...autoEntries);
-    }
-
-    if (debugMode || isActive('draw-steel-combat-tracker')) {
-      keys.push(header('Draw Steel Combat Tracker'));
-      keys.push('suppressTrackerAutoDefeat');
     }
 
     return keys;

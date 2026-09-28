@@ -352,6 +352,6 @@ export const applyRollMod = (el, baneData, delta) => {
   abilityRoll.dataset.dsctBaneApplied = 'true';
 };
 
-for (const key of ['enforceAbilityRange', 'gmBypassRangeEnforcement', 'loeCornerMode', 'trueDrawSteelLos', 'stealthSystemEnabled', 'materialRules', 'wallRestrictions', 'customMaterials', 'debugMode', 'cancelOnRightClick']) {
+for (const key of ['enforceAbilityRange', 'gmBypassRangeEnforcement', 'loeCornerMode', 'trueDrawSteelLos', 'stealthSystemEnabled', 'materialRules', 'wallRestrictions', 'customMaterials', 'debugMode', 'cancelOnRightClick', 'autoConfirmSelection']) {
   config.provide(key, () => getSetting(key));
 }
