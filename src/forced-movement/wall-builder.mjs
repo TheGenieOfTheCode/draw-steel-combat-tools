@@ -1022,7 +1022,8 @@ export const registerWallDoorHooks = () => {
   const M = 'draw-steel-combat-tools';
   Hooks.on('updateWall', async (wallDoc, changes) => {
     if (!game.users.activeGM?.isSelf) return;
-    const tagChange = foundry.utils.getProperty(changes, `flags.${M}.tags`)
+    const tagChange = foundry.utils.getProperty(changes, 'flags.draw-steel-ctlib.tags')
+                   ?? foundry.utils.getProperty(changes, `flags.${M}.tags`)
                    ?? foundry.utils.getProperty(changes, 'flags.tagger.tags');
     if (!tagChange) return;
 

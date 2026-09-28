@@ -1,8 +1,7 @@
 import { registerEffectFlag } from '../effect-flag-picker.mjs';
 import { armCoverImmunity, disarmCoverImmunity, getSetting } from '../helpers.mjs';
 
-const M = 'draw-steel-combat-tools';
-const FLAG_ROOT = `flags.${M}.loe`;
+const FLAG_ROOT = 'flags.draw-steel-ctlib.loe';
 
 export function registerLineOfEffectFlags() {
   const def = (name, extra = {}) => ({

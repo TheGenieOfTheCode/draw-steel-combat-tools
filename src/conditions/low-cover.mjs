@@ -1,6 +1,6 @@
 import { getSetting, wallGrantsCover, tokenCoverMode } from '../helpers.mjs';
 
-const M = 'draw-steel-combat-tools';
+const CTLIB = 'draw-steel-ctlib';
 
 const L = (k) => game.i18n.localize(`DSCT.lowCover.${k}`);
 
@@ -29,7 +29,7 @@ function _injectWallField(app, html) {
   group.innerHTML = `
     <label>${L('wall.label')}</label>
     <div class="form-fields">
-      <input type="checkbox" name="flags.${M}.lowCover"${on ? ' checked' : ''}>
+      <input type="checkbox" name="flags.${CTLIB}.lowCover"${on ? ' checked' : ''}>
     </div>
     <p class="hint">${L('wall.hint')}</p>`;
 
@@ -67,7 +67,7 @@ function _registerWallTool(controls) {
     if (name === LOW_COVER_TOOL) continue;
     const data = _safeCreateData(tool);
     if (!data) continue;
-    foundry.utils.setProperty(data, `flags.${M}.lowCover`, false);
+    foundry.utils.setProperty(data, `flags.${CTLIB}.lowCover`, false);
   }
 
   const s = CONST.EDGE_SENSE_TYPES ?? CONST.WALL_SENSE_TYPES;
@@ -82,7 +82,7 @@ function _registerWallTool(controls) {
       return foundry.utils.mergeObject(foundry.utils.deepClone(_safeCreateData(solid) ?? {}), {
         light: s.NONE, sight: s.NONE, sound: s.NONE, move: s.NONE,
         flags: {
-          [M]: { lowCover: true },
+          [CTLIB]: { lowCover: true },
           'draw-steel': { blocksLineOfEffect: false },
         },
       }, { inplace: false });
@@ -123,7 +123,7 @@ function _injectActorField(app, html) {
   host.appendChild(group);
 
   group.querySelector('.dsct-cover-select')?.addEventListener('change', (event) => {
-    actor.setFlag(M, 'cover', event.currentTarget.value)
+    actor.setFlag(CTLIB, 'cover', event.currentTarget.value)
       .catch(err => console.warn('DSCT | low cover |', err));
   });
 }

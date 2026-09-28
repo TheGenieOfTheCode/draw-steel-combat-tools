@@ -3,7 +3,7 @@ import { runColoredTokenPicker, _getValidTargets } from './ability-automation/ta
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
-import { STEALTH_WORKFLOW_READY, applyFall, getSetting, initPalette, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys, asStaminaLoss} from './helpers.mjs';
+import { STEALTH_WORKFLOW_READY, applyFall, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys, asStaminaLoss} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { services, registerStatusGroup } from './ctlib.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
@@ -159,9 +159,6 @@ Object.defineProperties(api, {
 
 Hooks.once('init', () => {
   game.modules.get('draw-steel-combat-tools').api = api;
-
-  initPalette();
-  new MutationObserver(initPalette).observe(document.body, { attributeFilter: ['class'] });
 
   registerSettings();
   registerChatHooks();
