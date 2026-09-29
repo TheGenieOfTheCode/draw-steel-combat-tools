@@ -589,7 +589,7 @@ function _installSquadSections(panel, message) {
   const list = panel.querySelector(`.${DSTD}-target-list`);
   if (!list) return;
 
-  if (!getSetting('dstdSquadSections')) {
+  if (!getSetting('squadToolsEnabled') || !getSetting('dstdSquadSections')) {
     _unwrapSquadSections(list);
     delete list.dataset.dsctSquadSig;
     return;

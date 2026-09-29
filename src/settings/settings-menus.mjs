@@ -605,6 +605,10 @@ export class SquadToolsSettingsMenu extends SettingsSubmenu {
 
   static get enableKey()   { return 'squadToolsEnabled'; }
 
+  static get dependencies() {
+    return { dstdSquadSectionsOpen: 'dstdSquadSections' };
+  }
+
   static get regularKeys() {
     return [
       'squadToolsEnabled',
@@ -625,6 +629,9 @@ export class SquadToolsSettingsMenu extends SettingsSubmenu {
       'squadHudEnabled',
       'squadHudScale',
       'squadHudPlayerVisibility',
+      header('Damage Panels'),
+      'dstdSquadSections',
+      'dstdSquadSectionsOpen',
     ];
   }
 
