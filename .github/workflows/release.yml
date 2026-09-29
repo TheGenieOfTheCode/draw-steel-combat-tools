@@ -10,8 +10,6 @@ permissions:
 
 env:
   MODULE_ID: draw-steel-combat-tools
-  FVTT_MINIMUM: "13"
-  FVTT_VERIFIED: "14"
 
 jobs:
   release:
@@ -53,6 +51,12 @@ jobs:
           generateReleaseNotes: true
           allowUpdates: true
 
+      - name: Read core compatibility
+        id: compat
+        run: |
+          echo "minimum=$(jq -r '.compatibility.minimum' module.json)" >> "$GITHUB_OUTPUT"
+          echo "verified=$(jq -r '.compatibility.verified' module.json)" >> "$GITHUB_OUTPUT"
+
       - name: Notify Foundry Package Release API
         run: |
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
@@ -66,8 +70,8 @@ jobs:
                 "manifest": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/module.json",
                 "notes": "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}",
                 "compatibility": {
-                  "minimum": "${{ env.FVTT_MINIMUM }}",
-                  "verified": "${{ env.FVTT_VERIFIED }}"
+                  "minimum": "${{ steps.compat.outputs.minimum }}",
+                  "verified": "${{ steps.compat.outputs.verified }}"
                 }
               }
             }')
