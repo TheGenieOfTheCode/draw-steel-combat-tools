@@ -20,21 +20,21 @@
       { "id": "draw-steel-ctlib", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-ctlib/releases/latest/download/module.json", "compatibility": {} }
     ],
     "recommends": [
-      { "id": "draw-steel-death-tracker", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-death-tracker/releases/latest/download/module.json", "reason": "[Combat Tools] Deaths, squads and revives." },
-      { "id": "draw-steel-battle-log", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-battle-log/releases/latest/download/module.json", "reason": "[Combat Tools] Turn markers and chat polish." },
-      { "id": "tagger", "type": "module", "reason": "[Compatible] Tags the walls it builds." },
-      { "id": "ds-terrain-designer", "type": "module", "reason": "[Compatible] Slopes, heights and edges." },
-      { "id": "ds-token-override", "type": "module", "reason": "[Compatible] Squad Stamina bars." },
-      { "id": "draw-steel-combat-tracker", "type": "module", "reason": "[Compatible] Squad turns." },
-      { "id": "draw-steel-ability-hud", "type": "module", "reason": "[Compatible] Triggered action button." },
-      { "id": "healthEstimate", "type": "module", "reason": "[Compatible] Minion health in squads." },
-      { "id": "draw-steel-encounter-builder", "type": "module", "reason": "[Recommended] Build encounters to budget." },
-      { "id": "draw-steel-resources-ui", "type": "module", "reason": "[Recommended] Resources in one place." },
-      { "id": "ds-tokens-max-hamm", "type": "module", "reason": "[Recommended] Hand drawn monster tokens." },
-      { "id": "draw-steel-hideout", "type": "module", "reason": "[Recommended] Downtime and projects." },
-      { "id": "z-scatter", "type": "module", "reason": "[Recommended] Creatures sharing a space." },
-      { "id": "visual-active-effects", "type": "module", "reason": "[Recommended] Readable conditions and effects." },
-      { "id": "smarttarget", "type": "module", "reason": "[Recommended] Keyboard targeting." }
+      { "id": "draw-steel-death-tracker", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-death-tracker/releases/latest/download/module.json", "reason": "[Combat Tools] Keeps track of who falls: deaths announced in chat with an undo, the right minions taken from a squad, and the fallen left where they fell." },
+      { "id": "draw-steel-battle-log", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-battle-log/releases/latest/download/module.json", "reason": "[Combat Tools] Draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat cards match the dark theme." },
+      { "id": "tagger", "type": "module", "reason": "[Compatible] Wall Builder tags the walls it makes through Tagger." },
+      { "id": "ds-terrain-designer", "type": "module", "reason": "[Compatible] Forced movement follows the terrain’s slopes and heights, and High Ground uses its edges." },
+      { "id": "ds-token-override", "type": "module", "reason": "[Compatible] A squad’s Stamina bar follows its Squad Threshold Marks setting, and doubled up health labels are hidden." },
+      { "id": "draw-steel-combat-tracker", "type": "module", "reason": "[Compatible] Every minion of a squad shows as able to act during the squad’s turn." },
+      { "id": "draw-steel-ability-hud", "type": "module", "reason": "[Compatible] The HUD’s triggered action button follows the tracker here, for everyone at the table." },
+      { "id": "healthEstimate", "type": "module", "reason": "[Compatible] What it shows for a minion in a squad follows the Minion Health Estimate Display setting." },
+      { "id": "draw-steel-encounter-builder", "type": "module", "reason": "[Recommended] Easily build Draw Steel encounters to budget." },
+      { "id": "draw-steel-resources-ui", "type": "module", "reason": "[Recommended] Puts all of the resource gain and spend in one place!" },
+      { "id": "ds-tokens-max-hamm", "type": "module", "reason": "[Recommended] Hand drawn token art for Draw Steel monsters by Max Hamm" },
+      { "id": "draw-steel-hideout", "type": "module", "reason": "[Recommended] Makes it easier to run Downtime and keep track of projects." },
+      { "id": "z-scatter", "type": "module", "reason": "[Recommended] Helpful for features where creatures share a space." },
+      { "id": "visual-active-effects", "type": "module", "reason": "[Recommended] Makes conditions and effects easier to read and toggle." },
+      { "id": "smarttarget", "type": "module", "reason": "[Recommended] Targeting by keyboard, an alternative to the Combat Tools pickers." }
     ],
     "conflicts": [
       { "id": "draw-steel-plus", "type": "module", "reason": "It should work, and does today, but newer features here are not fitted to its restyled sheets and messages, and keeping up with it is not planned." }
