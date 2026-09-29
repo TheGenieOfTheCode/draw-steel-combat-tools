@@ -58,11 +58,13 @@ jobs:
           echo "verified=$(jq -r '.compatibility.verified' module.json)" >> "$GITHUB_OUTPUT"
 
       - name: Notify Foundry Package Release API
+        env:
+          FOUNDRY_TOKEN: ${{ secrets.FOUNDRY_DRAW_STEEL_COMBAT_TOOLS_RELEASE_TOKEN }}
         run: |
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
             "https://foundryvtt.com/_api/packages/release_version/" \
             -H "Content-Type: application/json" \
-            -H "Authorization: ${{ secrets.FOUNDRY_DRAW_STEEL_COMBAT_TOOLS_RELEASE_TOKEN }}" \
+            -H "Authorization: $FOUNDRY_TOKEN" \
             -d '{
               "id": "${{ env.MODULE_ID }}",
               "release": {
