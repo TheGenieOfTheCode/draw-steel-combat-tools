@@ -11,7 +11,7 @@ const _baked = new Map();
 const _live = (obj) => !!obj && obj.destroyed !== true;
 
 const _rebuild = () => {
-  _combatants = new Set((game.combat?.combatants ?? []).map(c => c.tokenId).filter(Boolean));
+  _combatants = new Set((game.combat?.combatants ?? []).filter(c => !c.isDefeated).map(c => c.tokenId).filter(Boolean));
 };
 
 const _forced = (token) => {

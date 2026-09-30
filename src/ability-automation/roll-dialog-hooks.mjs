@@ -148,7 +148,7 @@ function _buildTargetPills(app, tokenId) {
     const srcCombatant = game.combat?.combatants.find(c => c.tokenId === casterToken.id);
     const srcGroup = srcCombatant && game.combat?.groups?.contents.find(g => [...g.members].some(c => c.id === srcCombatant.id));
     squadMembers = srcGroup
-      ? [...srcGroup.members].filter(c => c.actor?.system?.isMinion).map(c => canvas.tokens.placeables.find(t => t.id === c.tokenId)).filter(Boolean)
+      ? [...srcGroup.members].filter(c => c.actor?.system?.isMinion && !c.isDefeated).map(c => canvas.tokens.placeables.find(t => t.id === c.tokenId)).filter(Boolean)
       : [casterToken];
   } else {
     squadMembers = casterToken ? [casterToken] : [];

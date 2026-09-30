@@ -90,7 +90,7 @@ function _squadTargeted(ability) {
   const group = self.document.combatant?.group;
   const isMinion = (actor) => actor?.system?.isMinion ?? actor?.system?.monster?.organization === 'minion';
   const minions = group
-    ? [...group.members].filter(m => m.actor && m.actor !== self.actor && isMinion(m.actor)).map(m => canvas.tokens.get(m.tokenId)).filter(Boolean)
+    ? [...group.members].filter(m => m.actor && m.actor !== self.actor && !m.isDefeated && isMinion(m.actor)).map(m => canvas.tokens.get(m.tokenId)).filter(Boolean)
     : [];
   _dsctPreTargeted.add(ability.uuid);
   setFoundryTargets([self, ...minions]);

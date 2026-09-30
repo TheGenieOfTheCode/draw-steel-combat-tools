@@ -75,7 +75,7 @@ function _getSquadMinions(actor) {
   );
   if (!group) return [];
   return [...group.members]
-    .filter(c => c.actor?.system?.isMinion)
+    .filter(c => c.actor?.system?.isMinion && !c.isDefeated)
     .map(c => canvas.tokens.placeables.find(t => t.id === c.tokenId))
     .filter(Boolean);
 }

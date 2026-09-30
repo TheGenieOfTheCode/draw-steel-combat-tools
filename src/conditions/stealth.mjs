@@ -230,6 +230,7 @@ export function enemyCombatants(token) {
   const side = token.document.disposition;
   const out = [];
   for (const combatant of game.combat.combatants) {
+    if (combatant.isDefeated) continue;
     const other = combatant.token?.object;
     if (!other || other.id === token.id) continue;
     if (other.document.disposition === side) continue;
