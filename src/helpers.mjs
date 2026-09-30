@@ -62,7 +62,7 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   const prevTemp    = actor.system.stamina.temporary;
   const squadGroup  = squadGroupOverride !== undefined ? squadGroupOverride : getSquadGroup(actor);
   const prevSquadHP = squadGroup?.system?.staminaValue ?? null;
-  const members = squadGroup ? Array.from(squadGroup.members || []).filter(m => m) : [];
+  const members = squadGroup ? Array.from(squadGroup.members || []).filter(m => m && !m.isDefeated) : [];
   const squadCombatantIds = members.map(m => m.id);
   const squadTokenIds     = members.map(m => m.tokenId).filter(Boolean);
   if (squadGroup && actor.isToken && actor.token?.id) {

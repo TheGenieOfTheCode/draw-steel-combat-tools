@@ -2038,6 +2038,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             const blockerSquadGroup = getSquadGroup(blocker.actor);
             const sharedGroup = movedSquadGroup && blockerSquadGroup && movedSquadGroup.id === blockerSquadGroup.id ? movedSquadGroup : null;
             const prevSharedHP = sharedGroup?.system?.staminaValue ?? null;
+            const sharedLiving = Array.from(sharedGroup?.members || []).filter(m => m && !m.isDefeated);
             const blockerDmg  = (juggernaut && blocker.actor.system.isMinion) ? (blocker.actor.system.stamina.max ?? 99999) : dmg;
             
             if (sharedGroup && !(noObstacleDmg && !juggernaut)) {
@@ -2048,7 +2049,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
             }
             const blockerPrev = (noObstacleDmg && !juggernaut) ? null : await applyDamage(blocker.actor, blockerDmg, sharedGroup ? null : blockerSquadGroup);
             if (blockerPrev && sharedGroup && prevSharedHP !== null) {
-              const sharedMembers = Array.from(sharedGroup.members || []).filter(m => m);
+              const sharedMembers = sharedLiving;
               blockerPrev.squadGroup        = sharedGroup;
               blockerPrev.squadCombatantIds = sharedMembers.map(m => m.id);
               blockerPrev.squadTokenIds     = sharedMembers.map(m => m.tokenId).filter(Boolean);
@@ -2297,6 +2298,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const sharedGroup       = movedSquadGroup && blockerSquadGroup &&
           movedSquadGroup.id === blockerSquadGroup.id ? movedSquadGroup : null;
         const prevSharedHP      = sharedGroup?.system?.staminaValue ?? null;
+        const sharedLiving      = Array.from(sharedGroup?.members || []).filter(m => m && !m.isDefeated);
 
         const creatureDmg = juggernaut ? ((blocker.actor.system.isMinion) ? (blocker.actor.system.stamina.max ?? 99999) : 99999) : remaining + bonusCreatureDmg;
         await dmgTarget(juggernaut ? 0 : creatureDmg);
@@ -2310,7 +2312,7 @@ const _runForcedMovement = async (type, distance, targetToken, sourceToken, bonu
         const blockerPrev = (noObstacleDmg && !juggernaut) ? null : await applyDamage(blocker.actor, creatureDmg, sharedGroup ? null : blockerSquadGroup);
 
         if (blockerPrev && sharedGroup && prevSharedHP !== null) {
-          const sharedMembers = Array.from(sharedGroup.members || []).filter(m => m);
+          const sharedMembers = sharedLiving;
           blockerPrev.squadGroup        = sharedGroup;
           blockerPrev.prevSquadHP       = prevSharedHP;
           blockerPrev.squadCombatantIds = sharedMembers.map(m => m.id);

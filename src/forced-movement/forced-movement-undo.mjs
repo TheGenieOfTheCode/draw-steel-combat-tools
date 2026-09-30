@@ -95,7 +95,9 @@ const handleStaminaRevival = async (undoLog) => {
     if (game.combat) {
       const savedGroupId = services.get('deathSavedSquad')?.(tokenDoc);
       if (combatantDefeated) {
-        await safeUpdate(existingCombatant, { defeated: false });
+        const reviveCombatant = services.get('reviveCombatant');
+        if (reviveCombatant) await reviveCombatant(existingCombatant);
+        else await safeUpdate(existingCombatant, { defeated: false });
         if (savedGroupId) await services.get('forgetDeathSavedSquad')?.(tokenDoc);
       } else if (!existingCombatant) {
         if (savedGroupId) {
