@@ -91,6 +91,7 @@ export const applyTriggeredActions = async (mode = null, silent = false) => {
   }
 
   for (const combatant of game.combat.combatants.contents) {
+    if (combatant.isDefeated) continue;
     const actor = getActorFromCombatant(combatant);
     if (!actor) continue;
 
@@ -132,6 +133,19 @@ export const registerTriggeredActionHooks = () => {
     await enableEffect(actor);
   });
 
+  Hooks.on('updateCombatant', async (combatant, changes) => {
+    if (changes.defeated !== false) return;
+    if (!getSetting('autoTriggeredActionsEnabled')) return;
+    if (!game.users.activeGM?.isSelf) return;
+    const combat = combatant.parent;
+    if (!combat?.started || !combat.active || _combatEnding.has(combat.id)) return;
+    const actor = getActorFromCombatant(combatant);
+    if (!actor) return;
+    const targetedIds = new Set([...game.user.targets].map(t => t.actor?.id).filter(Boolean));
+    if (!shouldApply(actor, getSetting('autoTriggeredActionsTarget'), targetedIds)) return;
+    await enableEffect(actor);
+  });
+
   Hooks.on('updateCombat', async (combat, changes) => {
     if (!game.users.activeGM?.isSelf) return;
     if (changes.round === undefined) return;
@@ -139,6 +153,7 @@ export const registerTriggeredActionHooks = () => {
 
     for (const combatant of combat.combatants.contents) {
       if (_combatEnding.has(combat.id)) return;
+      if (combatant.isDefeated) continue;
       const actor = getActorFromCombatant(combatant);
       if (!actor) continue;
 
