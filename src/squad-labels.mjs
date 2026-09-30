@@ -71,6 +71,7 @@ export const applySquadLabels = async () => {
     const captainId  = group.system?.captainId;
     const liveMinions = combatants.filter(c => c.actor?.system?.isMinion && !c.defeated);
     for (const combatant of combatants) {
+      if (combatant.isDefeated) continue;
       const actor = allTokens.find(t => t.id === combatant.tokenId)?.actor;
       if (!actor) continue;
       const isCaptain = combatant.id === captainId && liveMinions.length > 0;

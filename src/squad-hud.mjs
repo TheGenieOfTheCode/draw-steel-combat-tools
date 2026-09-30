@@ -46,7 +46,8 @@ export const captainCandidates = (groupId) => {
 
 export const hasLiveCaptain = (groupId) => {
   const id = game.combat?.groups?.get(groupId)?.system?.captainId;
-  return !!id && !!game.combat?.combatants?.get(id);
+  const captain = id ? game.combat?.combatants?.get(id) : null;
+  return !!captain && !captain.isDefeated;
 };
 
 export const reassignSquadCaptain = async (groupId) => {
@@ -110,7 +111,7 @@ function _squadDataList() {
     if (group.type !== 'squad') continue;
     const allMinions = [...group.members].filter(c => c.actor?.system?.isMinion);
     if (!allMinions.length) continue;
-    const living = allMinions.filter(c => !c.defeated);
+    const living = allMinions.filter(c => !c.isDefeated);
     if (!living.length) continue;
     const tokens = living
       .map(c => canvas.tokens.placeables.find(t => t.id === c.tokenId))
@@ -119,19 +120,22 @@ function _squadDataList() {
 
     const captainId        = group.system?.captainId;
     const captainCombatant = captainId ? game.combat.combatants.get(captainId) : null;
-    const captainToken     = (captainCombatant && !captainCombatant.defeated)
+    const captainToken     = (captainCombatant && !captainCombatant.isDefeated)
       ? (canvas.tokens.placeables.find(t => t.id === captainCombatant.tokenId) ?? null)
       : null;
 
     const num      = parseInt(group.name.match(/^Group (\d+)/i)?.[1]) || 1;
     const indivMax = living[0]?.actor?.system?.stamina?.max ?? 0;
-    const maxHP    = allMinions.length * indivMax;
-    const currHP   = group.system?.staminaValue ?? (living.length * indivMax);
+    const maxHP    = living.length * indivMax;
+    const currHP   = group.system?.staminaValue ?? maxHP;
+    
+    const dead     = (services.get('isHidingDefeated')?.() ?? false) ? 0 : allMinions.length - living.length;
 
     out.push({
       groupId: group.id,
       name:    group.name,
-      total:   allMinions.length,
+      total:   living.length,
+      dead,
       living:  living.length,
       currHP,
       maxHP,
@@ -360,13 +364,30 @@ function _buildContainer(data, entry, vis = 'all') {
   const barGfx   = new PIXI.Graphics();
   const nativeW  = repToken?.w ?? canvas.grid.size;
   const nativeH  = 8 * (canvas.dimensions?.uiScale ?? 1) * ((repToken?.document?.height ?? 1) >= 2 ? 1.5 : 1);
-  barGfx.scale.set(barW / nativeW, barH / nativeH);
+  const dead     = data.dead ?? 0;
+  const livingW  = barW * total / (total + dead);
+  barGfx.scale.set(livingW / nativeW, barH / nativeH);
   _drawBarGfx(barGfx, repToken, currHP, maxHP, total, nativeW, nativeH);
   barGfx.x = pad;
   barGfx.y = barY;
   c.addChild(barGfx);
 
-  const hpStr = maxHP > 0 ? `${currHP} / ${maxHP}` : `${living} / ${total}`;
+  if (dead > 0) {
+    const deadGfx = new PIXI.Graphics();
+    const segW    = (barW - livingW) / dead;
+    deadGfx.lineStyle(1, 0x000000, 1);
+    deadGfx.beginFill(0x3a3a3a, 0.9).drawRoundedRect(0, 0, barW - livingW, barH, Math.round(2 * f));
+    deadGfx.endFill();
+    for (let i = 0; i < dead; i++) {
+      deadGfx.moveTo(segW * i, 0);
+      deadGfx.lineTo(segW * i, barH);
+    }
+    deadGfx.x = pad + livingW;
+    deadGfx.y = barY;
+    c.addChild(deadGfx);
+  }
+
+  const hpStr = maxHP > 0 ? `${currHP} / ${maxHP}` : `${living} / ${total + dead}`;
   const hpTx  = _txt(hpStr, { fontSize: Math.round(10 * f), fill: 0xdddddd });
   hpTx.x = Math.round(hudW / 2 - hpTx.width / 2);
   hpTx.y = barY + barH + 4;
@@ -983,6 +1004,9 @@ export function registerSquadHudHooks() {
   Hooks.on('deleteCombatant',      _rebuild);
   Hooks.on('createCombatant',      _rebuild);
   Hooks.on('deleteCombatantGroup', _rebuild);
+  Hooks.on('updateUser', (user, changes) => {
+    if (user.isSelf && changes.flags?.['draw-steel-death-tracker'] && 'hideDefeated' in changes.flags['draw-steel-death-tracker']) _rebuild();
+  });
   Hooks.on('createCombat',         _rebuild);
   Hooks.on('deleteCombat',         _rebuild);
 
