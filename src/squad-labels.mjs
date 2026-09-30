@@ -209,7 +209,6 @@ const updateWithCaptainEffects = async () => {
 const _deathTrackerAnnounces = () => services.get('deathTrackerActive')?.() ?? false;
 
 let _relabelTimer = null;
-let _suppressGroupDeleteRelabel = false;
 let _suppressCaptainRelabel = false;
 const _captainFellSent = new Set();
 
@@ -228,12 +227,7 @@ export const assignSquadCaptain = async (chosenToken, group, combat = game.comba
   }
 
   if (oldGroup && [...oldGroup.members].length === 0) {
-    _suppressGroupDeleteRelabel = true;
-    try {
-      await combat.deleteEmbeddedDocuments('CombatantGroup', [oldGroup.id]);
-    } finally {
-      _suppressGroupDeleteRelabel = false;
-    }
+    await combat.deleteEmbeddedDocuments('CombatantGroup', [oldGroup.id]);
     await autoRenameGroups();
   }
 
@@ -442,19 +436,6 @@ export const registerSquadLabelHooks = () => {
   });
 
   
-  Hooks.on('deleteCombatantGroup', async () => {
-    if (_suppressGroupDeleteRelabel) return;
-    if (!getSetting('autoSquadLabelsEnabled') || !getSetting('squadLabelAutoRelabel')) return;
-    if (!game.users.activeGM?.isSelf || !game.combat || !_labelsApplied()) return;
-
-    const namedGroups = (game.combat.groups?.contents ?? []).filter(g => /^Group \d+$/i.test(g.name));
-    const nums = namedGroups.map(g => parseInt(g.name.match(/^Group (\d+)$/i)?.[1])).sort((a, b) => a - b);
-    if (!nums.length || nums.every((n, i) => n === i + 1)) return;
-
-    await autoRenameGroups();
-    if (getSetting('squadLabelApplyEffects')) await applySquadLabels();
-  });
-
   Hooks.on('updateCombatant', async (combatant, changes) => {
     if (!getSetting('autoSquadLabelsEnabled') || !changes.defeated) return;
     if (!game.users.activeGM?.isSelf) return;
@@ -484,7 +465,11 @@ export const registerSquadLabelHooks = () => {
           name: combatant.actor?.name ?? combatant.name, group: group.name,
         }) });
       }
-      await updateWithCaptainEffects();
+      if (getSetting('squadLabelAutoRelabel') && group.system?.captainId === combatant.id) {
+        await group.update({ 'system.captainId': null });
+      } else {
+        await updateWithCaptainEffects();
+      }
     }
   });
 
@@ -521,11 +506,11 @@ export const registerSquadLabelHooks = () => {
   });
 
   Hooks.on('updateCombatantGroup', async (group, changes) => {
-    if (!getSetting('autoSquadLabelsEnabled') || !getSetting('squadLabelAutoRelabel')) return;
-    if (!game.users.activeGM?.isSelf || !game.combat || !_labelsApplied()) return;
+    if (!getSetting('autoSquadLabelsEnabled')) return;
+    if (!game.users.activeGM?.isSelf || !game.combat) return;
     if (changes.system?.captainId === undefined) return;
     if (_suppressCaptainRelabel) return;
-    if (getSetting('squadLabelApplyEffects')) await applySquadLabels();
+    if (getSetting('squadLabelApplyEffects') && _labelsApplied()) await applySquadLabels();
     await updateWithCaptainEffects();
   });
 

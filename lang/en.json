@@ -236,8 +236,8 @@
         "hint": "Put the labels on the tokens for you. With this off, squads are still renamed at the start of combat and the Squad Labels macro adds the labels when you want them."
       },
       "squadLabelAutoRelabel": {
-        "name": "Renumber After Losses",
-        "hint": "When a squad is gone, renumber the squads that are left so there are no gaps in the numbering, and free its captain of a squad they no longer have."
+        "name": "Free the Captain’s Seat",
+        "hint": "When a squad’s captain dies, the seat opens so the squad can take a new captain. A captain whose whole squad is gone is free to lead another."
       },
       "squadLabelCaptainNow": {
         "name": "I Am The Captain Now",
