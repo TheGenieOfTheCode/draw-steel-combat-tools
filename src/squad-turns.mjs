@@ -85,7 +85,7 @@ export async function fireEndTurn(member, combat, round) {
 }
 
 async function activateSquadMembers(group, combat, skipMember, { skipRegionEvents = false } = {}) {
-  const membersToActivate = [...group.members].filter(m => m !== skipMember && m.initiative > 0);
+  const membersToActivate = [...group.members].filter(m => m !== skipMember && m.initiative > 0 && !m.isDefeated);
   if (!membersToActivate.length) return;
   for (const member of membersToActivate) {
     await fireStartTurn(member, combat, { skipRegionEvents });
@@ -242,7 +242,7 @@ function _patchCombatDock() {
       if (group?.type !== 'squad' && !(group?.type === 'base' && group?.members?.size > 1)) continue;
       const groupCanAct = group.initiative > 0;
       for (const m of [entry.captainData, ...(entry.nonMinionMembers ?? []), ...(entry.minionGroups ?? []).flat()].filter(Boolean)) {
-        m.canAct = groupCanAct;
+        m.canAct = groupCanAct && !m.defeated;
       }
     }
     return entries;
@@ -368,6 +368,8 @@ export function registerSquadTurnHooks() {
     if (!('initiative' in changes)) return;
     if (options?._dsctSquadBatch) return;
     if (_squadBatchInProgress) return;
+    
+    if ('defeated' in changes || combatant.isDefeated) return;
 
     const group = getSquadGroup(combatant);
     if (!group || !(group.initiative > 0)) return;
@@ -400,6 +402,10 @@ export function registerSquadTurnHooks() {
     }
   });
 
+  Hooks.on('updateCombatant', (combatant, changes) => {
+    if ('defeated' in changes) combatant.token?.object?._refreshTurnMarker?.();
+  });
+
   Hooks.on('combatTurnChange', async (combat, previous, current) => {
     if (!getSetting('squadSimultaneousTurns')) return;
     if (!game.user.isGM) return;
@@ -419,7 +425,7 @@ export function registerSquadTurnHooks() {
       refreshSquadMarkers(curGroup, primaryToken);
       for (const member of curGroup.members) {
         if (member.id === cur?.id) continue;
-        if (!(member.initiative > 0)) continue;
+        if (!(member.initiative > 0) || member.isDefeated) continue;
         const tok = member.token;
         if (!tok) continue;
         const idx = combat.turns.findIndex(c => c === member);
@@ -438,6 +444,7 @@ export function registerSquadTurnHooks() {
     if (prevGroup && cur?.group?.id !== prev?.group?.id) {
       refreshSquadMarkers(prevGroup, null);
       for (const sibling of prevGroup.members) {
+        if (sibling.isDefeated) continue;
         await fireEndTurn(sibling, combat, previous.round);
       }
     }
@@ -482,7 +489,7 @@ export function registerSquadTurnHooks() {
       const myCombatant    = game.combat?.combatants?.find(c => c.tokenId === this.id);
       const activeGroupId  = window._dsctActiveSquadGroupId;
       const isNativeActive = !!myCombatant && myCombatant.id === game.combat?.combatant?.id;
-      const inActiveGroup  = !!activeGroupId && myCombatant?.group?.id === activeGroupId;
+      const inActiveGroup  = !!activeGroupId && myCombatant?.group?.id === activeGroupId && !myCombatant.isDefeated;
       const inActivePair   = !!myCombatant && !!window._dsctActivePairIds?.has?.(myCombatant.id);
       _mdbg('decide', this.name, 'native=', isNativeActive, 'group=', inActiveGroup, 'pair=', inActivePair,
         'activeGroup=', activeGroupId, 'pairLeader=', window._dsctActivePairLeaderId ?? null,
