@@ -42,7 +42,14 @@ export const autoRenameGroups = async () => {
   }
 };
 
-export const applySquadLabels = async () => {
+const _dropLabels = async (token, labels) => {
+  const ids = labels.map(e => e.id).filter(id => token.actor?.effects.has(id));
+  if (!ids.length) return;
+  if (token.actor.isOwner) await token.actor.deleteEmbeddedDocuments('ActiveEffect', ids);
+  else for (const id of ids) await safeDelete(token.actor.effects.get(id));
+};
+
+const _applySquadLabels = async () => {
   if (!game.combat) {
     ui.notifications.warn(game.i18n.localize('DSCT.notice.squads.noActiveCombat'));
     return;
@@ -90,7 +97,7 @@ export const applySquadLabels = async () => {
     if (!want) {
       if (existing.length) {
         _tm(`removing stale label from ${token.name}`);
-        for (const e of existing) await safeDelete(e);
+        await _dropLabels(token, existing);
         updated++;
       }
       continue;
@@ -109,7 +116,7 @@ export const applySquadLabels = async () => {
       console.log(`DSCT | SL | mismatch on ${token.name}: ${reasons.join(', ') || '(match!)'}`);
     }
     _tm(`updating label for ${token.name} (${want.img})`);
-    for (const e of existing) await safeDelete(e);
+    await _dropLabels(token, existing);
     try {
       await safeCreateEmbedded(token.actor, 'ActiveEffect', [{
         name: want.name, img: want.img,
@@ -130,6 +137,17 @@ export const applySquadLabels = async () => {
   if (!game.combat.started) {
     ui.notifications.info(game.i18n.localize('DSCT.notice.squads.labelsApplied'));
   }
+};
+
+let _labelRun = null;
+let _labelAgain = false;
+export const applySquadLabels = () => {
+  if (_labelRun) { _labelAgain = true; return _labelRun; }
+  _labelRun = (async () => {
+    try { do { _labelAgain = false; await _applySquadLabels(); } while (_labelAgain); }
+    finally { _labelRun = null; }
+  })();
+  return _labelRun;
 };
 
 export const clearSquadLabels = async () => {
