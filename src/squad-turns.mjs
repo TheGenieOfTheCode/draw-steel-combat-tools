@@ -84,10 +84,17 @@ export async function fireEndTurn(member, combat, round) {
   );
 }
 
+
+const _turnStarted = new Set();
+const _startKey = (member) => `${member.id}:${member.combat?.round}:${member.group?.initiative}`;
+
 async function activateSquadMembers(group, combat, skipMember, { skipRegionEvents = false } = {}) {
   const membersToActivate = [...group.members].filter(m => m !== skipMember && m.initiative > 0 && !m.isDefeated);
   if (!membersToActivate.length) return;
   for (const member of membersToActivate) {
+    const key = _startKey(member);
+    if (_turnStarted.has(key)) continue;
+    _turnStarted.add(key);
     await fireStartTurn(member, combat, { skipRegionEvents });
   }
 }
@@ -264,7 +271,20 @@ function _patchCombatDock() {
 }
 
 export function registerSquadTurnHooks() {
-  Hooks.on('combatRoundChange', () => _activatedGroupIds.clear());
+  Hooks.on('combatRoundChange', () => { _activatedGroupIds.clear(); _turnStarted.clear(); });
+
+  if (typeof libWrapper !== 'undefined') {
+    libWrapper.register('draw-steel-combat-tools', 'CONFIG.Combatant.documentClass.prototype._preUpdate', async function(wrapped, changes, options, user) {
+      if (!('initiative' in changes) || !(changes.initiative < this.initiative)) return wrapped(changes, options, user);
+      if (!getSetting('squadSimultaneousTurns') || !getSquadGroup(this)) return wrapped(changes, options, user);
+      const key = _startKey(this);
+      if (!_turnStarted.has(key)) { _turnStarted.add(key); return wrapped(changes, options, user); }
+      const initiative = changes.initiative;
+      delete changes.initiative;
+      try { return await wrapped(changes, options, user); }
+      finally { changes.initiative = initiative; }
+    }, 'MIXED');
+  }
   Hooks.on('deleteCombat', () => {
     _activatedGroupIds.clear();
     window._dsctActiveSquadGroupId  = null;
