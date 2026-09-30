@@ -1032,20 +1032,21 @@ export function registerSquadHudHooks() {
   });
 
   
+  
+  
+  const hudReplacesBar = (token) => {
+    if (_drawBarFromHud || !getSetting('squadHudEnabled')) return false;
+    if (!game.user.isGM && getSetting('squadHudPlayerVisibility') === 'none'
+      && !token.document.isOwner && token.document.disposition !== CONST.TOKEN_DISPOSITIONS.FRIENDLY) return false;
+    if (!token.actor?.system?.isMinion || !game.combat) return false;
+    return game.combat.combatants.find(c => c.tokenId === token.id)?.group?.type === 'squad';
+  };
   libWrapper.register(M, 'CONFIG.Token.objectClass.prototype._drawBar',
     function(wrapped, number, bar, data) {
-      if (_drawBarFromHud) return wrapped(number, bar, data);
-      if (!getSetting('squadHudEnabled')) return wrapped(number, bar, data);
-      if (!game.user.isGM && getSetting('squadHudPlayerVisibility') === 'none') {
-        if (!this.document.isOwner && this.document.disposition !== CONST.TOKEN_DISPOSITIONS.FRIENDLY)
-          return wrapped(number, bar, data);
-      }
-      if (!this.actor?.system?.isMinion)  return wrapped(number, bar, data);
-      if (!game.combat) return wrapped(number, bar, data);
-      const combatant = game.combat.combatants.find(c => c.tokenId === this.id);
-      if (combatant?.group?.type !== 'squad') return wrapped(number, bar, data);
-      if (bar?.clear) bar.clear();
-    }, 'MIXED');
+      const result = wrapped(number, bar, data);
+      if (hudReplacesBar(this)) bar?.clear?.();
+      return result;
+    }, 'WRAPPER');
 
   
   libWrapper.register(M, 'ds.data.CombatantGroup.SquadModel.prototype.displayMinionStaminaChange',
