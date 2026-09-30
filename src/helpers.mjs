@@ -1,7 +1,27 @@
 import { config, services } from './ctlib.mjs';
-import { GRID, canCurrentlyFly, chooseFreeSquare, getSquadGroup, safeToggleStatusEffect, safeUpdate, sizeRank, tierOf, toGrid, tokenAt } from '../../draw-steel-ctlib/src/helpers.mjs';
+import { GRID, canCurrentlyFly, chooseFreeSquare, getSquadGroup, safeToggleStatusEffect, safeUpdate, sizeRank, tierOf, toGrid, tokenAt } from './ctlib.mjs';
 
-export * from '../../draw-steel-ctlib/src/helpers.mjs';
+export {
+  BASE_MATERIALS, COVER_KEY, CTLIB_SCOPE, DELETE_MARKER, GRID, LEGACY_SCOPE, LOE_KEY, MATERIAL_ALPHA, MATERIAL_ICONS,
+  MATERIAL_RULES, MATERIAL_RULE_DEFAULTS, MULTI_GRAB_LIMITS, SIGHT_SAMPLE_COUNT, STEALTH_WORKFLOW_READY,
+  WALL_RESTRICTIONS, WALL_RESTRICTION_DEFAULTS, addTags, armCoverImmunity, atLeastHalfBlocked, blocksLoeForEnemies,
+  burrowAdjacent, burrowBlocksLineOfEffect, burrowDepth, canCurrentlyFly, canForcedMoveTarget, chooseFreeSquare,
+  clampOutsetPoints, concealingRegions, cornersAreOutside, cornersNeedClamping, coverImmunityGrantor,
+  coverObstaclesFor, coveredInSquare, ctlibFlag, damageBatch, disarmCoverImmunity, dropKey, dropKeyOverSocket,
+  footprintCoverCells, footprintDistFromBounds, fullCoverBlockersFor, getActingActor, getAllMaterials, getByTag,
+  getCustomMaterials, getItemDsid, getItemRange, getMaterial, getMaterialAlpha, getMaterialIcon, getSquadGroup,
+  getTags, getTokenById, getWallBlockBottom, getWallBlockTileAt, getWallBlockTop, getWallBlockWalls, getWindowById,
+  grantsCoverBehind, grantsCoverImmunity, gridDist, gridEq, groundElevation, hasCover, hasFly, hasSightToSquare,
+  hasSightToToken, hasTags, highestCharacteristic, initPalette, isBurrowing, isCompletelyBeneath, isOnGround,
+  isOpenDoorWall, isSelfAndSelf, loeBlockersFor, loeRangeBlocked, loeRangeCap, monsterFilter, normalizeCollection,
+  parsePowerRollState, pickCanvasTarget, rangeEnforced, refreshLoeCornerMode, removeTags, replayUndo, reviveDropKeys,
+  safeCreateEmbedded, safeDelete, safeSetFlag, safeTeleport, safeToggleStatusEffect, safeUnsetFlag, safeUpdate,
+  seenPlainlyInSquare, segmentBlockedByCover, segmentBlocksSight, segmentsIntersect, sightBlockPoint,
+  sightLinesToToken, sightOriginPoints, sightSamplePoints, sightSamples, sizeRank, snapStamina, spaceSamplePoints,
+  squareIsConcealed, tierOf, tileAt, tileIsOpenDoor, toCenter, toGrid, toWorld, tokFootprintDist, tokenAt,
+  tokenCoverMode, touchesGround, undoDamage, visibleSquareCorners, visibleTargetCorners, wallBetween,
+  wallBlocksMovement, wallGrantsCover
+} from './ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
