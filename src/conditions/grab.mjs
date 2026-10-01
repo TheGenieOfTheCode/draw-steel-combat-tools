@@ -616,7 +616,10 @@ function _isKnockbackGrabbed(dialog) {
   return true;
 }
 
-function _checkAbilityRange(dialog) {
+
+const _rangeWarned = new WeakMap();
+
+function _checkAbilityRange(dialog, { warnOnly = false } = {}) {
   const ability = dialog.options?.ability;
   if (!ability) return null;
 
@@ -647,16 +650,22 @@ function _checkAbilityRange(dialog) {
   const outOfRange = targets.filter(t => tokFootprintDist(casterToken, t) >= range * CGD);
   if (!outOfRange.length) return null;
 
+  const warned = _rangeWarned.get(dialog) ?? new Set();
+  _rangeWarned.set(dialog, warned);
+  const fresh = outOfRange.filter(t => !warned.has(t.id));
+  for (const t of outOfRange) warned.add(t.id);
+  if (!fresh.length) return warnOnly ? null : (rangeEnforced() ? 'block' : null);
+
   
   const abilityLabel = /[!?.]$/.test(ability.name) ? ability.name : ability.name + '.';
   ui.notifications.warn(game.i18n.format('DSCT.notice.abilityRange.outOfRange', {
-    names:   outOfRange.map(t => t.name).join(', '),
-    verb:    outOfRange.length === 1 ? 'is' : 'are',
+    names:   fresh.map(t => t.name).join(', '),
+    verb:    fresh.length === 1 ? 'is' : 'are',
     ability: abilityLabel,
     range,
   }));
 
-  return rangeEnforced() ? 'block' : null;
+  return !warnOnly && rangeEnforced() ? 'block' : null;
 }
 
 const _mrChosen = new Map();
@@ -703,6 +712,11 @@ export function registerKnockbackGuard() {
   });
 
   Hooks.on('ds.canRenderAbilityConfigurationDialog', (app) => {
+    
+    if (app.rendered) {
+      if (getSetting('abilityAutomationEnabled')) _checkAbilityRange(app, { warnOnly: true });
+      return;
+    }
     if (getSetting('conditionsEnabled') && _isKnockbackGrabbed(app)) return false;
     
     
