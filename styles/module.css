@@ -1208,8 +1208,11 @@ enriched-content[enricher="dsct.teleport"] {
   --dsct-color-bonus: light-dark(#5e470f, #d9c186);
   --dsct-color-fm: light-dark(#0f4f47, #56b3a7);
 }
-.theme-dark { --dsct-pill-dim: 0.45; }
-.theme-light { --dsct-pill-dim: 0.55; }
+
+.theme-dark { --dsct-pill-dim: 0.45; --dsct-scheme: dark; }
+.theme-light { --dsct-pill-dim: 0.55; --dsct-scheme: light; }
+body.dsbl-dark-chat .themed.theme-dark .chat-log { --dsct-pill-dim: 0.45; --dsct-scheme: dark; }
+.dsct-source-pill, .dsct-total-display, .dsct-add-mod-btn { color-scheme: var(--dsct-scheme); }
 
 .dsct-source-pill {
   display: flex;
@@ -1410,32 +1413,32 @@ enriched-content[enricher="dsct.teleport"] {
 }
 .dsct-dpill-half,
 .dsct-dpill-double {
-  border-color: rgba(217, 166, 63, 0.6);
-  color: #d9a63f;
-  background: rgba(217, 166, 63, 0.08);
+  border-color: color-mix(in srgb, light-dark(#6e4c0e, #d9a63f) 60%, transparent);
+  color: light-dark(#6e4c0e, #d9a63f);
+  background: color-mix(in srgb, light-dark(#6e4c0e, #d9a63f) 8%, transparent);
 }
 .dsct-dpill-note {
-  border-color: rgba(200, 200, 208, 0.5);
-  color: #c8c8d0;
-  background: rgba(200, 200, 208, 0.08);
+  border-color: color-mix(in srgb, light-dark(#4a4a52, #c8c8d0) 50%, transparent);
+  color: light-dark(#4a4a52, #c8c8d0);
+  background: color-mix(in srgb, light-dark(#4a4a52, #c8c8d0) 8%, transparent);
 }
 .dsct-dpill-delta {
-  border-color: rgba(122, 160, 220, 0.6);
-  color: #7aa0dc;
-  background: rgba(122, 160, 220, 0.08);
+  border-color: color-mix(in srgb, light-dark(#24508f, #7aa0dc) 60%, transparent);
+  color: light-dark(#24508f, #7aa0dc);
+  background: color-mix(in srgb, light-dark(#24508f, #7aa0dc) 8%, transparent);
 }
 .dsct-dpill-surge {
-  border-color: rgba(88, 177, 88, 0.6);
-  color: #58b158;
-  background: rgba(88, 177, 88, 0.08);
+  border-color: color-mix(in srgb, light-dark(#1e5e1e, #58b158) 60%, transparent);
+  color: light-dark(#1e5e1e, #58b158);
+  background: color-mix(in srgb, light-dark(#1e5e1e, #58b158) 8%, transparent);
 }
 .dsct-dpill-type {
-  border-color: rgba(196, 128, 217, 0.6);
-  color: #c480d9;
-  background: rgba(196, 128, 217, 0.08);
+  border-color: color-mix(in srgb, light-dark(#6a2c80, #c480d9) 60%, transparent);
+  color: light-dark(#6a2c80, #c480d9);
+  background: color-mix(in srgb, light-dark(#6a2c80, #c480d9) 8%, transparent);
 }
 .dsct-dpill-inert {
-  opacity: 0.45;
+  opacity: var(--dsct-pill-dim, 0.45);
   border-style: dashed;
 }
 .dsct-dmg-pill { cursor: default; }
