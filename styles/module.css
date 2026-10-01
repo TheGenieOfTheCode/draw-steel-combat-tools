@@ -2758,5 +2758,8 @@ label.checkbox.dsct-adv-ignored { opacity: 0.5; text-decoration: line-through; }
 }
 
 .dsct-capped-from {
-  opacity: 0.6;
+  opacity: 0.75;
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: #f2ecf8;
 }
