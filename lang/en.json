@@ -1349,6 +1349,11 @@
         "modifierTitleAbility": "Click to toggle",
         "defaultName": "FM Modifier {n}"
       },
+      "areaCap": {
+        "tag": "Area",
+        "tagTooltip": "Area damage. A minion takes no more than its own Stamina from it.",
+        "cappedTooltip": "Capped at {cap}: area damage to a minion is capped at its Stamina."
+      },
       "damagePills": {
         "title": "Edit Damage",
         "editorTitle": "Edit Damage: {name}",

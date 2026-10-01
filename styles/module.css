@@ -2743,3 +2743,20 @@ label.checkbox.dsct-adv-ignored { opacity: 0.5; text-decoration: line-through; }
 .dsct-startup-clash .dsct-startup-why a:hover {
   text-decoration: underline;
 }
+
+.dsct-area-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, var(--dsct-color-bonus) 55%, transparent);
+  border-radius: 8px;
+  font-size: 0.75em;
+  line-height: 1.5;
+  color: var(--dsct-color-bonus);
+  color-scheme: var(--dsct-scheme);
+  vertical-align: middle;
+}
+
+.dsct-capped-from {
+  opacity: 0.6;
+}
