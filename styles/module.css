@@ -1203,9 +1203,13 @@ enriched-content[enricher="dsct.teleport"] {
 }
 
 :root {
-  --dsct-color-edge: #6fbf73;
-  --dsct-color-bane: #d77676;
+  --dsct-color-edge: light-dark(#1b5520, #6fbf73);
+  --dsct-color-bane: light-dark(#8b1a1a, #d77676);
+  --dsct-color-bonus: light-dark(#5e470f, #d9c186);
+  --dsct-color-fm: light-dark(#0f4f47, #56b3a7);
 }
+.theme-dark { --dsct-pill-dim: 0.45; }
+.theme-light { --dsct-pill-dim: 0.55; }
 
 .dsct-source-pill {
   display: flex;
@@ -1239,27 +1243,27 @@ enriched-content[enricher="dsct.teleport"] {
   font-style: italic;
   margin-top: 1px;
   padding-top: 2px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid light-dark(color-mix(in srgb, currentColor 25%, transparent), rgba(255, 255, 255, 0.08));
 }
 .dsct-source-pill.dsct-pill-edge {
-  border-color: rgba(111, 191, 115, 0.55);
+  border-color: color-mix(in srgb, var(--dsct-color-edge) 55%, transparent);
   color: var(--dsct-color-edge);
-  background: rgba(111, 191, 115, 0.10);
+  background: color-mix(in srgb, var(--dsct-color-edge) 10%, transparent);
 }
 .dsct-source-pill.dsct-pill-bane {
-  border-color: rgba(215, 118, 118, 0.55);
+  border-color: color-mix(in srgb, var(--dsct-color-bane) 55%, transparent);
   color: var(--dsct-color-bane);
-  background: rgba(215, 118, 118, 0.08);
+  background: color-mix(in srgb, var(--dsct-color-bane) 8%, transparent);
 }
 .dsct-source-pill.dsct-pill-bonus {
-  border-color: rgba(217, 193, 134, 0.55);
-  color: var(--draw-steel-c-laserline, #d9c186);
-  background: rgba(217, 193, 134, 0.08);
+  border-color: color-mix(in srgb, var(--dsct-color-bonus) 55%, transparent);
+  color: var(--dsct-color-bonus);
+  background: color-mix(in srgb, var(--dsct-color-bonus) 8%, transparent);
 }
 .dsct-source-pill.dsct-pill-disabled {
-  opacity: 0.45;
+  opacity: var(--dsct-pill-dim, 0.45);
   text-decoration: line-through;
-  text-decoration-color: var(--color-light-5, #9f8475);
+  text-decoration-color: light-dark(currentColor, var(--color-light-5, #9f8475));
 }
 .dsct-source-pill:hover { filter: brightness(1.2); }
 .dsct-source-pill.dsct-pill-custom { border-style: dashed; }
@@ -1277,19 +1281,19 @@ enriched-content[enricher="dsct.teleport"] {
   min-width: 0;
 }
 .dsct-fm-pill {
-  border-color: rgba(207, 106, 95, 0.6);
-  color: #cf6a5f;
-  background: rgba(207, 106, 95, 0.08);
+  border-color: light-dark(rgba(142, 43, 34, 0.6), rgba(207, 106, 95, 0.6));
+  color: light-dark(#8e2b22, #cf6a5f);
+  background: light-dark(rgba(142, 43, 34, 0.08), rgba(207, 106, 95, 0.08));
 }
 .dsct-fm-pill.dsct-fmpill-up {
-  border-color: rgba(111, 191, 115, 0.6);
-  color: #6fbf73;
-  background: rgba(111, 191, 115, 0.08);
+  border-color: color-mix(in srgb, var(--dsct-color-edge) 60%, transparent);
+  color: var(--dsct-color-edge);
+  background: color-mix(in srgb, var(--dsct-color-edge) 8%, transparent);
 }
 .dsct-fm-pill.dsct-fmpill-down {
-  border-color: rgba(215, 118, 118, 0.6);
-  color: #d77676;
-  background: rgba(215, 118, 118, 0.08);
+  border-color: color-mix(in srgb, var(--dsct-color-bane) 60%, transparent);
+  color: var(--dsct-color-bane);
+  background: color-mix(in srgb, var(--dsct-color-bane) 8%, transparent);
 }
 
 .dsct-fm-pill.dsct-pill-multi {
@@ -1311,24 +1315,24 @@ enriched-content[enricher="dsct.teleport"] {
 }
 
 .dsct-fm-pill.dsct-fmpill-type {
-  border-color: rgba(217, 166, 63, 0.6);
-  color: #d9a63f;
-  background: rgba(217, 166, 63, 0.08);
+  border-color: color-mix(in srgb, light-dark(#6e4c0e, #d9a63f) 60%, transparent);
+  color: light-dark(#6e4c0e, #d9a63f);
+  background: color-mix(in srgb, light-dark(#6e4c0e, #d9a63f) 8%, transparent);
 }
 .dsct-fm-pill.dsct-fmpill-vert {
-  border-color: rgba(122, 160, 220, 0.6);
-  color: #7aa0dc;
-  background: rgba(122, 160, 220, 0.08);
+  border-color: color-mix(in srgb, light-dark(#24508f, #7aa0dc) 60%, transparent);
+  color: light-dark(#24508f, #7aa0dc);
+  background: color-mix(in srgb, light-dark(#24508f, #7aa0dc) 8%, transparent);
 }
 .dsct-fm-pill.dsct-fmpill-guard {
-  border-color: rgba(155, 109, 214, 0.6);
-  color: #9b6dd6;
-  background: rgba(155, 109, 214, 0.08);
+  border-color: color-mix(in srgb, light-dark(#5b2f95, #9b6dd6) 60%, transparent);
+  color: light-dark(#5b2f95, #9b6dd6);
+  background: color-mix(in srgb, light-dark(#5b2f95, #9b6dd6) 8%, transparent);
 }
 .dsct-fm-pill.dsct-fmpill-tweak {
-  border-color: rgba(86, 179, 167, 0.6);
-  color: #56b3a7;
-  background: rgba(86, 179, 167, 0.08);
+  border-color: color-mix(in srgb, light-dark(#0f4f47, #56b3a7) 60%, transparent);
+  color: light-dark(#0f4f47, #56b3a7);
+  background: color-mix(in srgb, light-dark(#0f4f47, #56b3a7) 8%, transparent);
 }
 
 .dsct-dmg-pill-live { cursor: pointer; }
@@ -1377,7 +1381,7 @@ enriched-content[enricher="dsct.teleport"] {
   background: rgba(180, 40, 40, 0.2);
   text-decoration: line-through;
 }
-.dsct-chat-pill-echo.dsct-pill-disabled { opacity: 0.35; }
+.dsct-chat-pill-echo.dsct-pill-disabled { opacity: calc(var(--dsct-pill-dim, 0.45) - 0.1); }
 .dsct-chat-pill-echo[data-echo-id].dsct-pill-disabled:hover { filter: brightness(1.3); opacity: 0.6; }
 .dsct-chat-pill-global[data-global-id]:hover {
   filter: none;
@@ -1524,9 +1528,9 @@ enriched-content[enricher="dsct.teleport"] {
 
 .dsct-total-display {
   height: 24px;
-  background: #221d28;
-  color: var(--color-text-light-heading, #c9c7b8);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: light-dark(rgba(0, 0, 0, 0.07), #221d28);
+  color: light-dark(#222, var(--color-text-light-heading, #c9c7b8));
+  border: 1px solid light-dark(rgba(0, 0, 0, 0.28), rgba(255, 255, 255, 0.06));
   border-radius: 3px;
   padding: 0 4px;
   font-family: var(--font-mono, monospace);
@@ -1539,10 +1543,10 @@ enriched-content[enricher="dsct.teleport"] {
   box-sizing: border-box;
   width: 100%;
 }
-.dsct-total-display.dsct-total-zero  { color: var(--color-form-hint, #807e72); }
+.dsct-total-display.dsct-total-zero  { color: light-dark(#5f5a52, var(--color-form-hint, #807e72)); }
 .dsct-total-display.dsct-total-edge  { color: var(--dsct-color-edge); }
 .dsct-total-display.dsct-total-bane  { color: var(--dsct-color-bane); }
-.dsct-total-display.dsct-total-bonus { color: var(--draw-steel-c-laserline, #d9c186); }
+.dsct-total-display.dsct-total-bonus { color: var(--dsct-color-bonus); }
 .dsct-total-display.dsct-total-capped {
   border-color: rgba(238, 155, 58, 0.35);
   box-shadow: inset 0 0 0 1px rgba(238, 155, 58, 0.15);
@@ -1573,11 +1577,11 @@ enriched-content[enricher="dsct.teleport"] {
   justify-content: center;
   gap: 4px;
   background: transparent;
-  color: var(--color-text-light-heading, #c9c7b8);
+  color: light-dark(#4a463f, var(--color-text-light-heading, #c9c7b8));
   font-family: var(--font-primary, sans-serif);
   font-size: 0.6875rem;
   padding: 2px 8px;
-  border: 1px dashed rgba(255, 255, 255, 0.20);
+  border: 1px dashed light-dark(rgba(0, 0, 0, 0.35), rgba(255, 255, 255, 0.20));
   border-radius: 3px;
   cursor: pointer;
   height: 22px;
@@ -1585,9 +1589,9 @@ enriched-content[enricher="dsct.teleport"] {
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 .dsct-add-mod-btn:hover {
-  background: rgba(217, 193, 134, 0.10);
-  color: var(--draw-steel-c-laserline, #d9c186);
-  border-color: rgba(217, 193, 134, 0.55);
+  background: color-mix(in srgb, var(--dsct-color-bonus) 10%, transparent);
+  color: var(--dsct-color-bonus);
+  border-color: color-mix(in srgb, var(--dsct-color-bonus) 55%, transparent);
 }
 .dsct-add-pill-mini {
   width: 22px;
@@ -1601,7 +1605,7 @@ enriched-content[enricher="dsct.teleport"] {
   height: 18px;
   padding: 0;
   border-radius: 50%;
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: light-dark(rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.15));
   font-size: 0.75rem;
   font-weight: 600;
 }
