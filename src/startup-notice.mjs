@@ -34,17 +34,28 @@ const recommended = () => {
   const out = [];
   for (const rel of listed('recommends')) {
     const installed = game.modules.get(rel.id);
+    const behind = !!(installed?.active && rel.version && foundry.utils.isNewerVersion(rel.version, installed.version));
     out.push({
       id:      rel.id,
       reason:  rel.reason ?? '',
       title:   installed?.title || rel.title || localTitle(rel.id),
-      state:   !installed ? 'missing' : (installed.active ? 'on' : 'off'),
+      state:   !installed ? 'missing' : (!installed.active ? 'off' : (behind ? 'outdated' : 'on')),
+      version: rel.version ?? null,
+      have:    installed?.version ?? null,
+      url:     rel.url ?? null,
     });
   }
   return out;
 };
 
-const worthMentioning = () => recommended().filter((r) => r.state !== 'on');
+const worthMentioning = () => recommended().filter((r) => r.state === 'missing' || r.state === 'off');
+
+const outdated = () => recommended().filter((r) => r.state === 'outdated');
+
+const updateKeys = () => [
+  ...outdated().map((r) => `${r.id}@${r.version}`),
+  ...(newerVersion() ? [`${M}@${newerVersion().version}`] : []),
+];
 
 const conflicting = () => {
   const out = [];
@@ -61,7 +72,7 @@ const conflicting = () => {
   return out;
 };
 
-const anythingToSay = () => worthMentioning().length > 0 || conflicting().length > 0 || !!newerVersion();
+const anythingToSay = () => worthMentioning().length > 0 || conflicting().length > 0 || updateKeys().length > 0;
 
 const signature = () => [
   ...recommended().map((r) => r.id),
@@ -79,6 +90,8 @@ const shouldPost = () => {
   const seen = readState();
   if (!seen.version) return true;
   if (seen.remind) return true;
+  const announced = new Set(Array.isArray(seen.updates) ? seen.updates : []);
+  if (updateKeys().some((k) => !announced.has(k))) return true;
   return seen.version !== self().version && seen.signature !== signature();
 };
 
@@ -102,21 +115,26 @@ const buildCard = () => {
   head.textContent = game.i18n.format('DSCT.chat.startup.title', { version: self().version });
   card.append(head);
 
-  const update = newerVersion();
-  if (update) {
+  const updateRow = (message, url) => {
     const row = document.createElement('p');
     row.className = 'dsct-startup-update';
     row.innerHTML = '<i class="fa-solid fa-circle-arrow-up"></i>';
-    row.append(document.createTextNode(game.i18n.format('DSCT.chat.startup.update', { version: update.version })));
-    if (update.url) {
+    row.append(document.createTextNode(message));
+    if (url) {
       const a = document.createElement('a');
-      a.href = update.url;
+      a.href = url;
       a.target = '_blank';
       a.rel = 'noopener';
       a.textContent = game.i18n.localize('DSCT.chat.startup.updateLink');
       row.append(document.createTextNode(' '), a);
     }
     card.append(row);
+  };
+
+  const update = newerVersion();
+  if (update) updateRow(game.i18n.format('DSCT.chat.startup.update', { version: update.version }), update.url);
+  for (const r of outdated()) {
+    updateRow(game.i18n.format('DSCT.chat.startup.moduleUpdate', { title: r.title, version: r.version, have: r.have }), r.url);
   }
 
   if (worthMentioning().length) {
@@ -210,7 +228,7 @@ const buildCard = () => {
 const RECENT = 15;
 
 const post = async () => {
-  const state = { version: self().version, signature: signature(), remind: false };
+  const state = { version: self().version, signature: signature(), updates: updateKeys(), remind: false };
   await game.settings.set(M, STATE, state);
 
   

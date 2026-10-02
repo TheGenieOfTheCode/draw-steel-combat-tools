@@ -17,18 +17,27 @@ const text = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
 
 const httpsOnly = (v) => (typeof v === 'string' && v.startsWith('https://') ? v.slice(0, 300) : null);
 
+const versionOnly = (v) => {
+  const version = text(v, 40);
+  return /^\d+(\.\d+)*$/.test(version) ? version : null;
+};
+
 const cleanList = (list) => (Array.isArray(list) ? list : [])
   .slice(0, 50)
-  .map((e) => ({ id: text(e?.id, 120), title: text(e?.title, 120), reason: text(e?.reason, 500) }))
+  .map((e) => ({
+    id: text(e?.id, 120),
+    title: text(e?.title, 120),
+    reason: text(e?.reason, 500),
+    version: versionOnly(e?.version),
+    url: httpsOnly(e?.url),
+  }))
   .filter((e) => /^[a-z0-9][a-z0-9._-]*$/i.test(e.id));
 
 const clean = (raw) => {
   if (!raw || typeof raw !== 'object' || raw.schema !== SCHEMA) return null;
 
-  const version = text(raw?.latest?.version, 40);
-  const latest = /^\d+(\.\d+)*$/.test(version)
-    ? { version, url: httpsOnly(raw?.latest?.url) }
-    : null;
+  const version = versionOnly(raw?.latest?.version);
+  const latest = version ? { version, url: httpsOnly(raw?.latest?.url) } : null;
 
   return { schema: SCHEMA, latest, recommends: cleanList(raw.recommends), conflicts: cleanList(raw.conflicts) };
 };

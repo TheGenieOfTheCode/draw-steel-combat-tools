@@ -1920,6 +1920,7 @@
         "wiki": "Wiki",
         "kofi": "Ko-fi",
         "update": "Version {version} is out.",
+        "moduleUpdate": "{title} {version} is out. This world has {have}.",
         "updateLink": "Release Notes",
         "remind": "Remind me again on next startup",
         "remindOn": "You will be reminded on next startup",
