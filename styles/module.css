@@ -294,6 +294,10 @@ button.dsct-dc-grab-fist.active {
   font-weight: bold;
 }
 
+#dc-type option.ctlib-dmg-untyped {
+  color: var(--input-text-color);
+}
+
 #dc-type-icon {
   width: 18px;
   text-align: center;

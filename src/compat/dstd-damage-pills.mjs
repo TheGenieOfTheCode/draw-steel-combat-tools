@@ -1,4 +1,4 @@
-import { DSTD } from '../ctlib.mjs';
+import { DSTD, registerPanelDecorator } from '../ctlib.mjs';
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
 import { markAreaCaps } from './dstd-area-cap.mjs';
@@ -958,48 +958,11 @@ document.addEventListener('click', (ev) => {
 export function registerDstdDamagePills() {
   if (!game.modules.get(DSTD)?.active) return;
 
-  Hooks.on('renderChatMessageHTML', (message, html) => {
-    const root = html instanceof HTMLElement ? html : html?.[0];
-    if (!root) return;
-    const msgId = message.id;
-    const inject = () => {
-      const live = root.isConnected
-        ? root
-        : (root.ownerDocument.querySelector(`li.chat-message[data-message-id="${msgId}"]`) ?? root);
-      injectDamagePills(message, live);
-    };
-    setTimeout(inject, 0);
-    setTimeout(inject, 300);
-  });
-
-  const observerCallback = (mutations) => {
-    const toInject = new Set();
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType !== Node.ELEMENT_NODE) continue;
-        if (node.classList?.contains('dsct-dmg-pills-row')) continue;
-        if (node.matches?.(`.${DSTD}-target-row`) || node.querySelector?.(`.${DSTD}-target-row`)
-          || node.matches?.(`.${DSTD}-panel`) || node.querySelector?.(`.${DSTD}-panel`)) {
-          const li = node.closest?.('li.chat-message[data-message-id]');
-          if (li) toInject.add(li);
-        }
-      }
-    }
-    for (const li of toInject) {
-      const message = game.messages.get(li.dataset.messageId);
-      if (message) injectDamagePills(message, li);
-    }
-  };
-
-  const chatLog = document.querySelector('#chat-log') ?? document.querySelector('#chat') ?? document.body;
-  new MutationObserver(observerCallback).observe(chatLog, { childList: true, subtree: true });
-
-  Hooks.on('openDetachedWindow', (_id, win) => {
-    setTimeout(() => {
-      try {
-        const log = win.document.querySelector('#chat-log') ?? win.document.body;
-        new MutationObserver(observerCallback).observe(log, { childList: true, subtree: true });
-      } catch {}
-    }, 300);
+  registerPanelDecorator({
+    id: 'combat-tools-damage-pills',
+    priority: 200,
+    ignore: ['.dsct-dmg-pills-row'],
+    retry: [300],
+    decorate: ({ message, root }) => injectDamagePills(message, root),
   });
 }

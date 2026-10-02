@@ -5,7 +5,7 @@ import {
 } from '../helpers.mjs';
 import { applyFrightened, applyTaunted } from './conditions.mjs';
 import { applyGrab, buildGrabListHTML, handleGrabListClick, grabUiState } from './grab.mjs';
-import { _FLAT_DAMAGE_ICONS as DMG_ICONS, _FLAT_DAMAGE_COLORS as DMG_COLORS } from '../ability-automation/flat-special-effects.mjs';
+import { DAMAGE_TYPES as DMG, damageTypeLabel } from '../ctlib.mjs';
 import { runSourcePicker, runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -195,11 +195,8 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
   }
 
   _typeVisual() {
-    const t = this._damageType;
-    return {
-      icon:  DMG_ICONS[t] ?? 'fa-solid fa-burst',
-      color: DMG_COLORS[t] ?? '',
-    };
+    const t = DMG[this._damageType] ? this._damageType : 'untyped';
+    return { icon: DMG[t].icon, colorClass: `ctlib-dmg ctlib-dmg-${t}` };
   }
 
   _buildButtonText() {
@@ -207,9 +204,9 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     if (this._amount > 0) {
       const modeStr = this._damageMode === 'area' ? ' (Area)' : '';
       if (this._damageType !== 'untyped') {
-        const { icon, color } = this._typeVisual();
-        const label = this._damageType.charAt(0).toUpperCase() + this._damageType.slice(1);
-        parts.push(`<i class="${icon}" style="color:${color}"></i> <span style="color:${color}">${this._amount} ${label}</span> Damage${modeStr}`);
+        const { icon, colorClass } = this._typeVisual();
+        const label = damageTypeLabel(this._damageType);
+        parts.push(`<i class="${icon} ${colorClass}"></i> <span class="${colorClass}">${this._amount} ${label}</span> Damage${modeStr}`);
       } else {
         parts.push(`${this._amount} Damage${modeStr}`);
       }
@@ -248,9 +245,9 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       sourceSelected:  !!this._sourceToken,
       targetHTML:      this._buildTargetHTML(),
       amount:          this._amount,
-      damageTypes:     DAMAGE_TYPES.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1), selected: t === this._damageType, color: t === 'untyped' ? '#c8c8d0' : (DMG_COLORS[t] ?? '') })),
+      damageTypes:     DAMAGE_TYPES.map(t => ({ value: t, label: damageTypeLabel(t), selected: t === this._damageType })),
       typeIcon:        this._typeVisual().icon,
-      typeColor:       this._typeVisual().color,
+      typeClass:       this._typeVisual().colorClass,
       ignoreImmunity:  this._ignoreImmunity,
       modeStrike:      this._damageMode === 'strike',
       modeArea:        this._damageMode === 'area',
@@ -320,10 +317,10 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     this.element.querySelector('#dc-amount')?.addEventListener('input',  e => { this._amount        = parseInt(e.target.value) || 0; refreshBtn(); });
     this.element.querySelector('#dc-type')?.addEventListener('change', e => {
       this._damageType = e.target.value;
-      const { icon, color } = this._typeVisual();
+      const { icon, colorClass } = this._typeVisual();
       const iconEl = this.element.querySelector('#dc-type-icon');
-      if (iconEl) { iconEl.className = icon; iconEl.style.color = color; }
-      e.target.style.color = color;
+      if (iconEl) iconEl.className = `${icon} ${colorClass}`;
+      e.target.className = `dsct-select-md ${colorClass}`;
       refreshBtn();
     });
     this.element.querySelector('#dc-ignore-immunity')?.addEventListener('change', e => { this._ignoreImmunity = e.target.checked; });

@@ -1,5 +1,6 @@
 import { getSetting, getModuleApi, tokFootprintDist, hasSightToToken } from '../helpers.mjs';
 import { hiddenFrom, isHiddenFrom, stealthActive, revealWithReason, setHiddenFrom, isObjectToken, markObjectFound } from './stealth.mjs';
+import { activateFaces } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const ABILITY_PART_ID = 'abilityUse'.padEnd(16, '0');
@@ -549,21 +550,10 @@ function _renderCard(message, html, state) {
       });
     }
     for (const link of content.querySelectorAll('.dsct-search-link')) {
-      link.addEventListener('mouseenter', (ev) => {
-        const token = canvas.tokens?.get(link.dataset.tokenId);
-        if (token?.visible && token._canHover?.(game.user, ev)) token._onHoverIn(ev, { hoverOutOthers: true });
-      });
-      link.addEventListener('mouseleave', (ev) => canvas.tokens?.get(link.dataset.tokenId)?._onHoverOut(ev));
-      link.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        const token = canvas.tokens?.get(link.dataset.tokenId);
-        if (!token) return;
-
-        const types = CONFIG.Canvas.pings.types;
-        const pull = ev.shiftKey;
-        canvas.ping(token.center, { style: pull ? types.PULL : types.PULSE, pull });
-      });
+      const uuid = canvas.scene?.tokens.get(link.dataset.tokenId)?.uuid;
+      if (uuid) link.dataset.ctlibFace = uuid;
     }
+    activateFaces(content);
   }
 }
 

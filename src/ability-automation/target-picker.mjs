@@ -7,6 +7,8 @@ import {
   activateTokenLayer,
   services,
   getValidTargets,
+  hitToken as _hitToken,
+  runColoredTokenPicker,
 } from '../ctlib.mjs';
 import { peekSpaces, wallAdjacent, peekTo, peekEffect, isPeeking, unpeek } from '../conditions/peek.mjs';
 import { beginPickerOverlay, setPickerArrow, setPickerTarget, removePickerArrow, removePickerTarget, clearPickerArrows } from './picker-overlay.mjs';
@@ -24,7 +26,7 @@ export const clearRepickStamp = (uuid) => { if (uuid) _repicked.delete(uuid); };
 export const isTriggeredAbility = (ability) =>
   !!ds.CONFIG?.abilities?.types?.[ability?.system?.type]?.triggered;
 
-export { runColoredTokenPicker } from '../ctlib.mjs';
+export { runColoredTokenPicker };
 export const _getValidTargets = getValidTargets;
 
 const _hasAnySightTo = (casterToken, targetToken, shift = null) => hasSightToToken(casterToken, targetToken, { shift });
@@ -569,84 +571,16 @@ function _drawTokenHighlights(hlName, tokens, selectedIds = null, hoverIds = nul
   }
 }
 
-function _hitToken(pos, candidates) {
-  const GS = canvas.grid.size;
-  return candidates.find(t => {
-    const tw = t.document.width  * GS;
-    const th = t.document.height * GS;
-    return pos.x >= t.x && pos.x <= t.x + tw && pos.y >= t.y && pos.y <= t.y + th;
-  }) ?? null;
-}
-
 export async function runSourcePicker() {
   const hiding  = _hidingDefeated();
   const visible = canvas.tokens.placeables.filter(t => !t.document.hidden && !(hiding && _isDefeated(t)));
-  const candidates = game.user.isGM ? visible : visible.filter(t => t.isOwner);
-  if (!candidates.length) return null;
-  if (candidates.length === 1) { candidates[0].control(); return candidates[0]; }
-
-  const hlName = 'dsct-source-picker-hl';
-  if (canvas.interface.grid.highlightLayers[hlName]) canvas.interface.grid.destroyHighlightLayer(hlName);
-  canvas.interface.grid.addHighlightLayer(hlName);
-
-  const hoverIds = new Set();
-  _drawTokenHighlights(hlName, candidates, new Set(), hoverIds);
-
-  return new Promise(resolve => {
-    const overlay = beginPickerOverlay({
-      title: game.i18n.localize('DSCT.picker.titleSource'),
-      status: game.i18n.localize('DSCT.notice.picker.chooseSource'),
-      tokens: candidates,
-      showConfirm: false,
-      onCancel: () => { cleanup(); resolve(null); },
-    });
-
-    const cleanup = () => {
-      overlay.end();
-      canvas.interface.grid.destroyHighlightLayer(hlName);
-      _clearPickerReticles();
-      canvas.stage.off('mousedown', onClick);
-      canvas.stage.off('mousemove', onMove);
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('contextmenu', onContextMenu);
-    };
-
-    const onMove = (event) => {
-      const pos = event.data.getLocalPosition(canvas.app.stage);
-      const hit = _hitToken(pos, candidates);
-      const newId = hit?.id ?? null;
-      const prevId = [...hoverIds][0] ?? null;
-      if (newId === prevId) return;
-      hoverIds.clear();
-      if (hit) { hoverIds.add(hit.id); _addPickerReticle(hit, hit._getBorderColor(), 1.0); }
-      if (prevId && prevId !== newId) {
-        const prev = canvas.tokens.get(prevId);
-        if (prev) _removePickerReticle(prev);
-      }
-      _drawTokenHighlights(hlName, candidates, new Set(), hoverIds);
-    };
-
-    const onClick = (event) => {
-      if (event.data.originalEvent.button === 2) {
-        if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); }
-        return;
-      }
-      if (event.data.originalEvent.button !== 0) return;
-      const pos = event.data.getLocalPosition(canvas.app.stage);
-      const hit = _hitToken(pos, candidates);
-      if (!hit) return;
-      cleanup();
-      hit.control();
-      resolve(hit);
-    };
-
-    const onKey   = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup(); resolve(null); } };
-    const onContextMenu = (e) => { e.preventDefault(); if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } };
-
-    canvas.stage.on('mousedown', onClick);
-    canvas.stage.on('mousemove', onMove);
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('contextmenu', onContextMenu);
+  return runColoredTokenPicker({
+    tokens: game.user.isGM ? visible : visible.filter(t => t.isOwner),
+    title: game.i18n.localize('DSCT.picker.titleSource'),
+    hint: game.i18n.localize('DSCT.notice.picker.chooseSource'),
+    arrowColor: (t) => t._getBorderColor(),
+    autoPick: true,
+    control: true,
   });
 }
 

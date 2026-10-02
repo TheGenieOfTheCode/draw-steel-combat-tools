@@ -1,4 +1,5 @@
 import { applyDamage, getSetting, getModuleApi } from '../helpers.mjs';
+import { DAMAGE_TYPES } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 import { executeTeleport, executeTeleswap } from '../teleport.mjs';
@@ -769,26 +770,12 @@ function _buildDamageButton(effect, item, chosenType = null, message = null) {
   btn.dataset.spendValue   = String(spend?.value ?? 1);
   const spendSuffix = spend?.enabled ? ` ${game.i18n.format("DSCT.FlatEffect.spend.costSuffix", { cost: spend.value })}` : "";
   const btnLabel = (display || game.i18n.format("DSCT.FlatEffect.Damage.defaultLabel", { value: simplified, types: typeLabel })) + spendSuffix;
-  const iconClass = firstType ? (_FLAT_DAMAGE_ICONS[firstType] ?? "fa-solid fa-burst") : "fa-solid fa-burst";
+  const iconType = DAMAGE_TYPES[firstType] ? firstType : "untyped";
   const dmgIconEl = document.createElement("i");
-  dmgIconEl.className = iconClass;
-  if (firstType && _FLAT_DAMAGE_COLORS[firstType]) dmgIconEl.style.color = _FLAT_DAMAGE_COLORS[firstType];
+  dmgIconEl.className = `${DAMAGE_TYPES[iconType].icon} ctlib-dmg ctlib-dmg-${iconType}`;
   btn.append(dmgIconEl, ` ${btnLabel}`);
   return btn;
 }
-
-export const _FLAT_DAMAGE_ICONS = {
-  acid: "fa-solid fa-flask-vial", cold: "fa-solid fa-snowflake",
-  corruption: "fa-brands fa-galactic-republic", fire: "fa-solid fa-fire",
-  holy: "fa-solid fa-sun", lightning: "fa-solid fa-bolt",
-  poison: "fa-solid fa-skull-crossbones", psychic: "fa-solid fa-brain",
-  sonic: "fa-solid fa-volume-high",
-};
-export const _FLAT_DAMAGE_COLORS = {
-  acid: "#6fbf4a", cold: "#65c7f7", corruption: "#9b59b6", fire: "#e74c3c",
-  holy: "#f1c40f", lightning: "#f7dc6f", poison: "#2ecc71", psychic: "#e056fd",
-  sonic: "#00cec9",
-};
 
 function _buildForcedRow(effect, item) {
   const { movement, distance, properties, display, spend } = effect.flatForced;

@@ -30,10 +30,10 @@
           <span class="dsct-param-label">{{localize "DSCT.panel.dc.amount"}}</span>
           <div class="dsct-btn-group">
             <input type="number" id="dc-amount" value="{{amount}}" min="0" step="1" class="dsct-input-md">
-            <i id="dc-type-icon" class="{{typeIcon}}"{{#if typeColor}} style="color:{{typeColor}}"{{/if}}></i>
-            <select id="dc-type" class="dsct-select-md"{{#if typeColor}} style="color:{{typeColor}}"{{/if}}>
+            <i id="dc-type-icon" class="{{typeIcon}} {{typeClass}}"></i>
+            <select id="dc-type" class="dsct-select-md {{typeClass}}">
               {{#each damageTypes}}
-              <option value="{{this.value}}"{{#if this.selected}} selected{{/if}}{{#if this.color}} style="color:{{this.color}}"{{/if}}>{{this.label}}</option>
+              <option value="{{this.value}}" class="ctlib-dmg-{{this.value}}"{{#if this.selected}} selected{{/if}}>{{this.label}}</option>
               {{/each}}
             </select>
           </div>

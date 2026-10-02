@@ -1,4 +1,4 @@
-import { DSTD } from '../ctlib.mjs';
+import { DSTD, registerPanelDecorator } from '../ctlib.mjs';
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { DSCTAddModifierDialog } from '../ability-automation/roll-dialog-hooks.mjs';
 import { drawSourceLines, clearSourceLines } from '../ability-automation/source-lines.mjs';
@@ -1095,40 +1095,14 @@ export function registerDstdRollPills() {
     if (li) setTimeout(() => injectRollPills(message, li), 0);
   });
 
-  Hooks.on('renderChatMessageHTML', (message, html) => {
-    const root = html instanceof HTMLElement ? html : html?.[0];
-    if (!root) return;
-    const msgId = message.id;
-    const inject = () => {
-      const live = root.isConnected
-        ? root
-        : (root.ownerDocument.querySelector(`li.chat-message[data-message-id="${msgId}"]`) ?? root);
-      injectRollPills(message, live);
-    };
-    setTimeout(inject, 0);
-    setTimeout(inject, 300);
+  registerPanelDecorator({
+    id: 'combat-tools-roll-pills',
+    priority: 210,
+    ignore: ['.dsct-roll-pills-row'],
+    watch: [`.${DSTD}-roll-display`],
+    retry: [300],
+    decorate: ({ message, root }) => injectRollPills(message, root),
   });
-
-  const observerCallback = (mutations) => {
-    const toInject = new Set();
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType !== Node.ELEMENT_NODE) continue;
-        if (node.classList?.contains('dsct-roll-pills-row')) continue;
-        if (node.matches?.(`.${DSTD}-roll-display`) || node.querySelector?.(`.${DSTD}-roll-display`)) {
-          const li = node.closest?.('li.chat-message[data-message-id]');
-          if (li) toInject.add(li);
-        }
-      }
-    }
-    for (const li of toInject) {
-      const message = game.messages.get(li.dataset.messageId);
-      if (message) injectRollPills(message, li);
-    }
-  };
-
-  const chatLog = document.querySelector('#chat-log') ?? document.querySelector('#chat') ?? document.body;
-  new MutationObserver(observerCallback).observe(chatLog, { childList: true, subtree: true });
 
   document.addEventListener('click', _onDocumentClick, true);
   document.addEventListener('contextmenu', _onDocumentContextMenu, true);
@@ -1142,8 +1116,6 @@ export function registerDstdRollPills() {
         win.document.addEventListener('contextmenu', _onDocumentContextMenu, true);
         win.document.addEventListener('pointerover', _onPillHoverIn);
         win.document.addEventListener('pointerout', _onPillHoverOut);
-        const log = win.document.querySelector('#chat-log') ?? win.document.body;
-        new MutationObserver(observerCallback).observe(log, { childList: true, subtree: true });
       } catch {}
     }, 300);
   });

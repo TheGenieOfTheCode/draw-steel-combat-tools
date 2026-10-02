@@ -494,16 +494,8 @@ export const registerSettings = () => {
     name: L('flatDefaultDamageType.name'), hint: L('flatDefaultDamageType.hint'),
     scope: 'world', config: false, type: String, default: '',
     choices: {
-      '':           L('flatDefaultDamageType.choice.untyped'),
-      'acid':       'DRAW_STEEL.DAMAGE_TYPE.Acid',
-      'cold':       'DRAW_STEEL.DAMAGE_TYPE.Cold',
-      'corruption': 'DRAW_STEEL.DAMAGE_TYPE.Corruption',
-      'fire':       'DRAW_STEEL.DAMAGE_TYPE.Fire',
-      'holy':       'DRAW_STEEL.DAMAGE_TYPE.Holy',
-      'lightning':  'DRAW_STEEL.DAMAGE_TYPE.Lightning',
-      'poison':     'DRAW_STEEL.DAMAGE_TYPE.Poison',
-      'psychic':    'DRAW_STEEL.DAMAGE_TYPE.Psychic',
-      'sonic':      'DRAW_STEEL.DAMAGE_TYPE.Sonic',
+      '': L('flatDefaultDamageType.choice.untyped'),
+      ...Object.fromEntries(Object.entries(ds.CONFIG.damageTypes).map(([type, { label }]) => [type, label])),
     },
   });
   game.settings.register(M, 'flatDefaultMovement', {

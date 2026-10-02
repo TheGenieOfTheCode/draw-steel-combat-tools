@@ -7,7 +7,7 @@ import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced
 import { applyGrab, runGrab, endGrab } from '../conditions/grab.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
-import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW } from '../ctlib.mjs';
+import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW, DAMAGE_TYPES } from '../ctlib.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
@@ -26,18 +26,7 @@ const _fmExecutingKeys = new Set();
 
 const _flatCondState = new Map();
 
-const _DSTD_DAMAGE_ICONS = {
-  acid:       'fa-solid fa-flask-vial',
-  cold:       'fa-solid fa-snowflake',
-  corruption: 'fa-brands fa-galactic-republic',
-  fire:       'fa-solid fa-fire',
-  holy:       'fa-solid fa-sun',
-  lightning:  'fa-solid fa-bolt',
-  poison:     'fa-solid fa-skull-crossbones',
-  psychic:    'fa-solid fa-brain',
-  sonic:      'fa-solid fa-volume-high',
-};
-function _dmgIcon(type) { return _DSTD_DAMAGE_ICONS[type] ?? 'fa-solid fa-burst'; }
+function _dmgIcon(type) { return (DAMAGE_TYPES[type] ?? DAMAGE_TYPES.untyped).icon; }
 
 function _makeStatusIcon(iconSrc) {
   if (!iconSrc) {
@@ -1584,7 +1573,7 @@ async function _injectFmButtons(message, root) {
         const _appendSuffix = (span) => {
           const text = span.textContent.replace(/\.\s*$/, '') + suffix;
           span.textContent = text;
-          TextEditor.enrichHTML(text, { async: true }).then(html => { span.innerHTML = html; }).catch(() => {});
+          foundry.applications.ux.TextEditor.implementation.enrichHTML(text, { async: true }).then(html => { span.innerHTML = html; }).catch(() => {});
         };
         for (const dd of tierTextDds) {
           if (dd.dataset.dsctFlatPreview) continue;
@@ -1615,7 +1604,7 @@ async function _injectFmButtons(message, root) {
           
           dd.dataset.dsctFlatPreview = '1';
           dd.textContent = rawText;
-          TextEditor.enrichHTML(rawText, { async: true }).then(html => { dd.innerHTML = html; }).catch(() => {});
+          foundry.applications.ux.TextEditor.implementation.enrichHTML(rawText, { async: true }).then(html => { dd.innerHTML = html; }).catch(() => {});
           dl.appendChild(dd);
           previewBody.insertBefore(dl, previewBody.querySelector(`.${DSTD}-target-actions`));
         }
