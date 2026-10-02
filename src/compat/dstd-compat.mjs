@@ -7,16 +7,13 @@ import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced
 import { applyGrab, runGrab, endGrab } from '../conditions/grab.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
-import { services, applicationSignature, registerPanelDecorator } from '../ctlib.mjs';
+import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW } from '../ctlib.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
 import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords } from '../ability-automation/choose-effect.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
-const DSTD       = 'draw-steel-target-damage';
-const DSTD_PANEL = `section.${DSTD}-panel`;
-const DSTD_ROW   = `.${DSTD}-target-row[data-target-key]`;
 const PANEL_ANCHOR = 'dsct-panel-anchor';
 
 const M          = 'draw-steel-combat-tools';

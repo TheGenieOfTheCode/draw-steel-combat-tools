@@ -11,7 +11,7 @@ import { runSourcePicker, runMultiTokenPicker, setFoundryTargets } from '../abil
 const M = 'draw-steel-combat-tools';
 
 const DAMAGE_TYPES = [
-  'untyped', 'fire', 'cold', 'lightning', 'sonic',
+  'untyped', 'acid', 'fire', 'cold', 'lightning', 'sonic',
   'holy', 'corruption', 'psychic', 'poison',
 ];
 

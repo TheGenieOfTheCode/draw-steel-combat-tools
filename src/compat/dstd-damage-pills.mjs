@@ -1,9 +1,9 @@
+import { DSTD } from '../ctlib.mjs';
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
 import { markAreaCaps } from './dstd-area-cap.mjs';
 
 const M    = 'draw-steel-combat-tools';
-const DSTD = 'draw-steel-target-damage';
 
 const L = (k, data) => data
   ? game.i18n.format(`DSCT.panel.damagePills.${k}`, data)

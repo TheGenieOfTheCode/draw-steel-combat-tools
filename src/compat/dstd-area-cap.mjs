@@ -1,4 +1,4 @@
-const DSTD = 'draw-steel-target-damage';
+import { DSTD } from '../ctlib.mjs';
 const AREA_TYPES = new Set(['aura', 'burst', 'cube', 'line', 'wall']);
 
 const L = (k, data) => data

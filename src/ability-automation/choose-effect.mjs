@@ -1,5 +1,5 @@
 import { normalizeCollection } from '../helpers.mjs';
-import { stackedPrompt } from '../ctlib.mjs';
+import { stackedPrompt, DSTD } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const PARTIAL = `modules/${M}/templates/effects/choose.hbs`;
@@ -663,8 +663,6 @@ function _registerChooseMessageHooks() {
   });
 }
 
-const DSTD_ID = 'draw-steel-target-damage';
-
 export function chooseHiddenRollIndexes(message) {
   const picks = message?.getFlag?.(M, FLAG);
   if (!picks || !Object.keys(picks).length) return null;
@@ -690,7 +688,7 @@ export function filterChooseDstdRows(message, panel) {
 
   for (const el of panel.querySelectorAll('[data-roll-index]')) {
     if (!hidden.has(String(el.dataset.rollIndex))) continue;
-    (el.closest(`.${DSTD_ID}-action-row`) ?? el).remove();
+    (el.closest(`.${DSTD}-action-row`) ?? el).remove();
   }
 
   
@@ -714,7 +712,7 @@ function _rewriteDstdTierText(message, panel) {
   const kept = all.filter(e => _effectShows(e, assignment));
   if (kept.length === all.length) return;
 
-  for (const result of panel.querySelectorAll(`.${DSTD_ID}-tier-result`)) {
+  for (const result of panel.querySelectorAll(`.${DSTD}-tier-result`)) {
     const glyph = result.querySelector('dt.glyph');
     let tier = null;
     for (const cls of glyph?.classList ?? []) {
@@ -723,7 +721,7 @@ function _rewriteDstdTierText(message, panel) {
     }
     if (!tier) continue;
 
-    const cell = result.querySelector(`dd.${DSTD_ID}-tier-text`);
+    const cell = result.querySelector(`dd.${DSTD}-tier-text`);
     if (cell) cell.innerHTML = kept.map(e => e.toText(tier)).filter(Boolean).join('; ');
   }
 }

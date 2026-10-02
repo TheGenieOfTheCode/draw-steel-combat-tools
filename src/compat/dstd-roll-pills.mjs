@@ -1,9 +1,9 @@
+import { DSTD } from '../ctlib.mjs';
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { DSCTAddModifierDialog } from '../ability-automation/roll-dialog-hooks.mjs';
 import { drawSourceLines, clearSourceLines } from '../ability-automation/source-lines.mjs';
 
 const M    = 'draw-steel-combat-tools';
-const DSTD = 'draw-steel-target-damage';
 
 const _isPowerRoll = (r) => (globalThis.ds?.rolls?.PowerRoll && r instanceof ds.rolls.PowerRoll) || r?.product !== undefined;
 
