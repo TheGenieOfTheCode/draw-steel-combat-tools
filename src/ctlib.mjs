@@ -6,12 +6,12 @@ const ctlibIndex = () => {
   return tag ? new URL('index.mjs', tag.src).href : new URL('../../draw-steel-ctlib/src/index.mjs', import.meta.url).href;
 };
 
-const lib = await import(ctlibIndex());
+const lib = globalThis.ctlib ?? await import(ctlibIndex());
 
 export const {
   BASE_MATERIALS, COVER_KEY, DAMAGE_TYPES, activateFaces, damageTypeIconHTML, damageTypeLabel, CTLIB_SCOPE, DELETE_MARKER, DSTD, DSTD_PANEL, DSTD_ROW, GRID, LEGACY_SCOPE, LOE_KEY,
   MATERIAL_ALPHA, MATERIAL_ICONS, MATERIAL_RULES, MATERIAL_RULE_DEFAULTS, MULTI_GRAB_LIMITS, SIGHT_SAMPLE_COUNT,
-  STEALTH_WORKFLOW_READY, SettingsSubmenu, WALL_RESTRICTIONS, WALL_RESTRICTION_DEFAULTS, activateTokenLayer,
+  STEALTH_WORKFLOW_READY, WALL_RESTRICTIONS, WALL_RESTRICTION_DEFAULTS, activateTokenLayer,
   addPreviewToken, addTags, applicationSignature, armCoverImmunity, atLeastHalfBlocked, beginPickerOverlay,
   blocksLoeForEnemies, burrowAdjacent, burrowBlocksLineOfEffect, burrowDepth, canCurrentlyFly, canForcedMoveTarget,
   chooseFreeSquare, clampOutsetPoints, clearPickerArrows, clearPreviewTokens, concealingRegions, config,
@@ -33,3 +33,5 @@ export const {
   tileIsOpenDoor, toCenter, toGrid, toWorld, tokFootprintDist, tokenAt, tokenCoverMode, touchesGround, undoDamage,
   visibleSquareCorners, visibleTargetCorners, wallBetween, wallBlocksMovement, wallGrantsCover
 } = lib;
+
+export const SettingsSubmenu = lib.settingsSubmenu?.() ?? lib.SettingsSubmenu;
