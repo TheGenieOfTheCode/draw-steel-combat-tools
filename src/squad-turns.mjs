@@ -142,6 +142,17 @@ function _resolveTurnMarkerCtor(fallbackToken) {
   return _turnMarkerCtor;
 }
 
+const _markerLook = (token) => JSON.stringify([game.settings.get('core', 'combatTrackerConfig')?.turnMarker ?? null, token.document.turnMarker ?? null]);
+
+function _drawMarker(token) {
+  token.turnMarker.draw();
+  token.turnMarker._dsctLook = _markerLook(token);
+}
+
+function _redrawIfRestyled(token) {
+  if (token.turnMarker && token.turnMarker._dsctLook !== _markerLook(token)) _drawMarker(token);
+}
+
 function _pixiAlive(obj) {
   return !!obj && obj.destroyed !== true && !!obj.transform;
 }
@@ -311,8 +322,14 @@ export function registerSquadTurnHooks() {
     token._refreshTurnMarker?.();
   });
 
+  const onTrackerConfig = (setting) => {
+    if (setting.key === 'core.combatTrackerConfig' && canvas?.ready) refreshSquadTurnMarkers();
+  };
+  Hooks.on('updateSetting', onTrackerConfig);
+  Hooks.on('createSetting', onTrackerConfig);
+
   Hooks.on('canvasReady', () => {
-    
+
     _markerWrappers.clear();
     if (!getSetting('squadGlowMarker') && !getSetting('squadSimultaneousTurns')) return;
     const activeCombatant = game.combat?.combatant;
@@ -555,9 +572,9 @@ export function registerSquadTurnHooks() {
               const marker = new TurnMarkerCtor(this);
               this.addChildAt(marker, 0);
               this.turnMarker = marker;
-              marker.draw();
+              _drawMarker(this);
               _mdbg('preview ring for', this.name);
-            }
+            } else _redrawIfRestyled(this);
             canvas.tokens.turnMarkers?.add(this);
             return;
           }
@@ -578,11 +595,11 @@ export function registerSquadTurnHooks() {
               _markerWrappers.set(this.id, wrapper);
               this._dsctMarkerWrapper = wrapper;
               this.turnMarker = marker;
-              
-              
-              
-              this.turnMarker.draw();
-            }
+
+
+
+              _drawMarker(this);
+            } else _redrawIfRestyled(this);
             canvas.tokens.turnMarkers?.add(this);
             return;
           }
