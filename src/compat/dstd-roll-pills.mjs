@@ -5,7 +5,11 @@ import { drawSourceLines, clearSourceLines } from '../ability-automation/source-
 
 const M    = 'draw-steel-combat-tools';
 
-const _isPowerRoll = (r) => (globalThis.ds?.rolls?.PowerRoll && r instanceof ds.rolls.PowerRoll) || r?.product !== undefined;
+const _isPowerRoll = (r) => {
+  const PowerRoll = globalThis.ds?.rolls?.PowerRoll;
+  if (PowerRoll) return r instanceof PowerRoll;
+  return r?.product !== undefined && !!r?.dice?.some?.((d) => d.faces === 10);
+};
 
 const _targetKey = (target) => {
   if (target?.selectedToken) return 'selected-token';
