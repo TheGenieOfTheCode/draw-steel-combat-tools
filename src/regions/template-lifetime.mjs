@@ -40,6 +40,17 @@ export function expiryOptions() {
 
 export const defaultEnd = () => (foundry.documents.ActiveEffect.EXPIRY_EVENTS?.[DEFAULT_END] ? DEFAULT_END : expiryOptions()[0]?.value ?? '');
 
+
+export const AURA_END = 'combatEnd';
+export const AURA_FLAG = 'aura';
+export const isAura = (item, region = null) => !!region?.getFlag?.(M, AURA_FLAG) || item?.system?.distance?.type === 'aura';
+export const isOngoing = (item, region = null) => {
+  const chosen = item?.getFlag?.(M, ONGOING);
+  return chosen === undefined || chosen === null ? isAura(item, region) : !!chosen;
+};
+export const endFor = (item, region = null) => item?.getFlag?.(M, ENDS)
+  || (isAura(item, region) && foundry.documents.ActiveEffect.EXPIRY_EVENTS?.[AURA_END] ? AURA_END : defaultEnd());
+
 const abilityOf = (region) => region?.getFlag?.(DS, 'abilitySource') ?? null;
 
 function isPlacedTemplate(region) {
@@ -76,7 +87,7 @@ async function _trackOngoing(region, item) {
 
   
   
-  const expiry = item.getFlag(M, ENDS) || defaultEnd();
+  const expiry = endFor(item, region);
   if (!foundry.documents.ActiveEffect.EXPIRY_EVENTS?.[expiry]) {
     console.warn(`DSCT | template lifetime | ${item.name} wants an expiry of "${expiry}" that no package registered, its area is left alone`);
     return;
@@ -115,7 +126,7 @@ async function _onCreateRegion(region, _options, userId) {
   const item = await fromUuid(abilityOf(region)).catch(() => null);
   if (!item) return;
 
-  if (item.getFlag(M, ONGOING)) await _trackOngoing(region, item);
+  if (isOngoing(item, region)) await _trackOngoing(region, item);
   else _scheduleSweep(region);
 }
 

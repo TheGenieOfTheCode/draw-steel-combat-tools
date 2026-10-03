@@ -534,7 +534,7 @@
       },
       "abilityTemplateCleanup": {
         "name": "Clear Placed Areas",
-        "hint": "Clear an ability’s area off the map once it has stopped mattering. An area goes at the end of the turn, or after the time set below, whichever comes first. Abilities marked Ongoing keep theirs until the moment chosen for them."
+        "hint": "Clear an ability’s area off the map once it has stopped mattering. An area goes at the end of the turn, or after the time set below, whichever comes first. Abilities marked Ongoing keep theirs until the moment chosen for them, and auras are ongoing until the end of the encounter unless their ability says otherwise."
       },
       "abilityTemplateSeconds": {
         "name": "Seconds Before Clearing",
@@ -1796,7 +1796,7 @@
       "effectName": "{name} (Area)",
       "ongoing": {
         "label": "Ongoing",
-        "hint": "Keeps this ability’s area on the map until the moment below, rather than clearing it shortly after it is placed."
+        "hint": "Keeps this ability’s area on the map until the moment below, rather than clearing it shortly after it is placed. Auras start out ongoing, until the end of the encounter."
       },
       "ends": {
         "label": "Area Expiry",

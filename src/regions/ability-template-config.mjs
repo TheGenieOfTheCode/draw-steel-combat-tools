@@ -1,5 +1,5 @@
 import { getModuleApi, safeDelete, getSetting , dropKey } from '../helpers.mjs';
-import { ONGOING, ENDS, defaultEnd, expiryOptions } from './template-lifetime.mjs';
+import { ONGOING, ENDS, AURA_FLAG, expiryOptions, isAura, isOngoing, endFor } from './template-lifetime.mjs';
 
 const M  = 'draw-steel-combat-tools';
 const DS = 'draw-steel';
@@ -80,8 +80,8 @@ function _injectLifetimeFields(app, root, item, typeGroup) {
   if (app.isPlayMode) return;
   if (root.querySelector('.dsct-template-lifetime')) return;
 
-  const ongoing = !!item.getFlag(M, ONGOING);
-  const end = item.getFlag(M, ENDS) || defaultEnd();
+  const ongoing = isOngoing(item);
+  const end = endFor(item);
   const locked = app.isEditable === false;
 
   const options = expiryOptions()
@@ -113,8 +113,9 @@ function _injectLifetimeFields(app, root, item, typeGroup) {
   find('.dsct-template-ongoing')?.addEventListener('change', async (event) => {
     const on = event.currentTarget.checked;
     if (select) select.disabled = !on;
-    if (on) await item.setFlag(M, ONGOING, true);
-    else await item.update({ flags: { [M]: { [ONGOING]: dropKey() } } });
+    
+    if (on === isAura(item)) await item.update({ flags: { [M]: { [ONGOING]: dropKey() } } });
+    else await item.setFlag(M, ONGOING, on);
   });
 
   select?.addEventListener('change', (event) => {
@@ -160,6 +161,10 @@ function _registerPlaceRegionPatch() {
     'foundry.canvas.layers.RegionLayer.prototype.placeRegion',
     async function(wrapped, regionData, options) {
       const abilitySourceUuid = regionData?.flags?.[DS]?.abilitySource;
+      
+      if (abilitySourceUuid && options?.attachToToken) {
+        regionData.flags = foundry.utils.mergeObject(regionData.flags ?? {}, { [M]: { [AURA_FLAG]: true } }, { inplace: false });
+      }
       if (abilitySourceUuid && getSetting('abilityTemplateConfigEnabled')) {
         try {
           const item         = await fromUuid(abilitySourceUuid);
