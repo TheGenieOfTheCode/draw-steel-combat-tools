@@ -1,21 +1,21 @@
 {
   "schema": 1,
   "latest": {
-    "version": "1.2.1",
+    "version": "1.2.2",
     "url": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest"
   },
   "recommends": [
     {
       "id": "draw-steel-death-tracker",
       "title": "Draw Steel: Death Tracker",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "url": "https://github.com/TheGenieOfTheCode/draw-steel-death-tracker/releases/latest",
       "reason": "[Combat Tools] Keeps track of who falls: deaths announced in chat with an undo, the right minions taken from a squad, and the fallen left where they fell."
     },
     {
       "id": "draw-steel-battle-log",
       "title": "Draw Steel: Battle Log",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "url": "https://github.com/TheGenieOfTheCode/draw-steel-battle-log/releases/latest",
       "reason": "[Combat Tools] Draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat cards match the dark theme."
     },
