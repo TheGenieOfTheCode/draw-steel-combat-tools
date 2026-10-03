@@ -229,13 +229,19 @@ function _makeGlowGraphic(token, color = 0xffffff) {
   gfx.beginFill(color, 1);
   gfx.drawCircle(tw / 2, th / 2, r);
   gfx.endFill();
-  gfx.filters = [new PIXI.BlurFilter(gs * 0.18)];
+  const blur = new PIXI.BlurFilter(gs * 0.18 * (canvas.stage?.scale?.x ?? 1));
+  gfx.filters = [blur];
+  gfx._dsctBlur = { filter: blur, strength: gs * 0.18 };
   gfx.alpha = 0.3;
   if (!_glowTicker) {
     _glowTicker = () => {
       _glowTime += canvas.app.ticker.deltaMS / 1000;
       const a = 0.25 + 0.2 * Math.sin(_glowTime * Math.PI * 1.5);
-      for (const g of _glowTargets) g.alpha = a;
+      const zoom = canvas.stage?.scale?.x ?? 1;
+      for (const g of _glowTargets) {
+        g.alpha = a;
+        if (g._dsctBlur) g._dsctBlur.filter.blur = g._dsctBlur.strength * zoom;
+      }
     };
     canvas.app.ticker.add(_glowTicker);
   }
