@@ -1,6 +1,6 @@
 import {
   replayUndo, safeUpdate, safeDelete, safeToggleStatusEffect, safeCreateEmbedded,
-  getSetting, getTokenById, getModuleApi,
+  getSetting, getTokenById,
 } from '../helpers.mjs';
 import { applyGrab } from '../conditions/grab.mjs';
 import { addPreviewToken, removePreviewToken, activateTokenLayer, services } from '../ctlib.mjs';
@@ -53,12 +53,11 @@ const handleStaminaRevival = async (undoLog) => {
   
   
   
-  const dstdSocket = getModuleApi(false)?.socket;
+  const pending = services.get('announcePendingRevival') ?? services.get('markPendingRevival');
   const defeatedStatus = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
   for (const tokenDoc of tokensToRevive.values()) {
     if (!tokenDoc?.uuid || !tokenDoc.actor?.statuses?.has(defeatedStatus)) continue;
-    services.get('markPendingRevival')?.(tokenDoc.uuid);
-    dstdSocket?.executeForEveryone('dsct.dstdPendingRevival', tokenDoc.uuid);
+    pending?.(tokenDoc.uuid);
   }
 
   const processedActorIds = new Set();
