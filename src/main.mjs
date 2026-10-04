@@ -49,6 +49,7 @@ import {
   registerDamagePillProvider,
 } from './compat/dstd-damage-pills.mjs';
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
+import { registerResourcesUiCompat } from './compat/resources-ui-compat.mjs';
 import { registerAbilityHudCompat } from './compat/ability-hud-compat.mjs';
 import { registerFlatEffects, setPendingTriggerDamage } from './ability-automation/flat-special-effects.mjs';
 import { registerTieredEffects } from './ability-automation/tiered-effects.mjs';
@@ -229,6 +230,7 @@ Hooks.once('init', () => {
   registerDstdRollPills();
   registerDstdDamagePills();
   registerHealthEstimateCompat();
+  registerResourcesUiCompat();
   registerAbilityHudCompat();
   
   
