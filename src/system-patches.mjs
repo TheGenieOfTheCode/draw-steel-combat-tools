@@ -1,4 +1,4 @@
-import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, safeDelete, sightSamples, sightOriginPoints } from './helpers.mjs';
+import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, safeDelete, sightSamples, sightOriginPoints, messageDamageSource } from './helpers.mjs';
 import { chooseMessageFilter, chooseKeywords } from './ability-automation/choose-effect.mjs';
 import { applyGrab, runGrab, endGrab, openGrabPanel } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
@@ -327,9 +327,9 @@ function _patchDamageRollButton() {
         if (dsctArea === 'true') {
           const squadGroup   = getSquadGroup(actor);
           const effectiveAmt = squadGroup ? Math.min(amount, actor.system.stamina.max ?? amount) : amount;
-          await applyDamage(actor, effectiveAmt, undefined, { damageType: roll.type });
+          await applyDamage(actor, effectiveAmt, undefined, { damageType: roll.type, source: messageDamageSource(msg) });
         } else {
-          await applyDamage(actor, amount, undefined, { damageType: roll.type });
+          await applyDamage(actor, amount, undefined, { damageType: roll.type, source: messageDamageSource(msg) });
         }
       }
     },

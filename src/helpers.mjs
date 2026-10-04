@@ -72,11 +72,28 @@ export const asStaminaLoss = async (fn) => {
   finally { _staminaLossDepth--; }
 };
 
+let _damageSource = null;
+export const withDamageSource = async (source, fn) => {
+  const outer = _damageSource;
+  _damageSource = source?.actorUuid || source?.tokenUuid || source?.ability ? source : outer;
+  try { return await fn(); } finally { _damageSource = outer; }
+};
+export const messageDamageSource = (message) => {
+  const sp = message?.speaker ?? {};
+  const use = message?.system?.parts?.contents?.find((p) => p.type === 'abilityUse');
+  return {
+    tokenUuid: sp.scene && sp.token ? `Scene.${sp.scene}.Token.${sp.token}` : null,
+    actorUuid: sp.actor ? `Actor.${sp.actor}` : null,
+    ability: use?.abilityUuid ? (fromUuidSync(use.abilityUuid, { strict: false })?.name ?? null) : null,
+  };
+};
+
 export const applyDamage = async (actor, amount, squadGroupOverride = undefined, {
   damageType     = 'untyped',
   ignoreImmunity = false,
   isArea         = false,
   staminaLoss    = false,
+  source         = _damageSource,
 } = {}) => {
   const prevValue   = actor.system.stamina.value;
   const prevTemp    = actor.system.stamina.temporary;
@@ -93,7 +110,7 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   const ignoredImmunities = staminaLoss ? ['all'] : (ignoreImmunity ? [type] : []);
   const effectiveAmt      = (isArea && squadGroup) ? Math.min(amount, actor.system.stamina.max ?? amount) : amount;
 
-  const take = () => safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities, staminaLoss });
+  const take = () => safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities, staminaLoss, ...(source ? { dsbl: { source } } : {}) });
   await (staminaLoss ? asStaminaLoss(take) : take());
   return { prevTemp, prevValue, prevSquadHP, squadGroup, squadCombatantIds, squadTokenIds };
 };

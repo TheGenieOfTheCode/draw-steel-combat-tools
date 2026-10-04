@@ -1,4 +1,4 @@
-import { applyDamage, getSetting, getModuleApi } from '../helpers.mjs';
+import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource } from '../helpers.mjs';
 import { DAMAGE_TYPES } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
@@ -1273,13 +1273,16 @@ export function addFlatEffectListeners(section, item, message) {
       await roll.evaluate();
       const amount = Math.floor(roll.total);
 
-      for (const target of targets) {
-        if (!target.actor) continue;
-        await applyDamage(target.actor, amount, undefined, {
-          damageType: typeList[0] ?? "untyped",
-          ignoreImmunity: immunities.includes("all"),
-        });
-      }
+      const source = { ...messageDamageSource(message), actorUuid: item.actor?.uuid ?? messageDamageSource(message).actorUuid, ability: item.name };
+      await withDamageSource(source, async () => {
+        for (const target of targets) {
+          if (!target.actor) continue;
+          await applyDamage(target.actor, amount, undefined, {
+            damageType: typeList[0] ?? "untyped",
+            ignoreImmunity: immunities.includes("all"),
+          });
+        }
+      });
     });
   });
 

@@ -1,5 +1,5 @@
 import {
-  getSetting, getWindowById, getSquadGroup, applyDamage, damageBatch,
+  getSetting, getWindowById, getSquadGroup, applyDamage, damageBatch, withDamageSource,
   safeToggleStatusEffect, safeCreateEmbedded, safeDelete, getItemDsid,
   tokFootprintDist, confirmRangeOverride,
 } from '../helpers.mjs';
@@ -447,7 +447,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       }
     }
 
-    await damageBatch(async () => {
+    await damageBatch(() => withDamageSource({ tokenUuid: sourceToken?.document?.uuid ?? null, actorUuid: sourceActor?.uuid ?? null }, async () => {
       for (const targetToken of this._targetTokens) {
         const actor = targetToken.actor;
         if (!actor) continue;
@@ -466,7 +466,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
           }
         }
       }
-    });
+    }));
 
     const count = this._targetTokens.length;
     ui.notifications.info(game.i18n.format('DSCT.notice.dc.appliedToCount', { count, s: count !== 1 ? 's' : '' }));

@@ -6,7 +6,7 @@ import {
   MATERIAL_RULES, MATERIAL_ICONS,
   getMaterialIcon, getMaterialAlpha,
   getMaterial, tokenAt, tileAt, wallBetween, tileIsOpenDoor, wallBlocksMovement,
-  getSquadGroup, applyDamage, snapStamina,
+  getSquadGroup, applyDamage, snapStamina, withDamageSource,
   canCurrentlyFly, getWallBlockTileAt,
   sizeRank,
   safeUpdate, safeDelete, safeToggleStatusEffect,
@@ -39,7 +39,8 @@ export function bypassNextFmGate() {
 const _runForcedMovement = async (...args) => {
   const doc = args[2]?.document;
   const from = doc ? { x: doc.x, y: doc.y, elevation: doc.elevation } : null;
-  const result = await _forcedMovementImpl(...args);
+  const source = args[3]?.document ?? args[3] ?? null;
+  const result = await withDamageSource({ tokenUuid: source?.uuid ?? null, actorUuid: source?.actor?.uuid ?? null }, () => _forcedMovementImpl(...args));
   if (from && (doc.x !== from.x || doc.y !== from.y || doc.elevation !== from.elevation)) {
     const squares = Math.max(Math.abs(doc.x - from.x), Math.abs(doc.y - from.y)) / canvas.grid.size;
     Hooks.callAll('dsct.forcedMovement', {
