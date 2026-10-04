@@ -72,6 +72,10 @@ export const asStaminaLoss = async (fn) => {
   finally { _staminaLossDepth--; }
 };
 
+export const noLogFlag = () => ({ 'draw-steel-ctlib': { noLog: true } });
+
+export const cleansed = () => ({ ctlib: { endReason: 'cleansed' } });
+
 let _damageSource = null;
 export const withDamageSource = async (source, fn) => {
   const outer = _damageSource;

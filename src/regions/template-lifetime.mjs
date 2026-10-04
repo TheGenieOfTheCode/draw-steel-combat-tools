@@ -1,4 +1,4 @@
-import { getSetting, safeDelete, safeCreateEmbedded, safeSetFlag } from '../helpers.mjs';
+import { getSetting, safeDelete, safeCreateEmbedded, safeSetFlag, noLogFlag } from '../helpers.mjs';
 
 const M  = 'draw-steel-combat-tools';
 const DS = 'draw-steel';
@@ -99,7 +99,7 @@ async function _trackOngoing(region, item) {
     origin: item.uuid,
     showIcon: CONST.ACTIVE_EFFECT_SHOW_ICON.NEVER,
     duration: { expiry },
-    flags: { [M]: { [EFFECT_REGION]: region.uuid } },
+    flags: { [M]: { [EFFECT_REGION]: region.uuid }, ...noLogFlag() },
   };
 
   

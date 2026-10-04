@@ -1,4 +1,4 @@
-import { getSetting } from '../helpers.mjs';
+import { getSetting, noLogFlag } from '../helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -116,7 +116,7 @@ export async function peekTo(token, space, { auto = false } = {}) {
         img: 'icons/svg/eye.svg',
         origin: token.actor.uuid,
         description: '<p>Leaning out of cover to see past a corner. Run the Peek macro again to settle back.</p>',
-        flags: { [M]: { peek } },
+        flags: { [M]: { peek }, ...noLogFlag() },
       }]);
     }
     return true;

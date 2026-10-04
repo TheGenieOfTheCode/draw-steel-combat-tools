@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi } from '../../helpers.mjs';
+import { getSetting, getModuleApi, noLogFlag } from '../../helpers.mjs';
 import { chooseKeywords } from '../choose-effect.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -11,7 +11,7 @@ const _INT_EFFECT_ABILITY = {
   changes: [{ key: 'power.roll.edges', mode: 2, value: '1', priority: null }],
   disabled: false,
   duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null, expiry: 'turnEnd' },
-  description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'int' } },
+  description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'int' }, ...noLogFlag() },
 };
 
 const _INT_EFFECT_PASSIVE = {
@@ -22,7 +22,7 @@ const _INT_EFFECT_PASSIVE = {
   changes: [{ key: 'system.movement.disengage', mode: 2, value: '1', priority: null }],
   disabled: false,
   duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null },
-  description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'int' } },
+  description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'int' }, ...noLogFlag() },
 };
 
 const INT_OOC_FLAG     = 'imNoThreatOOCVictories';

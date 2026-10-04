@@ -1,4 +1,4 @@
-import { getSetting, getItemDsid } from '../../helpers.mjs';
+import { getSetting, getItemDsid, noLogFlag } from '../../helpers.mjs';
 import { chooseKeywords } from '../choose-effect.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -15,7 +15,7 @@ const CF_EFFECT_DEFS = {
     changes: [], disabled: false,
     duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null, expiry: 'combatEnd' },
     description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0,
-    flags: { [M]: { isCrossfadeEffect: true, strikeType: 'melee' } },
+    flags: { [M]: { isCrossfadeEffect: true, strikeType: 'melee' }, ...noLogFlag() },
   },
   ranged: {
     name: 'Crossfade: Ranged Edge',
@@ -25,7 +25,7 @@ const CF_EFFECT_DEFS = {
     changes: [], disabled: false,
     duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null, expiry: 'combatEnd' },
     description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0,
-    flags: { [M]: { isCrossfadeEffect: true, strikeType: 'ranged' } },
+    flags: { [M]: { isCrossfadeEffect: true, strikeType: 'ranged' }, ...noLogFlag() },
   },
 };
 

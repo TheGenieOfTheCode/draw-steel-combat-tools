@@ -1,5 +1,5 @@
 import { services } from '../ctlib.mjs';
-import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken, getModuleApi , dropKey } from '../helpers.mjs';
+import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken, getModuleApi , dropKey, noLogFlag } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
 import { playDetected } from './detected-flash.mjs';
 import { stealthTraits, observerBlocksHiding, coverCountingCreatures, widestCover, forbiddenToHide } from './stealth-traits.mjs';
@@ -74,7 +74,7 @@ const _sneakingData = () => ({
   statuses: [SNEAKING],
   description: _sneakingDescription(),
   system: { changes: [{ key: 'system.movement.multiplier', type: 'multiply', value: 0.5, phase: 'initial', priority: null }] },
-  flags: { [M]: { effectType: 'sneaking' } },
+  flags: { [M]: { effectType: 'sneaking' }, ...noLogFlag() },
 });
 
 async function _grantSneaking(actor) {
@@ -389,7 +389,7 @@ async function _rememberEcho(token, observerIds) {
     changes: [],
     start,
     duration: { expiry: 'turnEnd' },
-    flags: { [M]: { effectType: WAS_HIDDEN, [FLAG]: merged } },
+    flags: { [M]: { effectType: WAS_HIDDEN, [FLAG]: merged }, ...noLogFlag() },
   }]);
 }
 

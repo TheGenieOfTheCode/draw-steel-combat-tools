@@ -1,5 +1,5 @@
 import { services } from '../ctlib.mjs';
-import { getSetting, rangeEnforced, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf } from '../helpers.mjs';
+import { getSetting, rangeEnforced, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf, noLogFlag } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
 import { stackedPrompt } from '../ctlib.mjs';
@@ -26,7 +26,7 @@ const SIZE_EDGE_EFFECT = {
   changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
   disabled: false,
   duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0, expiry: 'combatEnd' },
-  description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: {},
+  description: '', tint: '#ffffff', transfer: false, statuses: [], sort: 0, flags: noLogFlag(),
 };
 
 export const buildFreeStrikeButton = (actor, targetTokenId = null) => {
@@ -278,7 +278,7 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
     duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null, expiry: 'combatEnd' },
     description: '<p>You can use a maneuver to move the grabbed creature into an unoccupied space adjacent to you. You can release the grabbed creature at any time to end the grab (no action required). If you are force moved so that you are no longer adjacent to the grabbed creature, the grab ends.</p><p>You can grab only creatures of your size or smaller. If your Might score is 2 or higher, you can grab creatures larger than you with a size equal to or less than your Might score. Unless otherwise indicated, you can grab only one creature at a time.</p><p>If your size is equal to or less than the size of the creature you have grabbed, your speed is halved while you have them grabbed.</p>',
     tint: '#ffffff', sort: 0,
-    flags: { [M]: { grab: { grabberId: grabberTok.id, grabbedId: grabbedTok.id } } },
+    flags: { [M]: { grab: { grabberId: grabberTok.id, grabbedId: grabbedTok.id } }, ...noLogFlag() },
   }]);
 
   const grabbedEffect = grabbedTok.actor.effects.find(e => e.getFlag(M, 'grabbed'));

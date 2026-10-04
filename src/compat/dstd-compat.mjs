@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey } from '../helpers.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed } from '../helpers.mjs';
 import { triggerRollData, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
@@ -3293,7 +3293,7 @@ async function _injectFmButtons(message, root) {
 
         if (!chosen) { cleanseBtn.disabled = false; return; }
         const removedData = chosen.toObject();
-        await chosen.delete();
+        await chosen.delete(cleansed());
 
         const freshCur = message.getFlag(M, cleanseFlagKey) ?? { stack: [] };
         const newStack = [...(freshCur.stack ?? []), removedData];

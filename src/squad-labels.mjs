@@ -1,5 +1,5 @@
 import { services } from './ctlib.mjs';
-import { safeCreateEmbedded, safeDelete, getSetting, monsterFilter as filter } from './helpers.mjs';
+import { safeCreateEmbedded, safeDelete, getSetting, monsterFilter as filter, noLogFlag } from './helpers.mjs';
 import { runMultiTokenPicker, runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 
 const M         = 'draw-steel-combat-tools';
@@ -142,7 +142,7 @@ const _applySquadLabels = async () => {
         system: { end: { roll: "" }, filters: { keywords: [] } },
         changes: [], disabled: false,
         duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: null, startTurn: null, expiry: "combatEnd" },
-        description: "", tint: want.tint, transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'squad-label' } },
+        description: "", tint: want.tint, transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'squad-label' }, ...noLogFlag() },
       }]);
       updated++;
     } catch (err) {

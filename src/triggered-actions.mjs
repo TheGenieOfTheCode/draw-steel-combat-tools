@@ -1,4 +1,4 @@
-import { safeCreateEmbedded, safeDelete, safeUpdate, getSetting, getTokenById } from './helpers.mjs';
+import { safeCreateEmbedded, safeDelete, safeUpdate, getSetting, getTokenById, noLogFlag } from './helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -12,7 +12,7 @@ const TRIGGER_EFFECT = {
     startTime: 0, combat: null, seconds: null, rounds: null, turns: null,
     startRound: null, startTurn: null, expiry: "combatEnd",
   },
-  description: "", tint: "#ffffff", transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'triggered-action' } }
+  description: "", tint: "#ffffff", transfer: false, statuses: [], sort: 0, flags: { [M]: { effectType: 'triggered-action' }, ...noLogFlag() }
 };
 
 const getActorFromCombatant = (combatant) => {

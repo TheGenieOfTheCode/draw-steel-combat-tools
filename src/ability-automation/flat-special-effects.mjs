@@ -1,4 +1,4 @@
-import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource } from '../helpers.mjs';
+import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed } from '../helpers.mjs';
 import { DAMAGE_TYPES } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
@@ -1501,7 +1501,7 @@ export function addFlatEffectListeners(section, item, message) {
         }
 
         if (!chosen) continue;
-        await chosen.delete();
+        await chosen.delete(cleansed());
         anyApplied = true;
       }
 
