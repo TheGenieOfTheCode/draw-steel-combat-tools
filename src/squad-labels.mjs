@@ -42,11 +42,29 @@ export const autoRenameGroups = async () => {
   }
 };
 
+const _dropping = new Set();
 const _dropLabels = async (token, labels) => {
-  const ids = labels.map(e => e.id).filter(id => token.actor?.effects.has(id));
+  const ids = labels.map(e => e.id).filter(id => token.actor?.effects.has(id) && !_dropping.has(id));
   if (!ids.length) return;
-  if (token.actor.isOwner) await token.actor.deleteEmbeddedDocuments('ActiveEffect', ids);
-  else for (const id of ids) await safeDelete(token.actor.effects.get(id));
+  for (const id of ids) _dropping.add(id);
+  try {
+    if (token.actor.isOwner) await token.actor.deleteEmbeddedDocuments('ActiveEffect', ids);
+    else for (const id of ids) await safeDelete(token.actor.effects.get(id));
+  } finally {
+    for (const id of ids) _dropping.delete(id);
+  }
+};
+
+const _labelsOn = (token) => token.actor?.effects.filter(e => e.getFlag(M, 'effectType') === 'squad-label') ?? [];
+
+const _sweepUnseatedLabels = async () => {
+  const seated = new Set(game.combats.filter(c => !c.scene || c.scene.id === canvas.scene?.id)
+    .flatMap(c => c.combatants.map(cb => cb.tokenId)));
+  for (const token of canvas.tokens.placeables) {
+    if (seated.has(token.id)) continue;
+    const labels = _labelsOn(token);
+    if (labels.length) await _dropLabels(token, labels);
+  }
 };
 
 const _applySquadLabels = async () => {
@@ -152,9 +170,8 @@ export const applySquadLabels = () => {
 
 export const clearSquadLabels = async () => {
   for (const token of canvas.tokens.placeables) {
-    if (!token.actor) continue;
-    const labels = token.actor.effects.filter(e => e.getFlag(M, 'effectType') === 'squad-label');
-    for (const e of labels) await safeDelete(e);
+    const labels = _labelsOn(token);
+    if (labels.length) await _dropLabels(token, labels);
   }
 };
 
@@ -219,7 +236,8 @@ const updateWithCaptainEffects = async () => {
     const captain = squad.system.captain;
     for (const minion of squad.system.minions) {
       const captainEffect = minion.actor?.effects.getName('With Captain');
-      await captainEffect?.update({ disabled: !captain || captain.isDefeated });
+      const disabled = !captain || captain.isDefeated;
+      if (captainEffect && captainEffect.disabled !== disabled) await captainEffect.update({ disabled }).catch(() => {});
     }
   }
 };
@@ -365,27 +383,16 @@ export const registerSquadLabelHooks = () => {
     if (!game.users.activeGM?.isSelf) return;
     if (!getSetting('autoSquadLabelsEnabled')) return;
 
-    const combatantTokenIds = new Set(
-      (game.combat?.combatants.contents ?? []).map(c => c.tokenId)
-    );
-
-    for (const token of canvas.tokens.placeables) {
-      if (!token.actor) continue;
-      const labels = token.actor.effects.filter(e => e.getFlag(M, 'effectType') === 'squad-label');
-      if (!labels.length || combatantTokenIds.has(token.id)) continue;
-      for (const e of labels) await safeDelete(e);
-    }
+    await _sweepUnseatedLabels();
   });
 
-  Hooks.on('deleteCombat', async () => {
+  
+  let _sweepTimer = null;
+  Hooks.on('deleteCombat', () => {
     if (!game.users.activeGM?.isSelf) return;
     if (!getSetting('autoSquadLabelsEnabled')) return;
-    await new Promise(r => setTimeout(r, 3000));
-    for (const token of canvas.tokens.placeables) {
-      if (!token.actor) continue;
-      const labels = token.actor.effects.filter(e => e.getFlag(M, 'effectType') === 'squad-label');
-      for (const e of labels) await safeDelete(e);
-    }
+    clearTimeout(_sweepTimer);
+    _sweepTimer = setTimeout(() => { _sweepTimer = null; _sweepUnseatedLabels(); }, 3000);
   });
 
   Hooks.on('combatStart', async (combat) => {
