@@ -1,12 +1,9 @@
-
-
-const ctlibIndex = () => {
-  const tag = [...document.querySelectorAll('script[type="module"][src]')]
-    .find((s) => /\/draw-steel-ctlib\/(?:.*\/)?src\/main\.mjs(?:[?#]|$)/.test(s.src));
-  return tag ? new URL('index.mjs', tag.src).href : new URL('../../draw-steel-ctlib/src/index.mjs', import.meta.url).href;
-};
-
-const lib = globalThis.ctlib ?? await import(ctlibIndex());
+const lib = globalThis.ctlib;
+if (!lib) {
+  const why = 'Draw Steel: Combat Tools needs Draw Steel: CTLib 1.2.0 or later, active in this world.';
+  Hooks.once('ready', () => ui.notifications.error(why, { permanent: true }));
+  throw new Error(why);
+}
 
 export const {
   BASE_MATERIALS, COVER_KEY, DAMAGE_TYPES, activateFaces, damageTypeIconHTML, damageTypeLabel, CTLIB_SCOPE, DELETE_MARKER, DSTD, DSTD_PANEL, DSTD_ROW, GRID, LEGACY_SCOPE, LOE_KEY,
