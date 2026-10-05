@@ -33,7 +33,7 @@
       },
       "onlineNoticeCheck": {
         "name": "Check Online for Module News",
-        "hint": "Ask the Combat Tools page for its list of recommended modules each time the world opens, so new ones and new versions can be mentioned without waiting for an update here. Switch it off to use the list this copy came with and never reach out."
+        "hint": "Fetch the latest list of recommended modules from the Combat Tools page when the world opens. Off, only the list that came with this version is used."
       },
       "enhancedAutoAdd": {
         "name": "Keep Enhanced Abilities Current",
@@ -530,11 +530,11 @@
       },
       "abilityTemplateConfigEnabled": {
         "name": "Configure Ability Templates",
-        "hint": "Adds a Configure Template button to any ability with an area, where its colour, visibility, highlighting and region behaviours are set once and reused every time that ability places its area. Players can set up their own abilities without the Director."
+        "hint": "Adds a Configure Template button to abilities with an area, to set its colour, visibility and region behaviours once for every use. Players can set up their own."
       },
       "abilityTemplateCleanup": {
         "name": "Clear Placed Areas",
-        "hint": "Clear an ability’s area off the map once it has stopped mattering. An area goes at the end of the turn, or after the time set below, whichever comes first. Abilities marked Ongoing keep theirs until the moment chosen for them, and auras are ongoing until the end of the encounter unless their ability says otherwise."
+        "hint": "Clear an ability's area off the map at the end of the turn, or after the time below if that comes first. Ongoing abilities keep theirs until their chosen moment, auras until the encounter ends."
       },
       "abilityTemplateSeconds": {
         "name": "Seconds Before Clearing",
