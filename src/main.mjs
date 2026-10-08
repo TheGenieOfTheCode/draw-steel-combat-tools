@@ -20,6 +20,7 @@ import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
 import { registerJudgedMarked } from './conditions/judged-marked.mjs';
+import { registerApplyToTargets, applyEnricherPayload } from './conditions/apply-to-targets.mjs';
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { registerSearch, pointOut, runSearch, spendHeroToken } from './conditions/search.mjs';
@@ -309,6 +310,7 @@ Hooks.once('setup', () => {
   };
 
   ['ds.roll', 'ds.apply'].forEach(patchDsEnricher);
+  registerApplyToTargets();
 
   const lookupIdx = CONFIG.TextEditor.enrichers.findIndex(e => e.id === 'ds.lookup');
   if (lookupIdx !== -1) {
@@ -473,6 +475,7 @@ Hooks.once('socketlib.ready', () => {
   api.socket = socket;
 
   socket.register('dsct.detected',          (spotterId, hiderId) => playDetected(spotterId, hiderId));
+  socket.register('dsct.applyToTargets',    (payload) => applyEnricherPayload(payload));
   socket.register('dsct.stealthPing',       (at, sceneId) => { if (game.user.isGM) pingStealthStop(at, sceneId); });
   socket.register('dsct.searchPointOut',    (messageId) => pointOut(messageId));
   socket.register('dsct.askObservation',    (hiderId, observerIds) => handleObservationRequest(hiderId, observerIds));

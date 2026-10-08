@@ -636,6 +636,10 @@ export const registerSettings = () => {
     name: L('purifyingFireEnabled.name'), hint: L('purifyingFireEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'applyToTargets', {
+    name: L('applyToTargets.name'), hint: L('applyToTargets.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'neutralizeEnrichers', {
     name: L('neutralizeEnrichers.name'), hint: L('neutralizeEnrichers.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

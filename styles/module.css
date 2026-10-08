@@ -2767,3 +2767,14 @@ label.checkbox.dsct-adv-ignored { opacity: 0.5; text-decoration: line-through; }
   text-decoration-thickness: 2px;
   text-decoration-color: #f2ecf8;
 }
+
+body.dsct-shift-targets enriched-content[enricher="ds.apply"] a.roll-link {
+  color: light-dark(#7a5a14, #e2b04a);
+  cursor: crosshair;
+}
+body.dsct-shift-targets enriched-content[enricher="ds.apply"] a.roll-link > i {
+  --fa: "\f05b";
+  color: inherit;
+}
+body.dsct-shift-targets enriched-content[enricher="ds.apply"] a.roll-link > i::before { content: "\f05b"; }
+body.dsbl-dark-chat.dsct-shift-targets .theme-dark .chat-message enriched-content[enricher="ds.apply"] a.roll-link { color: #e2b04a; }

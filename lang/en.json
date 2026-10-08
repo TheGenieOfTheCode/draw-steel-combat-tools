@@ -1,5 +1,9 @@
 {
   "DSCT": {
+    "applyToTargets": {
+      "tooltip": "Shift-click to apply to your targets instead.",
+      "noTargets": "Target the tokens to apply this to."
+    },
     "setting": {
       "testFeaturesSettings": {
         "name": "Test Features",
@@ -476,6 +480,10 @@
       "purifyingFireEnabled": {
         "name": "Purifying Fire",
         "hint": "Adds an Apply Fire Damage button beside holy damage when the acting hero has Purifying Fire, so the damage can be dealt as fire and set off a target’s weakness to it."
+      },
+      "applyToTargets": {
+        "name": "Shift-Click Applies to Targets",
+        "hint": "Shift-click an apply link (effects and conditions) to apply it to your targets instead of your selected tokens, even creatures you don't own. The link shows a crosshair while Shift is held."
       },
       "neutralizeEnrichers": {
         "name": "Replace Apply Links in Ability Text",
