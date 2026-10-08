@@ -841,7 +841,7 @@ function _injectDamagePills(message, root) {
       seen.add(id);
       const ov = overrides[id];
       const have = Array.isArray(ov?.dstPills) ? ov.dstPills : [];
-      const base = Number(ov?.baseAmount ?? parseInt(btn.textContent.match(/\d+/)?.[0] ?? '0'));
+      const base = Number(ov?.dstSplitBase ?? ov?.baseAmount ?? parseInt(btn.textContent.match(/\d+/)?.[0] ?? '0'));
       const pill = entry.pill.repeat ? { ...entry.pill, value: base } : entry.pill;
       const same = (p) => p.kind === pill.kind && p.label === pill.label && (p.srcTokenId ?? null) === (pill.srcTokenId ?? null)
         && (pill.repeat || p.value === pill.value);
@@ -862,9 +862,11 @@ function _injectDamagePills(message, root) {
     const payload = { [`flags.${DSTD}.state.updatedAt`]: Date.now() };
     for (const [id, { ov, btn, have, base, pills }] of toPersist) {
       const typeClass = [...btn.classList].find((c) => c.includes('-damage-type-'));
-      const seedType = typeClass?.split('-damage-type-')[1] ?? '';
+      const classType = typeClass?.split('-damage-type-')[1] ?? '';
+      const seedType = classType === 'untyped' ? '' : classType;
       const seed = ov ?? { baseAmount: base, amount: base, damageType: seedType, typeLabel: seedType ? damageTypeLabel(seedType) : '' };
-      const data = _pillOpData({ ...seed, baseAmount: base }, [...have, ...pills]);
+      const split = [...have, ...pills].some((p) => p.splitBase);
+      const data = _pillOpData(split ? { ...seed, baseAmount: 0, dstSplitBase: base } : { ...seed, baseAmount: base }, [...have, ...pills]);
 
       const FR = foundry.data?.operators?.ForcedReplacement;
       payload[`flags.${DSTD}.state.damageOverrides.${id}`] = FR ? new FR(data) : data;
