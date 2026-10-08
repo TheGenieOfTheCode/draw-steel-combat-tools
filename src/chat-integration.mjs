@@ -259,6 +259,31 @@ function registerRollDialogHooks() {
   });
 }
 
+
+export async function rollBleeding(actor, { tokenId = null, sourceMessageId = null, apply = getSetting('bleedingMode') === 'auto' } = {}) {
+  if (!actor) return null;
+  const level = actor.system.level ?? 1;
+  const dmgRoll = new ds.rolls.DamageRoll(`1d6 + ${level}`, {}, { type: 'untyped' });
+  await dmgRoll.evaluate();
+  const dmg = dmgRoll.total;
+  const sg = getSquadGroup(actor);
+  const record = apply ? { bleedingRoll: {
+    actorUuid: actor.uuid, dmg, prevValue: actor.system.stamina.value, prevTemp: actor.system.stamina.temporary,
+    prevSquadHP: sg?.system?.staminaValue ?? null, squadGroupUuid: sg?.uuid ?? null, sourceMsgId: sourceMessageId,
+  } } : null;
+  const title = game.i18n.format('DSCT.chat.bleeding.rollTitle', { name: actor.name });
+  const rollMsg = await ds.documents.DrawSteelChatMessage.create({
+    title,
+    rolls: [dmgRoll],
+    type: 'standard',
+    speaker: ChatMessage.getSpeaker({ token: getTokenById(tokenId)?.document }),
+    'system.parts': [{ rolls: [dmgRoll], flavor: title, type: 'roll' }],
+    flags: { core: { canPopout: true }, ...(record ? { 'draw-steel-combat-tools': record } : {}) },
+  });
+  if (apply) await applyDamage(actor, dmg, undefined, { damageType: 'untyped', staminaLoss: true });
+  return { dmg, rollMsg };
+}
+
 export function registerChatHooks() {
   registerRollDialogHooks();
   const trySetFlag = async (msg, el = null) => {
@@ -633,31 +658,7 @@ export function registerChatHooks() {
               if (activeOwner ? game.user.id !== activeOwner.id : !game.user.isGM) {
                 _bleedingInFlight.delete(msg.id); return;
               }
-              const level = actor.system.level ?? 1;
-              const dmgRoll = new ds.rolls.DamageRoll(`1d6 + ${level}`, {}, { type: 'untyped' });
-              await dmgRoll.evaluate();
-              const dmg = dmgRoll.total;
-              
-              const sg = getSquadGroup(actor);
-              const prevValue  = actor.system.stamina.value;
-              const prevTemp   = actor.system.stamina.temporary;
-              const prevSquadHP = sg?.system?.staminaValue ?? null;
-              const title = game.i18n.format('DSCT.chat.bleeding.rollTitle', { name: actor.name });
-              const rollMsg = await ds.documents.DrawSteelChatMessage.create({
-                title,
-                rolls: [dmgRoll],
-                type: 'standard',
-                speaker: ChatMessage.getSpeaker({ token: getTokenById(bleedingData.tokenId)?.document }),
-                'system.parts': [{ rolls: [dmgRoll], flavor: title, type: 'roll' }],
-                flags: {
-                  core: { canPopout: true },
-                  'draw-steel-combat-tools': { bleedingRoll: {
-                    actorUuid: bleedingData.actorUuid, dmg, prevValue, prevTemp,
-                    prevSquadHP, squadGroupUuid: sg?.uuid ?? null, sourceMsgId: msg.id,
-                  }},
-                },
-              });
-              await applyDamage(actor, dmg, undefined, { damageType: 'untyped', staminaLoss: true });
+              const { dmg, rollMsg } = await rollBleeding(actor, { tokenId: bleedingData.tokenId, sourceMessageId: msg.id, apply: true });
               await msg.setFlag('draw-steel-combat-tools', 'bleedingApplied', { dmg, rollMsgId: rollMsg?.id });
               if (getSetting('debugMode')) console.log(`DSCT | Bleeding | Auto-applied ${dmg} damage to ${actor.name}`);
               _bleedingInFlight.delete(msg.id);
@@ -674,18 +675,7 @@ export function registerChatHooks() {
           div.querySelector('.dsct-bleed-roll-btn')?.addEventListener('click', async () => {
             const actor = await fromUuid(bleedingData.actorUuid);
             if (!actor) return;
-            const level = actor.system.level ?? 1;
-            const dmgRoll = new ds.rolls.DamageRoll(`1d6 + ${level}`, {}, { type: 'untyped' });
-            await dmgRoll.evaluate();
-            const title = game.i18n.format('DSCT.chat.bleeding.rollTitle', { name: actor.name });
-            await ds.documents.DrawSteelChatMessage.create({
-              title,
-              rolls: [dmgRoll],
-              type: 'standard',
-              speaker: ChatMessage.getSpeaker({ token: getTokenById(bleedingData.tokenId)?.document }),
-              'system.parts': [{ rolls: [dmgRoll], flavor: title, type: 'roll' }],
-              flags: { core: { canPopout: true } },
-            });
+            await rollBleeding(actor, { tokenId: bleedingData.tokenId, apply: false });
             await msg.setFlag('draw-steel-combat-tools', 'bleedingApplied', { manual: true });
           });
         }

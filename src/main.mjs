@@ -1,7 +1,7 @@
 import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHooks, bypassNextFmGate } from './forced-movement/forced-movement.mjs';
 import { runColoredTokenPicker, _getValidTargets } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
-import { registerChatHooks, refreshChatInjections } from './chat-integration.mjs';
+import { registerChatHooks, refreshChatInjections, rollBleeding } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
 import { STEALTH_WORKFLOW_READY, applyFall, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys, asStaminaLoss} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
@@ -159,6 +159,7 @@ const api = {
   rollDialog: {
     addPill: addExternalRollPill,
   },
+  rollBleeding:     (actor, options) => (getSetting('bleedingEnabled') ? rollBleeding(actor, options) : null),
   socket:           null,
 };
 

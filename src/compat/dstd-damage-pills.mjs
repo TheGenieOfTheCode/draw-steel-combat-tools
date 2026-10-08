@@ -824,6 +824,8 @@ function _injectDamagePills(message, root) {
   }
 
   
+  
+  const toPersist = new Map();
   for (const entry of providerEntries) {
     if (!entry.targetUuid) {
       add(entry.opId, entry.pill);
@@ -833,41 +835,41 @@ function _injectDamagePills(message, root) {
     const row = root.querySelector(`.${DSTD}-target-row[data-target-key="${key}"]`);
     if (!row) continue;
     const seen = new Set();
-    const toPersist = [];
     for (const btn of row.querySelectorAll('button[data-dstd-action="applyDamage"][data-operation-id]')) {
       const id = btn.dataset.operationId;
       if (seen.has(id)) continue;
       seen.add(id);
       const ov = overrides[id];
       const have = Array.isArray(ov?.dstPills) ? ov.dstPills : [];
-      const same = (p) => p.kind === entry.pill.kind && p.label === entry.pill.label && p.value === entry.pill.value;
-      const stored = have.some(same);
+      const base = Number(ov?.baseAmount ?? parseInt(btn.textContent.match(/\d+/)?.[0] ?? '0'));
+      const pill = entry.pill.repeat ? { ...entry.pill, value: base } : entry.pill;
+      const same = (p) => p.kind === pill.kind && p.label === pill.label && (p.srcTokenId ?? null) === (pill.srcTokenId ?? null)
+        && (pill.repeat || p.value === pill.value);
+      const queued = toPersist.get(id);
+      if (have.some(same) || queued?.pills.some(same)) continue;
 
-      
-      if (!stored) {
-        const opPills = ov?.dstPills ?? apps[id]?.override?.dstPills;
-        const typeOverridden = Array.isArray(opPills) && damagePillType(opPills) != null;
-        add(id, entry.pill, { inert: entry.pill.kind === 'type' && typeOverridden });
-      }
+      const opPills = ov?.dstPills ?? apps[id]?.override?.dstPills;
+      const typeOverridden = Array.isArray(opPills) && damagePillType(opPills) != null;
+      add(id, pill, { inert: pill.kind === 'type' && typeOverridden });
 
-      
-      if (!stored && apps[id]?.status !== 'applied') toPersist.push({ id, ov, btn, have });
+      if (apps[id]?.status === 'applied') continue;
+      if (queued) queued.pills.push(pill);
+      else toPersist.set(id, { ov, btn, have, base, pills: [pill] });
     }
+  }
 
-    if (toPersist.length && game.users.activeGM?.isSelf) {
-      const payload = { [`flags.${DSTD}.state.updatedAt`]: Date.now() };
-      for (const { id, ov, btn, have } of toPersist) {
-        const base = Number(ov?.baseAmount ?? parseInt(btn.textContent.match(/\d+/)?.[0] ?? '0'));
-        const typeClass = [...btn.classList].find((c) => c.includes('-damage-type-'));
-        const seedType = typeClass?.split('-damage-type-')[1] ?? '';
-        const seed = ov ?? { baseAmount: base, amount: base, damageType: seedType, typeLabel: seedType ? damageTypeLabel(seedType) : '' };
-        const data = _pillOpData({ ...seed, baseAmount: base }, [...have, entry.pill]);
-        
-        const FR = foundry.data?.operators?.ForcedReplacement;
-        payload[`flags.${DSTD}.state.damageOverrides.${id}`] = FR ? new FR(data) : data;
-      }
-      message.update(payload).catch(() => {});
+  if (toPersist.size && game.users.activeGM?.isSelf) {
+    const payload = { [`flags.${DSTD}.state.updatedAt`]: Date.now() };
+    for (const [id, { ov, btn, have, base, pills }] of toPersist) {
+      const typeClass = [...btn.classList].find((c) => c.includes('-damage-type-'));
+      const seedType = typeClass?.split('-damage-type-')[1] ?? '';
+      const seed = ov ?? { baseAmount: base, amount: base, damageType: seedType, typeLabel: seedType ? damageTypeLabel(seedType) : '' };
+      const data = _pillOpData({ ...seed, baseAmount: base }, [...have, ...pills]);
+
+      const FR = foundry.data?.operators?.ForcedReplacement;
+      payload[`flags.${DSTD}.state.damageOverrides.${id}`] = FR ? new FR(data) : data;
     }
+    message.update(payload).catch(() => {});
   }
 
   for (const btn of root.querySelectorAll('button[data-dstd-action="editDamage"][data-operation-id]')) {
