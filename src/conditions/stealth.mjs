@@ -1,4 +1,4 @@
-import { services } from '../ctlib.mjs';
+import { services, isPrimaryGM } from '../ctlib.mjs';
 import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken, getModuleApi , dropKey, noLogFlag } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
 import { playDetected } from './detected-flash.mjs';
@@ -29,7 +29,7 @@ export async function syncHiddenRule() {
     }
   }
 
-  if (!game.users.activeGM?.isSelf || !game.ready) return;
+  if (!isPrimaryGM() || !game.ready) return;
   for (const actor of game.actors) {
     if (isObjectActor(actor)) continue;
     const hiddenNow = actor.effects.some(e => e.statuses?.has(HIDDEN));
@@ -192,14 +192,14 @@ export function registerStealthSystem() {
   Hooks.on('deleteCombat', (combat) => clearStealthEffects(combat));
 
   Hooks.on('createActiveEffect', (effect) => {
-    if (!game.users.activeGM?.isSelf || !effect?.statuses?.has(HIDDEN) || sneakMode() === 'off') return;
+    if (!isPrimaryGM() || !effect?.statuses?.has(HIDDEN) || sneakMode() === 'off') return;
     const actor = effect.parent;
     if (actor?.documentName !== 'Actor' || isObjectActor(actor)) return;
     _grantSneaking(actor).catch(() => {});
   });
 
   Hooks.on('deleteActiveEffect', (effect) => {
-    if (!game.users.activeGM?.isSelf || !effect?.statuses?.has(HIDDEN)) return;
+    if (!isPrimaryGM() || !effect?.statuses?.has(HIDDEN)) return;
     const actor = effect.parent;
     if (actor?.documentName === 'Actor' && !actor.effects.some(e => e.statuses?.has(HIDDEN))) _dropSneaking(actor);
   });
@@ -403,7 +403,7 @@ export const hasHiddenEcho = (token, observer) =>
   !!observer && hiddenEchoFrom(token).has(observer.id);
 
 function _sweepExpiredEcho(effect) {
-  if (!game.users.activeGM?.isSelf) return;
+  if (!isPrimaryGM()) return;
   if (effect?.getFlag(M, 'effectType') !== WAS_HIDDEN) return;
   if (!effect.duration?.expired) return;
   safeDelete(effect);
@@ -473,7 +473,7 @@ export async function markRevealed(token, reason, detail = null) {
 export const dismissReveal = (token) => clearRevealPending(token, EVENT_REASONS);
 
 async function _sweepStalePrompts(force = false) {
-  if (!game.users.activeGM?.isSelf || !canvas.ready) return;
+  if (!isPrimaryGM() || !canvas.ready) return;
   const limit = revealPromptMs();
   for (const hider of canvas.tokens.placeables) {
     const since = revealPendingSince(hider);
@@ -556,7 +556,7 @@ export const hide = (token, ids = null, opts = {}) => {
 };
 
 export async function clearStealthEffects(combat = null) {
-  if (!game.users.activeGM?.isSelf) return 0;
+  if (!isPrimaryGM()) return 0;
 
   const actors = new Map();
   for (const combatant of combat?.combatants ?? []) {
@@ -692,7 +692,7 @@ const _writesStealthFlag = (effect) =>
     .some(c => String(c?.key ?? '').includes(`flags.${M}.stealth.`));
 
 export async function enforceBlockedObservers() {
-  if (!stealthActive() || !game.users.activeGM?.isSelf) return 0;
+  if (!stealthActive() || !isPrimaryGM()) return 0;
   let stripped = 0;
   for (const hider of canvas.tokens?.placeables ?? []) {
     if (!_hiddenEffect(hider) || isObjectToken(hider)) continue;

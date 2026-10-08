@@ -1,4 +1,4 @@
-import { services } from '../ctlib.mjs';
+import { services, isPrimaryGM } from '../ctlib.mjs';
 import { getSetting, rangeEnforced, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf, noLogFlag } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
@@ -90,7 +90,7 @@ const ensureGrabHooks = () => {
 
   if (!window._grabberGrabbedHook) {
     window._grabberGrabbedHook = Hooks.on('createActiveEffect', async (effect) => {
-      if (!game.users.activeGM?.isSelf) return;
+      if (!isPrimaryGM()) return;
       if (!effect.getFlag(M, 'grabbed') || !window._activeGrabs?.size) return;
       const effectToken = effect.parent?.token;
       for (const [gid, grab] of [...window._activeGrabs.entries()]) {
@@ -112,7 +112,7 @@ const ensureGrabHooks = () => {
         
         
         
-        if (options?.dsctGrabTeardown || !game.users.activeGM?.isSelf) {
+        if (options?.dsctGrabTeardown || !isPrimaryGM()) {
           window._activeGrabs.delete(gid);
           if (!window._activeGrabs.size) removeGrabHooks();
           refreshOpenPanel();
@@ -404,7 +404,7 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
 
 export const registerGrabTierSync = () => {
   Hooks.on('updateChatMessage', async (message, changes) => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (!foundry.utils.hasProperty(changes, 'flags.draw-steel-target-damage')) return;
     const gr = message.getFlag(M, 'grabRoll');
     if (!gr) return;

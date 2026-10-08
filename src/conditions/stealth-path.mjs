@@ -1,6 +1,7 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
 import { hiddenFrom, canHideFrom, stealthActive, sneakMode, SNEAKING, squareOccupied } from './stealth.mjs';
 import { stealthTraits } from './stealth-traits.mjs';
+import { executeAsDirector } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -106,7 +107,7 @@ function _announceStop(token, step) {
   };
 
   pingStealthStop(at);
-  if (!game.user.isGM) getModuleApi(false)?.socket?.executeAsGM?.('dsct.stealthPing', at, canvas.scene?.id);
+  if (!game.user.isGM) executeAsDirector(getModuleApi(false)?.socket, 'dsct.stealthPing', at, canvas.scene?.id);
 }
 
 function _constrain(wrapped, ...args) {

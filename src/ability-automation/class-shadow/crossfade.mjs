@@ -1,5 +1,6 @@
 import { getSetting, getItemDsid, noLogFlag } from '../../helpers.mjs';
 import { chooseKeywords } from '../choose-effect.mjs';
+import { isPrimaryGM, safeUpdate, safeDelete } from '../../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -39,7 +40,7 @@ async function _hydrateCrossfadeState() {
   if (!combatant) return;
   previousTurnStrikes = new Set(combatant.getFlag(M, 'crossfadePrevStrikes') ?? []);
   currentTurnStrikes  = new Set(combatant.getFlag(M, 'crossfadeCurrStrikes') ?? []);
-  if (game.users.activeGM?.isSelf) await _syncCfEffects(cfActor);
+  if (isPrimaryGM()) await _syncCfEffects(cfActor);
 }
 
 async function _saveCrossfadeState(cfActor) {
@@ -56,7 +57,7 @@ function _saveCurrStrikes(cfActor) {
   if (!combatant) return;
   const data = { [`flags.${M}.crossfadeCurrStrikes`]: [...currentTurnStrikes] };
   if (game.user.isGM) combatant.update(data).catch(() => {});
-  else game.modules.get(M).api.socket?.executeAsGM('dsct.updateDocument', combatant.uuid, data);
+  else safeUpdate(combatant, data);
 }
 
 async function _syncCfEffects(actor) {
@@ -131,13 +132,13 @@ export const registerCrossfadeHooks = () => {
     previousTurnStrikes = new Set(currentTurnStrikes);
     currentTurnStrikes  = new Set();
     if (getSetting('debugMode')) console.log('DSCT | Crossfade | Turn started. previous:', [...previousTurnStrikes]);
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     await _syncCfEffects(actor);
     await _saveCrossfadeState(actor);
   });
 
   Hooks.on('deleteCombat', async () => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     const actor = findCrossfadeActor();
     if (!actor) return;
     for (const type of ['melee', 'ranged']) {
@@ -176,7 +177,7 @@ export const registerCrossfadeHooks = () => {
       if (cfEffect) {
         const api = game.modules.get(M).api;
         if (game.user.isGM) cfEffect.delete().catch(() => {});
-        else api.socket?.executeAsGM('dsct.deleteDocument', cfEffect.uuid);
+        else safeDelete(cfEffect);
       }
 
       if (!shouldFire) return;

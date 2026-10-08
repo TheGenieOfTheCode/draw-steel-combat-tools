@@ -2,6 +2,7 @@
 
 import { getSetting } from './helpers.mjs';
 import { remoteNotices, refreshRemoteNotices } from './remote-notices.mjs';
+import { isPrimaryGM } from './ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const STATE = 'startupNoticeState';
@@ -272,7 +273,7 @@ export const registerStartupNotice = () => {
 
   Hooks.once('ready', async () => {
     
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     await refreshRemoteNotices();
     if (!shouldPost()) return;
     try { await post(); }

@@ -1,5 +1,6 @@
 import { registerEffectFlag } from '../effect-flag-picker.mjs';
 import { armCoverImmunity, disarmCoverImmunity, getSetting } from '../helpers.mjs';
+import { isPrimaryGM } from '../ctlib.mjs';
 
 const FLAG_ROOT = 'flags.draw-steel-ctlib.loe';
 
@@ -36,7 +37,7 @@ function _rolledTargets(message) {
 }
 
 async function _armForMessage(message) {
-  if (!game.users.activeGM?.isSelf) return;
+  if (!isPrimaryGM()) return;
   if (!message?.system?.parts?.get?.(ABILITY_PART)) return;
 
   const sourceToken = message.speaker?.token ? canvas.tokens?.get(message.speaker.token) : null;

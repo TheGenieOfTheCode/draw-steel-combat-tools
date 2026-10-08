@@ -1,4 +1,5 @@
 import { getSetting, getItemDsid } from '../../helpers.mjs';
+import { executeAsDirector, isPrimaryGM } from '../../ctlib.mjs';
 
 const M   = 'draw-steel-combat-tools';
 const DBG = () => getSetting('debugMode');
@@ -58,7 +59,7 @@ export const registerHIWHooks = () => {
   Hooks.on('updateCombat', async (combat, changes) => {
     if (changes.round === undefined) return;
     hiwActivatedCombatantIds.clear();
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     for (const msg of game.messages.contents) {
       if (msg.getFlag(M, 'isHiwMessage') && !msg.getFlag(M, 'isUsed')) {
         await msg.setFlag(M, 'isUsed', true);
@@ -68,7 +69,7 @@ export const registerHIWHooks = () => {
 
   Hooks.on('combatTurnChange', async (combat, prior, current) => {
     if (!getSetting('hiwEnabled')) return;
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (!combat.started) return;
     if (prior.round !== current.round) return;
 
@@ -142,7 +143,7 @@ export const registerHIWHooks = () => {
       if (game.user.isGM) {
         await executeHIWTurn(actorUuid, msg.id);
       } else {
-        await api.socket.executeAsGM('dsct.executeHIWTurn', actorUuid, msg.id);
+        await executeAsDirector(api.socket, 'dsct.executeHIWTurn', actorUuid, msg.id);
       }
     });
     btnArea.appendChild(btn);

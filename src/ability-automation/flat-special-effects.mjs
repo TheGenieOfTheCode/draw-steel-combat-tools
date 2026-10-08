@@ -1,5 +1,5 @@
 import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed } from '../helpers.mjs';
-import { DAMAGE_TYPES } from '../ctlib.mjs';
+import { DAMAGE_TYPES, isPrimaryGM, safeUpdate } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 import { executeTeleport, executeTeleswap } from '../teleport.mjs';
@@ -1032,7 +1032,7 @@ const _preApplying = new Set();
 function _shouldAutoApply(message) {
   const author = message.author;
   if (author?.active) return author.id === game.user.id;
-  return game.users.activeGM?.isSelf === true;
+  return isPrimaryGM() === true;
 }
 
 export async function runPreAppliedResources(flatEffects, item, message) {
@@ -1827,7 +1827,7 @@ function _installFlatTypeSelection() {
     const { choices } = _pendingFlatTypes;
     _pendingFlatTypes = null;
     if (game.user.isGM || message.isOwner) message.setFlag(MODULE_ID, 'flatDmgTypes', choices);
-    else getModuleApi(false)?.socket?.executeAsGM('dsct.updateDocument', message.uuid, { [`flags.${MODULE_ID}.flatDmgTypes`]: choices });
+    else safeUpdate(message, { [`flags.${MODULE_ID}.flatDmgTypes`]: choices });
   });
 }
 

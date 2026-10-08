@@ -1,4 +1,4 @@
-import { config, services } from './ctlib.mjs';
+import { config, services, executeAsDirector } from './ctlib.mjs';
 import { GRID, canCurrentlyFly, chooseFreeSquare, getSquadGroup, safeToggleStatusEffect, safeUpdate, sizeRank, tierOf, toGrid, tokenAt } from './ctlib.mjs';
 
 export {
@@ -53,7 +53,7 @@ export const safeTakeDamage = async (actor, amount, options = {}) => {
   
   if (actor.isOwner && (game.user.isGM || !getSquadGroup(actor))) return await actor.system.takeDamage(amount, options);
   
-  return await getSocket().executeAsGM('dsct.takeDamage', actor.uuid, amount, options, game.userId);
+  return await executeAsDirector(getSocket(), 'dsct.takeDamage', actor.uuid, amount, options, game.userId);
 };
 
 let _staminaLossDepth = 0;

@@ -1,6 +1,7 @@
 
 
 import { getSetting } from './helpers.mjs';
+import { isPrimaryGM } from './ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const CACHE = 'remoteNoticeCache';
@@ -66,7 +67,7 @@ export const refreshRemoteNotices = async () => {
     if (!data) throw new Error('the payload was not in a shape this version understands');
 
     _payload = data;
-    if (game.users.activeGM?.isSelf) await game.settings.set(M, CACHE, { at: Date.now(), data });
+    if (isPrimaryGM()) await game.settings.set(M, CACHE, { at: Date.now(), data });
   } catch (err) {
     console.warn('DSCT | online notices | could not check, using what we already had:', err);
   }

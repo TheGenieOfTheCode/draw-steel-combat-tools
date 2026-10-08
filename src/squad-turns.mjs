@@ -1,4 +1,5 @@
 import { getSetting } from './helpers.mjs';
+import { isPrimaryGM } from './ctlib.mjs';
 
 const _priorGroupInitiative = new Map();
 let _squadBatchInProgress = false;
@@ -65,7 +66,7 @@ export async function fireEndTurn(member, combat, round) {
     previous: { value: { ...combat.previous, combatantId: member.id }, configurable: true }
   });
   await foundry.documents.ActiveEffect.registry.refresh('turnEnd', { ...ctx, combat: combatProxy });
-  if (game.users.activeGM?.isSelf) {
+  if (isPrimaryGM()) {
     const expiryAction = CONFIG.ActiveEffect.expiryAction ?? 'delete';
     for (const effect of [...(member.actor?.appliedEffects ?? [])]) {
       if (effect.duration.expiry !== 'turnEnd') continue;

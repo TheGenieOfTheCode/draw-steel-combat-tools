@@ -1,5 +1,6 @@
 import { getModuleApi, safeDelete, getSetting , dropKey } from '../helpers.mjs';
 import { ONGOING, ENDS, AURA_FLAG, expiryOptions, isAura, isOngoing, endFor } from './template-lifetime.mjs';
+import { executeAsDirector } from '../ctlib.mjs';
 
 const M  = 'draw-steel-combat-tools';
 const DS = 'draw-steel';
@@ -58,7 +59,7 @@ async function _openTemplateConfig(item) {
     } else {
       const socket = getModuleApi(false)?.socket;
       if (!socket) { ui.notifications.warn('DSCT: Socket not available.'); return; }
-      regionUuid = await socket.executeAsGM('dsct.createTemplateRegion', scene.uuid, createData, tokenId, game.user.id);
+      regionUuid = await executeAsDirector(socket, 'dsct.createTemplateRegion', scene.uuid, createData, tokenId, game.user.id);
     }
 
     await item.setFlag(M, 'templateRegionUuid', regionUuid);

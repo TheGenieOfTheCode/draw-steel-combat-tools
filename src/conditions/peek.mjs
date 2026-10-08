@@ -1,4 +1,5 @@
 import { getSetting, noLogFlag } from '../helpers.mjs';
+import { isPrimaryGM } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -156,7 +157,7 @@ const _endAutoPeek = async (token) => {
 export function registerPeek() {
 
   Hooks.on('updateToken', async (doc, changed) => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (!('x' in changed) && !('y' in changed)) return;
     if (!canvas?.grid || !isPeeking(doc.actor)) return;
 
@@ -177,7 +178,7 @@ export function registerPeek() {
   
   
   Hooks.on('closeAbilityConfigurationDialog', async (app) => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     const actor = app?.options?.ability?.actor ?? app?.options?.ability?.parent;
     if (!actor) return;
     for (const token of canvas.tokens?.placeables ?? []) {
@@ -186,12 +187,12 @@ export function registerPeek() {
   });
 
   Hooks.on('createChatMessage', async (message) => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     await _endAutoPeek(canvas.tokens?.get(message?.speaker?.token));
   });
 
   Hooks.on('combatTurnChange', async (combat, previous) => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     const prev = combat?.combatants?.get(previous?.combatantId);
     const token = prev?.token?.object ?? canvas.tokens?.get(prev?.tokenId);
     if (!token) return;
@@ -201,7 +202,7 @@ export function registerPeek() {
   
   
   Hooks.on('deleteCombat', async () => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     for (const token of canvas.tokens?.placeables ?? []) {
       const effect = peekEffect(token.actor);
       if (!effect) continue;

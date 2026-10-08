@@ -1,4 +1,5 @@
 import { safeCreateEmbedded, safeDelete, getItemDsid, getSetting, normalizeCollection, getModuleApi, getActingActor } from '../helpers.mjs';
+import { safeUpdate } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -141,7 +142,7 @@ export const flagJudgementTriggersUsed = async (judgedActorId) => {
     if (m.isOwner || game.user.isGM) {
       await m.setFlag(M, 'judgementTriggerUsed', true);
     } else if (api?.socket) {
-      await api.socket.executeAsGM('dsct.updateDocument', m.uuid, { [`flags.${M}.judgementTriggerUsed`]: true });
+      await safeUpdate(m, { [`flags.${M}.judgementTriggerUsed`]: true });
     }
   }
 };

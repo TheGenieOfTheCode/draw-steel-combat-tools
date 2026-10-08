@@ -3,9 +3,9 @@ import { runColoredTokenPicker, _getValidTargets } from './ability-automation/ta
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections, rollBleeding } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
-import { STEALTH_WORKFLOW_READY, applyFall, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, reviveDropKeys, asStaminaLoss} from './helpers.mjs';
+import { STEALTH_WORKFLOW_READY, applyFall, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, asStaminaLoss} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
-import { services, registerStatusGroup, clearPickerArrows, activateTokenLayer, stackedPrompt } from './ctlib.mjs';
+import { services, registerStatusGroup, clearPickerArrows, activateTokenLayer, stackedPrompt, isPrimaryGM } from './ctlib.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
 import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { registerSquadTurnHooks } from './squad-turns.mjs';
@@ -453,14 +453,14 @@ Hooks.once('ready', async () => {
 });
 
 Hooks.on('createActor', async (actor, _options, _userId) => {
-  if (!game.users.activeGM?.isSelf || actor.pack) return;
+  if (!isPrimaryGM() || actor.pack) return;
   if (!game.settings.get('draw-steel-combat-tools', 'enhancedAutoAdd')) return;
   if (['party', 'object'].includes(actor.type)) return;
   await distributeEnhancedAbilities({ actors: [actor], silent: true });
 });
 
 Hooks.on('createItem', async (item, _options, _userId) => {
-  if (!game.users.activeGM?.isSelf || item.pack) return;
+  if (!isPrimaryGM() || item.pack) return;
   if (!game.settings.get('draw-steel-combat-tools', 'enhancedAutoAdd')) return;
   try { await swapEnhancedItem(item); }
   catch (err) { console.warn('DSCT | enhanced | could not swap an imported item:', err); }
@@ -470,10 +470,6 @@ Hooks.once('socketlib.ready', () => {
   const socket = socketlib.registerModule('draw-steel-combat-tools');
   api.socket = socket;
 
-  socket.register('dsct.updateDocument',    async (uuid, data, options = {}) => { const doc = await fromUuid(uuid); if (doc) return await doc.update(reviveDropKeys(data), options); });
-  socket.register('dsct.deleteDocument',    async (uuid, options = {}) => { const doc = await fromUuid(uuid); if (doc) return await doc.delete(options); });
-  socket.register('dsct.createEmbedded',    async (parentUuid, type, data) => { const parent = await fromUuid(parentUuid); if (parent) return await parent.createEmbeddedDocuments(type, data); });
-  socket.register('dsct.toggleStatusEffect',async (uuid, effectId, options) => { const actor = await fromUuid(uuid); if (actor) return await actor.toggleStatusEffect(effectId, options); });
   socket.register('dsct.detected',          (spotterId, hiderId) => playDetected(spotterId, hiderId));
   socket.register('dsct.stealthPing',       (at, sceneId) => { if (game.user.isGM) pingStealthStop(at, sceneId); });
   socket.register('dsct.searchPointOut',    (messageId) => pointOut(messageId));

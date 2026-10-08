@@ -5,6 +5,7 @@ import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
 import { DamageConditionsPanel, applyJudgedEffect, applyMarkedEffect } from './conditions/damage-conditions.mjs';
 import { runForcedMovement } from './forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv, persistStack } from './forced-movement/forced-movement-modify-panel.mjs';
+import { executeAsDirector, safeUpdate } from './ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -288,7 +289,7 @@ function _patchAppliedEffect() {
 
       const api = getModuleApi(false);
       if (!api?.socket) return;
-      await api.socket.executeAsGM('dsct.applyEffectAsGM', this.uuid, tierKey, effectId, targets.map(a => a.uuid));
+      await executeAsDirector(api.socket, 'dsct.applyEffectAsGM', this.uuid, tierKey, effectId, targets.map(a => a.uuid));
     },
     'MIXED'
   );
@@ -468,7 +469,7 @@ function _registerButtonHooks() {
                   if (_msg.isOwner || game.user.isGM) {
                     await _msg.setFlag(M, 'judgementT3Fired', true);
                   } else if (api?.socket) {
-                    await api.socket.executeAsGM('dsct.updateDocument', _msg.uuid, { [`flags.${M}.judgementT3Fired`]: true });
+                    await safeUpdate(_msg, { [`flags.${M}.judgementT3Fired`]: true });
                   }
                 });
               });

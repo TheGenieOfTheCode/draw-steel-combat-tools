@@ -1,6 +1,6 @@
 import { getSetting, getModuleApi, tokFootprintDist, hasSightToToken } from '../helpers.mjs';
 import { hiddenFrom, isHiddenFrom, stealthActive, revealWithReason, setHiddenFrom, isObjectToken, markObjectFound } from './stealth.mjs';
-import { activateFaces } from '../ctlib.mjs';
+import { activateFaces, executeAsDirector, safeUpdate } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const ABILITY_PART_ID = 'abilityUse'.padEnd(16, '0');
@@ -113,7 +113,7 @@ async function _spendHeroToken() {
   }
   const socket = getModuleApi(false)?.socket;
   if (!socket) return false;
-  return !!(await socket.executeAsGM('dsct.spendHeroToken'));
+  return !!(await executeAsDirector(socket, 'dsct.spendHeroToken'));
 }
 
 export async function rerollSearch(message, tokenId = null) {
@@ -307,7 +307,7 @@ export async function resolveSearch(messageId, tokenId) {
 
 async function _saveAs(message, state) {
   if (game.user.isGM || message.isAuthor) return _save(message, state);
-  return getModuleApi(false)?.socket?.executeAsGM?.('dsct.updateDocument', message.uuid, { [`flags.${M}.${FLAG}`]: state });
+  return safeUpdate(message, { [`flags.${M}.${FLAG}`]: state });
 }
 
 export async function pointOut(messageId) {
@@ -347,7 +347,7 @@ export async function pointOut(messageId) {
 
 function _requestPointOut(message) {
   if (game.user.isGM) return pointOut(message.id);
-  return getModuleApi(false)?.socket?.executeAsGM?.('dsct.searchPointOut', message.id);
+  return executeAsDirector(getModuleApi(false)?.socket, 'dsct.searchPointOut', message.id);
 }
 
 const esc = (s) => foundry.utils.escapeHTML(String(s ?? ''));

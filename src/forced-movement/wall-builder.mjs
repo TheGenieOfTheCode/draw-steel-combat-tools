@@ -9,6 +9,7 @@ import {
   MATERIAL_RULE_DEFAULTS, WALL_RESTRICTION_DEFAULTS,
 } from '../helpers.mjs';
 import { beginPickerOverlay } from '../ability-automation/picker-overlay.mjs';
+import { isPrimaryGM } from '../ctlib.mjs';
 
 let _wbHideUi = false;
 
@@ -1021,7 +1022,7 @@ export class WallBuilderPanel extends ds.applications.api.DSApplication {
 export const registerWallDoorHooks = () => {
   const M = 'draw-steel-combat-tools';
   Hooks.on('updateWall', async (wallDoc, changes) => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     const tagChange = foundry.utils.getProperty(changes, 'flags.draw-steel-ctlib.tags')
                    ?? foundry.utils.getProperty(changes, `flags.${M}.tags`)
                    ?? foundry.utils.getProperty(changes, 'flags.tagger.tags');

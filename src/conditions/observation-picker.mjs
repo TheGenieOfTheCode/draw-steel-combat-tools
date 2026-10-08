@@ -5,6 +5,7 @@ import { setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { suppressHealthEstimate } from '../compat/health-estimate-compat.mjs';
 import { hideCandidates, hideTraitsOf } from './stealth.mjs';
 import { forbiddenToHide } from './stealth-traits.mjs';
+import { executeAsDirector } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -378,7 +379,7 @@ export async function askObservation(hider, observers) {
   }
 
   ui.notifications.info(L('askDirector', { name: hider.name }));
-  return socket.executeAsGM('dsct.askObservation', hider.id, observers.map(o => o.id));
+  return executeAsDirector(socket, 'dsct.askObservation', hider.id, observers.map(o => o.id));
 }
 
 export async function handleObservationRequest(hiderId, observerIds) {

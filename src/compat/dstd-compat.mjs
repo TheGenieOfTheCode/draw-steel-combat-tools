@@ -7,7 +7,7 @@ import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced
 import { applyGrab, runGrab, endGrab } from '../conditions/grab.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
-import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW, DAMAGE_TYPES } from '../ctlib.mjs';
+import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW, DAMAGE_TYPES, isPrimaryGM, safeUpdate } from '../ctlib.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
@@ -485,7 +485,7 @@ const _sweptSquads = (message) => new Set(message?.flags?.[M]?.sweptSquads ?? []
 const _writeSwept = async (message, ids) => {
   const payload = { [`flags.${M}.sweptSquads`]: ids };
   if (game.user.isGM || message.isOwner) await message.update(payload).catch(() => {});
-  else getModuleApi(false)?.socket?.executeAsGM('dsct.updateDocument', message.uuid, payload);
+  else safeUpdate(message, payload);
 };
 
 const _noteSquadsSwept = async (message, groupIds) => {
@@ -975,7 +975,7 @@ async function _persistDstdState(message, subKey, state) {
     ...(state.redirected ? { redirected: state.redirected } : {}),
   };
   const api = getModuleApi();
-  if (api?.socket) api.socket.executeAsGM('dsct.updateDocument', message.uuid, { [`flags.${M}.dstdFmState`]: allState });
+  if (api?.socket) safeUpdate(message, { [`flags.${M}.dstdFmState`]: allState });
   else await message.setFlag(M, 'dstdFmState', allState);
 }
 
@@ -1024,7 +1024,7 @@ async function _undoFmRedirect(message, origSubKey, origStateKey, movementType, 
   _fmState.delete(newStateKey);
 
   const api = getModuleApi();
-  if (api?.socket) api.socket.executeAsGM('dsct.updateDocument', message.uuid, upd);
+  if (api?.socket) safeUpdate(message, upd);
   else await message.update(upd);
 }
 
@@ -1380,12 +1380,12 @@ async function _injectFmButtons(message, root) {
         window._dsctSquadTargetCache.set(message.id, uuidMap);
         squadTargetMap = uuidMap;
         const mapWrite = { [`flags.${M}.squadTargetMap`]: uuidMap };
-        if (game.users.activeGM?.isSelf) {
+        if (isPrimaryGM()) {
           if (getSetting('debugMode')) console.log(`DSCT | squadMap | writing to DB as GM`);
           message.update(mapWrite).catch((e) => { if (getSetting('debugMode')) console.error('DSCT | squadMap | DB write failed:', e); });
         } else {
           if (getSetting('debugMode')) console.log(`DSCT | squadMap | writing to DB via socket`);
-          getModuleApi(false)?.socket?.executeAsGM('dsct.updateDocument', message.uuid, mapWrite);
+          safeUpdate(message, mapWrite);
         }
       }
       consumePendingSquadMap();
@@ -3410,7 +3410,7 @@ async function _injectFmButtons(message, root) {
                              ?? [...(nativeApplyBtn?.classList ?? [])].find(c => c.includes('-damage-type-'));
             const damageType = typeClass?.split('-damage-type-')[1] ?? existingOverride?.damageType ?? '';
             const typeLabel  = existingOverride?.typeLabel || (damageType && damageType !== 'untyped' ? damageType.charAt(0).toUpperCase() + damageType.slice(1) : '');
-            if (base > 0 && game.users.activeGM?.isSelf) {
+            if (base > 0 && isPrimaryGM()) {
               const baseAmount = Number(existingOverride?.baseAmount ?? base);
               const pills = [
                 ...(existingOverride?.dstPills ?? []).filter(p => !isSquad(p)),

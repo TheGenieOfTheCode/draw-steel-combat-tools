@@ -1,6 +1,7 @@
 import { hasSightToToken, coveredInSquare, seenPlainlyInSquare, concealingRegions, getSetting } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
 import { isConcealed } from './stealth.mjs';
+import { isPrimaryGM } from '../ctlib.mjs';
 
 const GS = () => canvas.grid.size;
 
@@ -55,7 +56,7 @@ function _rolledTargetTokens(message) {
 }
 
 function _noteHarmFromMessage(message) {
-  if (!game.users.activeGM?.isSelf || !game.combat) return;
+  if (!isPrimaryGM() || !game.combat) return;
   const sourceToken = message.speaker?.token ? canvas.tokens?.get(message.speaker.token) : null;
   if (!sourceToken) return;
 
@@ -242,7 +243,7 @@ export function suggestObserving(observer, target) {
 
 export function registerObservationMemory() {
   Hooks.on('updateToken', (doc, changed, options) => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (!('x' in changed) && !('y' in changed)) return;
 
     const moved = doc.object;
@@ -252,7 +253,7 @@ export function registerObservationMemory() {
 
   for (const hook of ['createActiveEffect', 'deleteActiveEffect']) {
     Hooks.on(hook, () => {
-      if (game.users.activeGM?.isSelf) _sampleAll();
+      if (isPrimaryGM()) _sampleAll();
     });
   }
 

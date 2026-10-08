@@ -1,6 +1,7 @@
 import { getSetting, getModuleApi } from '../../helpers.mjs';
 import { flagJudgementTriggersUsed } from '../tactical-effects.mjs';
 import { applyTaunted } from '../../conditions/conditions.mjs';
+import { safeUpdate } from '../../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -108,7 +109,7 @@ export const registerJudgementHooks = () => {
             if (msg.isOwner || game.user.isGM) {
               await msg.setFlag(M, 'judgementBaneUsed', true);
             } else if (api?.socket) {
-              await api.socket.executeAsGM('dsct.updateDocument', msg.uuid, { [`flags.${M}.judgementBaneUsed`]: true });
+              await safeUpdate(msg, { [`flags.${M}.judgementBaneUsed`]: true });
             }
             await flagJudgementTriggersUsed(actorId);
           });
@@ -127,7 +128,7 @@ export const registerJudgementHooks = () => {
             if (msg.isOwner || game.user.isGM) {
               await msg.setFlag(M, 'judgementBaneDeclined', true);
             } else if (api?.socket) {
-              await api.socket.executeAsGM('dsct.updateDocument', msg.uuid, { [`flags.${M}.judgementBaneDeclined`]: true });
+              await safeUpdate(msg, { [`flags.${M}.judgementBaneDeclined`]: true });
             }
           });
           btnArea().appendChild(declineBtn);
@@ -172,7 +173,7 @@ export const registerJudgementHooks = () => {
               if (msg.isOwner || game.user.isGM) {
                 await msg.setFlag(M, 'judgementT3Used', true);
               } else if (api?.socket) {
-                await api.socket.executeAsGM('dsct.updateDocument', msg.uuid, { [`flags.${M}.judgementT3Used`]: true });
+                await safeUpdate(msg, { [`flags.${M}.judgementT3Used`]: true });
               }
             });
             btnArea().appendChild(btn);

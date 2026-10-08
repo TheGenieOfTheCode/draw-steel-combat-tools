@@ -1,4 +1,4 @@
-import { DSTD, registerPanelDecorator } from '../ctlib.mjs';
+import { DSTD, registerPanelDecorator, isPrimaryGM, safeUpdate } from '../ctlib.mjs';
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
 import { markAreaCaps } from './dstd-area-cap.mjs';
@@ -422,7 +422,7 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
 async function _updateMessage(message, payload) {
   if (game.user.isGM || message.isOwner) return message.update(payload);
   const api = getModuleApi(false);
-  if (api?.socket) return api.socket.executeAsGM('dsct.updateDocument', message.uuid, payload);
+  if (api?.socket) return safeUpdate(message, payload);
   ui.notifications.warn(game.i18n.localize('DSCT.notice.rollPills.noPermission'));
 }
 
@@ -858,7 +858,7 @@ function _injectDamagePills(message, root) {
     }
   }
 
-  if (toPersist.size && game.users.activeGM?.isSelf) {
+  if (toPersist.size && isPrimaryGM()) {
     const payload = { [`flags.${DSTD}.state.updatedAt`]: Date.now() };
     for (const [id, { ov, btn, have, base, pills }] of toPersist) {
       const typeClass = [...btn.classList].find((c) => c.includes('-damage-type-'));

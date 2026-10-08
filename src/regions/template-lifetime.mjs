@@ -1,4 +1,5 @@
 import { getSetting, safeDelete, safeCreateEmbedded, safeSetFlag, noLogFlag } from '../helpers.mjs';
+import { isPrimaryGM } from '../ctlib.mjs';
 
 const M  = 'draw-steel-combat-tools';
 const DS = 'draw-steel';
@@ -138,7 +139,7 @@ async function _onDeleteRegion(region) {
 
   const effectUuid = region.getFlag?.(M, REGION_EFFECT);
   if (!effectUuid || _tearing.has(effectUuid)) return;
-  if (!game.users.activeGM?.isSelf) return;
+  if (!isPrimaryGM()) return;
 
   _tearing.add(uuid);
   try {
@@ -152,7 +153,7 @@ async function _onDeleteRegion(region) {
 async function _clearPair(effect, removeEffect) {
   const regionUuid = effect.getFlag?.(M, EFFECT_REGION);
   if (!regionUuid || _tearing.has(regionUuid)) return;
-  if (!game.users.activeGM?.isSelf) return;
+  if (!isPrimaryGM()) return;
 
   _tearing.add(effect.uuid);
   _tearing.add(regionUuid);

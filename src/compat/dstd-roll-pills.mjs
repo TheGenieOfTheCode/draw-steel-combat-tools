@@ -1,4 +1,4 @@
-import { DSTD, registerPanelDecorator } from '../ctlib.mjs';
+import { DSTD, registerPanelDecorator, safeUpdate } from '../ctlib.mjs';
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { DSCTAddModifierDialog } from '../ability-automation/roll-dialog-hooks.mjs';
 import { drawSourceLines, clearSourceLines } from '../ability-automation/source-lines.mjs';
@@ -251,7 +251,7 @@ function _persistProvenance(message) {
   const payload = { [`flags.${M}.rollPills`]: entry.data };
   const api = getModuleApi(false);
   if (game.user.isGM || message.isOwner) message.update(payload);
-  else if (api?.socket) api.socket.executeAsGM('dsct.updateDocument', message.uuid, payload);
+  else if (api?.socket) safeUpdate(message, payload);
 }
 
 function _pillAmtStr(p) {
@@ -570,7 +570,7 @@ async function _writeOverride(message, targetKey, overrideData) {
   }
   if (game.user.isGM || message.isOwner) return message.update(payload);
   const api = getModuleApi(false);
-  if (api?.socket) return api.socket.executeAsGM('dsct.updateDocument', message.uuid, payload);
+  if (api?.socket) return safeUpdate(message, payload);
   ui.notifications.warn(game.i18n.localize('DSCT.notice.rollPills.noPermission'));
 }
 
@@ -645,7 +645,7 @@ async function _recomputeAllTargets(message, globalPills, globalBaseOffList = nu
   }
   if (direct) return message.update(payload);
   const api = getModuleApi(false);
-  if (api?.socket) return api.socket.executeAsGM('dsct.updateDocument', message.uuid, payload);
+  if (api?.socket) return safeUpdate(message, payload);
   ui.notifications.warn(game.i18n.localize('DSCT.notice.rollPills.noPermission'));
 }
 
@@ -918,7 +918,7 @@ async function _writeProvenance(message, prov) {
   const payload = { [`flags.${M}.rollPills`]: prov };
   if (game.user.isGM || message.isOwner) return message.update(payload);
   const api = getModuleApi(false);
-  if (api?.socket) return api.socket.executeAsGM('dsct.updateDocument', message.uuid, payload);
+  if (api?.socket) return safeUpdate(message, payload);
   ui.notifications.warn(game.i18n.localize('DSCT.notice.rollPills.noPermission'));
 }
 

@@ -1,3 +1,4 @@
+import { isPrimaryGM } from "../ctlib.mjs";
 const M = 'draw-steel-combat-tools';
 const L = 'DSCT'; 
 const { RegionBehaviorType } = foundry.data.regionBehaviors;
@@ -147,7 +148,7 @@ class DSStatusEventsRegionBehaviorType extends RegionBehaviorType {
   async _handleRegionEvent(event) {
     const actor = event.data?.token?.actor;
     if (!actor || !this.statusId) return;
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (!_passesDispositionFilter(this, event)) return;
     const active = this.action === 'apply' ? true : this.action === 'remove' ? false : undefined;
     actor.toggleStatusEffect(this.statusId, { active, overlay: this.overlay });
@@ -208,7 +209,7 @@ class DSActiveEffectEventsRegionBehaviorType extends RegionBehaviorType {
   async _handleRegionEvent(event) {
     const actor = event.data?.token?.actor;
     if (!actor) return;
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (!_passesDispositionFilter(this, event)) return;
     switch (this.action) {
       case 'add':           await _addEffect(actor, this.uuid, this.parent.uuid); break;

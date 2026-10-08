@@ -1,4 +1,5 @@
 import { safeCreateEmbedded, safeDelete, safeUpdate, getSetting, getTokenById, noLogFlag } from './helpers.mjs';
+import { isPrimaryGM } from './ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -114,7 +115,7 @@ export const registerTriggeredActionHooks = () => {
 
   Hooks.on('combatStart', async (combat, updateData) => {
     if (!getSetting('autoTriggeredActionsEnabled')) return;
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
 
     const targetMode = getSetting('autoTriggeredActionsTarget');
     await applyTriggeredActions(targetMode, true);
@@ -122,7 +123,7 @@ export const registerTriggeredActionHooks = () => {
 
   Hooks.on('createCombatant', async (combatant) => {
     if (!getSetting('autoTriggeredActionsEnabled')) return;
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     const combat = combatant.parent;
     if (!combat?.started || !combat.active) return;
     const actor = getActorFromCombatant(combatant);
@@ -136,7 +137,7 @@ export const registerTriggeredActionHooks = () => {
   Hooks.on('updateCombatant', async (combatant, changes) => {
     if (changes.defeated !== false) return;
     if (!getSetting('autoTriggeredActionsEnabled')) return;
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     const combat = combatant.parent;
     if (!combat?.started || !combat.active || _combatEnding.has(combat.id)) return;
     const actor = getActorFromCombatant(combatant);
@@ -147,7 +148,7 @@ export const registerTriggeredActionHooks = () => {
   });
 
   Hooks.on('updateCombat', async (combat, changes) => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (changes.round === undefined) return;
     if (!combat.active || _combatEnding.has(combat.id)) return;
 
@@ -168,7 +169,7 @@ export const registerTriggeredActionHooks = () => {
   });
 
   Hooks.on('createChatMessage', async (message) => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
 
     const parts = message.system?.parts?.contents;
     if (!parts) return;
@@ -187,7 +188,7 @@ export const registerTriggeredActionHooks = () => {
   });
 
   Hooks.on('updateActiveEffect', async (effect, changes) => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (!game.modules.get('draw-steel-companion')?.active) return;
     if (effect.getFlag(M, 'effectType') !== 'triggered-action') return;
     if (changes.disabled !== true) return;

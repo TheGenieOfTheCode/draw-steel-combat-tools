@@ -2,6 +2,7 @@ import { applyGrab, buildFreeStrikeButton, sizeRankG, grabUiState, refreshGrabUi
 import { getItemDsid, getSetting, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, undoDamage, getSquadGroup, safeDelete } from './helpers.mjs';
 import { registerAbilityInjectors } from './ability-automation/ability-automation.mjs';
 import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetweenTokens } from './conditions/conditions.mjs';
+import { safeUpdate } from './ctlib.mjs';
 
 export const triggerGrabberFreeStrike = async (grabberTok, grab) => {
   const api = getModuleApi(false);
@@ -247,7 +248,7 @@ function registerRollDialogHooks() {
           await msg.setFlag(M, 'judgementBaneCanceled', true);
         } else {
           const api = getModuleApi(false);
-          if (api?.socket) await api.socket.executeAsGM('dsct.updateDocument', msg.uuid, { [`flags.${M}.judgementBaneCanceled`]: true });
+          if (api?.socket) await safeUpdate(msg, { [`flags.${M}.judgementBaneCanceled`]: true });
         }
       }
       return;

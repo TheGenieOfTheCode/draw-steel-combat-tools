@@ -1,4 +1,4 @@
-import { services } from './ctlib.mjs';
+import { services, isPrimaryGM } from './ctlib.mjs';
 import { safeCreateEmbedded, safeDelete, getSetting, monsterFilter as filter, noLogFlag } from './helpers.mjs';
 import { runMultiTokenPicker, runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 
@@ -371,7 +371,7 @@ let _shiftOverrideRename = false;
 export const registerSquadLabelHooks = () => {
   Hooks.on('renderCombatTracker', (_app, html) => {
     if (!getSetting('autoSquadLabelsEnabled')) return;
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     const el = html instanceof HTMLElement ? html : html[0];
     const btn = el?.querySelector('[data-action="startCombat"]');
     if (!btn || btn.dataset.dsctShiftBound) return;
@@ -380,7 +380,7 @@ export const registerSquadLabelHooks = () => {
     btn.addEventListener('click', e => { if (e.shiftKey) _shiftOverrideRename = true; });
   });
   Hooks.on('canvasReady', async () => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (!getSetting('autoSquadLabelsEnabled')) return;
 
     await _sweepUnseatedLabels();
@@ -389,7 +389,7 @@ export const registerSquadLabelHooks = () => {
   
   let _sweepTimer = null;
   Hooks.on('deleteCombat', () => {
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (!getSetting('autoSquadLabelsEnabled')) return;
     clearTimeout(_sweepTimer);
     _sweepTimer = setTimeout(() => { _sweepTimer = null; _sweepUnseatedLabels(); }, 3000);
@@ -397,7 +397,7 @@ export const registerSquadLabelHooks = () => {
 
   Hooks.on('combatStart', async (combat) => {
     if (!getSetting('autoSquadLabelsEnabled')) return;
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -463,7 +463,7 @@ export const registerSquadLabelHooks = () => {
   
   Hooks.on('updateCombatant', async (combatant, changes) => {
     if (!getSetting('autoSquadLabelsEnabled') || !changes.defeated) return;
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
 
     const group = combatant.group;
     if (!group || group.type !== 'squad') return;
@@ -501,7 +501,7 @@ export const registerSquadLabelHooks = () => {
   
   
   Hooks.on('createCombatant', () => {
-    if (!getSetting('autoSquadLabelsEnabled') || !game.users.activeGM?.isSelf) return;
+    if (!getSetting('autoSquadLabelsEnabled') || !isPrimaryGM()) return;
     if (window._dsctReviveActive) return;
     if (_relabelTimer) clearTimeout(_relabelTimer);
     _relabelTimer = setTimeout(async () => {
@@ -514,7 +514,7 @@ export const registerSquadLabelHooks = () => {
   
   Hooks.on('deleteCombatant', async (combatant) => {
     if (!getSetting('autoSquadLabelsEnabled')) return;
-    if (!game.users.activeGM?.isSelf) return;
+    if (!isPrimaryGM()) return;
     if (_captainFellSent.has(combatant.id)) return;
     const group = combatant.group;
     if (!group || group.type !== 'squad') return;
@@ -532,7 +532,7 @@ export const registerSquadLabelHooks = () => {
 
   Hooks.on('updateCombatantGroup', async (group, changes) => {
     if (!getSetting('autoSquadLabelsEnabled')) return;
-    if (!game.users.activeGM?.isSelf || !game.combat) return;
+    if (!isPrimaryGM() || !game.combat) return;
     if (changes.system?.captainId === undefined) return;
     if (_suppressCaptainRelabel) return;
     if (getSetting('squadLabelApplyEffects') && _labelsApplied()) await applySquadLabels();
@@ -541,7 +541,7 @@ export const registerSquadLabelHooks = () => {
 
   Hooks.on('combatRound', async () => {
     if (!getSetting('autoSquadLabelsEnabled')) return;
-    if (!game.users.activeGM?.isSelf || !game.combat || !_labelsApplied()) return;
+    if (!isPrimaryGM() || !game.combat || !_labelsApplied()) return;
 
     if (getSetting('squadLabelCaptainNow')) {
       const captainless = _findCaptainlessSquads(game.combat);

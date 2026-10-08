@@ -32,3 +32,8 @@ export const {
 } = lib;
 
 export const SettingsSubmenu = lib.settingsSubmenu?.() ?? lib.SettingsSubmenu;
+
+export const primaryGM = lib.primaryGM ?? (() => game.users.activeGM ?? null);
+export const isPrimaryGM = lib.isPrimaryGM ?? (() => !!game.users.activeGM?.isSelf);
+export const executeAsDirector = lib.executeAsDirector
+  ?? ((socket, handler, ...args) => (socket ? socket.executeAsGM(handler, ...args) : Promise.resolve(undefined)));

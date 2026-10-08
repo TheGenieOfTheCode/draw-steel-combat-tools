@@ -1,3 +1,4 @@
+import { safeUpdate } from '../ctlib.mjs';
 ﻿import { getModuleApi } from '../helpers.mjs';
 
 export const replayModifiers = (baseStates, stack, states) => {
@@ -53,7 +54,7 @@ export const persistStack = (msgEl, stack) => {
     ...(e.enabled === false ? { enabled: false } : {}),
   }));
   const api = getModuleApi();
-  if (api?.socket) api.socket.executeAsGM('dsct.updateDocument', msg.uuid, { 'flags.draw-steel-combat-tools.fmModifiers': stackData });
+  if (api?.socket) safeUpdate(msg, { 'flags.draw-steel-combat-tools.fmModifiers': stackData });
   else msg.setFlag('draw-steel-combat-tools', 'fmModifiers', stackData);
 };
 
