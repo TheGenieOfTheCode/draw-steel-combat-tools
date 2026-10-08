@@ -86,6 +86,8 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
       header('Taunted'),
       'tauntedEnabled',
       'tauntedEffectIcon',
+      header('Judged and Marked'),
+      'judgedMarkedLifetimes',
       header('Bleeding'),
       'bleedingEnabled',
       'bleedingEffectIcon',

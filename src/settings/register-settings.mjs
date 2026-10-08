@@ -314,6 +314,10 @@ export const registerSettings = () => {
     name: L('frightenedEffectIcon.name'), hint: L('frightenedEffectIcon.hint'),
     scope: 'world', config: false, type: String, default: 'icons/svg/terror.svg',
   });
+  game.settings.register(M, 'judgedMarkedLifetimes', {
+    name: L('judgedMarkedLifetimes.name'), hint: L('judgedMarkedLifetimes.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'tauntedEnabled', {
     name: L('tauntedEnabled.name'), hint: L('tauntedEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

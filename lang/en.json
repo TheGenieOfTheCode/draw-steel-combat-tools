@@ -177,6 +177,10 @@
         "name": "Damage Buttons Follow Your Target",
         "hint": "Damage buttons in chat apply to the creatures you have targeted rather than the ones you have selected, and players can use them on creatures they do not own while the Director is online."
       },
+      "judgedMarkedLifetimes": {
+        "name": "One Judgement, One Mark",
+        "hint": "A new judgement ends the Censor's last one, and a creature carries one mark: Mark ends the Tactician's oldest (two with Anticipation). Works with the system's own effect and Combat Tools' alike."
+      },
       "tauntedEnabled": {
         "name": "Taunted",
         "hint": "A taunted creature takes a double bane on any ability that does not target whoever taunted it, as long as it can still see them."
