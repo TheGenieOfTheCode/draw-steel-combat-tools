@@ -33,7 +33,13 @@ const MASTER_TOGGLE = {
   squadHudEnabled:        'squadToolsEnabled',
 };
 
+export const HANDED_TO_TRIGGERS = new Set(['judgementAutomation', 'markAutomation']);
+export const triggersHandlesClassTriggers = () => !!game.modules.get('draw-steel-triggers')?.active
+  && game.settings.settings.has('draw-steel-triggers.featureTriggers')
+  && game.settings.get('draw-steel-triggers', 'featureTriggers') !== false;
+
 export const getSetting = (key) => {
+  if (HANDED_TO_TRIGGERS.has(key) && triggersHandlesClassTriggers()) return false;
   const master = MASTER_TOGGLE[key];
   if (master && !game.settings.get('draw-steel-combat-tools', master)) return false;
   return game.settings.get('draw-steel-combat-tools', key);

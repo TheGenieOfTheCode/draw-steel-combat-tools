@@ -1,3 +1,5 @@
+import { HANDED_TO_TRIGGERS, triggersHandlesClassTriggers } from './helpers.mjs';
+
 const MACRO_FOLDER_NAME = 'Draw Steel: Combat Tools';
 
 const MACRO_SETTINGS = {
@@ -46,7 +48,7 @@ export const installMacros = async ({ silent = false } = {}) => {
 
   for (const doc of docs) {
     const settingKey   = MACRO_SETTINGS[doc.name];
-    const isDisabled   = settingKey && game.settings.get(M, settingKey) === false;
+    const isDisabled   = settingKey && (game.settings.get(M, settingKey) === false || (HANDED_TO_TRIGGERS.has(settingKey) && triggersHandlesClassTriggers()));
     const compFolderId = doc.toObject().folder;
     const targetFolder = compFolderId ? (folderMap.get(compFolderId) ?? rootFolder) : rootFolder;
 

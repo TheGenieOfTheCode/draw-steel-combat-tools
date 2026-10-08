@@ -1,6 +1,6 @@
 import { ImNoThreatSettingsMenu } from '../ability-automation/ability-automation.mjs';
 import { WallBuilderSettingsMenu } from '../forced-movement/wall-builder.mjs';
-import { STEALTH_WORKFLOW_READY } from '../helpers.mjs';
+import { STEALTH_WORKFLOW_READY, HANDED_TO_TRIGGERS, triggersHandlesClassTriggers } from '../helpers.mjs';
 import { SettingsSubmenu as LibSettingsSubmenu } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -425,6 +425,22 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       syncMark();
     }
 
+    if (triggersHandlesClassTriggers()) {
+      for (const name of HANDED_TO_TRIGGERS) {
+        const input = this.element.querySelector(`[name="${name}"]`);
+        const grp = input?.closest('.form-group');
+        if (!grp) continue;
+        input.checked = false;
+        input.dispatchEvent(new Event('change'));
+        grp.classList.add('dsct-sub-disabled');
+        grp.querySelectorAll('input, select').forEach(i => { i.disabled = true; });
+        if (grp.querySelector('.dsct-handed-note')) continue;
+        const note = document.createElement('p');
+        note.className = 'hint dsct-handed-note';
+        note.textContent = game.i18n.localize('DSCT.setting.handedToTriggers');
+        grp.append(note);
+      }
+    }
     const aidAttackToggle    = this.element.querySelector('[name="aidAttackAutomation"]');
     const aidAttackIconGroup = this.element.querySelector('[name="aidAttackEffectIcon"]')?.closest('.form-group');
     if (aidAttackToggle && aidAttackIconGroup) {

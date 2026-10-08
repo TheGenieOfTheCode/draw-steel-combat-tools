@@ -149,6 +149,7 @@ export const flagJudgementTriggersUsed = async (judgedActorId) => {
 const triggerProc = async (actor, effect) => {
   const isJudgement = !!effect.getFlag(M, 'judgement');
   const isMark = !!effect.getFlag(M, 'mark');
+  if ((isJudgement && !getSetting('judgementAutomation')) || (isMark && !getSetting('markAutomation'))) return;
 
   if (isJudgement) {
     const judgeFlag = effect.getFlag(M, 'judgement') ?? {};

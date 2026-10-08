@@ -399,6 +399,7 @@
         "name": "Group Actions",
         "hint": "When a minion uses a signature ability, choose a target for every minion in the squad that can reach one, and roll the squad’s ability against all of them at once."
       },
+      "handedToTriggers": "Draw Steel: Triggers handles this while its Feature Triggers setting is on.",
       "judgementAutomation": {
         "name": "Judgement",
         "hint": "Adds a button to the Judgement chat card to judge your target, then follows the judged creature: a reminder in chat each time Judgement can be used, and a prompt to judge someone new when the judged creature falls."
