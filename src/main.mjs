@@ -20,6 +20,7 @@ import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
 import { registerJudgedMarked } from './conditions/judged-marked.mjs';
+import { registerTriggersDerived } from './compat/triggers-derived.mjs';
 import { registerApplyToTargets, applyEnricherPayload } from './conditions/apply-to-targets.mjs';
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
@@ -180,6 +181,7 @@ Hooks.once('init', () => {
   registerGrabTierSync();
   registerConditionHooks();
   registerJudgedMarked();
+  registerTriggersDerived();
   registerStatusGroup({ key: 'combat-tools', label: 'DSCT.statusGroup.dsct', order: 20, statuses: ['invisible', 'burrow'], match: (id) => id.startsWith('dsct') });
   registerStealthSystem();
   registerObservationMemory();

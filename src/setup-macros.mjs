@@ -221,8 +221,10 @@ const _syncEffects = async (item, effects) => {
   if (effects.length) await item.createEmbeddedDocuments('ActiveEffect', effects, { keepId: true });
 };
 
+const isDerivedTrigger = (item) => !!item?.getFlag?.('draw-steel-triggers', 'derived');
+
 export const isSwapCandidate = (item) =>
-  !!item && !item.getFlag(ENH_FLAG, 'enhancedLock') && !item.getFlag(ENH_FLAG, 'enhanced');
+  !!item && !isDerivedTrigger(item) && !item.getFlag(ENH_FLAG, 'enhancedLock') && !item.getFlag(ENH_FLAG, 'enhanced');
 
 let _swapPrompt = null;
 
@@ -297,7 +299,7 @@ export const confirmSwaps = async (candidates) => {
 
 export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
   if (!item || !doc) return false;
-  if (item.getFlag(ENH_FLAG, 'enhancedLock')) return false;
+  if (isDerivedTrigger(item) || item.getFlag(ENH_FLAG, 'enhancedLock')) return false;
   if (!allowSwap && !item.getFlag(ENH_FLAG, 'enhanced')) return false;
   const data = doc.toObject();
   const hash = enhancedStamp(data);
@@ -388,7 +390,7 @@ export const cleanupEnhancedAbilities = async ({ apply = false } = {}) => {
     for (const entry of gated) {
       const mine = actor.items.filter(i => i.system?._dsid === entry.dsid
         && i.getFlag(ENH_FLAG, 'enhanced')
-        && !i.getFlag(ENH_FLAG, 'enhancedSwapped'));
+        && !i.getFlag(ENH_FLAG, 'enhancedSwapped') && !isDerivedTrigger(i));
       if (!mine.length) continue;
       if (_meetsPrereq(actor, entry.prereq)) { out.kept += mine.length; out.keptActors.push(`${actor.name}: ${entry.name}`); continue; }
       doomed.push(...mine.map(i => i.id));
