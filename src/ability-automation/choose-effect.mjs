@@ -890,23 +890,32 @@ function _registerPreviewOverride() {
 
     const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
     const heading = game.i18n.localize('DSCT.choose.preview.heading');
-    const entries = [];
+    const claimed = new Set(chosen.flatMap(e => e.choose.choices.flatMap(c => [...(c.effects ?? [])])));
+    const isClaimed = (effect) => claimed.has((effect?.name ?? '').trim());
 
-    for (const effect of chosen) {
-      const bullets = [];
-      for (const [index, choice] of effect.choose.choices.entries()) {
-        const line = choice.preview?.trim() || _defaultPreview(index);
-        bullets.push(`<li>${await enrich(line, { relativeTo: this.parent })}</li>`);
-      }
-      entries.push({
-        label: game.i18n.localize('TYPES.SpecialEffect.base'),
-        text: `<p>${heading}</p><ul class="dsct-choose-preview">${bullets.join('')}</ul>`,
-      });
+    const systemBefore = [...(context.beforeEffects ?? [])];
+    const systemAfter = [...(context.afterEffects ?? [])];
+    const before = [];
+    const after = [];
+    for (const effect of this.effects.sortedContents) {
+      const own = effect.before ? systemBefore.shift() : systemAfter.shift();
+      const into = effect.before ? before : after;
+      if (chosen.includes(effect)) {
+        const bullets = [];
+        for (const [index, choice] of effect.choose.choices.entries()) {
+          const line = choice.preview?.trim() || _defaultPreview(index);
+          bullets.push(`<li>${await enrich(line, { relativeTo: this.parent })}</li>`);
+        }
+        into.push({
+          label: game.i18n.localize('TYPES.SpecialEffect.base'),
+          text: `<p>${heading}</p><ul class="dsct-choose-preview">${bullets.join('')}</ul>`,
+        });
+      } else if (!isClaimed(effect) && own) into.push(own);
     }
 
-    context.beforeEffects = [];
-    context.afterEffects = entries;
-    context.powerRolls = false;
+    context.beforeEffects = before;
+    context.afterEffects = after;
+    if ([...(this.power?.effects ?? [])].every(isClaimed)) context.powerRolls = false;
   };
 
   if (game.modules.get('lib-wrapper')?.active) {
