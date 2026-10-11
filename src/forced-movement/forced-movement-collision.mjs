@@ -8,7 +8,7 @@ import {
   applyDamage,
   canCurrentlyFly, getWallBlockTop,
   safeUpdate, safeDelete, safeCreateEmbedded, safeToggleStatusEffect,
-  getSetting, chooseFreeSquare, confirmFall,
+  getSetting, chooseFreeSquare, confirmFall, fallGate,
 } from '../helpers.mjs';
 import { clipSegToBoxT, squaresForWall } from './wall-builder.mjs';
 
@@ -285,7 +285,12 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
 
   if (!canFly && finalElev > landingSurface) {
     const rawFall        = finalElev - landingSurface;
-    const effectiveFall  = Math.max(0, rawFall - Math.max(0, agility) - fallReduction);
+    const gate           = await fallGate(targetToken, rawFall);
+    if (gate.cancel) {
+      collisionMsgs.push(`${targetToken.name} stops their fall in the air.`);
+      return finalElev;
+    }
+    const effectiveFall  = Math.max(0, rawFall - Math.max(0, agility) - fallReduction - gate.reduction);
 
     if (rawFall > 0 && getSetting('fallConfirmation')) {
       const previewDmg = noFallDamage ? 0 : (effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, getSetting('fallDamageCap')));
@@ -331,10 +336,10 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
 
     if (effectiveFall >= 2) {
       const fallDmg = Math.min(effectiveFall * 2, getSetting('fallDamageCap'));
-      await applyDamage(targetToken.actor, fallDmg);
+      await applyDamage(targetToken.actor, fallDmg, undefined, { fall: true });
 
-      const reductionNote = fallReduction > 0
-        ? ` (${rawFall} raw, reduced by Agility ${agility} + ${fallReduction})`
+      const reductionNote = fallReduction + gate.reduction > 0
+        ? ` (${rawFall} raw, reduced by Agility ${agility} + ${fallReduction + gate.reduction})`
         : ` (${effectiveFall} effective after Agility ${agility})`;
       collisionMsgs.push(`${targetToken.name} falls ${rawFall} square${rawFall !== 1 ? 's' : ''}${reductionNote} and takes <strong>${fallDmg} damage</strong>, landing prone.`);
 
@@ -380,8 +385,8 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
       return actualLanding;
     } else if (rawFall > 0) {
       await safeUpdate(targetToken.document, { elevation: landingSurface });
-      const reductionNote = fallReduction > 0
-        ? ` (${rawFall} raw, reduced by Agility ${agility} + ${fallReduction})`
+      const reductionNote = fallReduction + gate.reduction > 0
+        ? ` (${rawFall} raw, reduced by Agility ${agility} + ${fallReduction + gate.reduction})`
         : ` (${effectiveFall} effective after Agility ${agility})`;
       collisionMsgs.push(`${targetToken.name} falls ${rawFall} square${rawFall !== 1 ? 's' : ''}${reductionNote}. Less than 2 squares, no damage.`);
       return landingSurface;
@@ -418,7 +423,12 @@ const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landing
   
   const tileSurface    = topTile ? ((getWallBlockTop(topTile) ?? 1) - 1) : terrainSurface;
   const landingSurface = Math.max(tileSurface, terrainSurface);
-  const effectiveFall  = forcedDist;
+  const gate           = await fallGate(targetToken, forcedDist);
+  if (gate.cancel) {
+    collisionMsgs.push(`${targetToken.name} stops their fall in the air.`);
+    return finalElev;
+  }
+  const effectiveFall  = Math.max(0, forcedDist - gate.reduction);
 
   if (forcedDist > 0 && getSetting('fallConfirmation')) {
     const previewDmg = noFallDamage ? 0 : (effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, getSetting('fallDamageCap')));
@@ -464,7 +474,7 @@ const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landing
 
   if (effectiveFall >= 2) {
     const fallDmg = Math.min(effectiveFall * 2, getSetting('fallDamageCap'));
-    await applyDamage(targetToken.actor, fallDmg);
+    await applyDamage(targetToken.actor, fallDmg, undefined, { fall: true });
     collisionMsgs.push(`${targetToken.name} is slammed ${forcedDist} square${forcedDist !== 1 ? 's' : ''} downward into the ground and takes <strong>${fallDmg} damage</strong> (Agility treated as 0), landing prone.`);
 
     let actualLanding = landingSurface;

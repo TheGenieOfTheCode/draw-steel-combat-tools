@@ -135,6 +135,14 @@ export const registerTriggeredActionHooks = () => {
   });
 
   Hooks.on('updateCombatant', async (combatant, changes) => {
+    if (changes.defeated === true) {
+      if (!isPrimaryGM()) return;
+      const actor = getActorFromCombatant(combatant);
+      for (const e of actor ? _triggerEffects(actor) : []) {
+        try { await safeDelete(e); } catch (_) {}
+      }
+      return;
+    }
     if (changes.defeated !== false) return;
     if (!getSetting('autoTriggeredActionsEnabled')) return;
     if (!isPrimaryGM()) return;

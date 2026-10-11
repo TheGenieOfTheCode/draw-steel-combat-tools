@@ -104,6 +104,7 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   isArea         = false,
   staminaLoss    = false,
   source         = _damageSource,
+  fall           = false,
 } = {}) => {
   const prevValue   = actor.system.stamina.value;
   const prevTemp    = actor.system.stamina.temporary;
@@ -120,7 +121,7 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   const ignoredImmunities = staminaLoss ? ['all'] : (ignoreImmunity ? [type] : []);
   const effectiveAmt      = (isArea && squadGroup) ? Math.min(amount, actor.system.stamina.max ?? amount) : amount;
 
-  const take = () => safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities, staminaLoss, ...(source ? { dsbl: { source } } : {}) });
+  const take = () => safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities, staminaLoss, ...(fall ? { dsctFall: true } : {}), ...(source ? { dsbl: { source } } : {}) });
   await (staminaLoss ? asStaminaLoss(take) : take());
   return { prevTemp, prevValue, prevSquadHP, squadGroup, squadCombatantIds, squadTokenIds };
 };
@@ -261,6 +262,18 @@ export const confirmFriendlyFireCase2 = async (sourceToken, targetToken, blocker
   });
 };
 
+export const fallGate = async (token, height) => {
+  const ctx = { token, height, reduction: 0, cancel: false, holds: [] };
+  if (!(height > 0)) return ctx;
+  Hooks.callAll('dsct.preFall', ctx);
+  for (const mods of await Promise.all(ctx.holds)) {
+    if (!mods) continue;
+    ctx.reduction += Number(mods.reduction) || 0;
+    if (mods.cancel) ctx.cancel = true;
+  }
+  return ctx;
+};
+
 export const applyFall = async (token, targetElev = 0, { silent = true, skipConfirm = false } = {}) => {
   const currentElev = token.document?.elevation ?? 0;
   if (currentElev <= targetElev) return { dmg: 0, fallDist: 0, effectiveFall: 0 };
@@ -268,9 +281,11 @@ export const applyFall = async (token, targetElev = 0, { silent = true, skipConf
   const canFly = canCurrentlyFly(token.actor);
   let dmg = 0, fallDist = 0, effectiveFall = 0;
   if (!canFly) {
+    const gate = await fallGate(token, currentElev - targetElev);
+    if (gate.cancel) return { dmg: 0, fallDist: 0, effectiveFall: 0, cancelled: true };
     fallDist      = currentElev - targetElev;
     const agility = token.actor?.system?.characteristics?.agility?.value ?? 0;
-    effectiveFall = Math.max(0, fallDist - agility);
+    effectiveFall = Math.max(0, fallDist - agility - gate.reduction);
     const cap     = getSetting('fallDamageCap');
     dmg = effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, cap);
   }
@@ -281,7 +296,7 @@ export const applyFall = async (token, targetElev = 0, { silent = true, skipConf
   }
 
   const tokenIsDead = token.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead') ?? false;
-  if (dmg > 0 && !tokenIsDead) await applyDamage(token.actor, dmg);
+  if (dmg > 0 && !tokenIsDead) await applyDamage(token.actor, dmg, undefined, { fall: true });
   await safeUpdate(token.document, { elevation: targetElev });
 
   if (dmg > 0) {
