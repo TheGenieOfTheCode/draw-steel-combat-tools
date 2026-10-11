@@ -78,7 +78,7 @@
   font-weight: bold;
   background: var(--dsct-bg-btn);
   border: 1px solid var(--dsct-accent);
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
 }
 
 .dsct-execute-btn.sm {
@@ -100,7 +100,7 @@
   cursor: pointer;
   background: var(--dsct-bg-btn);
   border: 1px solid var(--dsct-accent);
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
   border-radius: 2px;
   display: flex;
   align-items: center;
@@ -157,13 +157,13 @@
 .dsct-center-items { align-items: center; }
 
 .dsct-param-label {
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
   font-size: 11px;
   font-weight: bold;
 }
 
 .dsct-checkbox-label {
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
   font-size: 10px;
   font-weight: bold;
   display: flex;
@@ -334,7 +334,7 @@ button.dsct-dc-grab-fist.active {
 
 .dsct-grab-pending-label {
   font-size: 11px;
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
   margin-bottom: 5px;
 }
 
@@ -418,7 +418,7 @@ button.dsct-dc-grab-fist.active {
 }
 .dsct-grab-action-btn.accent {
   border-color: var(--dsct-accent);
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
 }
 .dsct-grab-action-btn.danger {
   border-color: var(--dsct-accent-red);
@@ -453,7 +453,7 @@ button.dsct-dc-grab-fist.active {
 }
 .dsct-mode-btn.active {
   border-color: var(--dsct-accent);
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
 }
 
 .dsct-source-note {
@@ -497,7 +497,7 @@ enriched-content[enricher="dsct.teleport"] {
 }
 .dsct-wb-mode-btn.active {
   border-color: var(--dsct-accent);
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
 }
 
 .dsct-wb-convert-options {
@@ -680,7 +680,7 @@ enriched-content[enricher="dsct.teleport"] {
 
 .dsct-int-mimic-free {
   font-size: 9px;
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
 }
 
 .dsct-int-icon-pick {
@@ -702,7 +702,7 @@ enriched-content[enricher="dsct.teleport"] {
   text-align: center;
   background: var(--dsct-bg-btn);
   border: 1px solid var(--dsct-border);
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
   font-weight: bold;
   border-radius: 3px;
   padding: 4px 6px;
@@ -991,7 +991,7 @@ enriched-content[enricher="dsct.teleport"] {
 }
 
 .dsct-wbs-h3 {
-  color: var(--dsct-accent);
+  color: var(--dsct-accent-text, var(--dsct-accent));
   border-bottom: 1px solid var(--dsct-border);
   padding-bottom: 5px;
   font-size: 0.8em;

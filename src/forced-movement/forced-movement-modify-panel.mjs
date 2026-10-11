@@ -344,7 +344,7 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <label style="color:var(--dsct-accent);font-size:11px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <label style="color:var(--dsct-accent-text, var(--dsct-accent));font-size:11px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="vertical-${i}" ${state.vertical ? 'checked' : ''}> Vertical
             </label>
             <input type="number" data-field="vertDist-${i}" placeholder="${state.distance}" step="1"
@@ -381,11 +381,11 @@ export class FmModifyPanel extends ds.applications.api.DSApplication {
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
-            <label style="color:var(--dsct-accent);font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <label style="color:var(--dsct-accent-text, var(--dsct-accent));font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="noFall-${i}" ${state.noFallDamage ? 'checked' : ''}> No Fall Damage</label>
-            <label style="color:var(--dsct-accent);font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <label style="color:var(--dsct-accent-text, var(--dsct-accent));font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="ignoreStab-${i}" ${state.ignoreStability ? 'checked' : ''}> Ignore Stability</label>
-            <label style="color:var(--dsct-accent);font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <label style="color:var(--dsct-accent-text, var(--dsct-accent));font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="fast-${i}" ${state.fastMove ? 'checked' : ''}> Fast Path</label>
           </div>
         </div>
