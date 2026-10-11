@@ -2,7 +2,7 @@ import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHoo
 import { runColoredTokenPicker, _getValidTargets } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections, rollBleeding } from './chat-integration.mjs';
-import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync } from './conditions/grab.mjs';
+import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync, allowOutOfRange } from './conditions/grab.mjs';
 import { STEALTH_WORKFLOW_READY, applyFall, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, asStaminaLoss} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { services, registerStatusGroup, clearPickerArrows, activateTokenLayer, stackedPrompt, isPrimaryGM } from './ctlib.mjs';
@@ -43,7 +43,7 @@ import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-sha
 import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
 import { registerSettings } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
-import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround } from './ability-automation/roll-dialog-hooks.mjs';
+import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
 import {
@@ -160,8 +160,12 @@ const api = {
     registerProvider: registerDamagePillProvider,
   },
   hasHighGround:    (attacker, target) => _hasHighGround(attacker, target),
+  flankingAlly,
+  allowOutOfRange,
   rollDialog: {
     addPill: addExternalRollPill,
+    applyTierMods,
+    tierModsOf,
   },
   rollBleeding:     (actor, options) => (getSetting('bleedingEnabled') ? rollBleeding(actor, options) : null),
   socket:           null,
@@ -225,6 +229,7 @@ Hooks.once('init', () => {
   registerCompleteEncounterHooks();
   registerSystemPatches();
   registerCornerVision();
+  registerTierOutcomes();
   registerRollDialogPillHooks();
   registerSquadTargetingHooks();
   registerStartupNotice();

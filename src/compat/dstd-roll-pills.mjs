@@ -1,6 +1,6 @@
 import { DSTD, registerPanelDecorator, safeUpdate } from '../ctlib.mjs';
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
-import { DSCTAddModifierDialog } from '../ability-automation/roll-dialog-hooks.mjs';
+import { DSCTAddModifierDialog, TIER_KINDS, tierModsOf, applyTierMods, pillAmountLabel, pillCss } from '../ability-automation/roll-dialog-hooks.mjs';
 import { drawSourceLines, clearSourceLines } from '../ability-automation/source-lines.mjs';
 
 const M    = 'draw-steel-combat-tools';
@@ -165,7 +165,7 @@ function _buildOverride(basis, eff, dsctPills, dsctBaseOff, dsctGlobalOff = [], 
   const net = edges - banes;
   const singleAdj = Math.abs(net) === 1 ? Math.sign(net) * 2 : 0;
   return {
-    tier: computeTierFromDice(basis.naturalTotal, edges, banes, eff.bonuses, basis.criticalThreshold, basis.staticModifier),
+    tier: applyTierMods(computeTierFromDice(basis.naturalTotal, edges, banes, eff.bonuses, basis.criticalThreshold, basis.staticModifier), eff.tierMods),
     total: basis.naturalTotal + basis.staticModifier + singleAdj + eff.bonuses,
     naturalTotal: basis.naturalTotal,
     staticModifier: basis.staticModifier,
@@ -185,32 +185,38 @@ function _effectiveFrom(basis, o) {
   
   
   const sums = { edge: 0, bane: 0, bonus: 0 };
+  const tiers = [];
+  const add = (p) => {
+    if (TIER_KINDS.has(p.kind)) tiers.push(p);
+    else sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
+  };
   for (const [i, p] of (o.basePills ?? []).entries()) {
     if (p.removed) continue;
     const active = (p.enabled !== false) !== !!o.baseOff?.has(i);
-    if (active) sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
+    if (active) add(p);
   }
   for (const p of o.session ?? []) {
     if (p.enabled === false) continue;
-    sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
+    add(p);
   }
   const ctx = o.ctx;
   if (ctx) {
     for (const p of ctx.globalPills) {
       if (p.enabled === false || o.globalOff?.has(p.id)) continue;
-      sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
+      add(p);
     }
     for (const [i, p] of ctx.globalBase.entries()) {
       if (p.removed) continue;
       const flipped = ctx.globalBaseOff.has(i) !== (o.globalBaseOff?.has(i) ?? false);
       const active = (p.enabled !== false) !== flipped;
-      if (active) sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
+      if (active) add(p);
     }
   }
   return {
     edges: Math.max(0, Math.min(2, sums.edge)),
     banes: Math.max(0, Math.min(2, sums.bane)),
     bonuses: sums.bonus,
+    tierMods: tierModsOf(tiers),
   };
 }
 
@@ -254,15 +260,22 @@ function _persistProvenance(message) {
   else if (api?.socket) safeUpdate(message, payload);
 }
 
-function _pillAmtStr(p) {
-  const kindLabel = p.kind === 'edge' ? 'Edge' : p.kind === 'bane' ? 'Bane' : (p.amount >= 0 ? 'Bonus' : 'Penalty');
-  const plural = p.kind !== 'bonus' && Math.abs(p.amount) !== 1 ? 's' : '';
-  return `${p.amount >= 0 ? '+' : ''}${p.amount} ${kindLabel}${plural}`;
+const _pillAmtStr = (p) => pillAmountLabel(p);
+
+function _rolledTierPills(roll) {
+  const t = roll?.options?.dsctTier;
+  if (!t) return [];
+  const out = [];
+  if (t.shift) out.push({ kind: 'tier', amount: t.shift, reason: 'Rolled', src: null });
+  for (const n of t.auto ?? []) out.push({ kind: 'autoTier', amount: n, reason: 'Rolled', src: null });
+  if (t.floor) out.push({ kind: 'tierFloor', amount: t.floor, reason: 'Rolled', src: null });
+  if (t.ceiling) out.push({ kind: 'tierCeiling', amount: t.ceiling, reason: 'Rolled', src: null });
+  return out;
 }
 
 function _chatPillHTML(p, msgId, targetKey) {
   const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
-  let cls = `dsct-source-pill dsct-chat-roll-pill dsct-pill-${p.kind}`;
+  let cls = `dsct-source-pill dsct-chat-roll-pill dsct-pill-${pillCss(p)}`;
   let attrs = '';
   let title = `${_pillAmtStr(p)} on the power roll`;
   if (p.echo) {
@@ -372,6 +385,7 @@ function _basePills(roll, prov, target, ctx = null) {
     if (oe)  pills.push({ kind: 'edge',  amount: oe,  reason: 'Rolled', src: null });
     if (ob)  pills.push({ kind: 'bane',  amount: ob,  reason: 'Rolled', src: null });
     if (obo) pills.push({ kind: 'bonus', amount: obo, reason: 'Rolled', src: null });
+    pills.push(..._rolledTierPills(roll));
   }
   return pills;
 }
@@ -806,12 +820,12 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
         const off = (p.enabled === false) !== this._baseOff.has(idx);
         const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
         const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.enablePill' : 'DSCT.panel.rollEditor.disablePill');
-        return `<button type="button" class="dsct-source-pill dsct-re-base dsct-pill-${p.kind}${off ? ' dsct-pill-disabled' : ''}" data-base-idx="${idx}" title="${title}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
+        return `<button type="button" class="dsct-source-pill dsct-re-base dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-base-idx="${idx}" title="${title}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
       });
       const session = this._session.map((p, idx) => {
         const off = p.enabled === false;
         const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
-        return `<button type="button" class="dsct-source-pill dsct-re-pill dsct-pill-${p.kind} dsct-pill-custom${off ? ' dsct-pill-disabled' : ''}" data-session-idx="${idx}" title="${game.i18n.localize('DSCT.panel.rollEditor.sessionPill')}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
+        return `<button type="button" class="dsct-source-pill dsct-re-pill dsct-pill-${pillCss(p)} dsct-pill-custom${off ? ' dsct-pill-disabled' : ''}" data-session-idx="${idx}" title="${game.i18n.localize('DSCT.panel.rollEditor.sessionPill')}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
       });
       const echoes = [];
       if (!this._global && this._ctx.grouped) {
@@ -821,13 +835,13 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
           const off = this._globalBaseOffT.has(idx);
           const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.echoPillOff' : 'DSCT.panel.rollEditor.echoPill');
           const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
-          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${p.kind}${off ? ' dsct-pill-disabled' : ''}" data-gbecho-idx="${idx}" title="${title}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
+          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-gbecho-idx="${idx}" title="${title}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
         });
         for (const p of this._ctx.globalPills.filter(p => p.enabled !== false)) {
           const off = this._globalOff.has(p.id);
           const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.echoPillOff' : 'DSCT.panel.rollEditor.echoPill');
           const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
-          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${p.kind}${off ? ' dsct-pill-disabled' : ''}" data-echo-id="${p.id}" title="${title}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
+          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-echo-id="${p.id}" title="${title}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
         }
       }
       const labelText = this._global

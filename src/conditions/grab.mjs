@@ -618,10 +618,16 @@ function _isKnockbackGrabbed(dialog) {
 
 
 const _rangeWarned = new WeakMap();
+const _rangeExempt = new Map();
+
+export function allowOutOfRange(abilityUuid, ms = 60000) {
+  if (abilityUuid) _rangeExempt.set(abilityUuid, Date.now() + ms);
+}
 
 function _checkAbilityRange(dialog, { warnOnly = false } = {}) {
   const ability = dialog.options?.ability;
   if (!ability) return null;
+  if ((_rangeExempt.get(ability.uuid) ?? 0) > Date.now()) return null;
 
   
   

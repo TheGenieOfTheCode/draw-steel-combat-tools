@@ -9,9 +9,14 @@
     <button type="button" class="dsct-amw-type-btn bane"        data-kind="bane"  data-amount="2">Double Bane</button>
     <button type="button" class="dsct-amw-type-btn bonus"       data-kind="bonus" data-amount="1">Bonus</button>
     <button type="button" class="dsct-amw-type-btn bonus"       data-kind="bonus" data-amount="-1">Penalty</button>
+    <button type="button" class="dsct-amw-type-btn edge"        data-kind="tier"  data-amount="1">Tier Up</button>
+    <button type="button" class="dsct-amw-type-btn bane"        data-kind="tier"  data-amount="-1">Tier Down</button>
+    <button type="button" class="dsct-amw-type-btn bonus dsct-amw-wide" data-kind="autoTier" data-amount="3">Automatic Tier Outcome</button>
+    <button type="button" class="dsct-amw-type-btn bonus"       data-kind="tierFloor" data-amount="2">Tier Floor</button>
+    <button type="button" class="dsct-amw-type-btn bonus"       data-kind="tierCeiling" data-amount="2">Tier Ceiling</button>
   </div>
 
-  {{!-- Value (shown only for Bonus / Penalty) --}}
+  {{!-- Value (shown for Bonus / Penalty and the tier outcome, floor and ceiling) --}}
   <div class="form-group dsct-amw-value-group" style="display:none">
     <label>Value</label>
     <div class="form-fields">

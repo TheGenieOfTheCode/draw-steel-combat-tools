@@ -14,6 +14,63 @@ function pill(id, kind, amount, reason, src, scope, dsNative = false) {
   return { id, kind, amount, reason, src, srcTokenId: null, srcTokenIds: [], srcAbility: null, scope, enabled: true, custom: false, dsNative };
 }
 
+export const TIER_KINDS = new Set(['tier', 'autoTier', 'tierFloor', 'tierCeiling']);
+
+export function tierModsOf(pills) {
+  const mods = { shift: 0, auto: [], floor: null, ceiling: null };
+  for (const p of pills ?? []) {
+    const n = Number(p.amount) || 0;
+    if (p.kind === 'tier') mods.shift += n;
+    else if (p.kind === 'autoTier' && n >= 1 && n <= 3) mods.auto.push(n);
+    else if (p.kind === 'tierFloor') mods.floor = Math.max(mods.floor ?? 1, Math.clamp(n, 1, 3));
+    else if (p.kind === 'tierCeiling') mods.ceiling = Math.min(mods.ceiling ?? 3, Math.clamp(n, 1, 3));
+  }
+  return (mods.shift || mods.auto.length || mods.floor || mods.ceiling) ? mods : null;
+}
+
+export function applyTierMods(tier, mods) {
+  if (!mods || !tier) return tier;
+  const autos = new Set(mods.auto ?? []);
+  let out = autos.size === 1 ? [...autos][0] : tier;
+  out = Math.clamp(out + (Number(mods.shift) || 0), 1, 3);
+  if (mods.floor) out = Math.max(out, mods.floor);
+  if (mods.ceiling) out = Math.min(out, mods.ceiling);
+  return out;
+}
+
+export function pillAmountLabel(p) {
+  const n = Number(p.amount) || 0;
+  if (p.kind === 'tier') return `${n >= 0 ? '+' : ''}${n} Tier${Math.abs(n) === 1 ? '' : 's'}`;
+  if (p.kind === 'autoTier') return `Tier ${n} Outcome`;
+  if (p.kind === 'tierFloor') return `Tier ${n} or Higher`;
+  if (p.kind === 'tierCeiling') return `Tier ${n} or Lower`;
+  const kindLabel = p.kind === 'edge' ? 'Edge' : p.kind === 'bane' ? 'Bane' : (n >= 0 ? 'Bonus' : 'Penalty');
+  const plural = p.kind !== 'bonus' && Math.abs(n) !== 1 ? 's' : '';
+  return `${n >= 0 ? '+' : ''}${n} ${kindLabel}${plural}`;
+}
+
+export function pillCss(p) {
+  if (p.kind === 'tier') return (Number(p.amount) || 0) >= 0 ? 'edge dsct-pill-tier' : 'bane dsct-pill-tier';
+  if (TIER_KINDS.has(p.kind)) return 'bonus dsct-pill-tier';
+  return p.kind;
+}
+
+export function registerTierOutcomes() {
+  const path = 'ds.rolls.PowerRoll.prototype.product';
+  const apply = function (wrapped) {
+    const base = wrapped();
+    return base === undefined ? base : applyTierMods(base, this.options?.dsctTier ?? null);
+  };
+  if (game.modules.get('lib-wrapper')?.active) {
+    libWrapper.register('draw-steel-combat-tools', path, apply, 'WRAPPER');
+    return;
+  }
+  const proto = globalThis.ds?.rolls?.PowerRoll?.prototype;
+  const desc = proto && Object.getOwnPropertyDescriptor(proto, 'product');
+  if (!desc?.get) return;
+  Object.defineProperty(proto, 'product', { ...desc, get() { return apply.call(this, () => desc.get.call(this)); } });
+}
+
 function _pickFlankingAlly(casterToken, targetToken, allies) {
   if (allies.length <= 1) return allies[0] ?? null;
   const tcx = targetToken.center.x, tcy = targetToken.center.y;
@@ -24,6 +81,14 @@ function _pickFlankingAlly(casterToken, targetToken, allies) {
     if (score > bestScore) { bestScore = score; best = a; }
   }
   return best;
+}
+
+export function flankingAlly(attacker, target) {
+  const a = attacker?.object ?? attacker, t = target?.object ?? target;
+  if (!a || !t || t.actor?.system?.statuses?.flankable === false) return null;
+  if (typeof a.isFlanking !== 'function' || !a.isFlanking(t)) return null;
+  const allies = a.getAdjacentAllies?.(t)?.filter(x => x !== t && x.canFlank) ?? [];
+  return _pickFlankingAlly(a, t, allies);
 }
 
 export function _hasHighGround(casterToken, targetToken) {
@@ -401,6 +466,10 @@ export function _recomputeAndSync(app) {
   ctx.modifiers.edges   = Math.max(0, gE);
   ctx.modifiers.banes   = Math.max(0, gB);
   ctx.modifiers.bonuses = gBo;
+  const tierPills = (scope) => app._dsctSources.filter(x => x.scope === scope && x.enabled && TIER_KINDS.has(x.kind));
+  const globalTier = tierModsOf(tierPills('global'));
+  if (globalTier) ctx.modifiers.dsctTier = globalTier;
+  else delete ctx.modifiers.dsctTier;
 
   for (const [tokenId, target] of Object.entries(ctx.targets ?? {})) {
     const orig = origTs[tokenId] ?? { edges: 0, banes: 0, bonuses: 0 };
@@ -430,6 +499,9 @@ export function _recomputeAndSync(app) {
       target.combinedModifiers.banes   = Math.max(0, Math.min(5, target.modifiers.banes   + ctx.modifiers.banes));
       if ('bonuses' in target.combinedModifiers)
         target.combinedModifiers.bonuses = target.modifiers.bonuses + ctx.modifiers.bonuses;
+      const targetTier = tierModsOf([...tierPills('global'), ...tierPills(tokenId)]);
+      if (targetTier) target.combinedModifiers.dsctTier = targetTier;
+      else delete target.combinedModifiers.dsctTier;
     }
   }
 }
@@ -440,11 +512,7 @@ function _totalClass(val, kind) {
 }
 
 function _pillHTML(p) {
-  const isBonus   = p.kind === 'bonus';
-  const kindLabel = p.kind === 'edge' ? 'Edge' : p.kind === 'bane' ? 'Bane' : (p.amount >= 0 ? 'Bonus' : 'Penalty');
-  const sign      = isBonus ? (p.amount >= 0 ? '+' : '') : (p.amount >= 0 ? '+' : '');
-  const plural    = !isBonus && Math.abs(p.amount) !== 1 ? 's' : '';
-  const amtStr    = `${sign}${p.amount} ${kindLabel}${plural}`;
+  const amtStr    = pillAmountLabel(p);
   const fromStr      = p.src ? `<span class="dsct-pill-from">from ${p.src}</span>` : '';
   const disClass     = p.enabled ? '' : ' dsct-pill-disabled';
   const custClass    = p.custom ? ' dsct-pill-custom' : '';
@@ -453,7 +521,7 @@ function _pillHTML(p) {
     ? ` data-src-token-ids="${p.srcTokenIds.join(',')}"`
     : (p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : ''))
     + (p.lineFrom ? ` data-line-from="${p.lineFrom}"` : '');
-  return `<button type="button" class="dsct-source-pill dsct-pill-${p.kind}${disClass}${custClass}"${srcTokenAttr} data-pill-id="${p.id}" title="${title}"><span class="dsct-pip">${amtStr} &middot; ${p.reason}</span>${fromStr}</button>`;
+  return `<button type="button" class="dsct-source-pill dsct-pill-${pillCss(p)}${disClass}${custClass}"${srcTokenAttr} data-pill-id="${p.id}" title="${title}"><span class="dsct-pip">${amtStr} &middot; ${p.reason}</span>${fromStr}</button>`;
 }
 
 export function _injectPillUI(app) {
@@ -724,6 +792,7 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
         this._kind   = btn.dataset.kind;
         this._amount = Math.abs(parseInt(btn.dataset.amount)) || 1;
         this._negate = parseInt(btn.dataset.amount) < 0;
+        if (this._tierValued && this._valueInput) this._valueInput.value = btn.dataset.amount;
         this._syncValueField();
         this._updatePreview();
       });
@@ -737,11 +806,21 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
     this._updatePreview();
   }
 
+  get _tierValued() {
+    return this._kind === 'autoTier' || this._kind === 'tierFloor' || this._kind === 'tierCeiling';
+  }
+
   _syncValueField() {
-    if (this._valueGroup) this._valueGroup.style.display = this._kind === 'bonus' ? '' : 'none';
+    if (this._valueGroup) this._valueGroup.style.display = (this._kind === 'bonus' || this._tierValued) ? '' : 'none';
+    if (!this._valueInput) return;
+    if (this._tierValued) {
+      this._valueInput.max = '3';
+      this._valueInput.value = String(Math.clamp(parseInt(this._valueInput.value) || 3, 1, 3));
+    } else this._valueInput.removeAttribute('max');
   }
 
   _readValueAmount() {
+    if (this._tierValued) return Math.clamp(parseInt(this._valueInput?.value) || 3, 1, 3);
     if (this._kind !== 'bonus') return this._negate ? -this._amount : this._amount;
     const raw = Math.abs(parseFloat(this._valueInput?.value) || 1);
     return this._negate ? -raw : raw;
@@ -752,13 +831,10 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
     const reason = this._reasonInput?.value?.trim() || '(custom)';
     const src       = this._sourceInput?.value?.trim() || null;
     const amount    = this._readValueAmount();
-    const kindLabel = this._kind === 'edge' ? 'Edge' : this._kind === 'bane' ? 'Bane' : (amount >= 0 ? 'Bonus' : 'Penalty');
-    const sign      = this._kind === 'bonus' ? (amount >= 0 ? '+' : '') : (amount >= 0 ? '+' : '');
-    const plural    = this._kind !== 'bonus' && Math.abs(amount) !== 1 ? 's' : '';
-    const amtStr    = `${sign}${amount} ${kindLabel}${plural}`;
+    const amtStr    = pillAmountLabel({ kind: this._kind, amount });
     const fromStr   = src ? `<span class="dsct-pill-from">from ${src}</span>` : '';
     if (prev) {
-      prev.className = `dsct-source-pill dsct-pill-${this._kind} dsct-pill-custom`;
+      prev.className = `dsct-source-pill dsct-pill-${pillCss({ kind: this._kind, amount })} dsct-pill-custom`;
       prev.innerHTML = `<span class="dsct-pip">${amtStr} &middot; ${reason}</span>${fromStr}`;
     }
   }
