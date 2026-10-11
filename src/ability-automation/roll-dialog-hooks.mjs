@@ -26,7 +26,7 @@ function _pickFlankingAlly(casterToken, targetToken, allies) {
   return best;
 }
 
-function _hasHighGround(casterToken, targetToken) {
+export function _hasHighGround(casterToken, targetToken) {
   
   if (isCompletelyBeneath(targetToken)) return false;
 

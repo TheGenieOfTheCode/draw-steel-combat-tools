@@ -43,7 +43,7 @@ import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-sha
 import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
 import { registerSettings } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
-import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill } from './ability-automation/roll-dialog-hooks.mjs';
+import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
 import {
@@ -159,6 +159,7 @@ const api = {
     styleTypePill,
     registerProvider: registerDamagePillProvider,
   },
+  hasHighGround:    (attacker, target) => _hasHighGround(attacker, target),
   rollDialog: {
     addPill: addExternalRollPill,
   },

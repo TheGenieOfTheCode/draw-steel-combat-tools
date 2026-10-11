@@ -1385,7 +1385,8 @@ export function addFlatEffectListeners(section, item, message) {
             ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Heal.noRecoveries", { name: recovActor.name }));
             continue;
           }
-          await recovActor.update({ "system.recoveries.value": available - 1 });
+          await recovActor.update({ "system.recoveries.value": available - 1 },
+            recovActor !== sourceActor && sourceActor ? { dsctRecoveryBy: sourceActor.uuid } : {});
         }
 
         let amount;

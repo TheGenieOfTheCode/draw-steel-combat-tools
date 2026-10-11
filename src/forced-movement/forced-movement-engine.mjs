@@ -30,11 +30,9 @@ import { beginPickerOverlay, endPickerOverlay } from '../ability-automation/pick
 
 let _fmGateBypass = false;
 
-
 export function bypassNextFmGate() {
   _fmGateBypass = true;
 }
-
 
 const _runForcedMovement = async (...args) => {
   const doc = args[2]?.document;
@@ -44,7 +42,7 @@ const _runForcedMovement = async (...args) => {
   if (from && (doc.x !== from.x || doc.y !== from.y || doc.elevation !== from.elevation)) {
     const squares = Math.max(Math.abs(doc.x - from.x), Math.abs(doc.y - from.y)) / canvas.grid.size;
     Hooks.callAll('dsct.forcedMovement', {
-      type: args[0], distance: args[1], target: args[2], source: args[3] ?? null,
+      type: args[0], distance: args[1], target: args[2], source: args[3] ?? null, keywords: args[11] ?? [],
       moved: Math.round(squares) || Math.abs(doc.elevation - from.elevation) || 1,
     });
   }
@@ -58,23 +56,27 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     
     
     
-    const gate = Hooks.call('dsct.preForcedMovement', {
+    
+    const ctx = {
       type, distance, target: targetToken, source: sourceToken,
-      messageId: contextMessageId,
-      verticalHeight, fallReduction, noFallDamage, ignoreStability,
+      messageId: contextMessageId, keywords: [...keywords],
+      verticalHeight, fallReduction, noFallDamage, ignoreStability, bonusCreatureDmg, bonusObjectDmg,
       noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, fastMove,
       resume: (mods = {}) => {
         _fmGateBypass = true;
         try {
-          return _runForcedMovement(mods.type ?? type, mods.distance ?? distance, mods.target ?? targetToken, mods.source ?? sourceToken,
-            bonusCreatureDmg, bonusObjectDmg, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove,
+          return _runForcedMovement(mods.type ?? ctx.type, mods.distance ?? ctx.distance, mods.target ?? targetToken, mods.source ?? sourceToken,
+            mods.bonusCreatureDmg ?? ctx.bonusCreatureDmg, mods.bonusObjectDmg ?? ctx.bonusObjectDmg, mods.verticalHeight ?? ctx.verticalHeight,
+            fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove,
             false, juggernaut, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId);
         } finally {
           _fmGateBypass = false;
         }
       },
-    });
+    };
+    const gate = Hooks.call('dsct.preForcedMovement', ctx);
     if (gate === false) return;
+    ({ type, distance, verticalHeight, bonusCreatureDmg, bonusObjectDmg } = ctx);
   }
   const noMoverDmg    = noCollisionDamage || noMoverCollisionDamage;
   const noObstacleDmg = noCollisionDamage || noObstacleCollisionDamage;
@@ -1616,13 +1618,13 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const tileTop    = walls[0]?.flags?.['wall-height']?.top    ?? Infinity;
           if (stepElev >= tileBottom && stepElev < tileTop) {
             const dmg = 2 + remaining + bonusObjectDmg;
-            if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, dmg);
+            if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, dmg, undefined, { forced: true });
             collisionMsgs.push(`${targetToken.name} is blocked by a wall and ${dmgStr(dmg)}.`);
             if (dir === -1) {
               const ffd = Math.abs(reducedVert);
               if (!noFallDamage && !targetIsDead && ffd >= 2) {
                 const fallDmg = Math.min(ffd * 2, getSetting('fallDamageCap'));
-                await applyDamage(targetToken.actor, fallDmg);
+                await applyDamage(targetToken.actor, fallDmg, undefined, { forced: true });
                 collisionMsgs.push(`${targetToken.name} also takes <strong>${fallDmg} damage</strong> from being slammed into the surface (Agility treated as 0), landing prone.`);
                 await safeToggleStatusEffect(targetToken.actor, 'prone', { active: true });
                 undoOps.push({ op: 'status', uuid: targetToken.actor.uuid, effectId: 'prone', active: false });
@@ -1639,11 +1641,11 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         const blockerIsDead = isTokenDead(blocker);
         if (blocker && (!blockerIsDead || getSetting('corpsesBlock')) && (blocker.document.elevation ?? 0) === stepElev) {
           if (blockerIsDead) {
-            if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, remaining + bonusCreatureDmg);
+            if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, remaining + bonusCreatureDmg, undefined, { forced: true });
             collisionMsgs.push(`<strong>Collision!</strong> ${targetToken.name} crashes into the corpse of ${blocker.name}${noMoverDmg || targetIsDead ? '.' : `. ${TakesStr(remaining + bonusCreatureDmg)}.`}`);
           } else {
             undoOps.push({ op: 'update', uuid: blocker.document.uuid, data: { x: blocker.document.x, y: blocker.document.y, elevation: blocker.document.elevation ?? 0 }, options: { isUndo: true } });
-            if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, remaining + bonusCreatureDmg);
+            if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, remaining + bonusCreatureDmg, undefined, { forced: true });
             if (!noObstacleDmg) await applyDamage(blocker.actor, remaining + bonusCreatureDmg);
             const _vDmg  = remaining + bonusCreatureDmg;
             const _vSame = noMoverDmg === noObstacleDmg;
@@ -1731,7 +1733,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     let case1Fired = false;
     const sameDisp = (a, b) => { const da = a?.document?.disposition; const db = b?.document?.disposition; return da != null && da === db; };
     const dmgTarget = async (dmg) => {
-      if (!noMoverDmg && !targetIsDead && !moverIsDefeated && dmg > 0) { await applyDamage(targetToken.actor, dmg); totalTargetDmg += dmg; }
+      if (!noMoverDmg && !targetIsDead && !moverIsDefeated && dmg > 0) { await applyDamage(targetToken.actor, dmg, undefined, { forced: true }); totalTargetDmg += dmg; }
     };
 
     const moverWouldStop = (dmg) => {
@@ -1773,7 +1775,6 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         ? startElev + roundHalfFloor(reducedVert * (i + 1) / path.length)
         : startElev;
 
-
       const burrowBlock = isBurrowing && statusMode;
       if (stepElev < 0 || (i === 0 && (startElev < 0 || burrowBlock))) {
         landingIndex = i - 1;
@@ -1787,7 +1788,6 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           await dmgTarget(dmg);
           collisionMsgs.push(`${targetToken.name} cannot be force-moved while burrowing${moverAndTakes(dmg)}.`);
         }
-
 
         break;
       }

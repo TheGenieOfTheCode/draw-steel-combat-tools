@@ -105,6 +105,7 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   staminaLoss    = false,
   source         = _damageSource,
   fall           = false,
+  forced         = false,
 } = {}) => {
   const prevValue   = actor.system.stamina.value;
   const prevTemp    = actor.system.stamina.temporary;
@@ -121,7 +122,7 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   const ignoredImmunities = staminaLoss ? ['all'] : (ignoreImmunity ? [type] : []);
   const effectiveAmt      = (isArea && squadGroup) ? Math.min(amount, actor.system.stamina.max ?? amount) : amount;
 
-  const take = () => safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities, staminaLoss, ...(fall ? { dsctFall: true } : {}), ...(source ? { dsbl: { source } } : {}) });
+  const take = () => safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities, staminaLoss, ...(fall ? { dsctFall: true } : {}), ...(forced ? { dsctForced: true } : {}), ...(source ? { dsbl: { source } } : {}) });
   await (staminaLoss ? asStaminaLoss(take) : take());
   return { prevTemp, prevValue, prevSquadHP, squadGroup, squadCombatantIds, squadTokenIds };
 };
