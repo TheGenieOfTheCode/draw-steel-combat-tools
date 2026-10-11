@@ -131,8 +131,23 @@ async function _handleAoeTargeting(region) {
   }
 }
 
+function _creditPanelEffect(effect, data) {
+  if (effect.parent?.documentName !== 'Actor' || data.origin || !game.modules.get(DSTD)?.active) return;
+  const sameChanges = (e) => (e.changes?.length ?? 0) === (data.changes?.length ?? 0);
+  const recent = game.messages.contents.slice(-30).reverse();
+  for (const message of recent) {
+    const use = Array.from(message.system?.parts?.contents ?? []).find((p) => p.type === 'abilityUse');
+    const ability = use?.abilityUuid ? fromUuidSync(use.abilityUuid) : null;
+    if (!ability?.effects) continue;
+    if (!ability.effects.some((e) => e.name === data.name && (!data.img || e.img === data.img) && sameChanges(e))) continue;
+    effect.updateSource({ origin: ability.uuid });
+    return;
+  }
+}
+
 export function registerDstdCompat() {
   const dbg = getSetting('debugMode');
+  Hooks.on('preCreateActiveEffect', _creditPanelEffect);
 
   
   registerPanelDecorator({ id: 'combat-tools-prelude', priority: 20, ignore: ['.dsct-dstd-fm-row', '.dsct-dstd-squad'], decorate: ({ message, panel }) => {
