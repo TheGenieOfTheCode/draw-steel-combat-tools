@@ -1245,7 +1245,7 @@ body.dsbl-dark-chat .themed.theme-dark .chat-log { --dsct-pill-dim: 0.45; --dsct
 .dsct-source-pill .dsct-pill-from {
   font-weight: 400;
   font-size: 0.5625rem;
-  opacity: 0.7;
+  opacity: 0.85;
   white-space: nowrap;
   font-style: italic;
   margin-top: 1px;
@@ -1456,7 +1456,7 @@ body.dsbl-dark-chat .themed.theme-dark .chat-log { --dsct-pill-dim: 0.45; --dsct
 .dsct-damage-editor .dsct-de-hint {
   margin: 0;
   font-size: 12px;
-  color: var(--dsct-text-dim, #9f9484);
+  color: var(--color-text-subtle, #9f9484);
   text-align: center;
 }
 .dsct-damage-editor .dsct-de-total {

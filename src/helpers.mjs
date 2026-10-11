@@ -263,14 +263,23 @@ export const confirmFriendlyFireCase2 = async (sourceToken, targetToken, blocker
   });
 };
 
+export const stepOffCatcher = async (token) => {
+  const at = toGrid(token.document);
+  const under = tokenAt(at.x, at.y, token.id);
+  if (!under) return;
+  const chosen = await chooseFreeSquare(token, under);
+  if (chosen) await safeUpdate(token.document, { x: chosen.x * GRID(), y: chosen.y * GRID() }, { dsMovement: true });
+};
+
 export const fallGate = async (token, height) => {
-  const ctx = { token, height, reduction: 0, cancel: false, holds: [] };
+  const ctx = { token, height, reduction: 0, cancel: false, safe: false, holds: [] };
   if (!(height > 0)) return ctx;
   Hooks.callAll('dsct.preFall', ctx);
   for (const mods of await Promise.all(ctx.holds)) {
     if (!mods) continue;
     ctx.reduction += Number(mods.reduction) || 0;
     if (mods.cancel) ctx.cancel = true;
+    if (mods.safe) ctx.safe = true;
   }
   return ctx;
 };
@@ -280,15 +289,16 @@ export const applyFall = async (token, targetElev = 0, { silent = true, skipConf
   if (currentElev <= targetElev) return { dmg: 0, fallDist: 0, effectiveFall: 0 };
 
   const canFly = canCurrentlyFly(token.actor);
-  let dmg = 0, fallDist = 0, effectiveFall = 0;
+  let dmg = 0, fallDist = 0, effectiveFall = 0, caught = false;
   if (!canFly) {
     const gate = await fallGate(token, currentElev - targetElev);
     if (gate.cancel) return { dmg: 0, fallDist: 0, effectiveFall: 0, cancelled: true };
+    caught = gate.safe;
     fallDist      = currentElev - targetElev;
     const agility = token.actor?.system?.characteristics?.agility?.value ?? 0;
     effectiveFall = Math.max(0, fallDist - agility - gate.reduction);
     const cap     = getSetting('fallDamageCap');
-    dmg = effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, cap);
+    dmg = caught || effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, cap);
   }
 
   if (!canFly && fallDist > 0 && !skipConfirm && getSetting('fallConfirmation')) {
@@ -299,13 +309,14 @@ export const applyFall = async (token, targetElev = 0, { silent = true, skipConf
   const tokenIsDead = token.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead') ?? false;
   if (dmg > 0 && !tokenIsDead) await applyDamage(token.actor, dmg, undefined, { fall: true });
   await safeUpdate(token.document, { elevation: targetElev });
+  if (caught) await stepOffCatcher(token);
 
   if (dmg > 0) {
     const landingGrid = toGrid(token.document);
     const landedOn    = tokenAt(landingGrid.x, landingGrid.y, token.id);
     if (landedOn) {
       if (getSetting('debugMode')) console.log(`DSCT | applyFall | fell onto ${landedOn.name} at (${landingGrid.x},${landingGrid.y}), applying ${dmg} damage`);
-      await applyDamage(landedOn.actor, dmg);
+      await applyDamage(landedOn.actor, dmg, undefined, { fall: true });
       const fallerSize   = token.actor?.system?.combat?.size?.value ?? 1;
       const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
       if (fallerSize > blockerMight) await safeToggleStatusEffect(landedOn.actor, 'prone', { active: true });

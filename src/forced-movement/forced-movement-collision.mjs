@@ -8,10 +8,9 @@ import {
   applyDamage,
   canCurrentlyFly, getWallBlockTop,
   safeUpdate, safeDelete, safeCreateEmbedded, safeToggleStatusEffect,
-  getSetting, chooseFreeSquare, confirmFall, fallGate,
+  getSetting, chooseFreeSquare, confirmFall, fallGate, stepOffCatcher,
 } from '../helpers.mjs';
 import { clipSegToBoxT, squaresForWall } from './wall-builder.mjs';
-
 
 const cornerCutsWall = (from, to, elev = 0) => {
   if (from.x === to.x || from.y === to.y) return false; 
@@ -114,7 +113,6 @@ const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
 
   return wallDoc;
 };
-
 
 const breakTileFromTop = async (tile, fallDmg, undoOps, collisionMsgs, targetToken) => {
   const blockTag = getTags(tile).find(t => t.startsWith('wall-block-'));
@@ -256,7 +254,6 @@ const splitTileAtElevation = async (tile, splitElev, undoOps, collisionMsgs) => 
   undoOps.push({ op: 'addTags',    uuid: tile.document.uuid, tags: [blockTag] });
 };
 
-
 const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, canFly, undoOps, collisionMsgs, fallReduction = 0, noFallDamage = false) => {
   if (isNaN(finalElev)) return finalElev;
 
@@ -290,6 +287,12 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
       collisionMsgs.push(`${targetToken.name} stops their fall in the air.`);
       return finalElev;
     }
+    if (gate.safe) {
+      await safeUpdate(targetToken.document, { elevation: landingSurface });
+      await stepOffCatcher(targetToken);
+      collisionMsgs.push(`${targetToken.name} is caught and lands safely.`);
+      return landingSurface;
+    }
     const effectiveFall  = Math.max(0, rawFall - Math.max(0, agility) - fallReduction - gate.reduction);
 
     if (rawFall > 0 && getSetting('fallConfirmation')) {
@@ -307,7 +310,7 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
         const landedOn = (_landedOnRaw && !isTokenDead(_landedOnRaw)) ? _landedOnRaw : null;
         if (landedOn) {
           undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { isUndo: true } });
-          const blockerPrev1 = await applyDamage(landedOn.actor, fallDmg);
+          const blockerPrev1 = await applyDamage(landedOn.actor, fallDmg, undefined, { fall: true });
           if (blockerPrev1) undoOps.push({ op: 'stamina', uuid: landedOn.actor.uuid, prevValue: blockerPrev1.prevValue, prevTemp: blockerPrev1.prevTemp, squadGroupUuid: blockerPrev1.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev1.prevSquadHP, squadCombatantIds: blockerPrev1.squadCombatantIds, squadTokenIds: blockerPrev1.squadTokenIds ?? [] });
           collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
           const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
@@ -357,7 +360,7 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
       const landedOn = (_landedOnRaw && !isTokenDead(_landedOnRaw)) ? _landedOnRaw : null;
       if (landedOn) {
         undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { isUndo: true } });
-        const blockerPrev2 = await applyDamage(landedOn.actor, fallDmg);
+        const blockerPrev2 = await applyDamage(landedOn.actor, fallDmg, undefined, { fall: true });
         if (blockerPrev2) undoOps.push({ op: 'stamina', uuid: landedOn.actor.uuid, prevValue: blockerPrev2.prevValue, prevTemp: blockerPrev2.prevTemp, squadGroupUuid: blockerPrev2.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev2.prevSquadHP, squadCombatantIds: blockerPrev2.squadCombatantIds, squadTokenIds: blockerPrev2.squadTokenIds ?? [] });
         collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
         const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
@@ -428,6 +431,12 @@ const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landing
     collisionMsgs.push(`${targetToken.name} stops their fall in the air.`);
     return finalElev;
   }
+  if (gate.safe) {
+    await safeUpdate(targetToken.document, { elevation: landingSurface });
+    await stepOffCatcher(targetToken);
+    collisionMsgs.push(`${targetToken.name} is caught and lands safely.`);
+    return landingSurface;
+  }
   const effectiveFall  = Math.max(0, forcedDist - gate.reduction);
 
   if (forcedDist > 0 && getSetting('fallConfirmation')) {
@@ -445,7 +454,7 @@ const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landing
       const landedOn = (_landedOnRaw && !isTokenDead(_landedOnRaw)) ? _landedOnRaw : null;
       if (landedOn) {
         undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { isUndo: true } });
-        const blockerPrev3 = await applyDamage(landedOn.actor, fallDmg);
+        const blockerPrev3 = await applyDamage(landedOn.actor, fallDmg, undefined, { fall: true });
         if (blockerPrev3) undoOps.push({ op: 'stamina', uuid: landedOn.actor.uuid, prevValue: blockerPrev3.prevValue, prevTemp: blockerPrev3.prevTemp, squadGroupUuid: blockerPrev3.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev3.prevSquadHP, squadCombatantIds: blockerPrev3.squadCombatantIds, squadTokenIds: blockerPrev3.squadTokenIds ?? [] });
         collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
         const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
@@ -491,7 +500,7 @@ const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landing
     const landedOn = (_landedOnRaw && !isTokenDead(_landedOnRaw)) ? _landedOnRaw : null;
     if (landedOn) {
       undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { isUndo: true } });
-      const blockerPrev4 = await applyDamage(landedOn.actor, fallDmg);
+      const blockerPrev4 = await applyDamage(landedOn.actor, fallDmg, undefined, { fall: true });
       if (blockerPrev4) undoOps.push({ op: 'stamina', uuid: landedOn.actor.uuid, prevValue: blockerPrev4.prevValue, prevTemp: blockerPrev4.prevTemp, squadGroupUuid: blockerPrev4.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev4.prevSquadHP, squadCombatantIds: blockerPrev4.squadCombatantIds, squadTokenIds: blockerPrev4.squadTokenIds ?? [] });
       collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
       const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
@@ -530,7 +539,6 @@ const buildUndoLog = (targetToken, startPos, startElevSnap, movedSnap, undoOps, 
   { op: 'stamina', uuid: targetToken.actor.uuid, prevValue: movedSnap.prevValue, prevTemp: movedSnap.prevTemp, squadGroupUuid: movedSnap.squadGroup?.uuid ?? null, prevSquadHP: movedSnap.prevSquadHP, squadCombatantIds: movedSnap.squadCombatantIds, squadTokenIds: movedSnap.squadTokenIds ?? [], wasDeadBefore },
   ...undoOps,
 ];
-
 
 const footprintCells = (gx, gy, size) => {
   const cells = [];
