@@ -286,7 +286,13 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'grabberEffectIcon', {
     name: L('grabberEffectIcon.name'), hint: L('grabberEffectIcon.hint'),
-    scope: 'world', config: false, type: String, default: 'icons/magic/control/debuff-chains-shackle-movement-red.webp',
+    scope: 'world', config: false, type: String, default: 'modules/draw-steel-combat-tools/assets/Icons/grabber.svg',
+  });
+  game.settings.register(M, 'statusIcons', {
+    scope: 'world', config: false, type: Object, default: {},
+  });
+  game.settings.register(M, 'statusIconsMigrated', {
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'gmBypassesSizeCheck', {
     name: L('gmBypassesSizeCheck.name'), hint: L('gmBypassesSizeCheck.hint'),

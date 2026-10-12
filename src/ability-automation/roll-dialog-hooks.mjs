@@ -2,7 +2,6 @@ import { getSetting, getItemDsid } from '../helpers.mjs';
 import { isHiddenFrom, isConcealed, hasHiddenEcho } from '../conditions/stealth.mjs';
 import { isCompletelyBeneath, coverWithBurrow } from '../conditions/burrow.mjs';
 import { stealthTraits } from '../conditions/stealth-traits.mjs';
-import { getFrightenedData, getTauntedData, sightBlockedBetweenTokens } from '../conditions/conditions.mjs';
 import { sizeRankG } from '../conditions/grab.mjs';
 import { getStrikeType, isCrossfadeStrike, getCrossfadeEdgeForAbility } from './class-shadow/crossfade.mjs';
 import { chooseKeywords } from './choose-effect.mjs';
@@ -133,6 +132,17 @@ function _buildGlobalPills(actor) {
   return pills;
 }
 
+function _systemTauntToken(actor, targetActor) {
+  if (!actor.statuses?.has('taunted')) return null;
+  const sourceUuid = actor.system?.statuses?.taunted?.sources?.first?.();
+  if (!sourceUuid || sourceUuid === targetActor.uuid) return null;
+  if ([...game.user.targets].some(t => t.actor?.uuid === sourceUuid)) return null;
+  const controlled = canvas.tokens.controlled[0];
+  if (controlled?.actor !== actor) return null;
+  const tokens = fromUuidSync(sourceUuid)?.getActiveTokens?.() ?? [];
+  return tokens.find(t => controlled.hasLineOfEffect?.(t)) ?? null;
+}
+
 function _buildNativeConditionTargetPills(actor, casterToken, targetActor, tokenId) {
   const pills = [];
 
@@ -174,16 +184,12 @@ function _buildNativeConditionTargetPills(actor, casterToken, targetActor, token
   }
 
   
-  if (actor.statuses?.has('taunted')) {
-    const tntUuid = actor.system?.statuses?.taunted?.sources?.first?.();
-    const tauntActor = tntUuid ? fromUuidSync(tntUuid) : null;
-    if (!tauntActor || tauntActor.uuid !== targetActor.uuid) {
-      const tauntTok = tauntActor ? canvas.tokens.placeables.find(t => t.actor?.uuid === tauntActor.uuid) : null;
-      const p = pill(mkId(`ta-${tokenId}`), 'bane', 2, 'Taunted', tauntActor?.name ?? null, tokenId, true);
-      p.srcTokenId = tauntTok?.id ?? null;
-      p.lineFrom = 'owner';
-      pills.push(p);
-    }
+  const tauntTok = _systemTauntToken(actor, targetActor);
+  if (tauntTok) {
+    const p = pill(mkId(`ta-${tokenId}`), 'bane', 2, 'Taunted', tauntTok.name, tokenId, true);
+    p.srcTokenId = tauntTok.id;
+    p.lineFrom = 'owner';
+    pills.push(p);
   }
 
   return pills;
@@ -285,35 +291,7 @@ function _buildTargetPills(app, tokenId) {
   }
 
   
-  if (getSetting('grabEnabled') && casterToken) {
-    const grab = window._activeGrabs?.get(casterToken.id);
-    if (grab && grab.grabberTokenId !== tokenId && grab.grabberActorId !== targetActor.id) {
-      const p = pill(mkId(`gr-${tokenId}`), 'bane', 1, 'Grabbed', grab.grabberName, tokenId, false);
-      p.srcTokenId = grab.grabberTokenId;
-      p.lineFrom = 'owner';
-      pills.push(p);
-    }
-  }
-  if (getSetting('frightenedEnabled')) {
-    const fd = getFrightenedData(actor);
-    if (fd && fd.sourceTokenId === tokenId) {
-      const srcName = game.actors.get(fd.sourceActorId)?.name ?? canvas.tokens.get(fd.sourceTokenId)?.name ?? null;
-      const p = pill(mkId(`fr-ca-${tokenId}`), 'bane', 1, 'Frightened', srcName, tokenId, false);
-      p.srcTokenId = fd.sourceTokenId ?? null;
-      pills.push(p);
-    }
-  }
-  if (getSetting('frightenedEnabled') && casterToken) {
-    const tfd = getFrightenedData(targetActor);
-    if (tfd && tfd.sourceTokenId === casterToken.id) {
-      const p = pill(mkId(`fr-ta-${tokenId}`), 'edge', 1, 'Target Frightened', actor.name, tokenId, false);
-      p.srcTokenId = casterToken.id;
-      pills.push(p);
-    }
-  }
-  
-  if (!getSetting('conditionsEnabled') && casterToken)
-    pills.push(..._buildNativeConditionTargetPills(actor, casterToken, targetActor, tokenId));
+  if (casterToken) pills.push(..._buildNativeConditionTargetPills(actor, casterToken, targetActor, tokenId));
 
   
   
@@ -388,23 +366,6 @@ function _buildModifierSources(app) {
         if (sizeRankG(grabbedSize) < sizeRankG(grabberSize)) {
           const p = pill(mkId('gr-sz'), 'bane', 1, 'Size (Grabber larger)', grab.grabberName, 'global', false);
           p.srcTokenId = grab.grabberTokenId;
-          pills.push(p);
-        }
-      }
-    }
-  }
-
-  
-  if (getSetting('tauntedEnabled') && casterToken) {
-    const td = getTauntedData(actor);
-    if (td) {
-      const taunterIsTarget = targetEntries.some(([id]) => id === td.sourceTokenId);
-      if (!taunterIsTarget) {
-        const sourceTok = canvas.tokens.placeables.find(t => t.id === td.sourceTokenId);
-        if (sourceTok && !sightBlockedBetweenTokens(casterToken, sourceTok)) {
-          const srcName = game.actors.get(td.sourceActorId)?.name ?? sourceTok?.name ?? null;
-          const p = pill(mkId('ta'), 'bane', 2, 'Taunted', srcName, 'global', false);
-          p.srcTokenId = td.sourceTokenId ?? null;
           pills.push(p);
         }
       }
@@ -871,34 +832,6 @@ export function addExternalRollPill(app, { kind, amount = 1, reason, src = null,
   return true;
 }
 
-function _refreshTauntedPill(app) {
-  if (!getSetting('tauntedEnabled')) return;
-  const ability = app.options.ability;
-  const actor   = ability?.actor ?? ability?.parent;
-  if (!actor) return;
-  const casterToken = canvas.tokens.controlled.find(t => t.actor?.id === actor.id)
-                   ?? canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
-  if (!casterToken) return;
-
-  const prevTaunted = app._dsctSources.filter(p => p.scope === 'global' && p.reason === 'Taunted');
-  app._dsctSources  = app._dsctSources.filter(p => !(p.scope === 'global' && p.reason === 'Taunted'));
-
-  const td = getTauntedData(actor);
-  if (!td) return;
-  const targetEntries    = Object.entries(app.options.context?.targets ?? {});
-  const taunterIsTarget  = targetEntries.some(([id, t]) => id === td.sourceTokenId || t?.actor?.id === td.sourceActorId);
-  if (taunterIsTarget) return;
-
-  const sourceTok = canvas.tokens.placeables.find(t => t.id === td.sourceTokenId);
-  if (!sourceTok || sightBlockedBetweenTokens(casterToken, sourceTok)) return;
-
-  const srcName = game.actors.get(td.sourceActorId)?.name ?? sourceTok?.name ?? null;
-  const p = pill(mkId('ta'), 'bane', 2, 'Taunted', srcName, 'global', false);
-  p.srcTokenId = td.sourceTokenId ?? null;
-  if (prevTaunted[0]) p.enabled = prevTaunted[0].enabled; 
-  app._dsctSources.push(p);
-}
-
 export function setBaneDialogLockWithOverlay(app, locked, reasons = []) {
   if (!app.element) return;
   if (!getSetting('rollDialogPillUI')) return;
@@ -1006,8 +939,6 @@ export function registerRollDialogPillHooks() {
         app._dsctOrigTargets[tokenId] = { ...(t.modifiers ?? { edges: 0, banes: 0, bonuses: 0 }) };
         app._dsctSources.push(..._buildTargetPills(app, tokenId));
       }
-      
-      _refreshTauntedPill(app);
       _recomputeAndSync(app);
     }
 

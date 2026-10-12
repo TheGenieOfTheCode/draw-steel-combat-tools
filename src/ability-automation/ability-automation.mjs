@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
-import { applyTaunted, applyFrightened } from '../conditions/conditions.mjs';
+import { applyStatus, SOURCED_STATUSES } from '../conditions/statuses.mjs';
 import { registerImNoThreatHooks } from './class-shadow/im-no-threat.mjs';
 import { registerJudgementHooks } from './class-censor/judgement.mjs';
 import { registerMarkHooks, MARK_ABILITY_CONFIG } from './class-tactician/mark.mjs';
@@ -77,8 +77,7 @@ export const registerAbilityInjectors = () => {
             const targets = [...game.user.targets];
             if (!targets.length) { ui.notifications.warn('No targets selected.'); return; }
             for (const t of targets) {
-              if (statusId === 'taunted' && actor)         await applyTaunted(t, actor, srcTknId, endStr);
-              else if (statusId === 'frightened' && actor) await applyFrightened(t, actor, srcTknId, endStr);
+              if (SOURCED_STATUSES.has(statusId)) await applyStatus(t, statusId, { source: (srcTknId ? canvas.tokens.get(srcTknId)?.actor : null) ?? actor, end: endStr });
               else {
                 const tmp = await CONFIG.ActiveEffect.documentClass.fromStatusEffect(statusId).catch(() => null);
                 if (tmp) {

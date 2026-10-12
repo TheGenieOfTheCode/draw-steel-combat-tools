@@ -1,0 +1,19 @@
+<div class="dsct-status-icons">
+  <p class="dsct-status-icons-intro">{{localize "DSCT.statusIcons.intro"}}</p>
+  {{#each groups}}
+  <h4 class="dsct-status-icons-group">{{label}}</h4>
+  <div class="dsct-status-icons-grid">
+    {{#each tiles}}
+    <div class="dsct-status-tile{{#if changed}} changed{{/if}}" data-status-id="{{id}}" role="button" tabindex="0" data-tooltip="{{localize "DSCT.statusIcons.pick"}}">
+      <img class="dsct-status-tile-img" src="{{img}}" alt="">
+      <span class="dsct-status-tile-name">{{name}}</span>
+      {{#if changed}}<button type="button" class="dsct-status-tile-reset" data-reset="{{id}}" data-tooltip="{{localize "DSCT.statusIcons.reset"}}" aria-label="{{localize "DSCT.statusIcons.reset"}}"><i class="fa-solid fa-rotate-left"></i></button>{{/if}}
+    </div>
+    {{/each}}
+  </div>
+  {{/each}}
+  <footer class="dsct-status-icons-footer">
+    <button type="button" data-action="resetAll"><i class="fa-solid fa-rotate-left"></i> {{localize "DSCT.statusIcons.resetAll"}}</button>
+    <button type="button" data-action="save"><i class="fa-solid fa-floppy-disk"></i> {{localize "DSCT.statusIcons.save"}}</button>
+  </footer>
+</div>

@@ -7,6 +7,7 @@ import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced
 import { applyGrab, runGrab, endGrab } from '../conditions/grab.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
+import { applyStatus, SOURCED_STATUSES } from '../conditions/statuses.mjs';
 import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW, DAMAGE_TYPES, isPrimaryGM, safeUpdate } from '../ctlib.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
@@ -2031,7 +2032,7 @@ async function _injectFmButtons(message, root) {
             const alreadyGrabbed = grabbedId ? !!window._activeGrabs?.has(grabbedId) : false;
 
             const grabImg = document.createElement('img');
-            grabImg.src = getSetting('grabbedEffectIcon') || 'icons/skills/melee/unarmed-punch-fist-yellow-red.webp';
+            grabImg.src = CONFIG.statusEffects.find(st => st.id === 'grabbed')?.img ?? 'systems/draw-steel/assets/icons/hand-grabbing-fill.svg';
             grabImg.alt = '';
             grabImg.className = `${DSTD}-button-icon-img`;
             const grabSpan = document.createElement('span');
@@ -2338,11 +2339,7 @@ async function _injectFmButtons(message, root) {
 
       const targetDocE   = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
       const targetActorE = targetDocE?.object?.actor ?? targetDocE?.actor ?? null;
-      const isApplied    = statusId === 'taunted'
-        ? !!targetActorE?.appliedEffects?.some(e => e.getFlag(M, 'taunted'))
-        : statusId === 'frightened'
-          ? !!targetActorE?.appliedEffects?.some(e => e.getFlag(M, 'frightened'))
-          : !!targetActorE?.statuses?.has(statusId);
+      const isApplied    = !!targetActorE?.statuses?.has(statusId);
 
       const applyLbl   = `Apply ${enrichLabel}`;
       const appliedLbl = `Applied: ${enrichLabel}`;
@@ -2372,8 +2369,9 @@ async function _injectFmButtons(message, root) {
           targetToken = d?.object ?? null;
         }
         if (!targetToken) { ui.notifications.warn('DSCT | Target token not found on canvas'); return; }
-        if (statusId === 'taunted' && sourceActor)         await applyTaunted(targetToken, sourceActor, sourceToken?.id ?? null, endStr);
-        else if (statusId === 'frightened' && sourceActor) await applyFrightened(targetToken, sourceActor, sourceToken?.id ?? null, endStr);
+        if (SOURCED_STATUSES.has(statusId)) {
+          if (!(await applyStatus(targetToken, statusId, { source: sourceToken?.actor ?? sourceActor, end: endStr }))) return;
+        }
         else {
           const tmp = await CONFIG.ActiveEffect.documentClass.fromStatusEffect(statusId).catch(() => null);
           if (tmp) {
@@ -2394,7 +2392,7 @@ async function _injectFmButtons(message, root) {
         const actor = d?.object?.actor ?? d?.actor ?? null;
         if (actor) {
           for (const ef of [...(actor.appliedEffects ?? actor.effects)]) {
-            if (ef.getFlag(M, statusId) || ef.statuses?.has(statusId)) await safeDelete(ef);
+            if (ef.statuses?.has(statusId)) await safeDelete(ef);
           }
         }
         enrichBtn.disabled        = false;

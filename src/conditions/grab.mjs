@@ -9,6 +9,7 @@ import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting
 import { isNullGrabIntuitionActive, nullIntuitionScore, isNullSpeedExemptActive } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { _effectiveRowTier } from '../compat/dstd-compat.mjs';
 import { registerEffectFlag } from '../effect-flag-picker.mjs';
+import { createStatusEffect, effectSourceUuids, tokenOfActor, GRABBER_IMG } from './statuses.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -91,7 +92,7 @@ const ensureGrabHooks = () => {
   if (!window._grabberGrabbedHook) {
     window._grabberGrabbedHook = Hooks.on('createActiveEffect', async (effect) => {
       if (!isPrimaryGM()) return;
-      if (!effect.getFlag(M, 'grabbed') || !window._activeGrabs?.size) return;
+      if (!effect.statuses.has('grabbed') || !window._activeGrabs?.size) return;
       const effectToken = effect.parent?.token;
       for (const [gid, grab] of [...window._activeGrabs.entries()]) {
         const isGrabber = effectToken
@@ -156,7 +157,7 @@ const rehydrateGrabs = () => {
 
       if (!grabberTok || !grabbedTok) continue;
 
-      const grabbedEffect = grabbedTok.actor.effects.find(e => e.getFlag(M, 'grabbed'));
+      const grabbedEffect = grabbedTok.actor.effects.find(e => e.statuses.has('grabbed'));
 
       window._activeGrabs.set(grabbedId, {
         grabbedTokenId:  grabbedId,
@@ -195,10 +196,26 @@ export const registerGrabHooks = () => {
 
   if (!getSetting('conditionsEnabled')) return;
   Hooks.on('canvasReady', rehydrateGrabs);
-  
+
   Hooks.on('createActiveEffect', (effect) => {
     if (effect.getFlag(M, 'grab')?.grabberId) rehydrateGrabs();
   });
+  Hooks.on('createActiveEffect', _adoptSystemGrab);
+};
+
+export const refreshGrabTracking = () => rehydrateGrabs();
+
+const _adoptSystemGrab = async (effect) => {
+  if (!isPrimaryGM() || !getSetting('grabEnabled')) return;
+  if (!effect.statuses?.has('grabbed') || effect.getFlag(M, 'grabbed')) return;
+  const victim = effect.parent;
+  if (!(victim instanceof Actor)) return;
+  const victimTok  = tokenOfActor(victim);
+  const grabberTok = tokenOfActor(fromUuidSync(effectSourceUuids(effect, 'grabbed')[0] ?? ''));
+  if (!victimTok || !grabberTok || window._activeGrabs?.has(victimTok.id)) return;
+  window._activeGrabs ??= new Map();
+  await effect.setFlag(M, 'grabbed', true);
+  await _trackGrab(grabberTok, victimTok);
 };
 
 const GRAB_TRAIT_CAPS = {
@@ -250,19 +267,17 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
     }
   }
 
-  await safeCreateEmbedded(grabbedTok.actor, 'ActiveEffect', [{
-    name: 'Grabbed',
-    img: getSetting('grabbedEffectIcon') || 'icons/skills/melee/unarmed-punch-fist-yellow-red.webp',
-    type: 'base',
-    statuses: [],
-    changes: [],
-    system: { end: { roll: '1d10 + @combat.save.bonus' } },
-    disabled: false, transfer: false, flags: { [M]: { grabbed: true } },
-    duration: { startTime: 0, combat: null, seconds: null, rounds: null, turns: null, startRound: 0, startTurn: 0, expiry: 'combatEnd' },
-    description: '<p>You have speed 0, cannot be force moved except by the creature, object, or effect that has you grabbed, and cannot use the Knockback maneuver. You take a bane on abilities that do not target the creature, object, or effect that has you grabbed.</p><p>You can attempt to escape using the <strong>Escape Grab</strong> maneuver. If you teleport, or if either you or the creature grabbing you is force moved so that you are no longer adjacent, the grab ends.</p><p>If the creature grabbing you moves, they bring you with them.</p>',
-    tint: '#ffffff', sort: 0,
-  }]);
+  const AE = CONFIG.ActiveEffect.documentClass;
+  const grabbedStatus = await AE.fromStatusEffect('grabbed', { parent: grabbedTok.actor, dsctSource: grabberTok.actor });
+  grabbedStatus.updateSource({ [`flags.${M}.grabbed`]: true, duration: { expiry: 'combatEnd' } });
+  const staleGrabbed = grabbedTok.actor.effects.get(grabbedStatus.id);
+  if (staleGrabbed) await safeDelete(staleGrabbed, { dsctGrabTeardown: true });
+  await createStatusEffect(grabbedTok.actor, grabbedStatus.toObject());
 
+  await _trackGrab(grabberTok, grabbedTok);
+};
+
+const _trackGrab = async (grabberTok, grabbedTok) => {
   const grabberSizeObj = grabberTok.actor.system?.combat?.size ?? { value: 1, letter: 'M' };
   const grabbedSizeObj = grabbedTok.actor.system?.combat?.size ?? { value: 1, letter: 'M' };
   const speedChanges = (!isNullSpeedExemptActive(grabberTok.actor) && sizeRankG(grabberSizeObj) <= sizeRankG(grabbedSizeObj))
@@ -271,7 +286,7 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
 
   const [grabberEffect] = await safeCreateEmbedded(grabberTok.actor, 'ActiveEffect', [{
     name: 'Grabber',
-    img: getSetting('grabberEffectIcon') || 'icons/magic/control/debuff-chains-shackle-movement-red.webp',
+    img: getSetting('grabberEffectIcon') || GRABBER_IMG,
     type: 'base',
     system: { end: { roll: '' }, filters: { keywords: [] } },
     changes: speedChanges, disabled: false, transfer: false, statuses: [], flags: {},
@@ -281,7 +296,7 @@ export const applyGrab = async (grabberTok, grabbedTok, { maxGrabs = 1 } = {}) =
     flags: { [M]: { grab: { grabberId: grabberTok.id, grabbedId: grabbedTok.id } }, ...noLogFlag() },
   }]);
 
-  const grabbedEffect = grabbedTok.actor.effects.find(e => e.getFlag(M, 'grabbed'));
+  const grabbedEffect = grabbedTok.actor.effects.find(e => e.statuses.has('grabbed'));
 
   window._activeGrabs.set(grabbedTok.id, {
     grabbedTokenId:  grabbedTok.id,  grabbedActorId:  grabbedTok.actor.id,  grabbedName:  grabbedTok.name,
@@ -376,7 +391,7 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
 
   let sizeEdgeEffectId = null;
   if (sizeEdge > 0) {
-    const [c] = await safeCreateEmbedded(grabberActor, 'ActiveEffect', [foundry.utils.deepClone(SIZE_EDGE_EFFECT)]);
+    const [c] = await safeCreateEmbedded(targetActor, 'ActiveEffect', [foundry.utils.deepClone(SIZE_EDGE_EFFECT)]);
     sizeEdgeEffectId = c?.id;
     await new Promise(r => setTimeout(r, 300));
   }
@@ -385,7 +400,7 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
     let hookId, timeoutId;
     const cleanup = async (val) => {
       Hooks.off('createChatMessage', hookId); clearTimeout(timeoutId);
-      if (sizeEdgeEffectId) { const e = grabberActor.effects.get(sizeEdgeEffectId); if (e) await safeDelete(e); }
+      if (sizeEdgeEffectId) { const e = targetActor.effects.get(sizeEdgeEffectId); if (e) await safeDelete(e); }
       resolve(val);
     };
     hookId = Hooks.on('createChatMessage', async (msg) => {

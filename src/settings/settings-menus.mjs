@@ -1,5 +1,6 @@
 import { ImNoThreatSettingsMenu } from '../ability-automation/ability-automation.mjs';
 import { WallBuilderSettingsMenu } from '../forced-movement/wall-builder.mjs';
+import { StatusIconsMenu } from './status-icons.mjs';
 import { STEALTH_WORKFLOW_READY, HANDED_TO_TRIGGERS, triggersHandlesClassTriggers } from '../helpers.mjs';
 import { SettingsSubmenu as LibSettingsSubmenu } from '../ctlib.mjs';
 
@@ -82,21 +83,16 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
       'applyToTargets',
       header('Frightened'),
       'frightenedEnabled',
-      'frightenedEffectIcon',
       'allowIllegalMovement',
       header('Taunted'),
       'tauntedEnabled',
-      'tauntedEffectIcon',
       header('Judged and Marked'),
       'judgedMarkedLifetimes',
       header('Bleeding'),
       'bleedingEnabled',
-      'bleedingEffectIcon',
       'bleedingMode',
       header('Grab'),
       'grabEnabled',
-      'grabbedEffectIcon',
-      'grabberEffectIcon',
       'gmBypassesSizeCheck',
       'restrictGrabButtons',
       'allowIllegalMovement',
@@ -105,12 +101,17 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
     ];
   }
 
-  static _FILE_PICKER_KEYS = new Set(['frightenedEffectIcon', 'tauntedEffectIcon', 'bleedingEffectIcon', 'grabbedEffectIcon', 'grabberEffectIcon']);
-
-  _buildEntry(key) {
-    const entry = super._buildEntry(key);
-    if (entry && ConditionsSettingsMenu._FILE_PICKER_KEYS.has(key)) entry.isFilePicker = true;
-    return entry;
+  _regularItems() {
+    const items = super._regularItems();
+    items.splice(1, 0, {
+      isNestedMenu: true,
+      id:    'dsct-sub-status-icons-btn',
+      icon:  'fas fa-icons',
+      name:  game.i18n.localize('DSCT.statusIcons.menuName'),
+      label: game.i18n.localize('DSCT.statusIcons.menuLabel'),
+      hint:  game.i18n.localize('DSCT.statusIcons.menuHint'),
+    });
+    return items;
   }
 
   _onRender(context, options) {
@@ -126,26 +127,7 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
     }
 
     const enableInput = this.element.querySelector(`[name="${this.constructor.enableKey}"]`);
-    const iconPairs = [
-      ['frightenedEnabled', 'frightenedEffectIcon'],
-      ['tauntedEnabled',    'tauntedEffectIcon'],
-      ['bleedingEnabled',   'bleedingEffectIcon'],
-      ['grabEnabled',       'grabbedEffectIcon'],
-      ['grabEnabled',       'grabberEffectIcon'],
-    ];
-    for (const [toggleName, iconKey] of iconPairs) {
-      const toggle    = this.element.querySelector(`[name="${toggleName}"]`);
-      const iconGroup = this.element.querySelector(`[name="${iconKey}"]`)?.closest('.form-group');
-      if (!toggle || !iconGroup) continue;
-      const sync = () => {
-        const on = (enableInput?.checked ?? true) && toggle.checked;
-        iconGroup.classList.toggle('dsct-sub-disabled', !on);
-        iconGroup.querySelectorAll('input, button').forEach(i => { i.disabled = !on; });
-      };
-      toggle.addEventListener('change', sync);
-      enableInput?.addEventListener('change', sync);
-      sync();
-    }
+    this.element.querySelector('#dsct-sub-status-icons-btn')?.addEventListener('click', () => new StatusIconsMenu().render(true));
 
     const bleedToggle = this.element.querySelector('[name="bleedingEnabled"]');
     const modeGroup   = this.element.querySelector('[name="bleedingMode"]')?.closest('.form-group');

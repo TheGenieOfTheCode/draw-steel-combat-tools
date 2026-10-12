@@ -571,13 +571,13 @@ function _drawTokenHighlights(hlName, tokens, selectedIds = null, hoverIds = nul
   }
 }
 
-export async function runSourcePicker() {
+export async function runSourcePicker({ exclude = new Set(), anyToken = false, hint = null } = {}) {
   const hiding  = _hidingDefeated();
-  const visible = canvas.tokens.placeables.filter(t => !t.document.hidden && !(hiding && _isDefeated(t)));
+  const visible = canvas.tokens.placeables.filter(t => !t.document.hidden && !(hiding && _isDefeated(t)) && !exclude.has(t.actor?.uuid));
   return runColoredTokenPicker({
-    tokens: game.user.isGM ? visible : visible.filter(t => t.isOwner),
+    tokens: (game.user.isGM || anyToken) ? visible : visible.filter(t => t.isOwner),
     title: game.i18n.localize('DSCT.picker.titleSource'),
-    hint: game.i18n.localize('DSCT.notice.picker.chooseSource'),
+    hint: hint ?? game.i18n.localize('DSCT.notice.picker.chooseSource'),
     arrowColor: (t) => t._getBorderColor(),
     autoPick: true,
     control: true,

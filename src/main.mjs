@@ -19,6 +19,8 @@ import { registerTargetDistance } from './ability-automation/target-distance.mjs
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
 import { applyFrightened, applyTaunted, registerConditionHooks } from './conditions/conditions.mjs';
+import { applyStatusIcons, migrateLegacyIcons } from './settings/status-icons.mjs';
+import { applyStatus, removeStatus, statusSourceUuids, migrateLegacyStatuses, createStatusEffectAsDirector, SOURCED_STATUSES } from './conditions/statuses.mjs';
 import { registerJudgedMarked } from './conditions/judged-marked.mjs';
 import { registerTriggersDerived } from './compat/triggers-derived.mjs';
 import { registerApplyToTargets, applyEnricherPayload } from './conditions/apply-to-targets.mjs';
@@ -133,6 +135,10 @@ const api = {
   fall:                 applyFall,
   parsePowerRollState:  parsePowerRollState,
   applyRollMod:         applyRollMod,
+  applyStatus,
+  removeStatus,
+  statusSources:        (actor, statusId) => statusSourceUuids(actor?.actor ?? actor, statusId),
+  sourcedStatuses:      () => [...SOURCED_STATUSES],
   applyFrightened:      applyFrightened,
   applyTaunted:         applyTaunted,
   disguisePanel:            openImNoThreatPanel,
@@ -348,6 +354,15 @@ Hooks.once('setup', () => {
   }
 });
 
+Hooks.once('setup', () => applyStatusIcons());
+
+Hooks.once('ready', () => {
+  applyStatusIcons();
+  migrateLegacyIcons();
+  migrateLegacyStatuses();
+  Hooks.on('canvasReady', () => migrateLegacyStatuses());
+});
+
 Hooks.once('ready', async () => {
   if (!game.user.isGM) return;
 
@@ -491,6 +506,7 @@ Hooks.once('socketlib.ready', () => {
   socket.register('dsct.takeDamage',        async (uuid, amount, options, originUserId = null) => { const actor = await fromUuid(uuid); if (!actor) return; if (originUserId) services.get('noteDamageCause')?.({ userId: originUserId, stated: true }); const run = () => actor.system.takeDamage(amount, options); return await (options?.staminaLoss ? asStaminaLoss(run) : run()); });
   socket.register('dsct.rollFreeStrike',    async (itemUuid) => { const item = await fromUuid(itemUuid); if (item) await ds.helpers.macros.rollItemMacro(item.uuid); });
   socket.register('dsct.executeHIWTurn',    async (actorUuid, msgId) => await executeHIWTurn(actorUuid, msgId));
+  socket.register('dsct.createStatusEffect', createStatusEffectAsDirector);
   socket.register('dsct.applyEffectAsGM',   async (pseudoUuid, tierKey, effectId, targetActorUuids) => {
     const pre = await fromUuid(pseudoUuid);
     if (!pre?.applyEffect) return;

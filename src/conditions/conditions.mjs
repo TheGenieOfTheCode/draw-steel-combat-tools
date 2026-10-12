@@ -1,45 +1,5 @@
-import {
-  safeCreateEmbedded, safeDelete, getSetting, getTokenById, footprintDistFromBounds,
-  segmentBlocksSight, hasSightToToken,
-} from '../helpers.mjs';
-
-const M = 'draw-steel-combat-tools';
-
-
-const resolveEffectEnd = (endStr) => {
-  if (!endStr || endStr === 'unlimited') return null;
-  if (endStr === 'save') return { duration: { expiry: 'save' }, systemEnd: { roll: '1d10 + @combat.save.bonus' } };
-  return { duration: { expiry: endStr }, systemEnd: null };
-};
-
-const FRIGHTENED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, sourceActorUuid) => {
-  const end = resolveEffectEnd(endStr);
-  return {
-  name: `Frightened [${sourceName}]`,
-  img: getSetting('frightenedEffectIcon') || 'icons/svg/terror.svg',
-  type: 'base',
-  system: { ...(end?.systemEnd ? { end: end.systemEnd } : {}), source: sourceActorUuid ?? '' },
-  duration: end?.duration ?? {},
-  changes: [], disabled: false,
-  description: '@Embed[Compendium.draw-steel.journals.JournalEntry.hDhdILCi65wpBgPZ.JournalEntryPage.bXiI9vUF3tF78qXg inline]',
-  tint: '#ffffff', transfer: false, statuses: [], sort: 0,
-  flags: { [M]: { frightened: { sourceActorId, sourceTokenId } } },
-};};
-
-const TAUNTED_EFFECT = (sourceActorId, sourceTokenId, sourceName, endStr, sourceActorUuid) => {
-  const end = resolveEffectEnd(endStr);
-  return {
-  name: `Taunted [${sourceName}]`,
-  img: getSetting('tauntedEffectIcon') || 'systems/draw-steel/assets/icons/flag-banner-fold-fill.svg',
-  type: 'base',
-  system: { ...(end?.systemEnd ? { end: end.systemEnd } : {}), source: sourceActorUuid ?? '' },
-  duration: end?.duration ?? {},
-  changes: [], disabled: false,
-  description: '@Embed[Compendium.draw-steel.journals.JournalEntry.hDhdILCi65wpBgPZ.JournalEntryPage.9zseFmXdcSw8MuKh inline]',
-  tint: '#ffffff', transfer: false, statuses: [], sort: 0,
-  flags: { [M]: { taunted: { sourceActorId, sourceTokenId } } },
-};};
-
+import { getSetting, footprintDistFromBounds, segmentBlocksSight, hasSightToToken } from '../helpers.mjs';
+import { applyStatus, statusSourceData, statusSourceTokens } from './statuses.mjs';
 
 export const sightBlockedBetween = (tokA, tokB) => {
   if (!tokA || !tokB) return true;
@@ -53,34 +13,16 @@ export const sightBlockedBetweenTokens = (tokA, tokB) => {
 };
 
 
-export const getFrightenedData = (actor) => {
-  const effect = actor?.appliedEffects?.find(e => e.getFlag(M, 'frightened'));
-  return effect?.flags?.[M]?.frightened ?? null;
-};
+export const getFrightenedData = (actor) => statusSourceData(actor, 'frightened');
+export const getTauntedData = (actor) => statusSourceData(actor, 'taunted');
 
-export const getTauntedData = (actor) => {
-  const effect = actor?.appliedEffects?.find(e => e.getFlag(M, 'taunted'));
-  return effect?.flags?.[M]?.taunted ?? null;
-};
+const sourceFor = (sourceActor, sourceTokenId) => (sourceTokenId ? canvas.tokens?.get(sourceTokenId)?.actor : null) ?? sourceActor ?? null;
 
+export const applyFrightened = (targetToken, sourceActor, sourceTokenId, endStr = null) =>
+  applyStatus(targetToken, 'frightened', { source: sourceFor(sourceActor, sourceTokenId), end: endStr });
 
-export const applyFrightened = async (targetToken, sourceActor, sourceTokenId, endStr = null) => {
-  const actor = targetToken.actor;
-  if (!actor) return;
-  const existing = actor.appliedEffects?.find(e => e.getFlag(M, 'frightened'));
-  if (existing) await safeDelete(existing);
-  await safeCreateEmbedded(actor, 'ActiveEffect', [FRIGHTENED_EFFECT(sourceActor.id, sourceTokenId, sourceActor.name, endStr, sourceActor.uuid)]);
-  if (getSetting('debugMode')) console.log(`DSCT | Frightened | Applied to ${targetToken.name} source=${sourceActor.name} end=${endStr}`);
-};
-
-export const applyTaunted = async (targetToken, sourceActor, sourceTokenId, endStr = null) => {
-  const actor = targetToken.actor;
-  if (!actor) return;
-  const existing = actor.appliedEffects?.find(e => e.getFlag(M, 'taunted'));
-  if (existing) await safeDelete(existing);
-  await safeCreateEmbedded(actor, 'ActiveEffect', [TAUNTED_EFFECT(sourceActor.id, sourceTokenId, sourceActor.name, endStr, sourceActor.uuid)]);
-  if (getSetting('debugMode')) console.log(`DSCT | Taunted | Applied to ${targetToken.name} source=${sourceActor.name} end=${endStr}`);
-};
+export const applyTaunted = (targetToken, sourceActor, sourceTokenId, endStr = null) =>
+  applyStatus(targetToken, 'taunted', { source: sourceFor(sourceActor, sourceTokenId), end: endStr });
 
 
 export const registerConditionHooks = () => {
@@ -93,12 +35,10 @@ export const registerConditionHooks = () => {
       const token = doc.object;
       if (!token) return;
 
-      const data = getFrightenedData(token.actor);
-      if (!data) return;
-
+      if (!token.actor?.statuses?.has('frightened')) return;
       if (window._dsctFMBypassFrightened?.has(doc.id)) return;
 
-      const sourceTok = getTokenById(data.sourceTokenId);
+      const sourceTok = statusSourceTokens(token.actor, 'frightened')[0];
       if (!sourceTok) return;
 
       if (sightBlockedBetweenTokens(token, sourceTok)) return;

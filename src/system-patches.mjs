@@ -1,8 +1,9 @@
-import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, safeDelete, sightSamples, sightOriginPoints, messageDamageSource } from './helpers.mjs';
+import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, sightSamples, sightOriginPoints, messageDamageSource } from './helpers.mjs';
 import { chooseMessageFilter, chooseKeywords } from './ability-automation/choose-effect.mjs';
-import { applyGrab, runGrab, endGrab, openGrabPanel } from './conditions/grab.mjs';
+import { applyGrab, runGrab } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
-import { DamageConditionsPanel, applyJudgedEffect, applyMarkedEffect } from './conditions/damage-conditions.mjs';
+import { applyJudgedEffect, applyMarkedEffect } from './conditions/damage-conditions.mjs';
+import { withStatusSource, registerStatusSources } from './conditions/statuses.mjs';
 import { runForcedMovement } from './forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv, persistStack } from './forced-movement/forced-movement-modify-panel.mjs';
 import { executeAsDirector, safeUpdate } from './ctlib.mjs';
@@ -38,8 +39,6 @@ function _fmBaseStateFromBtn(btn) {
 export function registerSystemPatches() {
   _extendFMProperties();
   _registerFMEditorFields();
-  _registerConditionSheetHooks();
-  _registerAbilityHudCompat();
   if (!globalThis.libWrapper) {
     console.warn('DSCT | registerSystemPatches | libWrapper not found -- constructButtons patches skipped');
     return;
@@ -48,7 +47,7 @@ export function registerSystemPatches() {
   _patchAppliedConstructButtons();
   _patchAppliedEffect();
   _patchDamageRollButton();
-  _patchToggleStatusEffect();
+  registerStatusSources();
   _patchVisionTestPoints();
   _patchVisionOrigins();
   _registerButtonHooks();
@@ -220,12 +219,6 @@ function _patchAppliedConstructButtons() {
         if (effectId === 'grabbed' && getSetting('grabEnabled')) {
           return _buildGrabButton(btn, item, tier, tierProps);
         }
-        if (effectId === 'frightened' && getSetting('frightenedEnabled')) {
-          return _buildConditionButton(btn, this, tierKey, item, 'frightened');
-        }
-        if (effectId === 'taunted' && getSetting('tauntedEnabled')) {
-          return _buildConditionButton(btn, this, tierKey, item, 'taunted');
-        }
         return btn;
       }).filter(Boolean);
     },
@@ -251,48 +244,35 @@ function _buildGrabButton(original, item, tier, properties = new Set()) {
   return btn;
 }
 
-function _buildConditionButton(original, effect, tierKey, item, conditionId) {
-  const endStr      = effect.applied?.[tierKey]?.effects?.[conditionId]?.end ?? '';
-  const label       = conditionId.charAt(0).toUpperCase() + conditionId.slice(1);
-  const sourceActor = item?.actor ?? null;
-
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = original.className ?? '';
-  btn.innerHTML = `<i class="fa-solid fa-skull"></i> Apply ${label}`;
-  btn.style.cssText = 'cursor:pointer;';
-  btn.dataset.dsctAction       = `dsct-${conditionId}`;
-  btn.dataset.sourceActorUuid  = sourceActor?.uuid ?? '';
-  btn.dataset.end              = endStr;
-  return btn;
-}
-
 function _patchAppliedEffect() {
   libWrapper.register(
     M,
     'ds.data.pseudoDocuments.powerRollEffects.AppliedPowerRollEffect.prototype.applyEffect',
-    async function(wrapped, tierKey, effectId, options = {}) {
-      
-      if (options.targets !== undefined) return wrapped(tierKey, effectId, options);
-
-      if (!getSetting('appliedEffectEnabled')) return wrapped(tierKey, effectId, options);
-
-      const targets = [...game.user.targets].map(t => t.actor).filter(Boolean);
-      if (!targets.length) {
-        ui.notifications.warn(game.i18n.localize('DSCT.notice.sys.noTargetForEffect'));
-        return;
-      }
-
-      if (targets.every(a => a.isOwner)) {
-        return wrapped(tierKey, effectId, { ...options, targets });
-      }
-
-      const api = getModuleApi(false);
-      if (!api?.socket) return;
-      await executeAsDirector(api.socket, 'dsct.applyEffectAsGM', this.uuid, tierKey, effectId, targets.map(a => a.uuid));
+    function(wrapped, tierKey, effectId, options = {}) {
+      return withStatusSource(this.item?.actor, () => _applyEffectRouted.call(this, wrapped, tierKey, effectId, options));
     },
     'MIXED'
   );
+}
+
+async function _applyEffectRouted(wrapped, tierKey, effectId, options) {
+  if (options.targets !== undefined) return wrapped(tierKey, effectId, options);
+
+  if (!getSetting('appliedEffectEnabled')) return wrapped(tierKey, effectId, options);
+
+  const targets = [...game.user.targets].map(t => t.actor).filter(Boolean);
+  if (!targets.length) {
+    ui.notifications.warn(game.i18n.localize('DSCT.notice.sys.noTargetForEffect'));
+    return;
+  }
+
+  if (targets.every(a => a.isOwner)) {
+    return wrapped(tierKey, effectId, { ...options, targets });
+  }
+
+  const api = getModuleApi(false);
+  if (!api?.socket) return;
+  await executeAsDirector(api.socket, 'dsct.applyEffectAsGM', this.uuid, tierKey, effectId, targets.map(a => a.uuid));
 }
 
 function _patchDamageRollButton() {
@@ -720,61 +700,6 @@ function _registerButtonHooks() {
       });
     }
   });
-}
-
-function _registerConditionSheetHooks() {
-  const lightUp = (element, actor) => {
-    if (!actor) return;
-    const grabbed = [...(window._activeGrabs?.values() ?? [])].some(g => g.grabbedActorId === actor.id);
-    if (grabbed)                                             element.querySelector('[data-status-id="grabbed"]')?.classList.add('active');
-    if (actor.effects.some(e => e.getFlag(M, 'frightened'))) element.querySelector('[data-status-id="frightened"]')?.classList.add('active');
-    if (actor.effects.some(e => e.getFlag(M, 'taunted')))    element.querySelector('[data-status-id="taunted"]')?.classList.add('active');
-  };
-  Hooks.on('renderDrawSteelActorSheet', (app, element) => lightUp(element, app.actor));
-  Hooks.on('renderDrawSteelTokenHUD',   (app, element) => lightUp(element, app.actor));
-}
-
-function _registerAbilityHudCompat() {
-  Hooks.on('renderAbilityHud', (_app, html) => {
-    const actor = canvas.tokens?.controlled?.[0]?.actor;
-    if (!actor) return;
-    const checks = {
-      grabbed:    [...(window._activeGrabs?.values() ?? [])].some(g => g.grabbedActorId === actor.id),
-      frightened: actor.effects.some(e => e.getFlag(M, 'frightened')),
-      taunted:    actor.effects.some(e => e.getFlag(M, 'taunted')),
-    };
-    for (const [id, isActive] of Object.entries(checks)) {
-      html[0].querySelector(`[data-action-id="${id}"]`)?.classList.toggle('active', isActive);
-    }
-  });
-}
-
-function _patchToggleStatusEffect() {
-  libWrapper.register(M, 'ds.documents.DrawSteelActor.prototype.toggleStatusEffect',
-    async function(wrapped, statusId, options = {}) {
-      if (statusId === 'grabbed' && getSetting('conditionsEnabled')) {
-        const grab = [...(window._activeGrabs?.values() ?? [])].find(g => g.grabbedActorId === this.id);
-        if (grab) await endGrab(grab.grabbedTokenId);
-        else openGrabPanel();
-        return;
-      }
-      if ((statusId === 'frightened' || statusId === 'taunted') && getSetting('conditionsEnabled')) {
-        const effect = this.effects.find(e => e.getFlag(M, statusId));
-        if (effect) {
-          await safeDelete(effect);
-        } else {
-          const panel = getWindowById('dsct-dc-panel') ?? new DamageConditionsPanel();
-          panel._condition = statusId;
-          if (options.effectEnd) {
-            const expiryEvent = ds.CONFIG.effectEnds[options.effectEnd]?.expiryEvent;
-            if (expiryEvent) panel._conditionEnd = expiryEvent;
-          }
-          panel.render({ force: true });
-        }
-        return;
-      }
-      return wrapped(statusId, options);
-    }, 'MIXED');
 }
 
 function _registerFMEditorFields() {

@@ -139,7 +139,7 @@
       },
       "grabEnabled": {
         "name": "Grab",
-        "hint": "A grabbed creature takes a bane on abilities that do not target whoever holds it, and is dragged along when they move. Grabs can be ended from the Grab panel."
+        "hint": "A grabbed creature is dragged along when its grabber moves, and the grab ends on forced movement, teleports and escapes. The system handles the bane. End grabs from the Grab panel."
       },
       "grabbedEffectIcon": {
         "name": "Grabbed Effect Icon",
@@ -163,11 +163,11 @@
       },
       "conditionsEnabled": {
         "name": "Conditions",
-        "hint": "Handle frightened, taunted, bleeding, grabs and area damage for you. Turn this off and none of the settings below do anything."
+        "hint": "Handle frightened, taunted, bleeding, grabs and area damage for you, and ask who caused a frightened, taunted or grabbed creature. Turn this off and none of the settings below do anything."
       },
       "frightenedEnabled": {
         "name": "Frightened",
-        "hint": "A frightened creature takes a bane against whatever frightens it, gives that creature an edge in return, and cannot willingly move closer to it."
+        "hint": "A frightened creature cannot willingly move closer to whatever frightens it. The system handles its bane and edge."
       },
       "frightenedEffectIcon": {
         "name": "Frightened Effect Icon",
@@ -187,7 +187,7 @@
       },
       "tauntedEnabled": {
         "name": "Taunted",
-        "hint": "A taunted creature takes a double bane on any ability that does not target whoever taunted it, as long as it can still see them."
+        "hint": "Adds an Apply Taunted button to Target Damage cards. The system handles the double bane."
       },
       "tauntedEffectIcon": {
         "name": "Taunted Effect Icon",
@@ -1624,6 +1624,10 @@
         "frightenedCannotMove": "{name} is frightened of {source} and cannot willingly move closer.",
         "frightenedBlocked": "{name} is frightened of {source} and cannot move closer!"
       },
+      "status": {
+        "chooseSource": "Click the creature causing {condition} on {name}. Right-click or Escape to cancel.",
+        "cancelled": "{condition} was not applied, because it needs a source."
+      },
       "int": {
         "tokenNotFound": "Token not found on scene.",
         "multipleTokens": "Multiple tokens for {name} found - remove duplicates first.",
@@ -2160,6 +2164,20 @@
     },
     "statusGroup": {
       "dsct": "Combat Tools"
+    },
+    "statusIcons": {
+      "title": "Status Icons",
+      "menuName": "Status Icons",
+      "menuLabel": "Change Icons",
+      "menuHint": "Every status and its icon in one place. Click one to pick a new image.",
+      "intro": "Click a status to give it a new icon. Changed icons are marked, and new and existing effects use them once you save.",
+      "all": "Statuses",
+      "grabber": "Grabber",
+      "pick": "Pick a new icon",
+      "reset": "Back to the default icon",
+      "resetAll": "Reset All",
+      "save": "Save",
+      "saved": "Status icons saved."
     },
     "recommend": {
       "tagger": "Tagger",

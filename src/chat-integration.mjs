@@ -1,7 +1,6 @@
 import { applyGrab, buildFreeStrikeButton, sizeRankG, grabUiState, refreshGrabUis } from './conditions/grab.mjs';
 import { getItemDsid, getSetting, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, undoDamage, getSquadGroup, safeDelete } from './helpers.mjs';
 import { registerAbilityInjectors } from './ability-automation/ability-automation.mjs';
-import { applyFrightened, applyTaunted, getFrightenedData, getTauntedData, sightBlockedBetweenTokens } from './conditions/conditions.mjs';
 import { safeUpdate } from './ctlib.mjs';
 
 export const triggerGrabberFreeStrike = async (grabberTok, grab) => {
@@ -90,58 +89,18 @@ function registerRollDialogHooks() {
     const casterToken = canvas.tokens.controlled.find(t => t.actor?.id === actor.id)
                      ?? canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
 
-    const targetEntries = Object.entries(app.options.context?.targets ?? {});
     const dsid = getItemDsid(ability);
 
     let banes = 0;
     let edges = 0;
 
-    if (getSetting('grabEnabled') && casterToken) {
+    if (getSetting('grabEnabled') && casterToken && dsid === 'escape-grab') {
       const grab = window._activeGrabs?.get(casterToken.id);
-      if (grab) {
-        const targetingGrabber = targetEntries.some(([id]) => id === grab.grabberTokenId);
-        if (!targetingGrabber) banes += 1;
-
-        if (dsid === 'escape-grab') {
-          const grabberTok = getTokenById(grab.grabberTokenId);
-          if (grabberTok) {
-            const grabbedSize = casterToken.actor?.system?.combat?.size ?? { value: 1, letter: 'M' };
-            const grabberSize = grabberTok.actor?.system?.combat?.size  ?? { value: 1, letter: 'M' };
-            if (sizeRankG(grabbedSize) < sizeRankG(grabberSize)) banes += 1;
-          }
-        }
-      }
-    }
-
-    if (getSetting('frightenedEnabled') && casterToken) {
-      const fd = getFrightenedData(actor);
-      if (fd) {
-        const targetingSource = targetEntries.some(([id]) => id === fd.sourceTokenId);
-        if (targetingSource) banes += 1;
-      }
-    }
-
-    if (getSetting('tauntedEnabled') && casterToken) {
-      const td = getTauntedData(actor);
-      if (td) {
-        const targetingSource = targetEntries.some(([id]) => id === td.sourceTokenId);
-        if (!targetingSource) {
-          const sourceTok = getTokenById(td.sourceTokenId);
-          const hasLoE = sourceTok ? !sightBlockedBetweenTokens(casterToken, sourceTok) : false;
-          if (hasLoE) banes += 2;
-        }
-      }
-    }
-
-    if (getSetting('frightenedEnabled') && casterToken) {
-      for (const [tokenId] of targetEntries) {
-        const targetTok = getTokenById(tokenId);
-        if (!targetTok?.actor) continue;
-        const fd = getFrightenedData(targetTok.actor);
-        if (fd && fd.sourceTokenId === casterToken.id) {
-          edges += 1;
-          break;
-        }
+      const grabberTok = grab ? getTokenById(grab.grabberTokenId) : null;
+      if (grabberTok) {
+        const grabbedSize = casterToken.actor?.system?.combat?.size ?? { value: 1, letter: 'M' };
+        const grabberSize = grabberTok.actor?.system?.combat?.size  ?? { value: 1, letter: 'M' };
+        if (sizeRankG(grabbedSize) < sizeRankG(grabberSize)) banes += 1;
       }
     }
 

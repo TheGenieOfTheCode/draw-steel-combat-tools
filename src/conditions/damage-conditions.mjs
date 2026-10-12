@@ -101,7 +101,7 @@ const applyNativeCondition = async (actor, condId, endStr) => {
   const statusCfg = CONFIG.statusEffects?.find(e => e.id === condId);
   await safeCreateEmbedded(actor, 'ActiveEffect', [{
     name:     statusCfg?.name ?? condId,
-    img:      (condId === 'bleeding' ? getSetting('bleedingEffectIcon') : '') || (statusCfg?.img ?? 'icons/svg/mystery-man.svg'),
+    img:      statusCfg?.img ?? 'icons/svg/mystery-man.svg',
     type:     'base',
     system:   end.systemEnd ? { end: end.systemEnd } : {},
     duration: end.duration,
