@@ -287,6 +287,9 @@ export class DamageConditionsPanel extends FitsOnResize(ds.applications.api.DSAp
       const list = this.element.querySelector('#dc-grab-list');
       if (list) list.innerHTML = buildGrabListHTML();
     }
+    this.element.style.transition = 'width 0.25s ease';
+    clearTimeout(this._drawerTransition);
+    this._drawerTransition = setTimeout(() => { if (this.element) this.element.style.transition = ''; }, 300);
     this.setPosition({ width: this._fitBaseWidth() * (this._fitScale ?? 1), height: 'auto' });
   }
 
@@ -348,7 +351,6 @@ export class DamageConditionsPanel extends FitsOnResize(ds.applications.api.DSAp
     });
     this.element.querySelector('#dc-distance')?.addEventListener('input', e => { this._distance = parseInt(e.target.value) || null; });
 
-    this.element.style.transition = 'width 0.25s ease';
 
     
     
