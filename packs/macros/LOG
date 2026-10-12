@@ -1,3 +1,5 @@
-2026/09/28-16:18:14.847 8624 Recovering log #4
-2026/09/28-16:18:14.853 8624 Delete type=0 #4
-2026/09/28-16:18:14.853 8624 Delete type=3 #2
+2026/10/12-20:35:12.650 aa18 Delete type=3 #1
+2026/10/12-20:35:12.654 bb58 Level-0 table #5: started
+2026/10/12-20:35:12.656 bb58 Level-0 table #5: 25407 bytes OK
+2026/10/12-20:35:12.658 bb58 Delete type=0 #3
+2026/10/12-20:35:12.658 bb58 Manual compaction at level-0 from '!folders!DSCTfoldAA000001' @ 72057594037927935 : 1 .. '!macros!DSCTtrigAction01' @ 0 : 0; will stop at (end)
