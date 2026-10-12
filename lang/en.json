@@ -1122,6 +1122,10 @@
         "repeatable": {
           "label": "Repeatable",
           "hint": "When enabled, the heal button stays active after use. Each use is tracked separately so undo removes exactly what was healed."
+        },
+        "recipient": {
+          "label": "Goes To",
+          "hint": "Who is healed. Each target is the default; the user heals themselves, for lines like \"you gain 10 temporary Stamina\"."
         }
       },
       "Cleanse": {
@@ -1145,7 +1149,11 @@
           "label": "Repeatable",
           "hint": "When enabled, the cleanse button stays active after use."
         },
-        "autoLabel": "End one {effects} effect"
+        "autoLabel": "End one {effects} effect",
+        "recipient": {
+          "label": "Goes To",
+          "hint": "Whose effects are ended. Each target is the default; the user cleanses themselves, for lines like \"you can end one condition on yourself\"."
+        }
       },
       "spend": {
         "enabled": {

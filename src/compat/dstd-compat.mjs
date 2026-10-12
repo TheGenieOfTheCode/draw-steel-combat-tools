@@ -1631,7 +1631,8 @@ async function _injectFmButtons(message, root) {
   
   
   const selfApplied = flatAppliedEffects.filter(e => e.flatApplied?.exclusiveSelf && e.flatApplied?.statusId);
-  if (selfApplied.length && sourceToken) {
+  const selfFlat = flatHealEffects.some(e => e.flatHeal?.recipient === 'self') || flatCleanseEffects.some(e => e.flatCleanse?.recipient === 'self');
+  if ((selfApplied.length || selfFlat) && sourceToken) {
     const selfKey = sourceToken.document.uuid.replace(/\./g, '__');
     if (!activePanel.querySelector(`${DSTD_ROW}[data-target-key="${selfKey}"]`)
       && !activePanel.querySelector('[data-dsct-self-only]')) {
@@ -1674,8 +1675,11 @@ async function _injectFmButtons(message, root) {
     const rowTier = _effectiveRowTier(message, targetKey, tokenUuid, tier);
     const rowTiered = _flatOn ? tieredAsFlat(ability, rowTier) : [];
     const selfOnlyRow = row.dataset.dsctSelfOnly === '1';
-    const rowHealEffects    = selfOnlyRow ? [] : [...flatHealEffects,    ...rowTiered.filter(e => e.type === 'dsct.flatHeal')];
-    const rowCleanseEffects = selfOnlyRow ? [] : flatCleanseEffects;
+    const userRowKey = sourceToken ? sourceToken.document.uuid.replace(/\./g, '__') : null;
+    const onUserRow = selfOnlyRow || (!!userRowKey && targetKey === userRowKey);
+    const fitsRow = (recipient) => (recipient === 'self' ? onUserRow : !selfOnlyRow);
+    const rowHealEffects    = [...flatHealEffects, ...rowTiered.filter(e => e.type === 'dsct.flatHeal')].filter(e => fitsRow(e.flatHeal?.recipient));
+    const rowCleanseEffects = flatCleanseEffects.filter(e => fitsRow(e.flatCleanse?.recipient));
     const rowTeleportEffects = selfOnlyRow ? [] : [...flatTeleportEffects, ...rowTiered.filter(e => e.type === 'dsct.flatTeleport')];
 
     const body = row.querySelector(`.${DSTD}-target-body`);
@@ -2766,7 +2770,7 @@ async function _injectFmButtons(message, root) {
     for (const effect of flatAppliedEffects) {
       const { statusId, display, potency } = effect.flatApplied;
       if (!statusId) continue;
-      const userKey = sourceToken ? sourceToken.document.uuid.replace(/./g, '__') : null;
+      const userKey = sourceToken ? sourceToken.document.uuid.replace(/\./g, '__') : null;
       const isUserRow = selfOnlyRow || (userKey && targetKey === userKey);
       if (selfOnlyRow && !effect.flatApplied.exclusiveSelf) continue;
       if (effect.flatApplied.exclusiveSelf && !isUserRow) continue;

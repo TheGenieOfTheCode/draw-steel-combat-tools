@@ -82,6 +82,7 @@ function _registerPartials() {
 
   Handlebars.registerPartial("dsct.flat-cleanse", `
     {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatCleanse.displayText" localize=true}}
+    {{formGroup ctx.recipient.field value=ctx.recipient.src name="flatCleanse.recipient" options=ctx.recipientOptions localize=true}}
     <div class="form-group">
       <label class="form-label">{{localize "DSCT.FlatEffect.Cleanse.expiryFilter.label"}}</label>
       <div class="form-fields">
@@ -128,6 +129,7 @@ function _registerPartials() {
 
   Handlebars.registerPartial("dsct.flat-heal", `
     {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatHeal.displayText" localize=true}}
+    {{formGroup ctx.recipient.field value=ctx.recipient.src name="flatHeal.recipient" options=ctx.recipientOptions localize=true}}
     {{formGroup ctx.spendRecovery.field value=ctx.spendRecovery.src name="flatHeal.spendRecovery" localize=true}}
     <div data-dsct-heal-recovery-source="flatHeal" {{#unless ctx.spendRecovery.src}}hidden{{/unless}}>
       {{formGroup ctx.recoverySource.field value=ctx.recoverySource.src name="flatHeal.recoverySource" options=ctx.sourceOptions localize=true}}
@@ -453,6 +455,7 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
         recoveryValueSource: new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoveryValueSource.label" }),
         tempStamina:         new BooleanField({ initial: () => _flatDefault('flatDefaultHealTempStamina', false), label: "DSCT.FlatEffect.Heal.tempStamina.label",             hint: "DSCT.FlatEffect.Heal.tempStamina.hint" }),
         repeatable:          new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.repeatable.label",              hint: "DSCT.FlatEffect.Heal.repeatable.hint" }),
+        recipient:           new StringField({ required: false, blank: false, initial: "target", label: "DSCT.FlatEffect.Heal.recipient.label", hint: "DSCT.FlatEffect.Heal.recipient.hint" }),
         spend: new SchemaField({
           enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
           value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
@@ -491,6 +494,8 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
       recoveryValueSource: { field: this.schema.getField("flatHeal.recoveryValueSource"), src: src.recoveryValueSource },
       tempStamina:         { field: this.schema.getField("flatHeal.tempStamina"),         src: src.tempStamina },
       repeatable:          { field: this.schema.getField("flatHeal.repeatable"),          src: src.repeatable },
+      recipient:           { field: this.schema.getField("flatHeal.recipient"),           src: src.recipient ?? "target" },
+      recipientOptions:    ["target", "self"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Resource.Recipient.${value}`) })),
       sourceOptions,
       amountTypeOptions,
       isCustomAmount:        src.amountType === "custom",
@@ -514,6 +519,7 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
         expiryFilter: new SetField(_setField(), { initial: ["turnEnd", "save"], label: "DSCT.FlatEffect.Cleanse.expiryFilter.label" }),
         statusFilter: new SetField(_setField(), { initial: [],                  label: "DSCT.FlatEffect.Cleanse.statusFilter.label" }),
         repeatable:   new BooleanField({ initial: () => _flatDefault('flatDefaultCleanseRepeatable', false), label: "DSCT.FlatEffect.Cleanse.repeatable.label", hint: "DSCT.FlatEffect.Cleanse.repeatable.hint" }),
+        recipient:    new StringField({ required: false, blank: false, initial: "target", label: "DSCT.FlatEffect.Cleanse.recipient.label", hint: "DSCT.FlatEffect.Cleanse.recipient.hint" }),
         spend: new SchemaField({
           enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
           value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
@@ -550,6 +556,8 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
       displayText:    { field: this.schema.getField("flatCleanse.displayText"), src: src.displayText },
       display:        { field: this.schema.getField("flatCleanse.display"),     src: src.display },
       repeatable:     { field: this.schema.getField("flatCleanse.repeatable"),  src: src.repeatable },
+      recipient:      { field: this.schema.getField("flatCleanse.recipient"),   src: src.recipient ?? "target" },
+      recipientOptions: ["target", "self"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Resource.Recipient.${value}`) })),
       expirySelected,
       expiryOptions,
       allExpiryOptions,
@@ -860,6 +868,13 @@ function _buildAppliedButton(effect, item) {
   return btn;
 }
 
+function _flatRecipients(btn, item) {
+  if (btn.dataset.recipient !== "self") return [...game.user.targets];
+  const actor = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : item?.actor;
+  const token = actor?.getActiveTokens?.(true, false)?.[0] ?? null;
+  return token ? [token] : [];
+}
+
 function _buildHealButton(effect, item) {
   const { display, spendRecovery, recoverySource, amountType, amountFormula, recoveryValueSource, tempStamina, repeatable, spend } = effect.flatHeal;
   const sourceActor = item.actor;
@@ -877,6 +892,7 @@ function _buildHealButton(effect, item) {
   btn.dataset.recoveryValueSource = recoveryValueSource;
   btn.dataset.tempStamina         = String(tempStamina);
   btn.dataset.repeatable          = String(repeatable);
+  btn.dataset.recipient           = effect.flatHeal.recipient ?? "target";
   btn.dataset.actorUuid           = sourceActor?.uuid ?? "";
   btn.dataset.spendEnabled        = String(spend?.enabled ?? false);
   btn.dataset.spendValue          = String(spend?.value ?? 1);
@@ -1144,6 +1160,7 @@ function _buildCleanseButton(effect, item) {
   btn.dataset.expiryFilter = [...expiryFilter].join(",");
   btn.dataset.statusFilter = [...statusFilter].join(",");
   btn.dataset.repeatable   = String(repeatable);
+  btn.dataset.recipient    = effect.flatCleanse.recipient ?? "target";
   btn.dataset.actorUuid    = item.actor?.uuid ?? "";
   btn.dataset.spendEnabled = String(spend?.enabled ?? false);
   btn.dataset.spendValue   = String(spend?.value ?? 1);
@@ -1346,7 +1363,7 @@ export function addFlatEffectListeners(section, item, message) {
 
   section.querySelectorAll(".dsct-flat-heal-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const targets = [...game.user.targets];
+      const targets = _flatRecipients(btn, item);
       if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
       const sourceActor         = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : null;
       const spendRecovery       = btn.dataset.spendRecovery === "true";
@@ -1446,7 +1463,7 @@ export function addFlatEffectListeners(section, item, message) {
 
   section.querySelectorAll(".dsct-flat-cleanse-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const targets = [...game.user.targets];
+      const targets = _flatRecipients(btn, item);
       if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
 
       const expiryFilter = new Set(btn.dataset.expiryFilter ? btn.dataset.expiryFilter.split(",").filter(Boolean) : []);
