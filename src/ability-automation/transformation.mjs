@@ -1,4 +1,5 @@
 import { beginPickerOverlay } from './picker-overlay.mjs';
+import { FitsOnResize } from '../fit-window.mjs';
 
 const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
   const GS     = canvas.grid.size;
@@ -47,7 +48,7 @@ const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
 });
 
 
-class TransformPicker extends ds.applications.api.DSApplication {
+class TransformPicker extends FitsOnResize(ds.applications.api.DSApplication) {
   constructor(actors, title, resolve) {
     super();
     this._actors      = actors;
@@ -62,7 +63,7 @@ class TransformPicker extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     id: 'dsct-transform-picker',
     classes: ['draw-steel'],
-    window: { title: 'DSCT.panel.title.Transform', minimizable: false, resizable: false },
+    window: { title: 'DSCT.panel.title.Transform', minimizable: false, resizable: true },
     position: { width: 296, height: 'auto' },
     actions: {
       'pick-actor': TransformPicker._onPickActor,

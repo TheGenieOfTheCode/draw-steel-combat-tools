@@ -10,6 +10,7 @@ import {
 } from '../helpers.mjs';
 import { beginPickerOverlay } from '../ability-automation/picker-overlay.mjs';
 import { isPrimaryGM } from '../ctlib.mjs';
+import { FitsOnResize } from '../fit-window.mjs';
 
 let _wbHideUi = false;
 
@@ -607,7 +608,7 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
   }
 };
 
-export class WallBuilderPanel extends ds.applications.api.DSApplication {
+export class WallBuilderPanel extends FitsOnResize(ds.applications.api.DSApplication) {
   constructor() {
     super();
     this._mode         = 'build';

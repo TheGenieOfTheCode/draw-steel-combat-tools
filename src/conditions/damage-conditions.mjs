@@ -7,6 +7,7 @@ import { applyFrightened, applyTaunted } from './conditions.mjs';
 import { applyGrab, buildGrabListHTML, handleGrabListClick, grabUiState } from './grab.mjs';
 import { DAMAGE_TYPES as DMG, damageTypeLabel } from '../ctlib.mjs';
 import { runSourcePicker, runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
+import { FitsOnResize } from '../fit-window.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -112,7 +113,7 @@ const applyNativeCondition = async (actor, condId, endStr) => {
   }]);
 };
 
-export class DamageConditionsPanel extends ds.applications.api.DSApplication {
+export class DamageConditionsPanel extends FitsOnResize(ds.applications.api.DSApplication) {
   constructor() {
     super();
     this._sourceToken    = null;
@@ -133,7 +134,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     id: 'dsct-dc-panel',
     classes: ['draw-steel'],
-    window: { title: 'DSCT.panel.title.DamageConditions', minimizable: false },
+    window: { title: 'DSCT.panel.title.DamageConditions', minimizable: false, resizable: true },
     position: { width: 348, height: 'auto' },
     actions: {
       'execute-dc': DamageConditionsPanel._onExecuteDC,
@@ -272,6 +273,10 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
     return !!(window._activeGrabs?.size || grabUiState.pendingConfirm);
   }
 
+  _fitBaseWidth() {
+    return this._grabsExpanded ? 596 : 348;
+  }
+
   _setGrabsExpanded(open) {
     this._grabsExpanded = !!open && this._hasGrabs();
     const section = this.element?.querySelector('#dc-grabs-section');
@@ -282,7 +287,7 @@ export class DamageConditionsPanel extends ds.applications.api.DSApplication {
       const list = this.element.querySelector('#dc-grab-list');
       if (list) list.innerHTML = buildGrabListHTML();
     }
-    this.setPosition({ width: this._grabsExpanded ? 596 : 348, height: 'auto' });
+    this.setPosition({ width: this._fitBaseWidth() * (this._fitScale ?? 1), height: 'auto' });
   }
 
   _refreshGrabs() {

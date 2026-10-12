@@ -1,4 +1,5 @@
 import { safeUpdate } from '../ctlib.mjs';
+import { FitsOnResize } from '../fit-window.mjs';
 ﻿import { getModuleApi } from '../helpers.mjs';
 
 export const replayModifiers = (baseStates, stack, states) => {
@@ -204,7 +205,7 @@ export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, 
   return pillBtn;
 };
 
-export class FmModifyPanel extends ds.applications.api.DSApplication {
+export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplication) {
   constructor(states, baseStates, modifierStack, effects, btnEls, makeLabel, msgEl, noteParent = null, persistFn = null) {
     super();
     this._states         = states;

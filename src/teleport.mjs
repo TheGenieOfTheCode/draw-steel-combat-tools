@@ -8,6 +8,7 @@ import { endGrab, applyGrab } from './conditions/grab.mjs';
 import { markRevealed } from './conditions/stealth.mjs';
 import { runSourcePicker } from './ability-automation/target-picker.mjs';
 import { beginPickerOverlay } from './ability-automation/picker-overlay.mjs';
+import { FitsOnResize } from './fit-window.mjs';
 
 
 const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}) => new Promise((resolve) => {
@@ -473,7 +474,7 @@ export async function runTeleport(macroArgs = []) {
 }
 
 
-export class TeleportPanel extends ds.applications.api.DSApplication {
+export class TeleportPanel extends FitsOnResize(ds.applications.api.DSApplication) {
   constructor() {
     super();
     this._sourceToken  = null;

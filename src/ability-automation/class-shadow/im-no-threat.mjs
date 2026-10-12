@@ -1,5 +1,6 @@
 import { getSetting, getModuleApi, noLogFlag } from '../../helpers.mjs';
 import { chooseKeywords } from '../choose-effect.mjs';
+import { FitsOnResize } from '../../fit-window.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -54,7 +55,7 @@ const snapAppearance = (doc) => ({
 const freeMimicsByActor  = new Map();
 const grantedMimicMsgs = new Set();
 
-class ImNoThreatPanel extends ds.applications.api.DSApplication {
+class ImNoThreatPanel extends FitsOnResize(ds.applications.api.DSApplication) {
   constructor(actor) {
     super();
     this._actor          = actor;

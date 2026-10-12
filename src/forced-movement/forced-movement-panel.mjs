@@ -3,8 +3,9 @@ import {
 } from '../helpers.mjs';
 import { pickTarget } from './forced-movement-engine.mjs';
 import { runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
+import { FitsOnResize } from '../fit-window.mjs';
 
-export class ForcedMovementPanel extends ds.applications.api.DSApplication {
+export class ForcedMovementPanel extends FitsOnResize(ds.applications.api.DSApplication) {
   constructor() {
     super();
     this._sourceToken = null;
