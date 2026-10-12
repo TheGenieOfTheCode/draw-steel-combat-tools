@@ -1,5 +1,6 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
 import { executeAsDirector } from '../ctlib.mjs';
+import { SOURCED_STATUSES, resolveStatusSource, notePendingSource, effectSourceUuids, toActor } from './statuses.mjs';
 
 const LINK = 'enriched-content[enricher="ds.apply"] a.roll-link';
 const enabled = () => getSetting('applyToTargets') !== false;
@@ -9,8 +10,13 @@ export async function applyEnricherPayload(payload) {
   const noStack = !payload.stacking;
   const temp = payload.type === 'custom'
     ? (await fromUuid(payload.uuid))?.clone({}, { keepId: noStack, addSource: true })
-    : await AE.fromStatusEffect(payload.status);
-  if (!temp) return 0;
+    : await AE.fromStatusEffect(payload.status, payload.source ? { dsctSource: payload.source } : {});
+  if (!temp || temp.getFlag('draw-steel-combat-tools', 'sourceCancelled')) return 0;
+  const sourceChanges = payload.source && payload.type === 'custom'
+    ? [...temp.statuses].filter(id => SOURCED_STATUSES.has(id) && !effectSourceUuids(temp, id).length)
+      .map(id => ({ key: `system.statuses.${id}.sources`, type: 'add', value: payload.source }))
+    : [];
+  if (sourceChanges.length) temp.updateSource({ 'system.changes': [...temp.system.changes, ...sourceChanges] });
   const keepInitiative = !game.combats.isDefaultInitiativeMode;
   const origin = payload.origin ? fromUuidSync(payload.origin) : null;
   const originActor = origin?.documentName === 'Actor' ? origin : origin?.actor;
@@ -38,6 +44,17 @@ export async function applyEnricherPayload(payload) {
   return toCreate.length;
 }
 
+const sourcedStatusOf = async (d) => {
+  if (d.type !== 'custom') return SOURCED_STATUSES.has(d.status) ? d.status : null;
+  const effect = d.uuid ? await fromUuid(d.uuid) : null;
+  return [...(effect?.statuses ?? [])].find(id => SOURCED_STATUSES.has(id)) ?? null;
+};
+
+const originActor = (d) => {
+  const origin = d.origin ? fromUuidSync(d.origin) : null;
+  return toActor(origin) ?? origin?.actor ?? null;
+};
+
 async function applyToTargets(link) {
   const tokens = [...game.user.targets].filter((t) => t.actor);
   if (!tokens.length) return void ui.notifications.warn(game.i18n.localize('DSCT.applyToTargets.noTargets'));
@@ -47,6 +64,18 @@ async function applyToTargets(link) {
     stacking: d.stacking ?? '', originDuration: d.originDuration ?? '',
     actorUuids: [...new Set(tokens.map((t) => t.actor.uuid))],
   };
+  const sourced = await sourcedStatusOf(d);
+  if (sourced) {
+    const victims = tokens.map(t => t.actor);
+    const origin = originActor(d);
+    const known = origin && !victims.some(v => v.uuid === origin.uuid) ? origin : null;
+    const source = await resolveStatusSource(sourced, { known, victims });
+    if (!source) {
+      const condition = game.i18n.localize(CONFIG.statusEffects.find(st => st.id === sourced)?.name ?? sourced);
+      return void ui.notifications.info(game.i18n.format('DSCT.notice.status.cancelled', { condition }));
+    }
+    payload.source = source.uuid;
+  }
   const local = game.user.isGM || tokens.every((t) => t.actor.isOwner);
   if (local) await applyEnricherPayload(payload);
   else await executeAsDirector(getModuleApi(false)?.socket, 'dsct.applyToTargets', payload);
@@ -85,9 +114,12 @@ export function registerApplyToTargets() {
   window.addEventListener('keyup', (ev) => { if (ev.key === 'Shift') shift(false); });
   window.addEventListener('blur', () => shift(false));
   document.addEventListener('click', (ev) => {
-    if (!ev.shiftKey || !enabled()) return;
     const link = ev.target.closest?.(LINK);
     if (!link) return;
+    if (!ev.shiftKey || !enabled()) {
+      if (SOURCED_STATUSES.has(link.dataset.status)) notePendingSource(originActor(link.dataset));
+      return;
+    }
     ev.preventDefault();
     ev.stopImmediatePropagation();
     applyToTargets(link);

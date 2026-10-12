@@ -49,6 +49,18 @@ export const effectSourceUuids = (data, statusId) => {
 const sourceChange = (statusId, uuid) => ({ key: sourceKey(statusId), type: 'add', value: uuid });
 
 let _context = null;
+let _pending = null;
+
+export const notePendingSource = (source) => {
+  const uuid = toActor(source)?.uuid;
+  _pending = uuid ? { uuid, at: Date.now() } : null;
+};
+
+const takePending = () => {
+  const p = _pending;
+  _pending = null;
+  return p && Date.now() - p.at < 3000 ? p.uuid : null;
+};
 
 export const withStatusSource = async (source, fn) => {
   const prev = _context;
@@ -67,7 +79,6 @@ export const resolveStatusSource = async (statusId, { known = null, victims = []
   const victimNames = victims.map(v => tokenOfActor(toActor(v))?.name ?? toActor(v)?.name).filter(Boolean);
   const picked = await runSourcePicker({
     exclude: victimUuids,
-    anyToken: true,
     hint: game.i18n.format('DSCT.notice.status.chooseSource', { condition, name: victimNames.join(', ') || '?' }),
   });
   return picked?.actor ?? null;
@@ -83,7 +94,8 @@ const _describe = (statusId, effectData, sourceActor) => {
 async function _sourcedPrompt(wrapped, statusId, effectData) {
   if (!SOURCED_STATUSES.has(statusId) || !sourcesActive()) return wrapped(statusId, effectData);
   const ctx = _context ?? {};
-  const source = await resolveStatusSource(statusId, { known: ctx.source, victims: ctx.parent ? [ctx.parent] : [] });
+  const victims = ctx.parent ? [ctx.parent] : (canvas.tokens?.controlled ?? []).map(t => t.actor).filter(Boolean);
+  const source = await resolveStatusSource(statusId, { known: ctx.source ?? takePending(), victims });
   effectData.system ??= {};
   effectData.system.changes = (effectData.system.changes ?? []).filter(c => c.key !== sourceKey(statusId));
   if (!source) {
