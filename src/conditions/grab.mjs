@@ -196,7 +196,7 @@ export const registerGrabHooks = () => {
     label: 'DSCT.effectFlags.grab.maxGrabs.label',
     description: 'DSCT.effectFlags.grab.maxGrabs.description',
     values: 'DSCT.effectFlags.grab.maxGrabs.values',
-    type: 'upgrade',
+    type: 'override',
     value: '2',
   });
 

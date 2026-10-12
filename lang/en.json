@@ -842,7 +842,7 @@
         "maxGrabs": {
           "label": "Simultaneous grabs",
           "description": "How many creatures the bearer can keep grabbed at once. The highest of this, the ability’s own count and known traits applies (e.g. Multilimb, Growing Ferocity, Boren).",
-          "values": "A whole number, with the Upgrade type."
+          "values": "A whole number, with the Override type."
         }
       },
       "stealth": {
