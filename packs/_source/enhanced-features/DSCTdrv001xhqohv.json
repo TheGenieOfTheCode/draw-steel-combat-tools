@@ -11,7 +11,7 @@
   "type": "triggered",
   "category": "",
   "resource": null,
-  "trigger": "Any enemy who has 2 potency enters this space",
+  "trigger": "Any enemy who has M<2 enters this space",
   "distance": {
    "type": "special",
    "primary": "",

@@ -1,9 +1,9 @@
 {
  "folder": "DSCTfffDrvHero01",
- "name": "Bear Hide",
+ "name": "Spiny / Adaptive Second Skin of Toxins",
  "type": "ability",
- "_id": "DSCTdrv001rwwsbr",
- "img": "icons/magic/defensive/shield-barrier-glowing-blue.webp",
+ "_id": "DSCTdrv0010xp6qn",
+ "img": "icons/magic/fire/projectile-fireball-smoke-orange.webp",
  "system": {
   "_dsid": "",
   "story": "",
@@ -11,7 +11,7 @@
   "type": "triggered",
   "category": "",
   "resource": null,
-  "trigger": "You take hybrid form",
+  "trigger": "An adjacent enemy grabs the animal or uses a melee ability against them",
   "distance": {
    "type": "special",
    "primary": "",
@@ -40,27 +40,22 @@
     "img": null,
     "sort": 0,
     "before": true,
-    "description": "<p>you gain 10 temporary Stamina.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+    "description": "<p>that enemy takes 3 damage.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
    },
-   "dsctDrvHeal00001": {
-    "_id": "dsctDrvHeal00001",
-    "type": "dsct.flatHeal",
+   "dsctDrvDamage001": {
+    "_id": "dsctDrvDamage001",
+    "type": "dsct.flatDamage",
     "name": "",
     "img": null,
     "sort": 200000,
     "description": "",
     "before": false,
-    "flatHeal": {
-     "displayText": "You gain 10 temporary Stamina",
-     "display": "10 Temp Stamina",
-     "spendRecovery": false,
-     "recoverySource": "self",
-     "amountType": "custom",
-     "amountFormula": "10",
-     "recoveryValueSource": "self",
-     "tempStamina": true,
-     "repeatable": false,
-     "recipient": "self",
+    "flatDamage": {
+     "displayText": "3 damage",
+     "display": "3 Damage",
+     "value": "3",
+     "types": [],
+     "ignoredImmunities": [],
      "spend": {
       "enabled": false,
       "value": 1
@@ -78,7 +73,10 @@
   "draw-steel-combat-tools": {
    "enhanced": true,
    "enhancedSpecific": true,
-   "derivedLine": "boren-you-take-hybrid-form"
+   "derivedLine": [
+    "spiny-an-adjacent-enemy-grabs-the-animal-or-uses-a-melee-ability-against-them",
+    "treasure-adaptive-second-skin-of-toxins-an-adjacent-creature-deals-damage-to-you"
+   ]
   }
  },
  "_stats": {
@@ -91,5 +89,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!items!DSCTdrv001rwwsbr"
+ "_key": "!items!DSCTdrv0010xp6qn"
 }

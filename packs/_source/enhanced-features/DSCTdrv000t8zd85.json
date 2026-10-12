@@ -1,9 +1,9 @@
 {
- "folder": "DSCTfffDrvMons01",
- "name": "Loyalty Collar",
+ "folder": "DSCTfffDrvHero01",
+ "name": "Relentless",
  "type": "ability",
- "_id": "DSCTdrv001vab0lb",
- "img": "icons/magic/fire/projectile-fireball-smoke-orange.webp",
+ "_id": "DSCTdrv000t8zd85",
+ "img": "icons/magic/life/heart-hand-gold-green-light.webp",
  "system": {
   "_dsid": "",
   "story": "",
@@ -11,7 +11,7 @@
   "type": "triggered",
   "category": "",
   "resource": null,
-  "trigger": "The tetherite is reduced to 0 Stamina",
+  "trigger": "A creature deals damage to you that leaves you dying",
   "distance": {
    "type": "special",
    "primary": "",
@@ -40,22 +40,27 @@
     "img": null,
     "sort": 0,
     "before": true,
-    "description": "<p>their loyalty collar explodes, dealing 1d3 damage to each adjacent enemy and object.</p><p><em>War Dog Tetherite, War Dog Commando, War Dog Sharpshooter</em></p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+    "description": "<p>you can make a free strike against any creature. If the creature is reduced to 0 Stamina by your strike, you can spend a Recovery.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
    },
-   "dsctDrvDamage001": {
-    "_id": "dsctDrvDamage001",
-    "type": "dsct.flatDamage",
+   "dsctDrvHeal00001": {
+    "_id": "dsctDrvHeal00001",
+    "type": "dsct.flatHeal",
     "name": "",
     "img": null,
     "sort": 200000,
     "description": "",
     "before": false,
-    "flatDamage": {
-     "displayText": "1d3 damage",
-     "display": "1d3 Damage",
-     "value": "1d3",
-     "types": [],
-     "ignoredImmunities": [],
+    "flatHeal": {
+     "displayText": "The target spends a Recovery and regains Stamina equal to their recovery value",
+     "display": "Spend a Recovery",
+     "spendRecovery": true,
+     "recoverySource": "target",
+     "amountType": "recoveryValue",
+     "amountFormula": "0",
+     "recoveryValueSource": "target",
+     "tempStamina": false,
+     "repeatable": false,
+     "recipient": "target",
      "spend": {
       "enabled": false,
       "value": 1
@@ -73,11 +78,7 @@
   "draw-steel-combat-tools": {
    "enhanced": true,
    "enhancedSpecific": true,
-   "derivedLine": [
-    "loyalty-collar-the-tetherite-is-reduced-to-0-stamina",
-    "loyalty-collar-the-commando-is-reduced-to-0-stamina",
-    "loyalty-collar-the-sharpshooter-is-reduced-to-0-stamina"
-   ]
+   "derivedLine": "relentless-a-creature-deals-damage-to-you-that-leaves-you-dying"
   }
  },
  "_stats": {
@@ -90,5 +91,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!items!DSCTdrv001vab0lb"
+ "_key": "!items!DSCTdrv000t8zd85"
 }

@@ -1,8 +1,8 @@
 {
- "folder": "DSCTfffDrvMons01",
- "name": "Loyalty Collar / Shrapnel-Laced Loyalty Collar",
+ "folder": "DSCTfffDrvHero01",
+ "name": "Music of the Spheres / Maestro",
  "type": "ability",
- "_id": "DSCTdrv00144pfa8",
+ "_id": "DSCTdrv000o2n06s",
  "img": "icons/magic/fire/projectile-fireball-smoke-orange.webp",
  "system": {
   "_dsid": "",
@@ -11,7 +11,7 @@
   "type": "triggered",
   "category": "",
   "resource": null,
-  "trigger": "The sparkslinger is reduced to 0 Stamina",
+  "trigger": "A creature within 10 squares makes a strike",
   "distance": {
    "type": "special",
    "primary": "",
@@ -40,7 +40,7 @@
     "img": null,
     "sort": 0,
     "before": true,
-    "description": "<p>their loyalty collar explodes, dealing 1d6 damage to each adjacent enemy and object.</p><p><em>War Dog Sparkslinger, War Dog Crucibite, War Dog Sweeper, War Dog Pestilite, War Dog War Frog, War Dog Teletalite, War Dog Subcommander</em></p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+    "description": "<p>they take 8 sonic damage.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
    },
    "dsctDrvDamage001": {
     "_id": "dsctDrvDamage001",
@@ -51,10 +51,12 @@
     "description": "",
     "before": false,
     "flatDamage": {
-     "displayText": "1d6 damage",
-     "display": "1d6 Damage",
-     "value": "1d6",
-     "types": [],
+     "displayText": "8 sonic damage",
+     "display": "8 Sonic Damage",
+     "value": "8",
+     "types": [
+      "sonic"
+     ],
      "ignoredImmunities": [],
      "spend": {
       "enabled": false,
@@ -74,13 +76,8 @@
    "enhanced": true,
    "enhancedSpecific": true,
    "derivedLine": [
-    "loyalty-collar-the-sparkslinger-is-reduced-to-0-stamina",
-    "loyalty-collar-the-crucibite-is-reduced-to-0-stamina",
-    "shrapnel-laced-loyalty-collar-the-sweeper-is-reduced-to-0-stamina",
-    "loyalty-collar-the-pestilite-is-reduced-to-0-stamina",
-    "loyalty-collar-the-war-frog-is-reduced-to-0-stamina",
-    "loyalty-collar-the-teletalite-is-reduced-to-0-stamina",
-    "loyalty-collar-the-subcommander-is-reduced-to-0-stamina"
+    "music-of-the-spheres-a-creature-within-10-squares-makes-a-strike",
+    "maestro-a-creature-within-10-squares-makes-a-strike"
    ]
   }
  },
@@ -94,5 +91,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!items!DSCTdrv00144pfa8"
+ "_key": "!items!DSCTdrv000o2n06s"
 }

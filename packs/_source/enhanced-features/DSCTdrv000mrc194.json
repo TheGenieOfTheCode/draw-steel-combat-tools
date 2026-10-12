@@ -1,8 +1,8 @@
 {
- "folder": "DSCTfffDrvMons01",
- "name": "Infernal Ichor",
+ "folder": "DSCTfffDrvHero01",
+ "name": "Grounding Rod",
  "type": "ability",
- "_id": "DSCTdrv001yy7g93",
+ "_id": "DSCTdrv000mrc194",
  "img": "icons/magic/fire/projectile-fireball-smoke-orange.webp",
  "system": {
   "_dsid": "",
@@ -11,7 +11,7 @@
   "type": "triggered",
   "category": "",
   "resource": null,
-  "trigger": "The incendiarist is reduced to 0 Stamina",
+  "trigger": "Any creature within 2 squares of you takes lightning damage",
   "distance": {
    "type": "special",
    "primary": "",
@@ -40,7 +40,7 @@
     "img": null,
     "sort": 0,
     "before": true,
-    "description": "<p>they spray burning blood. Each creature adjacent to the incendiarist takes 3 fire damage.</p><p><em>Hobgoblin Incendiarist, Hobgoblin Bloodlord, Hobgoblin War Mage, Hobgoblin Hell Trooper</em></p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+    "description": "<p>you take 5 lightning damage that can’t be reduced in any way.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
    },
    "dsctDrvDamage001": {
     "_id": "dsctDrvDamage001",
@@ -51,13 +51,15 @@
     "description": "",
     "before": false,
     "flatDamage": {
-     "displayText": "3 fire damage",
-     "display": "3 Fire Damage",
-     "value": "3",
+     "displayText": "5 lightning damage",
+     "display": "5 Lightning Damage",
+     "value": "5",
      "types": [
-      "fire"
+      "lightning"
      ],
-     "ignoredImmunities": [],
+     "ignoredImmunities": [
+      "all"
+     ],
      "spend": {
       "enabled": false,
       "value": 1
@@ -75,12 +77,7 @@
   "draw-steel-combat-tools": {
    "enhanced": true,
    "enhancedSpecific": true,
-   "derivedLine": [
-    "infernal-ichor-the-incendiarist-is-reduced-to-0-stamina",
-    "infernal-ichor-the-bloodlord-is-reduced-to-0-stamina",
-    "infernal-ichor-the-war-mage-is-reduced-to-0-stamina",
-    "infernal-ichor-the-trooper-is-reduced-to-0-stamina"
-   ]
+   "derivedLine": "grounded-any-creature-within-2-squares-of-you-takes-lightning-damage"
   }
  },
  "_stats": {
@@ -93,5 +90,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!items!DSCTdrv001yy7g93"
+ "_key": "!items!DSCTdrv000mrc194"
 }

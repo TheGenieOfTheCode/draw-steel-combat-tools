@@ -1,8 +1,8 @@
 {
  "folder": "DSCTfffDrvHero01",
- "name": "Reaver's Momentum / Raden Growing Ferocity and 8 more",
+ "name": "Reaver's Momentum / Raden Growing Ferocity and 11 more",
  "type": "ability",
- "_id": "DSCTdrv001eddyba",
+ "_id": "DSCTdrv000clmwr3",
  "img": "icons/magic/lightning/bolt-strike-blue.webp",
  "system": {
   "_dsid": "",
@@ -84,7 +84,10 @@
     "growing-ferocity-corven-growing-ferocity-you-shift-t4",
     "cryokinetic-mastery-you-grab-a-creature-or-an-enemy-moves-1-or-more-squares-in-t-t4",
     "growing-ferocity-vuken-growing-ferocity-you-push-a-creature-or-knock-a-creature--t4",
-    "chronokinetic-mastery-you-willingly-move-1-or-more-squares-as-part-of-an-ability-t4"
+    "chronokinetic-mastery-you-willingly-move-1-or-more-squares-as-part-of-an-ability-t4",
+    "lightning-soul-you-regain-stamina-in-combat",
+    "shadow-born-you-start-your-turn-with-concealment",
+    "slight-case-of-lycanthropy-you-make-a-non-minion-creature-winded-or-kill-a-non-m"
    ]
   }
  },
@@ -98,5 +101,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!items!DSCTdrv001eddyba"
+ "_key": "!items!DSCTdrv000clmwr3"
 }

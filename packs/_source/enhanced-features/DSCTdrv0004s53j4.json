@@ -1,0 +1,129 @@
+{
+ "folder": "DSCTfffDrvHero01",
+ "name": "Etherealize",
+ "type": "ability",
+ "_id": "DSCTdrv0004s53j4",
+ "img": "icons/magic/control/debuff-chains-ropes-net-white.webp",
+ "system": {
+  "_dsid": "",
+  "story": "",
+  "keywords": [],
+  "type": "triggered",
+  "category": "",
+  "resource": null,
+  "trigger": "You deal rolled damage to a creature using a magic or psionic ability",
+  "distance": {
+   "type": "special",
+   "primary": "",
+   "secondary": "",
+   "tertiary": ""
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "special",
+   "custom": "",
+   "value": null
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 0,
+    "before": true,
+    "description": "<p>they become insubstantial to you until the end of their next turn, allowing you to pass through them freely. While insubstantial, a creature can’t make opportunity attacks against you.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+   },
+   "dsctDrvApplie001": {
+    "_id": "dsctDrvApplie001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "That creature is insubstantial to you (EoT)",
+     "display": "Insubstantial",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dtInsubstantial1",
+     "exclusiveSelf": false,
+     "end": "turn",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "_id": "dtInsubstantial1",
+   "name": "Insubstantial",
+   "img": "icons/magic/control/silhouette-fall-slip-prone.webp",
+   "type": "base",
+   "disabled": false,
+   "transfer": false,
+   "description": "<p>Insubstantial to the user: they can pass through this creature freely, and it can't make opportunity attacks against them.</p>",
+   "statuses": [],
+   "tint": "#ffffff",
+   "showIcon": 1,
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "start": null,
+   "origin": null,
+   "folder": null,
+   "system": {
+    "changes": []
+   },
+   "changes": [],
+   "_key": "!items.effects!DSCTdrv0004s53j4.dtInsubstantial1"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "derivedLine": "treasure-ether-fueled-vessel-you-deal-rolled-damage-to-a-creature-using-a-magic-"
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null
+ },
+ "_key": "!items!DSCTdrv0004s53j4"
+}

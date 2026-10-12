@@ -1,8 +1,8 @@
 {
  "folder": "DSCTfffDrvMons01",
- "name": "Searing Skin",
+ "name": "Energy Conservation",
  "type": "ability",
- "_id": "DSCTdrv001x4iktp",
+ "_id": "DSCTdrv001ybvavc",
  "img": "icons/magic/fire/projectile-fireball-smoke-orange.webp",
  "system": {
   "_dsid": "",
@@ -11,7 +11,7 @@
   "type": "triggered",
   "category": "",
   "resource": null,
-  "trigger": "An adjacent enemy grabs the lightbearer or uses a melee ability against them",
+  "trigger": "The null is targeted by a strike",
   "distance": {
    "type": "special",
    "primary": "",
@@ -40,7 +40,7 @@
     "img": null,
     "sort": 0,
     "before": true,
-    "description": "<p>that enemy takes 5 fire damage.</p><p><em>Fire Giant Lightbearer</em></p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+    "description": "<p>it takes a bane and the null halves the damage from it. The creature making the strike takes 10 damage.</p><p><em>Rival Null</em></p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
    },
    "dsctDrvDamage001": {
     "_id": "dsctDrvDamage001",
@@ -51,12 +51,10 @@
     "description": "",
     "before": false,
     "flatDamage": {
-     "displayText": "5 fire damage",
-     "display": "5 Fire Damage",
-     "value": "5",
-     "types": [
-      "fire"
-     ],
+     "displayText": "10 damage",
+     "display": "10 Damage",
+     "value": "10",
+     "types": [],
      "ignoredImmunities": [],
      "spend": {
       "enabled": false,
@@ -75,7 +73,7 @@
   "draw-steel-combat-tools": {
    "enhanced": true,
    "enhancedSpecific": true,
-   "derivedLine": "searing-skin-an-adjacent-enemy-grabs-the-lightbearer-or-uses-a-melee-ability-aga"
+   "derivedLine": "energy-conservation-the-null-is-targeted-by-a-strike"
   }
  },
  "_stats": {
@@ -88,5 +86,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!items!DSCTdrv001x4iktp"
+ "_key": "!items!DSCTdrv001ybvavc"
 }

@@ -1,8 +1,8 @@
 {
  "folder": "DSCTfffDrvHero01",
- "name": "Greater Reaver's Momentum / Raden Growing Ferocity and 8 more",
+ "name": "Greater Reaver's Momentum / Raden Growing Ferocity and 9 more",
  "type": "ability",
- "_id": "DSCTdrv0008sgaot",
+ "_id": "DSCTdrv001hj6bzk",
  "img": "icons/magic/lightning/bolt-strike-blue.webp",
  "system": {
   "_dsid": "",
@@ -84,7 +84,8 @@
     "cryokinetic-mastery-you-grab-a-creature-or-an-enemy-moves-1-or-more-squares-in-t-t8",
     "growing-ferocity-vuken-growing-ferocity-you-push-a-creature-or-knock-a-creature--t8",
     "chronokinetic-mastery-you-willingly-move-1-or-more-squares-as-part-of-an-ability-t8",
-    "elemental-buffer-you-reduce-acid-cold-corruption-fire-lightning-poison-or-sonic-"
+    "elemental-buffer-you-reduce-acid-cold-corruption-fire-lightning-poison-or-sonic-",
+    "treasure-executioners-blade-you-cause-an-enemy-to-become-winded-with-an-ability-~2"
    ]
   }
  },
@@ -98,5 +99,5 @@
   "lastModifiedBy": null,
   "modifiedTime": null
  },
- "_key": "!items!DSCTdrv0008sgaot"
+ "_key": "!items!DSCTdrv001hj6bzk"
 }
