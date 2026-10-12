@@ -2794,3 +2794,122 @@ body.dsbl-dark-chat.dsct-shift-targets .theme-dark .chat-message enriched-conten
 .dsct-status-icons-footer button { flex: 1; }
 .dsct-enricher-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 #dsct-dc-panel.minimizing { transition: max-height 0.25s ease-out, max-width 0.25s ease-out !important; }
+
+.dsct-panel,
+.dsct-wbs-content {
+  --dsct-bg: transparent;
+  --dsct-bg-inner: transparent;
+  --dsct-bg-btn: var(--button-background-color);
+  --dsct-border: color-mix(in srgb, var(--color-fieldset-border) 60%, transparent);
+  --dsct-border-outer: var(--color-fieldset-border);
+  --dsct-text: var(--color-text-primary);
+  --dsct-text-dim: var(--color-form-hint);
+  --dsct-text-label: var(--color-form-hint);
+  --dsct-text-muted: var(--color-form-hint);
+  --dsct-accent: var(--color-warm-2);
+  --dsct-accent-text: var(--color-form-label);
+  --dsct-text-active: var(--color-form-label);
+  --dsct-animal-label: var(--color-form-label);
+  --dsct-mimic-label: var(--color-form-label);
+  --dsct-text-mimic: var(--color-text-accent);
+  --dsct-text-mimic-dim: var(--color-form-hint);
+  --dsct-border-panel: var(--dsct-border);
+  --dsct-close-fg: var(--color-form-hint);
+}
+
+.application .dsct-panel {
+  padding: 0;
+  background: none;
+  font-family: inherit;
+  cursor: auto;
+}
+
+.application .dsct-section {
+  padding: 8px;
+  border: 1px solid var(--dsct-border);
+  border-radius: 6px;
+  background: none;
+  margin-bottom: 10px;
+}
+
+.application .dsct-section-label,
+.application .dsct-field-label,
+.application .dsct-wbs-h3,
+.application .dsct-table-th {
+  font-size: var(--font-size-11);
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-form-hint);
+}
+
+.application .dsct-section-label { margin: 2px 0 4px 2px; }
+.application .dsct-table-th { background: light-dark(#e9e4d6, #0f0e17); }
+
+.application .dsct-param-label {
+  color: var(--color-form-label);
+  font-size: var(--font-size-14);
+  font-weight: bold;
+}
+
+.application .dsct-checkbox-label {
+  color: var(--color-form-label);
+  font-size: var(--font-size-13);
+  font-weight: normal;
+}
+
+.application .dsct-wbs-opt-name { color: var(--color-form-label); }
+.application .dsct-wb-height-label { font-size: var(--font-size-11); color: var(--color-form-hint); }
+
+.application .dsct-mode-btn,
+.application .dsct-wb-mode-btn,
+.application .dsct-dc-chat-btn,
+.application .dsct-execute-btn,
+.application .dsct-wbs-save-btn {
+  background: var(--button-background-color);
+  border: 1px solid var(--button-border-color);
+  border-radius: 4px;
+  color: var(--button-text-color);
+  font-family: inherit;
+}
+
+.application .dsct-mode-btn:hover,
+.application .dsct-wb-mode-btn:hover,
+.application .dsct-dc-chat-btn:hover,
+.application .dsct-execute-btn:hover,
+.application .dsct-wbs-save-btn:hover {
+  background: var(--button-hover-background-color);
+  border-color: var(--button-hover-border-color);
+  color: var(--button-hover-text-color);
+  opacity: 1;
+}
+
+.application .dsct-mode-btn.active,
+.application .dsct-wb-mode-btn.active {
+  background: var(--color-warm-2);
+  border-color: var(--button-hover-border-color);
+  color: var(--button-hover-text-color);
+}
+
+.application .dsct-execute-btn { padding: 10px; font-size: var(--font-size-16); font-weight: bold; }
+.application .dsct-execute-btn.sm { padding: 8px; font-size: var(--font-size-14); }
+
+.application .dsct-wb-material-select,
+.application .dsct-wb-height-input,
+.application .dsct-wbs-content .dsct-name-input,
+.application .dsct-wb-icon-pick {
+  background: revert-layer;
+  border: revert-layer;
+  border-radius: revert-layer;
+  color: revert-layer;
+  font-size: var(--font-size-14);
+}
+
+.application .dsct-token-img { border: 1px solid var(--dsct-border); background: #23202e; }
+.application .dsct-token-name { font-size: var(--font-size-13); color: var(--color-text-primary); }
+.application .dsct-token-name.dim,
+.application .dsct-arrow,
+.application .dsct-fm-moves-label,
+.application .dsct-source-note { color: var(--color-form-hint); }
+#dsct-tp-panel .dsct-token-col.dsct-tp-moving .dsct-token-img { box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-warm-2) 70%, transparent); }
+.application .dsct-wbs-content .dsct-name-input { font-weight: normal; }
