@@ -1,0 +1,137 @@
+{
+ "folder": "DSCTfffDrvMons01",
+ "name": "Breaking Point",
+ "type": "ability",
+ "_id": "DSCTdrv001h6xbqq",
+ "img": "icons/magic/control/debuff-chains-ropes-net-white.webp",
+ "system": {
+  "_dsid": "",
+  "story": "",
+  "keywords": [],
+  "type": "triggered",
+  "category": "",
+  "resource": null,
+  "trigger": "The breaker would be reduced to 0 Stamina",
+  "distance": {
+   "type": "special",
+   "primary": "",
+   "secondary": "",
+   "tertiary": ""
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "special",
+   "custom": "",
+   "value": null
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 0,
+    "before": true,
+    "description": "<p>they delay that effect as they end any conditions affecting them and immediately take a turn, regardless of whether they have already taken a turn this round. The breaker's abilities deal an extra 5 damage during this turn, at the end of which they are reduced to 0 Stamina.</p><p><em>War Dog Breaker</em></p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+   },
+   "dsctDrvApplie001": {
+    "_id": "dsctDrvApplie001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "Your abilities deal an extra 5 damage this turn",
+     "display": "Extra 5 Damage",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dtBreakingPnt001",
+     "exclusiveSelf": true,
+     "end": "turn",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "_id": "dtBreakingPnt001",
+   "name": "Breaking Point",
+   "img": "icons/skills/melee/strike-hammer-destructive-orange.webp",
+   "type": "abilityModifier",
+   "disabled": false,
+   "transfer": false,
+   "description": "<p>The breaker's abilities deal an extra 5 damage during this turn.</p>",
+   "statuses": [],
+   "tint": "#ffffff",
+   "showIcon": 1,
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "start": null,
+   "origin": null,
+   "folder": null,
+   "system": {
+    "changes": [
+     {
+      "key": "damage.bonuses.value",
+      "type": "add",
+      "value": 5,
+      "phase": "initial",
+      "priority": null
+     }
+    ]
+   },
+   "changes": [],
+   "_key": "!items.effects!DSCTdrv001h6xbqq.dtBreakingPnt001"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "derivedLine": "breaking-point-the-breaker-would-be-reduced-to-0-stamina"
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null
+ },
+ "_key": "!items!DSCTdrv001h6xbqq"
+}

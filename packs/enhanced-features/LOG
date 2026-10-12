@@ -1,3 +1,5 @@
-2026/09/19-00:07:42.168 aecc Recovering log #4
-2026/09/19-00:07:42.173 aecc Delete type=0 #4
-2026/09/19-00:07:42.173 aecc Delete type=3 #2
+2026/10/12-20:35:12.803 d0fc Delete type=3 #1
+2026/10/12-20:35:12.808 c24 Level-0 table #5: started
+2026/10/12-20:35:12.811 c24 Level-0 table #5: 46971 bytes OK
+2026/10/12-20:35:12.813 c24 Delete type=0 #3
+2026/10/12-20:35:12.813 c24 Manual compaction at level-0 from '!folders!DSCTfffAncestry1' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhSoulsght1.dsctSoulsight001' @ 0 : 0; will stop at (end)

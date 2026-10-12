@@ -297,18 +297,30 @@ export const confirmSwaps = async (candidates) => {
   finally { _swapPrompt = null; }
 };
 
+export const isEffectsOnly = (doc) => !!doc?.flags?.[ENH_FLAG]?.enhancedEffectsOnly;
+
+const _addEffects = async (item, effects) => {
+  const ours = new Set(effects.map(e => e._id));
+  const stale = item.effects.filter(e => ours.has(e.id)).map(e => e.id);
+  if (stale.length) await item.deleteEmbeddedDocuments('ActiveEffect', stale);
+  if (effects.length) await item.createEmbeddedDocuments('ActiveEffect', effects, { keepId: true });
+};
+
 export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
   if (!item || !doc) return false;
   if (isDerivedTrigger(item) || item.getFlag(ENH_FLAG, 'enhancedLock')) return false;
-  if (!allowSwap && !item.getFlag(ENH_FLAG, 'enhanced')) return false;
+  const effectsOnly = isEffectsOnly(doc);
+  if (!allowSwap && !effectsOnly && !item.getFlag(ENH_FLAG, 'enhanced')) return false;
   const data = doc.toObject();
   const hash = enhancedStamp(data);
   if (item.getFlag(ENH_FLAG, 'enhancedHash') === hash) return false;
 
-  
-  
-  
   const flags = { ...(data.flags?.[ENH_FLAG] ?? {}), enhanced: true, enhancedHash: hash };
+  if (effectsOnly) {
+    await _addEffects(item, data.effects ?? []);
+    await item.update({ flags: { [ENH_FLAG]: flags } });
+    return true;
+  }
   if (!item.getFlag(ENH_FLAG, 'enhanced')) flags.enhancedSwapped = true;
 
   await item.update({ name: data.name, img: data.img, system: _retypeSafe(item, data.system) });
@@ -330,7 +342,7 @@ export const swapEnhancedItem = async (item) => {
   if (!doc) return false;
 
   const owner = item.parent?.name ?? game.i18n.localize('DSCT.dialog.enhancedSwap.sidebar');
-  const allowSwap = isSwapCandidate(item)
+  const allowSwap = isSwapCandidate(item) && !isEffectsOnly(doc)
     ? await confirmSwaps([{ item, doc, owner }])
     : true;
 
@@ -354,7 +366,7 @@ const _prereqDsids = (doc) => {
 export function isUniversalEnhanced(doc) {
   const p = doc?.system?.prerequisites ?? {};
   
-  if (doc?.flags?.["draw-steel-combat-tools"]?.enhancedSpecific) return false;
+  if (doc?.flags?.["draw-steel-combat-tools"]?.enhancedSpecific || isEffectsOnly(doc)) return false;
   return !_prereqDsids(doc).length && !String(p.value ?? '').trim() && !p.level;
 }
 
@@ -370,7 +382,7 @@ export const cleanupEnhancedAbilities = async ({ apply = false } = {}) => {
   if (!enhancedPacks().length) { ui.notifications.warn(game.i18n.localize('DSCT.notice.macros.enhancedPackNotFound')); return empty; }
 
   const gated = (await enhancedDocuments())
-    .filter(d => d.system?._dsid && !isUniversalEnhanced(d))
+    .filter(d => d.system?._dsid && !isUniversalEnhanced(d) && !isEffectsOnly(d))
     .map(d => ({ dsid: d.system._dsid, name: d.name, prereq: _prereqDsids(d) }));
   if (!gated.length) return empty;
 
@@ -447,13 +459,13 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
   for (const actor of targets) {
     for (const item of actor.items) {
       const doc = matches(item);
-      if (doc && isSwapCandidate(item)) candidates.push({ item, doc, owner: actor.name });
+      if (doc && !isEffectsOnly(doc) && isSwapCandidate(item)) candidates.push({ item, doc, owner: actor.name });
     }
   }
   if (!actors) {
     for (const item of game.items) {
       const doc = matches(item);
-      if (doc && isSwapCandidate(item)) candidates.push({ item, doc, owner: sidebarLabel });
+      if (doc && !isEffectsOnly(doc) && isSwapCandidate(item)) candidates.push({ item, doc, owner: sidebarLabel });
     }
   }
 

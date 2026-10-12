@@ -1,0 +1,84 @@
+{
+ "folder": "DSCTfffDrvFeat01",
+ "name": "Cinder Step",
+ "type": "feature",
+ "_id": "DSCTdrvF001sw1yo",
+ "img": "icons/magic/movement/trail-streak-impact-blue.webp",
+ "system": {
+  "description": {
+   "value": "<p>Whenever you willingly move, you can teleport.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds this effect to the creature's own Cinder Step feature and leaves its text alone.</em></p></section>",
+   "director": ""
+  },
+  "_dsid": "cinder-step",
+  "advancements": {},
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [
+  {
+   "_id": "dtCinderStep0001",
+   "name": "Cinder Step",
+   "img": "icons/magic/movement/trail-streak-impact-blue.webp",
+   "type": "base",
+   "disabled": false,
+   "transfer": true,
+   "description": "<p>Whenever you willingly move, you can teleport.</p>",
+   "statuses": [],
+   "tint": "#ffffff",
+   "showIcon": 1,
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "start": null,
+   "origin": null,
+   "folder": null,
+   "system": {
+    "changes": [
+     {
+      "key": "system.movement.types",
+      "type": "add",
+      "value": "teleport",
+      "phase": "initial",
+      "priority": null
+     }
+    ]
+   },
+   "changes": [],
+   "_key": "!items.effects!DSCTdrvF001sw1yo.dtCinderStep0001"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "enhancedEffectsOnly": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null
+ },
+ "_key": "!items!DSCTdrvF001sw1yo"
+}

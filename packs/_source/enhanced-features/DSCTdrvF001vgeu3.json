@@ -1,0 +1,84 @@
+{
+ "folder": "DSCTfffDrvFeat01",
+ "name": "Corruptive Phasing",
+ "type": "feature",
+ "_id": "DSCTdrvF001vgeu3",
+ "img": "icons/magic/unholy/silhouette-evil-horned-giant.webp",
+ "system": {
+  "description": {
+   "value": "<p>Doesn't take damage from being force moved into objects.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds this effect to the creature's own Corruptive Phasing feature and leaves its text alone.</em></p></section>",
+   "director": ""
+  },
+  "_dsid": "corruptive-phasing",
+  "advancements": {},
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [
+  {
+   "_id": "dtCorruptPhase01",
+   "name": "Corruptive Phasing",
+   "img": "icons/magic/unholy/silhouette-evil-horned-giant.webp",
+   "type": "base",
+   "disabled": false,
+   "transfer": true,
+   "description": "<p>Doesn't take damage from being force moved into objects.</p>",
+   "statuses": [],
+   "tint": "#ffffff",
+   "showIcon": 1,
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "start": null,
+   "origin": null,
+   "folder": null,
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.noObjectCollisionDamage",
+      "type": "override",
+      "value": "true",
+      "phase": "initial",
+      "priority": null
+     }
+    ]
+   },
+   "changes": [],
+   "_key": "!items.effects!DSCTdrvF001vgeu3.dtCorruptPhase01"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "enhancedEffectsOnly": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null
+ },
+ "_key": "!items!DSCTdrvF001vgeu3"
+}

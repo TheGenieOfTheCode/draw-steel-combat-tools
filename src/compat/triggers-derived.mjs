@@ -27,6 +27,7 @@ function enhance(spec, { line }) {
     if (String(effect?.type ?? '').startsWith('dsct')) spec.system.effects[id] = foundry.utils.deepClone(effect);
   }
   if (entry.system?.power?.roll?.enabled) spec.system.power = foundry.utils.deepClone(entry.system.power);
+  if (entry.effects?.length) spec.effects = foundry.utils.deepClone(entry.effects);
   const { derivedLine, ...flags } = entry.flags?.[M] ?? {};
   spec.flags[M] = { ...flags, enhanced: true, enhancedDerived: true };
 }
