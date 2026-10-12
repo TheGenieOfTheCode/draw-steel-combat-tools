@@ -199,6 +199,15 @@ export const registerGrabHooks = () => {
     type: 'override',
     value: '2',
   });
+  registerEffectFlag('actor', {
+    key: 'flags.draw-steel-combat-tools.noObjectCollisionDamage',
+    category: 'forcedMovement',
+    label: 'DSCT.effectFlags.forcedMovement.noObjectCollisionDamage.label',
+    description: 'DSCT.effectFlags.forcedMovement.noObjectCollisionDamage.description',
+    values: 'DSCT.effectFlags.forcedMovement.noObjectCollisionDamage.values',
+    type: 'override',
+    value: 'true',
+  });
 
   if (!getSetting('conditionsEnabled')) return;
   Hooks.on('canvasReady', rehydrateGrabs);

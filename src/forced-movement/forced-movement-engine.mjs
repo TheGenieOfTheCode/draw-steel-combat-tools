@@ -78,7 +78,10 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     if (gate === false) return;
     ({ type, distance, verticalHeight, bonusCreatureDmg, bonusObjectDmg } = ctx);
   }
-  const noMoverDmg    = noCollisionDamage || noMoverCollisionDamage;
+  const noMoverDmgBase = noCollisionDamage || noMoverCollisionDamage;
+  const moverSkipsObjects = !!targetToken.actor?.getFlag('draw-steel-combat-tools', 'noObjectCollisionDamage');
+  let noMoverDmg = noMoverDmgBase;
+  const hitObject = () => { if (moverSkipsObjects) noMoverDmg = true; };
   const noObstacleDmg = noCollisionDamage || noObstacleCollisionDamage;
   const grabState = window._activeGrabs?.get(targetToken.id);
   if (grabState) {
@@ -1607,6 +1610,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       const dir   = reducedVert >= 0 ? 1 : -1;
 
       for (let i = 0; i < steps; i++) {
+        noMoverDmg = noMoverDmgBase;
         const stepElev  = startElev + dir * (i + 1);
         const remaining = steps - i;
         const vTile     = getWallBlockTileAt(startGrid.x, startGrid.y);
@@ -1617,6 +1621,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const tileBottom = walls[0]?.flags?.['wall-height']?.bottom ?? 0;
           const tileTop    = walls[0]?.flags?.['wall-height']?.top    ?? Infinity;
           if (stepElev >= tileBottom && stepElev < tileTop) {
+            hitObject();
             const dmg = 2 + remaining + bonusObjectDmg;
             if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, dmg, undefined, { forced: true });
             collisionMsgs.push(`${targetToken.name} is blocked by a wall and ${dmgStr(dmg)}.`);
@@ -1759,6 +1764,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     let terrainRunningElev = startElev;
 
     for (let i = 0; i < path.length; i++) {
+      noMoverDmg = noMoverDmgBase;
       const step      = path[i];
       const prev      = i > 0 ? path[i - 1] : startGrid;
       const remaining = reduced - i - costConsumed;
@@ -1780,10 +1786,12 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         landingIndex = i - 1;
         if (startElev < 0) {
 
+          hitObject();
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
           collisionMsgs.push(`${targetToken.name} cannot be force-moved while underground${moverAndTakes(dmg)}.`);
         } else if (burrowBlock) {
+          hitObject();
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
           collisionMsgs.push(`${targetToken.name} cannot be force-moved while burrowing${moverAndTakes(dmg)}.`);
@@ -1801,6 +1809,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         const freeStepUp = getSetting('collisionOnUnitStep') ? 0 : 1;
         if (toTE > terrainRunningElev + freeStepUp) {
           landingIndex = i - 1;
+          hitObject();
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
           collisionMsgs.push(`${targetToken.name} is blocked by a steep elevation change${moverAndTakes(dmg)}.`);
@@ -1818,6 +1827,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const tileTop    = walls[0]?.flags?.['wall-height']?.top    ?? Infinity;
           if (stepElev >= tileBottom && stepElev < tileTop) {
             landingIndex = i - 1;
+            hitObject();
             const dmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(dmg);
             collisionMsgs.push(`${targetToken.name} is blocked by a wall at elevation ${stepElev}${moverAndTakes(dmg)}.`);
@@ -1884,6 +1894,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         const hardTiles = hitTiles.filter(t => !hasTags(t, 'breakable'));
         if (hardTiles.length > 0 && !juggernaut) {
           landingIndex = i - 1;
+          hitObject();
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
           collisionMsgs.push(`${targetToken.name} is stopped by an obstacle${moverAndTakes(dmg)}.`);
@@ -1895,6 +1906,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         const maxTileDmg  = juggernaut ? 0 : softTiles.reduce((m, t) => Math.max(m, MATERIAL_RULES()[getMaterial(t)]?.damage ?? 0), 0);
         if (juggernaut || remaining >= maxTileCost) {
           for (const tile of softTiles) await breakTile(tile);
+          hitObject();
           const tileDmg = maxTileDmg + bonusObjectDmg;
           if (softTiles.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(softTiles)} (costs ${maxTileCost}${moverDealsNote(tileDmg)}).`);
           await dmgTarget(tileDmg);
@@ -1906,6 +1918,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           for (const tile of brokenTiles) await breakTile(tile);
           if (brokenTiles.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(brokenTiles)}.`);
           landingIndex = i - 1;
+          hitObject();
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
           collisionMsgs.push(`${targetToken.name} is stopped by an obstacle (needs ${maxTileCost}, has ${remaining})${moverIsDefeated ? '.' : `. ${TakesStr(dmg)}.`}`);
@@ -1925,6 +1938,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const hardWalls = hitEntries.filter(({ wall: w }) => !hasTags(w, 'obstacle') || !hasTags(w, 'breakable'));
           if (hardWalls.length > 0 && !juggernaut) {
             landingIndex = i - 1;
+            hitObject();
             const dmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(dmg);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token hit indestructible wall at step ${i}. dmg=${dmg}`);
@@ -1942,6 +1956,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           };
           if (remaining >= maxCost) {
             for (const { wall, cell } of softEntries) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs, cell);
+            hitObject();
             const wallDmg = maxWallDmg + bonusObjectDmg;
             collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(softEntries.map(e => e.wall))} (costs ${maxCost}${moverDealsNote(wallDmg)}).`);
             await dmgTarget(wallDmg);
@@ -1954,6 +1969,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             for (const { wall, cell } of brokenEntries) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs, cell);
             if (brokenEntries.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(brokenEntries.map(e => e.wall))}.`);
             landingIndex = i - 1;
+            hitObject();
             const dmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(dmg);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token stopped (maxCost=${maxCost} > remaining=${remaining}). dmg=${dmg}`);
@@ -1981,6 +1997,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
               const objPrev = noObstacleDmg ? null : await applyDamage(obj.actor, dealDmg);
               if (objPrev) undoOps.push({ op: 'stamina', uuid: obj.actor.uuid, prevValue: objPrev.prevValue, prevTemp: objPrev.prevTemp, squadGroupUuid: null, prevSquadHP: null, squadCombatantIds: [], squadTokenIds: [] });
             }
+            hitObject();
             const moverDmg = maxObjCost + 2;
             const objNames = objectBlockers.map(o => o.name).join(', ');
             collisionMsgs.push(`${targetToken.name} smashes through ${objNames} (max ${maxObjCost} stamina)${moverIsDefeated ? '.' : `. ${TakesStr(moverDmg)}.`}`);
@@ -2002,6 +2019,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
               if (objPrev) undoOps.push({ op: 'stamina', uuid: obj.actor.uuid, prevValue: objPrev.prevValue, prevTemp: objPrev.prevTemp, squadGroupUuid: null, prevSquadHP: null, squadCombatantIds: [], squadTokenIds: [] });
             }
             landingIndex = i - 1;
+            hitObject();
             const stopDmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(stopDmg);
             collisionMsgs.push(`${targetToken.name} is stopped by ${survivingObjects.map(o => o.name).join(', ')} (needs ${maxObjCost} stamina, has ${remaining})${moverIsDefeated ? '.' : `. ${TakesStr(stopDmg)}.`}`);
@@ -2144,6 +2162,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           
           if (!hasTags(wall, 'obstacle') && !juggernaut) {
             landingIndex = i - 1;
+            hitObject();
             const dmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(dmg);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Hit indestructible wall (no 'obstacle' tag) at step ${i}. dmg=${dmg}`);
@@ -2161,6 +2180,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
 
             if (!isBreakable && !juggernaut) {
               landingIndex = i - 1;
+              hitObject();
               const dmg = 2 + remaining + bonusObjectDmg;
               await dmgTarget(dmg);
               if (getSetting('debugMode')) console.log(`DSCT | FM | Stopped by non-breakable obstacle wall at step ${i}. dmg=${dmg}`);
@@ -2171,6 +2191,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             
             const mat  = juggernaut ? 'glass' : getMaterial(wall);
             const rule = juggernaut ? { cost: 1, damage: 0 } : MATERIAL_RULES()[mat];
+            hitObject();
             const dmg  = juggernaut ? 0 : (remaining < rule.cost ? 2 + remaining + bonusObjectDmg : rule.damage + bonusObjectDmg);
             await dmgTarget(dmg);
 
@@ -2257,6 +2278,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         }
 
         if (blocker.actor?.type === 'object') {
+          hitObject();
           if (sourceToken && !noMoverDmg && !case1Fired && getSetting('friendlyFireConfirmation') && sameDisp(sourceToken, targetToken)) {
             case1Fired = true;
             const stop = await confirmFriendlyFireCase1(sourceToken, targetToken);
@@ -2364,6 +2386,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
 
           if (!isBreakable) {
             landingIndex = i - 1;
+            hitObject();
             const dmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(dmg);
             collisionMsgs.push(`${targetToken.name} is stopped by an obstacle${moverAndTakes(dmg)}.`);
@@ -2372,6 +2395,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
 
           const mat  = getMaterial(tile);
           const rule = MATERIAL_RULES()[mat];
+          hitObject();
           const dmg  = remaining < rule.cost ? 2 + remaining + bonusObjectDmg : rule.damage + bonusObjectDmg;
           await dmgTarget(dmg);
 

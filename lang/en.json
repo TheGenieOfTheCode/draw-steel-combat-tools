@@ -836,7 +836,15 @@
       "groups": {
         "stealth": "Stealth",
         "grab": "Grabbing",
+        "forcedMovement": "Forced Movement",
         "lineOfEffect": "Line of Effect"
+      },
+      "forcedMovement": {
+        "noObjectCollisionDamage": {
+          "label": "No damage from objects",
+          "description": "The bearer takes no damage when force moved into objects, walls or terrain. Creature collisions still hurt (e.g. Corruptive Phasing).",
+          "values": "true"
+        }
       },
       "grab": {
         "maxGrabs": {
