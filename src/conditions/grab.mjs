@@ -43,6 +43,12 @@ export const buildFreeStrikeButton = (actor, targetTokenId = null) => {
 
 export const grabUiState = { pendingConfirm: null, pendingEscape: null };
 
+export const grabChat = (content, tokens = [], data = {}) => {
+  const actors = tokens.map(t => (typeof t === 'string' ? getTokenById(t) : t)?.actor).filter(Boolean);
+  const whisper = game.users.filter(u => u.isGM || actors.some(a => a.testUserPermission(u, 'OWNER'))).map(u => u.id);
+  return ChatMessage.create({ content, whisper, ...data });
+};
+
 const refreshOpenPanel = () => {
   getWindowById('dsct-dc-panel')?._refreshGrabs?.();
 };
@@ -319,6 +325,7 @@ export const endGrab = async (grabbedTokenId, { silent = false, customMsg = null
 
   const grabberTok = getTokenById(grab.grabberTokenId);
   const grabbedTok = getTokenById(grab.grabbedTokenId);
+  const grabbedEffectUuid = grab.grabbedEffectId ? grabbedTok?.actor.effects.get(grab.grabbedEffectId)?.uuid ?? null : null;
   if (grab.grabberEffectId) { const e = grabberTok?.actor.effects.get(grab.grabberEffectId); if (e) await safeDelete(e, { dsctGrabTeardown: true }); }
   if (grab.grabbedEffectId) { const e = grabbedTok?.actor.effects.get(grab.grabbedEffectId); if (e) await safeDelete(e, { dsctGrabTeardown: true }); }
 
@@ -326,7 +333,9 @@ export const endGrab = async (grabbedTokenId, { silent = false, customMsg = null
     removeGrabHooks();
   }
 
-  if (!silent) ChatMessage.create({ content: customMsg ? `<strong>Grab ended:</strong> ${customMsg}` : game.i18n.format('DSCT.chat.grab.ended', { grabber: grab.grabberName, grabbed: grab.grabbedName }) });
+  if (!silent) grabChat(customMsg ? `<strong>Grab ended:</strong> ${customMsg}` : game.i18n.format('DSCT.chat.grab.ended', { grabber: grab.grabberName, grabbed: grab.grabbedName }),
+    [grab.grabberTokenId, grab.grabbedTokenId],
+    grabbedEffectUuid ? { flags: { [M]: { grabEnded: { effectUuid: grabbedEffectUuid } } } } : {});
   refreshOpenPanel();
 };
 
@@ -348,29 +357,28 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
 
   if (forceApply) {
     await applyGrab(grabberToken, targetToken, { maxGrabs });
-    ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.applied', { grabber: grabberToken.name, target: targetToken.name }) });
+    grabChat(game.i18n.format('DSCT.chat.grab.applied', { grabber: grabberToken.name, target: targetToken.name }), [grabberToken, targetToken]);
     return;
   }
 
   if (tier !== null) {
     if (tier < 2) {
-      ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.failed', { grabber: grabberToken.name, target: targetToken.name }) });
+      grabChat(game.i18n.format('DSCT.chat.grab.failed', { grabber: grabberToken.name, target: targetToken.name }), [grabberToken, targetToken]);
       return;
     }
     if (tier === 2) {
-      const createdMsg = await ChatMessage.create({
-        content: `<strong>Grab - Tier 2:</strong> ${grabberToken.name} gets hold of ${targetToken.name}!<br>
+      const createdMsg = await grabChat(`<strong>Grab - Tier 2:</strong> ${grabberToken.name} gets hold of ${targetToken.name}!<br>
           ${targetToken.name} may make a free strike:<br>
           <div style="margin: 4px 0;">${buildFreeStrikeButton(targetActor, grabberToken.id)}</div>`,
-        flags: { [M]: { grabConfirm: { grabberId: grabberToken.id, targetId: targetToken.id, maxGrabs } } },
-      });
+        [grabberToken, targetToken],
+        { flags: { [M]: { grabConfirm: { grabberId: grabberToken.id, targetId: targetToken.id, maxGrabs } } } });
 
       grabUiState.pendingConfirm = { grabberToken, targetToken, msgId: createdMsg?.id ?? null, maxGrabs };
       refreshOpenPanel();
       return;
     }
     await applyGrab(grabberToken, targetToken, { maxGrabs });
-    ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.tier3', { grabber: grabberToken.name, target: targetToken.name }) });
+    grabChat(game.i18n.format('DSCT.chat.grab.tier3', { grabber: grabberToken.name, target: targetToken.name }), [grabberToken, targetToken]);
     return;
   }
 
@@ -572,7 +580,7 @@ export const handleGrabListClick = async (e) => {
     const grab = window._activeGrabs?.get(denyId);
     grabUiState.pendingEscape = null;
     refreshOpenPanel();
-    if (grab) ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.staysGrabbed', { name: grab.grabbedName }) });
+    if (grab) grabChat(game.i18n.format('DSCT.chat.grab.staysGrabbed', { name: grab.grabbedName }), [grab.grabberTokenId, grab.grabbedTokenId]);
     await resolveEscapeChatMessage(denyId, 'denied');
     return true;
   }

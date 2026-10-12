@@ -1,6 +1,6 @@
 import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, sightSamples, sightOriginPoints, messageDamageSource } from './helpers.mjs';
 import { chooseMessageFilter, chooseKeywords } from './ability-automation/choose-effect.mjs';
-import { applyGrab, runGrab } from './conditions/grab.mjs';
+import { applyGrab, runGrab, grabChat } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
 import { applyJudgedEffect, applyMarkedEffect } from './conditions/damage-conditions.mjs';
 import { withStatusSource, registerStatusSources } from './conditions/statuses.mjs';
@@ -578,7 +578,7 @@ function _registerButtonHooks() {
         } else {
           for (const t of targets) {
             await applyGrab(grabber, t, { maxGrabs });
-            ChatMessage.create({ content: `<strong>Grab:</strong> ${grabber.name} grabs ${t.name}!` });
+            grabChat(`<strong>Grab:</strong> ${grabber.name} grabs ${t.name}!`, [grabber, t]);
           }
         }
       });

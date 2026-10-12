@@ -1,4 +1,4 @@
-import { applyGrab, buildFreeStrikeButton, sizeRankG, grabUiState, refreshGrabUis } from './conditions/grab.mjs';
+import { applyGrab, buildFreeStrikeButton, sizeRankG, grabUiState, refreshGrabUis, grabChat } from './conditions/grab.mjs';
 import { getItemDsid, getSetting, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, undoDamage, getSquadGroup, safeDelete } from './helpers.mjs';
 import { registerAbilityInjectors } from './ability-automation/ability-automation.mjs';
 import { safeUpdate } from './ctlib.mjs';
@@ -19,7 +19,7 @@ export const triggerGrabberFreeStrike = async (grabberTok, grab) => {
       await ds.helpers.macros.rollItemMacro(freeStrikeItem.uuid);
     }
   } else {
-    ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.escapeAfterFreeStrike', { grabbed: grab.grabbedName, grabber: grab.grabberName }) });
+    grabChat(game.i18n.format('DSCT.chat.grab.escapeAfterFreeStrike', { grabbed: grab.grabbedName, grabber: grab.grabberName }), [grab.grabberTokenId, grab.grabbedTokenId]);
   }
 };
 
@@ -307,10 +307,10 @@ export function registerChatHooks() {
             const api = getModuleApi(false);
             if (api) {
                await api.endGrab(grabbedTokenId, { silent: true });
-               ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.brokeFree', { grabbed: grab.grabbedName, grabber: grab.grabberName }) });
+               grabChat(game.i18n.format('DSCT.chat.grab.brokeFree', { grabbed: grab.grabbedName, grabber: grab.grabberName }), [grab.grabberTokenId, grab.grabbedTokenId]);
             }
           } else if (tier === 1) {
-            ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.failedEscape', { grabbed: grab.grabbedName }) });
+            grabChat(game.i18n.format('DSCT.chat.grab.failedEscape', { grabbed: grab.grabbedName }), [grab.grabberTokenId, grab.grabbedTokenId]);
           } else if (tier === 2) {
              grabUiState.pendingEscape = { grabbedTokenId };
              refreshGrabUis();
@@ -586,7 +586,7 @@ export function registerChatHooks() {
           });
           container.querySelector('.dsct-deny-escape')?.addEventListener('click', async (e) => {
             e.preventDefault();
-            ChatMessage.create({ content: game.i18n.format('DSCT.chat.grab.staysGrabbed', { name: grab.grabbedName }) });
+            grabChat(game.i18n.format('DSCT.chat.grab.staysGrabbed', { name: grab.grabbedName }), [grab.grabberTokenId, grab.grabbedTokenId]);
             await resolveEscapeChatMessage(escapeData.speakerToken, 'denied');
             grabUiState.pendingEscape = null;
             refreshGrabUis();

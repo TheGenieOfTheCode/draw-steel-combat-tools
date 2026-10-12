@@ -4,7 +4,7 @@ import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effe
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced-movement/forced-movement-modify-panel.mjs';
-import { applyGrab, runGrab, endGrab } from '../conditions/grab.mjs';
+import { applyGrab, runGrab, endGrab, grabChat } from '../conditions/grab.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { applyStatus, SOURCED_STATUSES } from '../conditions/statuses.mjs';
@@ -2083,7 +2083,7 @@ async function _injectFmButtons(message, root) {
               if (dsid === 'grab') await runGrab(sourceToken, targetToken, { tier: rowTier, maxGrabs, ignoreSizeCheck: shiftBypass });
               else {
                 await applyGrab(sourceToken, targetToken, { maxGrabs });
-                ChatMessage.create({ content: `<strong>Grab:</strong> ${sourceToken.name} grabs ${targetToken.name}!` });
+                grabChat(`<strong>Grab:</strong> ${sourceToken.name} grabs ${targetToken.name}!`, [sourceToken, targetToken]);
               }
               grabBtn.disabled = true;
               undoGrabBtn.disabled = false;
