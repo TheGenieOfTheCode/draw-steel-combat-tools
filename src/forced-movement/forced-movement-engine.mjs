@@ -130,6 +130,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
 
   if (reduced === 0 && reducedVert === 0) {
     ui.notifications.info(game.i18n.format('DSCT.notice.fm.stabilityFullyResists', { name: targetToken.name }));
+    Hooks.callAll('dsct.forcedMovement', { type, distance, target: targetToken, source: sourceToken ?? null, keywords, moved: 0, resisted: true });
     return;
   }
 
