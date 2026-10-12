@@ -2793,3 +2793,4 @@ body.dsbl-dark-chat.dsct-shift-targets .theme-dark .chat-message enriched-conten
 .dsct-status-icons-footer { display: flex; gap: 6px; margin-top: 6px; }
 .dsct-status-icons-footer button { flex: 1; }
 .dsct-enricher-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+#dsct-dc-panel.minimizing { transition: max-height 0.25s ease-out, max-width 0.25s ease-out !important; }
