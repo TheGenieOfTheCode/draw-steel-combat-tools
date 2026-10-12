@@ -5,9 +5,41 @@ import { STEALTH_WORKFLOW_READY, HANDED_TO_TRIGGERS, triggersHandlesClassTrigger
 import { SettingsSubmenu as LibSettingsSubmenu } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
+const ENRICHER_WIKI = 'https://github.com/MetaMorphic-Digital/draw-steel/wiki/Enrichers';
+
+const linkEnrichers = (root) => {
+  const word = /\benrichers?\b/gi;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  const linked = new Set();
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    word.lastIndex = 0;
+    const block = n.parentElement?.closest('label, .hint');
+    if (!block || linked.has(block) || n.parentElement.closest('a') || !word.test(n.nodeValue)) continue;
+    linked.add(block);
+    hits.push(n);
+  }
+  for (const n of hits) {
+    word.lastIndex = 0;
+    const m = word.exec(n.nodeValue);
+    const a = document.createElement('a');
+    a.className = 'dsct-enricher-link';
+    a.href = ENRICHER_WIKI;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = m[0];
+    n.replaceWith(n.nodeValue.slice(0, m.index), a, n.nodeValue.slice(m.index + m[0].length));
+  }
+};
+
 export class SettingsSubmenu extends LibSettingsSubmenu {
   static get moduleId()         { return M; }
   static get choiceHintPrefix() { return 'DSCT.setting'; }
+
+  _onRender(context, options) {
+    super._onRender(context, options);
+    linkEnrichers(this.element);
+  }
 }
 
 const header = (label) => ({ isSectionHeader: true, label });

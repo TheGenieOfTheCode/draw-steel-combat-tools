@@ -483,11 +483,11 @@
       },
       "applyToTargets": {
         "name": "Shift-Click Applies to Targets",
-        "hint": "Shift-click an apply link (effects and conditions) to apply it to your targets instead of your selected tokens, even creatures you don't own. The link shows a crosshair while Shift is held."
+        "hint": "Shift-click an apply enricher (effects and conditions) to apply it to your targets instead of your selected tokens, even creatures you don't own. The enricher shows a crosshair while Shift is held."
       },
       "neutralizeEnrichers": {
-        "name": "Replace Apply Links in Ability Text",
-        "hint": "Turn the apply links written into an ability’s description into plain text, and offer this module’s own buttons instead."
+        "name": "Replace Apply Enrichers in Ability Text",
+        "hint": "Turn the apply enrichers written into an ability’s description into plain text, and offer this module’s own buttons instead."
       },
       "alwaysRepickTargets": {
         "name": "Always Re-Pick Targets",
