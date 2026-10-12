@@ -345,9 +345,12 @@ function _overrideSessionPills(roll, override) {
   const db  = Number(override.banes ?? 0)   - Number(roll?.options?.banes ?? 0);
   const dbo = Number(override.bonuses ?? 0) - Number(roll?.options?.bonuses ?? 0);
   const reason = override.dstModName ?? 'Adjustment';
-  if (de)  pills.push({ kind: 'edge',  amount: de,  reason, src: null });
-  if (db)  pills.push({ kind: 'bane',  amount: db,  reason, src: null });
-  if (dbo) pills.push({ kind: 'bonus', amount: dbo, reason, src: null });
+  const src = override.dstSrcName ?? null;
+  const srcTokenId = override.dstSrcTokenId ?? null;
+  if (de)  pills.push({ kind: 'edge',  amount: de,  reason, src, srcTokenId });
+  if (db)  pills.push({ kind: 'bane',  amount: db,  reason, src, srcTokenId });
+  if (dbo) pills.push({ kind: 'bonus', amount: dbo, reason, src, srcTokenId });
+  if (override.dstTierShift) pills.push({ kind: 'tier', amount: Number(override.dstTierShift), reason, src, srcTokenId });
   return pills;
 }
 
@@ -613,6 +616,7 @@ async function _mutateOverride(msgId, targetKey, mutate) {
   const eff = _effectiveFrom(basis, { basePills, baseOff, session, ctx, globalOff, globalBaseOff });
   const data = _buildOverride(basis, eff, session, [...baseOff], [...globalOff], [...globalBaseOff]);
   if (override?.dstModName) data.dstModName = override.dstModName;
+  if (override?.dstSrcName) { data.dstSrcName = override.dstSrcName; data.dstSrcTokenId = override.dstSrcTokenId ?? null; }
   return _writeOverride(message, targetKey, data);
 }
 
@@ -655,6 +659,7 @@ async function _recomputeAllTargets(message, globalPills, globalBaseOffList = nu
     const eff = _effectiveFrom(basis, { basePills, baseOff, session, ctx, globalOff, globalBaseOff });
     const data = _buildOverride(basis, eff, session, [...baseOff], [...globalOff], [...globalBaseOff]);
     if (override?.dstModName) data.dstModName = override.dstModName;
+    if (override?.dstSrcName) { data.dstSrcName = override.dstSrcName; data.dstSrcTokenId = override.dstSrcTokenId ?? null; }
     payload[`flags.${DSTD}.state.tierOverrides.${targetKey}`] = data;
   }
   if (direct) return message.update(payload);
@@ -880,6 +885,7 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
     const eff = this._effective();
     const override = _buildOverride(this._basis, eff, this._session, [...this._baseOff], [...this._globalOff], [...this._globalBaseOffT]);
     if (this._override?.dstModName) override.dstModName = this._override.dstModName;
+    if (this._override?.dstSrcName) { override.dstSrcName = this._override.dstSrcName; override.dstSrcTokenId = this._override.dstSrcTokenId ?? null; }
     await _writeOverride(this._message, this._targetKey, override);
     this.close();
   }
