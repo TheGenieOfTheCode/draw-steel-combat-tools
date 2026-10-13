@@ -864,6 +864,7 @@ function _buildAppliedButton(effect, item) {
   btn.dataset.actorUuid    = item?.actor?.uuid ?? "";
   btn.dataset.spendEnabled = String(spend?.enabled ?? false);
   btn.dataset.spendValue   = String(spend?.value ?? 1);
+  btn.dataset.stack        = String(flatAppliedStacks(effect));
   btn.innerHTML = `${iconHtml} ${(label ?? statusId) + spendSuffix}`;
   return btn;
 }
@@ -1230,7 +1231,12 @@ export function flatAppliedSourceToken(item, message) {
   return item?.actor?.getActiveTokens?.()?.[0]?.id ?? null;
 }
 
-export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenId = null) {
+export const flatAppliedStacks = (effect) => {
+  const props = effect?.flatApplied?.properties;
+  return !!(props?.has?.('stack') ?? Array.from(props ?? []).includes('stack'));
+};
+
+export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenId = null, { stack = false } = {}) {
   if (!actor || !statusId) return false;
   if (isRegisteredStatus(statusId)) {
     await actor.toggleStatusEffect(statusId, { active: true });
@@ -1241,7 +1247,7 @@ export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenI
     ui.notifications.warn(game.i18n.format("DSCT.notice.flatApplied.noEffect", { id: statusId }));
     return false;
   }
-  if (actor.effects.some(e => e.getFlag(MODULE_ID, FLAT_APPLIED_FROM) === statusId)) return true;
+  if (!stack && actor.effects.some(e => e.getFlag(MODULE_ID, FLAT_APPLIED_FROM) === statusId)) return true;
 
   const data = source.toObject();
   delete data._id;
@@ -1259,13 +1265,14 @@ export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenI
   return true;
 }
 
-export async function removeFlatAppliedEffect(actor, statusId) {
+export async function removeFlatAppliedEffect(actor, statusId, { stack = false } = {}) {
   if (!actor || !statusId) return;
   if (isRegisteredStatus(statusId)) {
     await actor.toggleStatusEffect(statusId, { active: false });
     return;
   }
-  const ids = actor.effects.filter(e => e.getFlag(MODULE_ID, FLAT_APPLIED_FROM) === statusId).map(e => e.id);
+  const copies = actor.effects.filter(e => e.getFlag(MODULE_ID, FLAT_APPLIED_FROM) === statusId);
+  const ids = (stack ? copies.slice(-1) : copies).map(e => e.id);
   if (ids.length) await actor.deleteEmbeddedDocuments('ActiveEffect', ids);
 }
 
@@ -1356,7 +1363,7 @@ export function addFlatEffectListeners(section, item, message) {
 
       for (const target of targets) {
         if (!target.actor) continue;
-        await applyFlatAppliedEffect(target.actor, statusId, item, flatAppliedSourceToken(item, message));
+        await applyFlatAppliedEffect(target.actor, statusId, item, flatAppliedSourceToken(item, message), { stack: btn.dataset.stack === "true" });
       }
     });
   });
