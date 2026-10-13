@@ -13,14 +13,14 @@
   "resource": null,
   "trigger": "The incendiarist is reduced to 0 Stamina",
   "distance": {
-   "type": "special",
-   "primary": "",
+   "type": "burst",
+   "primary": "1",
    "secondary": "",
    "tertiary": ""
   },
   "damageDisplay": "melee",
   "target": {
-   "type": "special",
+   "type": "creature",
    "custom": "",
    "value": null
   },

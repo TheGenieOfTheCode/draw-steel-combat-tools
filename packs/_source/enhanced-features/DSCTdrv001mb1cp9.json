@@ -13,14 +13,14 @@
   "resource": null,
   "trigger": "The koptourok is made winded by damage that isn't fire damage or holy damage",
   "distance": {
-   "type": "special",
-   "primary": "",
+   "type": "burst",
+   "primary": "3",
    "secondary": "",
    "tertiary": ""
   },
   "damageDisplay": "melee",
   "target": {
-   "type": "special",
+   "type": "enemy",
    "custom": "",
    "value": null
   },

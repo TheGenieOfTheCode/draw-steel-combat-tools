@@ -13,14 +13,14 @@
   "resource": null,
   "trigger": "You take damage",
   "distance": {
-   "type": "special",
-   "primary": "",
+   "type": "burst",
+   "primary": "1",
    "secondary": "",
    "tertiary": ""
   },
   "damageDisplay": "melee",
   "target": {
-   "type": "special",
+   "type": "enemy",
    "custom": "",
    "value": null
   },

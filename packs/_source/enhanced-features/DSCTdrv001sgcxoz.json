@@ -1,6 +1,6 @@
 {
  "folder": "DSCTfffDrvMons01",
- "name": "Loyalty Collar / Shrapnel-Laced Loyalty Collar",
+ "name": "Loyalty Collar",
  "type": "ability",
  "_id": "DSCTdrv001sgcxoz",
  "img": "icons/magic/fire/projectile-fireball-smoke-orange.webp",
@@ -13,14 +13,14 @@
   "resource": null,
   "trigger": "The sparkslinger is reduced to 0 Stamina",
   "distance": {
-   "type": "special",
-   "primary": "",
+   "type": "burst",
+   "primary": "1",
    "secondary": "",
    "tertiary": ""
   },
   "damageDisplay": "melee",
   "target": {
-   "type": "special",
+   "type": "enemyObject",
    "custom": "",
    "value": null
   },
@@ -76,7 +76,6 @@
    "derivedLine": [
     "loyalty-collar-the-sparkslinger-is-reduced-to-0-stamina",
     "loyalty-collar-the-crucibite-is-reduced-to-0-stamina",
-    "shrapnel-laced-loyalty-collar-the-sweeper-is-reduced-to-0-stamina",
     "loyalty-collar-the-pestilite-is-reduced-to-0-stamina",
     "loyalty-collar-the-war-frog-is-reduced-to-0-stamina",
     "loyalty-collar-the-teletalite-is-reduced-to-0-stamina",
