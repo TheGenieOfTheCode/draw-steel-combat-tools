@@ -1,5 +1,5 @@
-2026/10/13-00:50:22.270 487c Delete type=3 #1
-2026/10/13-00:50:22.273 d31c Level-0 table #5: started
-2026/10/13-00:50:22.276 d31c Level-0 table #5: 67835 bytes OK
-2026/10/13-00:50:22.278 d31c Delete type=0 #3
-2026/10/13-00:50:22.278 d31c Manual compaction at level-0 from '!folders!DSCTfffAncestry1' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhSoulsght1.dsctSoulsight001' @ 0 : 0; will stop at (end)
+2026/10/13-17:37:48.908 8274 Delete type=3 #1
+2026/10/13-17:37:48.913 d46c Level-0 table #5: started
+2026/10/13-17:37:48.919 d46c Level-0 table #5: 74278 bytes OK
+2026/10/13-17:37:48.922 d46c Delete type=0 #3
+2026/10/13-17:37:48.923 d46c Manual compaction at level-0 from '!folders!DSCTfffAncestry1' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhSoulsght1.dsctSoulsight001' @ 0 : 0; will stop at (end)
