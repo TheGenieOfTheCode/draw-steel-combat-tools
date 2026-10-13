@@ -1,6 +1,6 @@
 {
  "folder": "DSCTfffDrvHero01",
- "name": "Burgeoning Saint / The Lists of Heaven",
+ "name": "Burgeoning Saint / The Lists of Heaven / Guilty Conscience",
  "type": "ability",
  "_id": "DSCTdrv001wuq099",
  "img": "icons/magic/life/heart-hand-gold-green-light.webp",
@@ -80,7 +80,8 @@
    "enhancedSpecific": true,
    "derivedLine": [
     "burgeoning-saint-you-deal-damage-to-an-enemy",
-    "the-lists-of-heaven-you-allow-another-creature-to-spend-a-recovery"
+    "the-lists-of-heaven-you-allow-another-creature-to-spend-a-recovery",
+    "guilty-conscience-your-stamina-reaches-the-negative-of-your-winded-value"
    ]
   }
  },
