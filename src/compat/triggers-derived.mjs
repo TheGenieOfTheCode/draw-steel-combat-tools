@@ -27,6 +27,10 @@ function enhance(spec, { line }) {
     if (String(effect?.type ?? '').startsWith('dsct')) spec.system.effects[id] = foundry.utils.deepClone(effect);
   }
   if (entry.system?.power?.roll?.enabled) spec.system.power = foundry.utils.deepClone(entry.system.power);
+  if (entry.system?.distance?.type && entry.system.distance.type !== 'special') {
+    spec.system.distance = foundry.utils.deepClone(entry.system.distance);
+    spec.system.target = foundry.utils.deepClone(entry.system.target);
+  }
   if (entry.effects?.length) spec.effects = foundry.utils.deepClone(entry.effects);
   const { derivedLine, ...flags } = entry.flags?.[M] ?? {};
   spec.flags[M] = { ...flags, enhanced: true, enhancedDerived: true };

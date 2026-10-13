@@ -711,6 +711,58 @@ function _syncReticles(tokens, selectedIds, hoveredId) {
 
 
 
+const EACH_TYPES = new Set(['creature', 'enemy', 'ally', 'object', 'creatureObject', 'enemyObject']);
+const _isMinion = (actor) => actor?.system?.isMinion ?? actor?.system?.monster?.organization === 'minion';
+
+function _inAreaFilter(ability, token) {
+  const filter = ability.getFlag?.('draw-steel-combat-tools', 'areaFilter');
+  if (!filter || !token.actor) return true;
+  if (filter.excludeMinions && _isMinion(token.actor)) return false;
+  if (filter.maxSize && Number(token.actor.system?.combat?.size?.value ?? 1) > Number(filter.maxSize)) return false;
+  return true;
+}
+
+function _restoreTargetsAfterUse(abilityUuid, previous) {
+  let done = false;
+  const restore = () => {
+    if (done) return;
+    done = true;
+    Hooks.off('createChatMessage', created);
+    setFoundryTargets(previous.filter(t => t.scene));
+  };
+  const created = (message) => {
+    const used = message.system?.parts?.contents?.some(p => p.type === 'abilityUse' && p.abilityUuid === abilityUuid);
+    if (used) setTimeout(restore, 500);
+  };
+  Hooks.on('createChatMessage', created);
+  Hooks.once('closeAbilityConfigurationDialog', () => setTimeout(restore, 5000));
+}
+
+export function checkAndRunBurstTargeting(dialog) {
+  const ability = dialog.options?.ability;
+  if (!ability || !getSetting('abilityTargetingEnabled')) return null;
+  const view = chooseTargeting(ability);
+  const distance = view?.distance ?? ability.system?.distance;
+  const target = view?.target ?? ability.system?.target;
+  if (distance?.type !== 'burst' || target?.value != null || !EACH_TYPES.has(target?.type)) return null;
+  const casterToken = _getCasterToken(ability);
+  const radius = getItemRange(ability, view?.distance);
+  if (!casterToken || !radius) return null;
+
+  const tokens = _getValidTargets(casterToken, target.type, radius, { excludeSelf: true, checkLOS: true })
+    .filter(t => _inAreaFilter(ability, t));
+  const previous = [...game.user.targets];
+  setFoundryTargets(tokens);
+  if (dialog.options?.context && ability.system?.power?.roll?.enabled) {
+    dialog.options.context.targets = Object.fromEntries(tokens.map(t => [t.id, {
+      tokenUuid: t.document.uuid, uuid: t.actor?.uuid ?? '', modifiers: ability.system.getTargetModifiers(t),
+    }]));
+  }
+  _restoreTargetsAfterUse(ability.uuid, previous);
+  if (getSetting('debugMode')) console.log(`DSCT | burst targeting | ${ability.name}: ${radius} burst, ${target.type}, ${tokens.length} target(s)`);
+  return null;
+}
+
 export function checkAndRunTargetPicker(dialog) {
   const ability = dialog.options?.ability;
   if (!ability) return null;

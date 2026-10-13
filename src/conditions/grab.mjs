@@ -3,7 +3,7 @@ import { getSetting, rangeEnforced, safeCreateEmbedded, safeDelete, safeUpdate, 
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
 import { stackedPrompt } from '../ctlib.mjs';
-import { checkAndRunTargetPicker, clearRepickStamp, isTriggeredAbility } from '../ability-automation/target-picker.mjs';
+import { checkAndRunTargetPicker, checkAndRunBurstTargeting, clearRepickStamp, isTriggeredAbility } from '../ability-automation/target-picker.mjs';
 import { toggleDamageConditionsPanel } from './damage-conditions.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore, isNullSpeedExemptActive } from '../ability-automation/class-null/psionic-martial-arts.mjs';
@@ -760,6 +760,7 @@ export function registerKnockbackGuard() {
     
     if (getSetting('abilityAutomationEnabled') && checkAndRunChoose(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && _checkMeleeRangedChoice(app) === 'block') return false;
+    if (getSetting('abilityAutomationEnabled')) checkAndRunBurstTargeting(app);
     if (getSetting('abilityAutomationEnabled') && _checkAbilityRange(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && checkAndRunSquadTargeting(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && checkAndRunTargetPicker(app) === 'block') return false;
