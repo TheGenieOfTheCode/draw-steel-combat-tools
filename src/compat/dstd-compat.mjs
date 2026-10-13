@@ -1287,6 +1287,27 @@ function _allowSoloCollapse(message, panel) {
       quick.classList.toggle('is-undone', !!sourceRow?.classList.contains('is-undone'));
       _compactify(quick, applied);
       head.insertBefore(quick, toggle);
+      
+      if (!source.dataset.dstdAction) {
+        const live = () => row.querySelector(`.${DSTD}-target-body .${DSTD}-action-button`);
+        quick.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          live()?.click();
+        });
+        const mirror = () => {
+          const src = live();
+          if (!src || !quick.isConnected) return;
+          const done = !!src.closest(`.${DSTD}-action-row`)?.classList.contains('is-applied');
+          quick.disabled = src.disabled;
+          quick.dataset.tooltip = src.dataset.tooltip ?? '';
+          quick.classList.toggle('is-applied', done);
+          quick.replaceChildren(...[...src.childNodes].map((n) => n.cloneNode(true)));
+          _compactify(quick, done);
+        };
+        const body = row.querySelector(`.${DSTD}-target-body`);
+        if (body) new MutationObserver(mirror).observe(body, { subtree: true, childList: true, attributes: true, attributeFilter: ['disabled', 'class'] });
+      }
     }
   }
 
