@@ -1,0 +1,90 @@
+{
+ "folder": "DSCTfffDrvHero01",
+ "name": "Cascading Strain",
+ "type": "ability",
+ "_id": "DSCTdrv001cscstr",
+ "img": "icons/magic/control/energy-stream-link-large-white.webp",
+ "system": {
+  "_dsid": "",
+  "story": "",
+  "keywords": [],
+  "type": "triggered",
+  "category": "",
+  "resource": null,
+  "trigger": "You take damage from a strained effect or from having negative clarity",
+  "distance": {
+   "type": "ranged",
+   "primary": "10",
+   "secondary": "",
+   "tertiary": ""
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "enemy",
+   "custom": "",
+   "value": 1
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 0,
+    "before": true,
+    "description": "<p>you can choose one enemy within distance of your Mind Spike ability to take the same damage.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+   },
+   "dsctDrvDamage001": {
+    "_id": "dsctDrvDamage001",
+    "type": "dsct.flatDamage",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatDamage": {
+     "displayText": "The same damage you took",
+     "display": "Same Damage",
+     "value": "@triggerDamage",
+     "types": [],
+     "ignoredImmunities": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
+   }
+  }
+ },
+ "effects": [],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "derivedLine": "cascading-strain-you-take-damage-from-a-strained-effect-or-from-having-negative-"
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null
+ },
+ "_key": "!items!DSCTdrv001cscstr"
+}
