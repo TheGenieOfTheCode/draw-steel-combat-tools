@@ -40,6 +40,7 @@ const _hidingDefeated = () => services.get('isHidingDefeated')?.() ?? false;
 
 function _isSelfOnly(ability, view) {
   if (!isSelfAndSelf(ability, view)) return false;
+  if (ability.getFlag?.('draw-steel-combat-tools', 'areaFilter')?.carriers) return false;
 
   const keywords = view?.keywords ?? ability.system?.keywords;
   if (keywords?.has?.('strike') ?? Array.from(keywords ?? []).includes('strike')) return false;
@@ -711,7 +712,8 @@ function _syncReticles(tokens, selectedIds, hoveredId) {
 
 
 
-const EACH_TYPES = new Set(['creature', 'enemy', 'ally', 'object', 'creatureObject', 'enemyObject']);
+const EACH_TYPES = new Set(['creature', 'enemy', 'ally', 'object', 'creatureObject', 'enemyObject', 'selfAlly']);
+const _carries = (actor, name) => !!actor?.effects?.some(e => e.active && e.name === name);
 const _isMinion = (actor) => actor?.system?.isMinion ?? actor?.system?.monster?.organization === 'minion';
 
 function _inAreaFilter(ability, token) {
@@ -744,13 +746,23 @@ export function checkAndRunBurstTargeting(dialog) {
   const view = chooseTargeting(ability);
   const distance = view?.distance ?? ability.system?.distance;
   const target = view?.target ?? ability.system?.target;
-  if (distance?.type !== 'burst' || target?.value != null || !EACH_TYPES.has(target?.type)) return null;
+  const filter = ability.getFlag?.('draw-steel-combat-tools', 'areaFilter') ?? {};
   const casterToken = _getCasterToken(ability);
-  const radius = getItemRange(ability, view?.distance);
-  if (!casterToken || !radius) return null;
-
-  const tokens = _getValidTargets(casterToken, target.type, radius, { excludeSelf: true, checkLOS: true })
-    .filter(t => _inAreaFilter(ability, t));
+  if (!casterToken) return null;
+  let tokens;
+  let label;
+  if (filter.carriers) {
+    tokens = canvas.tokens.placeables.filter(t => t.id !== casterToken.id && !t.document.hidden && _carries(t.actor, filter.carriers));
+    label = `every creature carrying ${filter.carriers}`;
+  } else {
+    if (distance?.type !== 'burst' || target?.value != null || !EACH_TYPES.has(target?.type)) return null;
+    const radius = getItemRange(ability, view?.distance);
+    if (!radius) return null;
+    tokens = _getValidTargets(casterToken, target.type, radius, { excludeSelf: target.type !== 'selfAlly', checkLOS: true })
+      .filter(t => _inAreaFilter(ability, t));
+    label = `${radius} burst, ${target.type}`;
+  }
+  if (filter.includeSelf && !tokens.some(t => t.id === casterToken.id)) tokens.unshift(casterToken);
   const previous = [...game.user.targets];
   setFoundryTargets(tokens);
   if (dialog.options?.context && ability.system?.power?.roll?.enabled) {
@@ -759,7 +771,7 @@ export function checkAndRunBurstTargeting(dialog) {
     }]));
   }
   _restoreTargetsAfterUse(ability.uuid, previous);
-  if (getSetting('debugMode')) console.log(`DSCT | burst targeting | ${ability.name}: ${radius} burst, ${target.type}, ${tokens.length} target(s)`);
+  if (getSetting('debugMode')) console.log(`DSCT | burst targeting | ${ability.name}: ${label}, ${tokens.length} target(s)`);
   return null;
 }
 
