@@ -1,0 +1,139 @@
+{
+ "folder": "DSCTfffDrvHero01",
+ "name": "Acolyte of Earth",
+ "type": "ability",
+ "_id": "DSCTdrv001acerth",
+ "img": "icons/magic/earth/construct-stone-long-arms.webp",
+ "system": {
+  "_dsid": "",
+  "story": "",
+  "keywords": [],
+  "type": "triggered",
+  "category": "",
+  "resource": null,
+  "trigger": "You use an ability that has the Earth and Magic keywords",
+  "distance": {
+   "primary": "",
+   "secondary": "",
+   "tertiary": "",
+   "type": "special"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "custom": "",
+   "value": null,
+   "type": "special"
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 0,
+    "before": true,
+    "description": "<p>your stability increases by 1 until the start of your next turn. This benefit is cumulative.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+   },
+   "dsctDrvApplie001": {
+    "_id": "dsctDrvApplie001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "+1 stability until the start of your next turn (cumulative)",
+     "display": "+1 Stability",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctAcolyteErth1",
+     "exclusiveSelf": false,
+     "end": "",
+     "properties": [
+      "stack"
+     ],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "_id": "dsctAcolyteErth1",
+   "name": "Acolyte of Earth",
+   "img": "icons/magic/earth/construct-stone-long-arms.webp",
+   "type": "base",
+   "disabled": false,
+   "transfer": false,
+   "description": "<p>Stability +1 until the start of your next turn. Each use adds another.</p>",
+   "statuses": [],
+   "tint": "#ffffff",
+   "showIcon": 1,
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "turnStart",
+    "expired": false
+   },
+   "start": null,
+   "origin": null,
+   "folder": null,
+   "system": {
+    "changes": [
+     {
+      "key": "system.combat.stability",
+      "type": "add",
+      "value": "1",
+      "phase": "initial",
+      "priority": null
+     }
+    ]
+   },
+   "changes": [],
+   "_key": "!items.effects!DSCTdrv001acerth.dsctAcolyteErth1"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "derivedLine": "acolyte-of-earth-you-use-an-ability-that-has-the-earth-and-magic-keywords"
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null
+ },
+ "_key": "!items!DSCTdrv001acerth"
+}
