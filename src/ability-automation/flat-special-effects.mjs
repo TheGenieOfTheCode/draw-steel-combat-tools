@@ -1863,8 +1863,35 @@ function _installTriggerDamagePrompt() {
   });
 }
 
+const BOND_EFFECT = 'Scene Partner';
+
+export function countBonds(actor) {
+  const seen = new Set();
+  const pool = [...game.actors, ...(canvas.scene?.tokens ?? []).map(t => t.actor)].filter(Boolean);
+  for (const a of pool) {
+    if (a === actor || a.uuid === actor?.uuid || seen.has(a.uuid)) continue;
+    if (a.effects.some(e => e.active && e.name === BOND_EFFECT)) seen.add(a.uuid);
+  }
+  return seen.size;
+}
+
+function _installFormulaValues() {
+  if (!game.modules.get('lib-wrapper')?.active) return;
+  libWrapper.register(MODULE_ID, 'CONFIG.Actor.documentClass.prototype.getRollData', function (wrapped, ...args) {
+    const data = wrapped(...args);
+    if (!data || typeof data !== 'object' || 'dsct' in data) return data;
+    const actor = this;
+    const values = {};
+    Object.defineProperty(values, 'bonds', { enumerable: true, get: () => countBonds(actor) });
+    Object.defineProperty(values, 'players', { enumerable: true, get: () => game.users.filter(u => !u.isGM).length });
+    data.dsct = values;
+    return data;
+  }, 'WRAPPER');
+}
+
 export function registerFlatEffects() {
   _registerPartials();
+  _installFormulaValues();
   _installTriggerDamagePrompt();
   _installFlatEffectChatHook();
   _installFlatTypeSelection();
