@@ -1915,6 +1915,7 @@ async function _injectFmButtons(message, root) {
               target: targetToken,
               source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null) ?? fmSource,
               contextMessageId: message.id,
+              origin: "powerRoll",
             });
           } catch {  }
 
@@ -2684,6 +2685,7 @@ async function _injectFmButtons(message, root) {
             target: targetToken ?? undefined,
             source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null) ?? sourceToken,
             contextMessageId: message.id,
+            origin: "powerRoll",
           });
         } catch { }
 

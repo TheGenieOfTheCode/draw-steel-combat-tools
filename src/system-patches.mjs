@@ -501,6 +501,7 @@ function _registerButtonHooks() {
             properties: props, verticalDistance: vertDist, fallReduction: st.fallReduction,
             source: (st.sourceTokenId ? canvas.tokens.get(st.sourceTokenId) : null) ?? undefined,
             contextMessageId: _msg.id,
+            origin: "powerRoll",
             keywords: fmChosen ?? (btn.dataset.dsctKeywords ?? '').split(',').filter(Boolean),
           });
         });

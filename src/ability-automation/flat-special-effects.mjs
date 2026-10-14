@@ -1332,6 +1332,7 @@ export function addFlatEffectListeners(section, item, message) {
         properties: new Set(applyBtn.dataset.properties ? applyBtn.dataset.properties.split(",").filter(Boolean) : []),
         source,
         contextMessageId: applyBtn.closest("li.chat-message")?.dataset?.messageId ?? null,
+        origin: "flat",
       });
     });
   });
