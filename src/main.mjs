@@ -13,7 +13,7 @@ import { registerPairTurnHooks } from './pair-turns.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
-import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities, swapEnhancedItem } from './setup-macros.mjs';
+import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities, swapEnhancedItem, removeEnhancedGrants } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.mjs';
 import { registerTargetDistance } from './ability-automation/target-distance.mjs';
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
@@ -48,6 +48,9 @@ import { registerSystemPatches } from './system-patches.mjs';
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
+import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
+import { registerStatusSuppression } from './conditions/suppress-status.mjs';
+import { registerWindedEffects } from './conditions/winded-effects.mjs';
 import {
   registerDstdDamagePills, openDamageEditor, foldDamagePills, damagePillDisplayList,
   damagePillText, damagePillEffect, damagePillType, damageTypeLabel, styleTypePill,
@@ -167,6 +170,10 @@ const api = {
     registerProvider: registerDamagePillProvider,
     setEnabled: setProviderPillEnabled,
   },
+  extraDamage: {
+    add: addExtraDamage,
+    setEnabled: setExtraDamageEnabled,
+  },
   hasHighGround:    (attacker, target) => _hasHighGround(attacker, target),
   flankingAlly,
   allowOutOfRange,
@@ -249,6 +256,9 @@ Hooks.once('init', () => {
   registerDstdCompat();
   registerDstdRollPills();
   registerDstdDamagePills();
+  registerDstdExtraDamage();
+  registerStatusSuppression();
+  registerWindedEffects();
   registerHealthEstimateCompat();
   registerResourcesUiCompat();
   registerAbilityHudCompat();
@@ -493,6 +503,11 @@ Hooks.on('createItem', async (item, _options, _userId) => {
   if (!game.settings.get('draw-steel-combat-tools', 'enhancedAutoAdd')) return;
   try { await swapEnhancedItem(item); }
   catch (err) { console.warn('DSCT | enhanced | could not swap an imported item:', err); }
+});
+
+Hooks.on('deleteItem', (item) => {
+  if (!isPrimaryGM() || item.pack) return;
+  removeEnhancedGrants(item).catch((err) => console.warn('DSCT | enhanced | could not remove granted items:', err));
 });
 
 Hooks.once('socketlib.ready', () => {

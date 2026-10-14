@@ -154,13 +154,21 @@ export function enhancedStamp(data) {
 
 export const enhancedKey = (type, dsid) => (dsid ? `${type}:${dsid}` : null);
 
+export const enhancedNameKey = (type, dsid, name) => (dsid ? `${type}:${dsid}:${String(name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}` : null);
+
+export const enhancedDocKey = (doc) => (doc?.flags?.[ENH_FLAG]?.enhancedByName
+  ? enhancedNameKey(doc.type, doc.system?._dsid, doc.name) : enhancedKey(doc?.type, doc?.system?._dsid));
+
+export const findEnhanced = (index, item) => index.get(enhancedNameKey(item.type, item.system?._dsid, item.name))
+  ?? index.get(enhancedKey(item.type, item.system?._dsid)) ?? null;
+
 let _docIndex = null;
 
 export async function enhancedDocIndex() {
   if (_docIndex) return _docIndex;
   const map = new Map();
   for (const doc of await enhancedDocuments()) {
-    const key = enhancedKey(doc.type, doc.system?._dsid);
+    const key = enhancedDocKey(doc);
     if (key) map.set(key, doc);
   }
   _docIndex = map;
@@ -306,11 +314,41 @@ const _addEffects = async (item, effects) => {
   if (effects.length) await item.createEmbeddedDocuments('ActiveEffect', effects, { keepId: true });
 };
 
+const GRANTED_BY = 'enhancedGrantedBy';
+
+export async function syncEnhancedGrants(item, doc) {
+  const actor = item?.parent;
+  const grants = doc?.flags?.[ENH_FLAG]?.enhancedGrants;
+  if (actor?.documentName !== 'Actor' || !Array.isArray(grants) || !grants.length) return;
+  const have = new Set(actor.items.filter(i => i.getFlag(ENH_FLAG, GRANTED_BY) === item.id).map(i => i.getFlag(ENH_FLAG, 'enhancedGrantSource')));
+  const add = [];
+  for (const uuid of grants) {
+    if (have.has(uuid)) continue;
+    const src = await fromUuid(uuid).catch(() => null);
+    if (!src) { console.warn(`DSCT | enhanced | ${doc.name} grants ${uuid}, which could not be found`); continue; }
+    const data = _stamped(src);
+    delete data._id;
+    foundry.utils.setProperty(data, `flags.${ENH_FLAG}.${GRANTED_BY}`, item.id);
+    foundry.utils.setProperty(data, `flags.${ENH_FLAG}.enhancedGrantSource`, uuid);
+    foundry.utils.setProperty(data, '_stats.compendiumSource', uuid);
+    add.push(data);
+  }
+  if (add.length) await actor.createEmbeddedDocuments('Item', add);
+}
+
+export async function removeEnhancedGrants(item) {
+  const actor = item?.parent;
+  if (actor?.documentName !== 'Actor') return;
+  const ids = actor.items.filter(i => i.getFlag(ENH_FLAG, GRANTED_BY) === item.id).map(i => i.id);
+  if (ids.length) await actor.deleteEmbeddedDocuments('Item', ids);
+}
+
 export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
   if (!item || !doc) return false;
   if (isDerivedTrigger(item) || item.getFlag(ENH_FLAG, 'enhancedLock')) return false;
   const effectsOnly = isEffectsOnly(doc);
   if (!allowSwap && !effectsOnly && !item.getFlag(ENH_FLAG, 'enhanced')) return false;
+  await syncEnhancedGrants(item, doc);
   const data = doc.toObject();
   const hash = enhancedStamp(data);
   if (item.getFlag(ENH_FLAG, 'enhancedHash') === hash) return false;
@@ -338,7 +376,7 @@ export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
 export const swapEnhancedItem = async (item) => {
   if (!item || item.pack || item.parent?.pack) return false;
   const index = await enhancedDocIndex();
-  const doc = index.get(enhancedKey(item.type, item.system?._dsid));
+  const doc = findEnhanced(index, item);
   if (!doc) return false;
 
   const owner = item.parent?.name ?? game.i18n.localize('DSCT.dialog.enhancedSwap.sidebar');
@@ -452,7 +490,7 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
   const index   = await enhancedDocIndex();
   const swapped = [];
 
-  const matches = (item) => index.get(enhancedKey(item.type, item.system?._dsid)) ?? null;
+  const matches = (item) => findEnhanced(index, item);
 
   const sidebarLabel = game.i18n.localize('DSCT.dialog.enhancedSwap.sidebar');
   const candidates = [];

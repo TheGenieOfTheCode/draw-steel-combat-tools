@@ -1,4 +1,4 @@
-import { ENHANCED_PACKS, enhancedKey } from './setup-macros.mjs';
+import { ENHANCED_PACKS, enhancedKey, enhancedNameKey, enhancedDocKey } from './setup-macros.mjs';
 
 const M = 'draw-steel-combat-tools';
 const LOCK = 'enhancedLock';
@@ -12,9 +12,9 @@ async function _loadIndex() {
   for (const id of ENHANCED_PACKS) {
     const pack = game.packs.get(id);
     if (!pack) continue;
-    const index = await pack.getIndex({ fields: ['system._dsid'] });
+    const index = await pack.getIndex({ fields: ['system._dsid', 'flags.draw-steel-combat-tools.enhancedByName'] });
     for (const e of index) {
-      const key = enhancedKey(e.type, e.system?._dsid);
+      const key = enhancedDocKey(e);
       if (key) _dsids.add(key);
     }
   }
@@ -41,7 +41,7 @@ export function enhancedState(item) {
   if (isEnhancedLocked(item)) return 'ignored';
   if (item.getFlag(M, 'enhanced')) return 'enhanced';
   const key = enhancedKey(item.type, item.system?._dsid);
-  if (key && _dsids?.has(key)) return 'available';
+  if (_dsids?.has(enhancedNameKey(item.type, item.system?._dsid, item.name)) || (key && _dsids?.has(key))) return 'available';
   if (hasDsctEffects(item)) return 'automated';
   return 'none';
 }

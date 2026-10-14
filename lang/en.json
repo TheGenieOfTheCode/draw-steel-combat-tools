@@ -1119,6 +1119,10 @@
           "label": "Temporary Stamina",
           "hint": "Grant temporary stamina instead of healing. Overrides any existing temporary stamina on the target."
         },
+        "tempStack": {
+          "label": "Adds to Its Own Temporary Stamina",
+          "hint": "When the target still has temporary stamina from this same ability, the new amount is added to it instead of replacing it."
+        },
         "Source": {
           "self": "Self",
           "target": "Target"
@@ -1157,6 +1161,11 @@
           "label": "Repeatable",
           "hint": "When enabled, the cleanse button stays active after use."
         },
+        "all": {
+          "label": "Every Match",
+          "hint": "Ends every matching effect at once instead of asking which one to end."
+        },
+        "removedAll": "Removed {n}",
         "autoLabel": "End one {effects} effect",
         "recipient": {
           "label": "Goes To",
@@ -1382,6 +1391,11 @@
         "tag": "Area",
         "tagTooltip": "Area damage. A minion takes no more than its own Stamina from it.",
         "cappedTooltip": "Capped at {cap}: area damage to a minion is capped at its Stamina."
+      },
+      "extraDamage": {
+        "apply": "{name}: {amount} {type}",
+        "applied": "{name}: applied {amount} {type}",
+        "untyped": "damage"
       },
       "damagePills": {
         "title": "Edit Damage",
@@ -1772,7 +1786,8 @@
         "sweepReverted": "Reverted on {count} targets."
       },
       "flatApplied": {
-        "noEffect": "DSCT | That applied effect is no longer on the ability, so nothing was applied."
+        "noEffect": "DSCT | That applied effect is no longer on the ability, so nothing was applied.",
+        "stackMax": "{actor} already has {name} {n} times, the most it can stack."
       },
       "startup": {
         "nothingToSay": "Everything Combat Tools recommends is already installed and enabled."

@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed } from '../helpers.mjs';
-import { triggerRollData, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks } from '../ability-automation/flat-special-effects.mjs';
+import { triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
@@ -1347,9 +1347,9 @@ async function _injectFmButtons(message, root) {
       .filter(e => e.type === type)
       .filter(e => !_chooseKeeps || _chooseKeeps(e))
     : [];
-  const flatDamageEffects   = _flatOfType('dsct.flatDamage');
+  const flatDamageEffects   = _flatOfType('dsct.flatDamage').filter(e => expendAllows(e, ability, message));
   const flatForcedEffects   = _flatOfType('dsct.flatForced');
-  const flatAppliedEffects  = _flatOfType('dsct.flatApplied');
+  const flatAppliedEffects  = _flatOfType('dsct.flatApplied').filter(e => levelAllows(e, ability, message));
   const flatResourceEffects = _flatOfType('dsct.flatResource');
   const flatHealEffects     = _flatOfType('dsct.flatHeal');
   const flatCleanseEffects  = _flatOfType('dsct.flatCleanse');
@@ -1561,7 +1561,8 @@ async function _injectFmButtons(message, root) {
       if (effect.flatDamage.displayText) { previewParts.push(effect.flatDamage.displayText); continue; }
       const chosenFlat = message.getFlag(M, 'flatDmgTypes')?.[effect.id] ?? null;
       const allTypes   = Array.from(effect.flatDamage.types);
-      const typeList   = chosenFlat && allTypes.includes(chosenFlat) ? [chosenFlat] : allTypes;
+      const trigType   = triggerDamageTypeFor(effect, message);
+      const typeList   = chosenFlat && allTypes.includes(chosenFlat) ? [chosenFlat] : allTypes.length ? allTypes : trigType ? [trigType] : [];
       const typeLabel = typeList.length
         ? game.i18n.getListFormatter({ type: 'disjunction' }).format(typeList.map(t => ds.CONFIG.damageTypes[t]?.label ?? t))
         : game.i18n.localize('DRAW_STEEL.DamageType.typeless');
@@ -2438,7 +2439,8 @@ async function _injectFmButtons(message, root) {
 
       const chosenFlat = message.getFlag(M, 'flatDmgTypes')?.[effect.id] ?? null;
       const allTypes   = Array.from(effect.flatDamage.types);
-      const typeList   = chosenFlat && allTypes.includes(chosenFlat) ? [chosenFlat] : allTypes;
+      const trigType   = triggerDamageTypeFor(effect, message);
+      const typeList   = chosenFlat && allTypes.includes(chosenFlat) ? [chosenFlat] : allTypes.length ? allTypes : trigType ? [trigType] : [];
       const immunities = Array.from(effect.flatDamage.ignoredImmunities);
       const damageType = typeList[0] ?? '';
       const typeLabel  = typeList.length
@@ -2905,7 +2907,7 @@ async function _injectFmButtons(message, root) {
         const rv = rvActor?.system.recoveries?.recoveryValue;
         amountStr = rv != null ? String(rv) : game.i18n.localize("DSCT.FlatEffect.Heal.rvPlaceholder");
       } else {
-        const rd = ability.actor?.getRollData?.() ?? {};
+        const rd = { ...(ability.actor?.getRollData?.() ?? {}), ...triggerRollData(message) };
         try { amountStr = ds.utils.simplifyRollFormula(amountFormula, rd); }
         catch { amountStr = amountFormula; }
       }
@@ -3006,7 +3008,7 @@ async function _injectFmButtons(message, root) {
           const rvA = recoveryValueSource === "target" ? targetActor : sourceActor;
           amount = rvA?.system.recoveries?.recoveryValue ?? 0;
         } else {
-          const rd = ability.actor?.getRollData?.() ?? {};
+          const rd = { ...(ability.actor?.getRollData?.() ?? {}), ...triggerRollData(message) };
           const roll = new Roll(amountFormula || "0", rd);
           await roll.evaluate();
           amount = Math.floor(roll.total);
@@ -3016,7 +3018,7 @@ async function _injectFmButtons(message, root) {
         let healedEntry;
         if (tempStamina) {
           healedEntry = targetActor.system.stamina?.temporary ?? 0;
-          await targetActor.update({ "system.stamina.temporary": amount });
+          await grantTempStamina(targetActor, amount, effect.flatHeal.tempStack ? ability.name : null);
         } else {
           await targetActor.modifyTokenAttribute("stamina", amount, true);
           healedEntry = (targetActor.system.stamina?.value ?? 0) - staminaBefore;
@@ -3307,6 +3309,19 @@ async function _injectFmButtons(message, root) {
 
         cleanseBtn.disabled = true;
 
+        if (effect.flatCleanse.all) {
+          const all = cleansable.map(ae => ae.toObject());
+          await targetActor.deleteEmbeddedDocuments('ActiveEffect', cleansable.map(ae => ae.id), cleansed());
+          const cur = message.getFlag(M, cleanseFlagKey) ?? { stack: [] };
+          await message.setFlag(M, cleanseFlagKey, { stack: [...(cur.stack ?? []), { all }] });
+          undoCleanseBtn.disabled = false;
+          cleanseRow.classList.add('is-applied');
+          const appliedName = game.i18n.format('DSCT.FlatEffect.Cleanse.removedAll', { n: all.length });
+          cleanseBtn.replaceChildren(_makeIcon('fa-solid fa-broom'), _makeSpan(appliedName));
+          cleanseBtn.dataset.tooltip = appliedName;
+          return;
+        }
+
         let chosen = cleansable.length === 1 ? cleansable[0] : null;
         if (!chosen) {
           let chosenId = null;
@@ -3383,7 +3398,7 @@ async function _injectFmButtons(message, root) {
         const newStack = freshStack.slice(0, -1);
 
         if (removedData) {
-          await targetActor.createEmbeddedDocuments('ActiveEffect', [removedData]);
+          await targetActor.createEmbeddedDocuments('ActiveEffect', Array.isArray(removedData.all) ? removedData.all : [removedData]);
         }
 
         await message.setFlag(M, cleanseFlagKey, { stack: newStack });

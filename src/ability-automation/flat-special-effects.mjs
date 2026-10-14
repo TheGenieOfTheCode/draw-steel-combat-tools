@@ -120,6 +120,7 @@ function _registerPartials() {
       <p class="hint">{{localize "DSCT.FlatEffect.Cleanse.statusFilter.hint"}}</p>
     </div>
     {{formGroup ctx.repeatable.field value=ctx.repeatable.src name="flatCleanse.repeatable" localize=true}}
+    {{formGroup ctx.all.field value=ctx.all.src name="flatCleanse.all" localize=true}}
     {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatCleanse.spend.enabled" localize=true}}
     <div data-dsct-flat-spend-cost="flatCleanse" {{#unless ctx.spend.enabled.src}}hidden{{/unless}}>
       {{formGroup ctx.spend.value.field value=ctx.spend.value.src name="flatCleanse.spend.value" localize=true}}
@@ -142,6 +143,7 @@ function _registerPartials() {
       {{formGroup ctx.recoveryValueSource.field value=ctx.recoveryValueSource.src name="flatHeal.recoveryValueSource" options=ctx.sourceOptions localize=true}}
     </div>
     {{formGroup ctx.tempStamina.field value=ctx.tempStamina.src name="flatHeal.tempStamina" localize=true}}
+    {{formGroup ctx.tempStack.field value=ctx.tempStack.src name="flatHeal.tempStack" localize=true}}
     {{formGroup ctx.repeatable.field value=ctx.repeatable.src name="flatHeal.repeatable" localize=true}}
     {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatHeal.spend.enabled" localize=true}}
     <div data-dsct-flat-spend-cost="flatHeal" {{#unless ctx.spend.enabled.src}}hidden{{/unless}}>
@@ -454,6 +456,7 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
         amountFormula:       new ds.data.fields.FormulaField({ initial: "0",                           label: "DSCT.FlatEffect.Heal.amountFormula.label" }),
         recoveryValueSource: new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoveryValueSource.label" }),
         tempStamina:         new BooleanField({ initial: () => _flatDefault('flatDefaultHealTempStamina', false), label: "DSCT.FlatEffect.Heal.tempStamina.label",             hint: "DSCT.FlatEffect.Heal.tempStamina.hint" }),
+        tempStack:           new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.tempStack.label",              hint: "DSCT.FlatEffect.Heal.tempStack.hint" }),
         repeatable:          new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.repeatable.label",              hint: "DSCT.FlatEffect.Heal.repeatable.hint" }),
         recipient:           new StringField({ required: false, blank: false, initial: "target", label: "DSCT.FlatEffect.Heal.recipient.label", hint: "DSCT.FlatEffect.Heal.recipient.hint" }),
         spend: new SchemaField({
@@ -493,6 +496,7 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
       amountFormula:       { field: this.schema.getField("flatHeal.amountFormula"),       src: src.amountFormula },
       recoveryValueSource: { field: this.schema.getField("flatHeal.recoveryValueSource"), src: src.recoveryValueSource },
       tempStamina:         { field: this.schema.getField("flatHeal.tempStamina"),         src: src.tempStamina },
+      tempStack:           { field: this.schema.getField("flatHeal.tempStack"),           src: src.tempStack ?? false },
       repeatable:          { field: this.schema.getField("flatHeal.repeatable"),          src: src.repeatable },
       recipient:           { field: this.schema.getField("flatHeal.recipient"),           src: src.recipient ?? "target" },
       recipientOptions:    ["target", "self"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Resource.Recipient.${value}`) })),
@@ -519,6 +523,7 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
         expiryFilter: new SetField(_setField(), { initial: ["turnEnd", "save"], label: "DSCT.FlatEffect.Cleanse.expiryFilter.label" }),
         statusFilter: new SetField(_setField(), { initial: [],                  label: "DSCT.FlatEffect.Cleanse.statusFilter.label" }),
         repeatable:   new BooleanField({ initial: () => _flatDefault('flatDefaultCleanseRepeatable', false), label: "DSCT.FlatEffect.Cleanse.repeatable.label", hint: "DSCT.FlatEffect.Cleanse.repeatable.hint" }),
+        all:          new BooleanField({ initial: false, label: "DSCT.FlatEffect.Cleanse.all.label", hint: "DSCT.FlatEffect.Cleanse.all.hint" }),
         recipient:    new StringField({ required: false, blank: false, initial: "target", label: "DSCT.FlatEffect.Cleanse.recipient.label", hint: "DSCT.FlatEffect.Cleanse.recipient.hint" }),
         spend: new SchemaField({
           enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
@@ -556,6 +561,7 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
       displayText:    { field: this.schema.getField("flatCleanse.displayText"), src: src.displayText },
       display:        { field: this.schema.getField("flatCleanse.display"),     src: src.display },
       repeatable:     { field: this.schema.getField("flatCleanse.repeatable"),  src: src.repeatable },
+      all:            { field: this.schema.getField("flatCleanse.all"),         src: src.all ?? false },
       recipient:      { field: this.schema.getField("flatCleanse.recipient"),   src: src.recipient ?? "target" },
       recipientOptions: ["target", "self"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Resource.Recipient.${value}`) })),
       expirySelected,
@@ -752,8 +758,50 @@ export async function askTriggerDamage(item) {
 }
 
 export function triggerRollData(message) {
+  const out = {};
   const n = Number(message?.getFlag(MODULE_ID, 'triggerDamage'));
-  return Number.isFinite(n) ? { triggerDamage: n } : {};
+  if (Number.isFinite(n)) out.triggerDamage = n;
+  const level = Number(message?.getFlag(MODULE_ID, 'triggerLevel'));
+  if (Number.isFinite(level)) out.triggerLevel = level;
+  return out;
+}
+
+const _levelOf = (actor) => Number(actor?.system?.level ?? actor?.system?.details?.level ?? 0) || 0;
+
+function _otherTargetActor(message, owner) {
+  const uuids = (message?.getFlag?.('draw-steel-target-damage', 'state')?.targets ?? []).map(t => t.tokenUuid).filter(Boolean);
+  const actors = uuids.length ? uuids.map(u => fromUuidSync(u)?.actor) : [...game.user.targets].map(t => t.actor);
+  return actors.find(a => a && a !== owner) ?? null;
+}
+
+export function expendAllows(effect, ability, message) {
+  const need = ability?.getFlag?.(MODULE_ID, 'whenExpended')?.[effect?.id];
+  return !need || String(message?.getFlag?.(MODULE_ID, 'triggerExpended') ?? '').toLowerCase() === String(need).toLowerCase();
+}
+
+export function levelAllows(effect, ability, message) {
+  const cond = ability?.effects?.get?.(effect?.flatApplied?.statusId)?.getFlag?.(MODULE_ID, 'levelVs');
+  if (!cond?.op) return true;
+  const target = _otherTargetActor(message, ability.actor);
+  if (!target) return true;
+  const mine = _levelOf(ability.actor);
+  const theirs = _levelOf(target);
+  if (cond.op === '>') return theirs > mine || (!!cond.orEqualFrom && mine >= cond.orEqualFrom && theirs === mine);
+  if (cond.op === '<=') return theirs <= mine;
+  return true;
+}
+
+export async function grantTempStamina(actor, amount, stackKey = null) {
+  const before = actor.system.stamina?.temporary ?? 0;
+  const held = actor.getFlag(MODULE_ID, 'tempFrom');
+  const next = stackKey && held?.key === stackKey && held.total === before ? before + amount : amount;
+  await actor.update({ 'system.stamina.temporary': next, [`flags.${MODULE_ID}.tempFrom`]: stackKey ? { key: stackKey, total: next } : null });
+  return before;
+}
+
+export function triggerDamageTypeFor(effect, message) {
+  if (effect?.flatDamage?.types?.size || !/@triggerDamage\b/.test(effect?.flatDamage?.value ?? '')) return null;
+  return message?.getFlag(MODULE_ID, 'triggerDamageType') || null;
 }
 
 function _buildDamageButton(effect, item, chosenType = null, message = null) {
@@ -761,7 +809,8 @@ function _buildDamageButton(effect, item, chosenType = null, message = null) {
   const rollData = { ...(item.actor?.getRollData?.() ?? {}), ...triggerRollData(message) };
   const simplified = rollData ? ds.utils.simplifyRollFormula(value, rollData) : value;
   const allTypes = Array.from(types);
-  const typeList = chosenType && allTypes.includes(chosenType) ? [chosenType] : allTypes;
+  const trigType = triggerDamageTypeFor(effect, message);
+  const typeList = chosenType && allTypes.includes(chosenType) ? [chosenType] : allTypes.length ? allTypes : trigType ? [trigType] : [];
   const typeLabel = typeList.length
     ? game.i18n.getListFormatter({ type: "disjunction" }).format(typeList.map(t => ds.CONFIG.damageTypes[t]?.label ?? t))
     : game.i18n.localize("DRAW_STEEL.DamageType.typeless");
@@ -892,6 +941,7 @@ function _buildHealButton(effect, item) {
   btn.dataset.amountFormula       = amountFormula;
   btn.dataset.recoveryValueSource = recoveryValueSource;
   btn.dataset.tempStamina         = String(tempStamina);
+  btn.dataset.tempStack           = String(!!effect.flatHeal.tempStack);
   btn.dataset.repeatable          = String(repeatable);
   btn.dataset.recipient           = effect.flatHeal.recipient ?? "target";
   btn.dataset.actorUuid           = sourceActor?.uuid ?? "";
@@ -1162,6 +1212,7 @@ function _buildCleanseButton(effect, item) {
   btn.dataset.statusFilter = [...statusFilter].join(",");
   btn.dataset.repeatable   = String(repeatable);
   btn.dataset.recipient    = effect.flatCleanse.recipient ?? "target";
+  btn.dataset.all          = String(!!effect.flatCleanse.all);
   btn.dataset.actorUuid    = item.actor?.uuid ?? "";
   btn.dataset.spendEnabled = String(spend?.enabled ?? false);
   btn.dataset.spendValue   = String(spend?.value ?? 1);
@@ -1248,6 +1299,16 @@ export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenI
     return false;
   }
   if (!stack && actor.effects.some(e => e.getFlag(MODULE_ID, FLAT_APPLIED_FROM) === statusId)) return true;
+  const stackMax = source.getFlag?.(MODULE_ID, 'stackMax');
+  if (stack && stackMax != null) {
+    let max = Infinity;
+    try { max = Math.floor(new Roll(String(stackMax), actor.getRollData?.() ?? {}).evaluateSync({ strict: false }).total); } catch {}
+    const held = actor.effects.filter(e => e.getFlag(MODULE_ID, FLAT_APPLIED_FROM) === statusId).length;
+    if (held >= max) {
+      ui.notifications.info(game.i18n.format("DSCT.notice.flatApplied.stackMax", { name: source.name, actor: actor.name, n: Math.max(0, max) }));
+      return true;
+    }
+  }
 
   const data = source.toObject();
   delete data._id;
@@ -1419,14 +1480,14 @@ export function addFlatEffectListeners(section, item, message) {
           const rvActor = recoveryValueSource === "target" ? targetActor : sourceActor;
           amount = rvActor?.system.recoveries?.recoveryValue ?? 0;
         } else {
-          const rd = sourceActor?.getRollData?.() ?? {};
+          const rd = { ...(sourceActor?.getRollData?.() ?? {}), ...triggerRollData(message) };
           const roll = new Roll(amountFormula || "0", rd);
           await roll.evaluate();
           amount = Math.floor(roll.total);
         }
 
         if (tempStamina) {
-          await targetActor.update({ "system.stamina.temporary": amount });
+          await grantTempStamina(targetActor, amount, btn.dataset.tempStack === "true" ? item.name : null);
         } else {
           await targetActor.modifyTokenAttribute("stamina", amount, true);
         }
@@ -1502,6 +1563,12 @@ export function addFlatEffectListeners(section, item, message) {
           continue;
         }
 
+        if (btn.dataset.all === "true") {
+          await actor.deleteEmbeddedDocuments("ActiveEffect", cleansable.map(e => e.id), cleansed());
+          anyApplied = true;
+          continue;
+        }
+
         let chosen = cleansable.length === 1 ? cleansable[0] : null;
         if (!chosen) {
           let chosenId = null;
@@ -1541,9 +1608,9 @@ export function addFlatEffectListeners(section, item, message) {
 
 export function buildFlatEffectButtons(flatEffects, item, message) {
   const chosenTypes = message?.getFlag(MODULE_ID, "flatDmgTypes") ?? {};
-  const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage") .map(e => _buildDamageButton(e, item, chosenTypes[e.id] ?? null, message));
+  const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage" && expendAllows(e, item, message)).map(e => _buildDamageButton(e, item, chosenTypes[e.id] ?? null, message));
   const fmRows      = flatEffects.filter(e => e.type === "dsct.flatForced") .map(e => _buildForcedRow(e, item));
-  const condButtons = flatEffects.filter(e => e.type === "dsct.flatApplied").map(e => _buildAppliedButton(e, item)).filter(Boolean);
+  const condButtons = flatEffects.filter(e => e.type === "dsct.flatApplied" && levelAllows(e, item, message)).map(e => _buildAppliedButton(e, item)).filter(Boolean);
   const healButtons = flatEffects.filter(e => e.type === "dsct.flatHeal").map(e => {
     const btn = _buildHealButton(e, item);
     if (!e.flatHeal.repeatable && message && _nonDstdHealUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
