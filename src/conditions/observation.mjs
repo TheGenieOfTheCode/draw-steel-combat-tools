@@ -113,30 +113,55 @@ function _sampleAlongPath(target, options) {
   return true;
 }
 
-function _sampleAgainst(target) {
-  if (!target?.actor || !game.combat) return;
-  const disposition = target.document.disposition;
-
-  for (const observer of canvas.tokens.placeables) {
-    if (observer.id === target.id || !observer.actor) continue;
-    if (observer.document.disposition === disposition) continue;
-
-    const key = pairKey(observer.id, target.id);
-    const clear = seesClearly(observer, target);
-    if (clear) {
-      _lastSeen.set(key, { at: gridOf(target), round: game.combat?.round ?? null, clear: true });
-    } else {
-      const prior = _lastSeen.get(key);
-      if (prior?.clear) _lastSeen.set(key, { ...prior, clear: false });
-    }
+function _record(observer, target) {
+  const key = pairKey(observer.id, target.id);
+  if (seesClearly(observer, target)) {
+    _lastSeen.set(key, { at: gridOf(target), round: game.combat?.round ?? null, clear: true });
+  } else {
+    const prior = _lastSeen.get(key);
+    if (prior?.clear) _lastSeen.set(key, { ...prior, clear: false });
   }
 }
 
-function _sampleAll(skipId = null) {
-  if (!game.combat) return;
-  for (const token of canvas.tokens.placeables) {
-    if (token.actor && token.id !== skipId) _sampleAgainst(token);
+function _sampleAgainst(target) {
+  if (!target?.actor || !game.combat) return;
+  const disposition = target.document.disposition;
+  for (const observer of canvas.tokens.placeables) {
+    if (observer.id === target.id || !observer.actor) continue;
+    if (observer.document.disposition === disposition) continue;
+    _record(observer, target);
   }
+}
+
+function _sampleAsObserver(observer) {
+  if (!observer?.actor || !game.combat) return;
+  const disposition = observer.document.disposition;
+  for (const target of canvas.tokens.placeables) {
+    if (target.id === observer.id || !target.actor) continue;
+    if (target.document.disposition === disposition) continue;
+    _record(observer, target);
+  }
+}
+
+const _idle = globalThis.requestIdleCallback?.bind(globalThis)
+  ?? ((fn) => setTimeout(() => fn({ didTimeout: true, timeRemaining: () => 0 }), 50));
+let _fullQueue = [];
+let _idleHandle = null;
+
+function _drainFullPass(deadline) {
+  _idleHandle = null;
+  if (!game.combat) { _fullQueue = []; return; }
+  const stopAt = performance.now() + 8;
+  while (_fullQueue.length && (deadline.timeRemaining() > 2 || (deadline.didTimeout && performance.now() < stopAt))) {
+    _sampleAgainst(canvas.tokens.get(_fullQueue.shift()));
+  }
+  if (_fullQueue.length) _idleHandle = _idle(_drainFullPass, { timeout: 1500 });
+}
+
+function _scheduleFullPass() {
+  if (!game.combat || !canvas?.tokens) return;
+  _fullQueue = canvas.tokens.placeables.filter((t) => t.actor).map((t) => t.id);
+  if (_idleHandle == null) _idleHandle = _idle(_drainFullPass, { timeout: 1500 });
 }
 
 const _cellKey = (gx, gy) => `${gx},${gy}`;
@@ -248,12 +273,14 @@ export function registerObservationMemory() {
 
     const moved = doc.object;
     const walked = moved ? _sampleAlongPath(moved, options) : false;
-    _sampleAll(walked ? moved.id : null);
+    if (moved && !walked) _sampleAgainst(moved);
+    if (moved) _sampleAsObserver(moved);
+    _scheduleFullPass();
   });
 
   for (const hook of ['createActiveEffect', 'deleteActiveEffect']) {
     Hooks.on(hook, () => {
-      if (isPrimaryGM()) _sampleAll();
+      if (isPrimaryGM()) _scheduleFullPass();
     });
   }
 
