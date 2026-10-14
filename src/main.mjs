@@ -52,6 +52,7 @@ import {
   registerDstdDamagePills, openDamageEditor, foldDamagePills, damagePillDisplayList,
   damagePillText, damagePillEffect, damagePillType, damageTypeLabel, styleTypePill,
   registerDamagePillProvider,
+  setProviderPillEnabled,
 } from './compat/dstd-damage-pills.mjs';
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerResourcesUiCompat } from './compat/resources-ui-compat.mjs';
@@ -164,6 +165,7 @@ const api = {
     typeLabel: damageTypeLabel,
     styleTypePill,
     registerProvider: registerDamagePillProvider,
+    setEnabled: setProviderPillEnabled,
   },
   hasHighGround:    (attacker, target) => _hasHighGround(attacker, target),
   flankingAlly,

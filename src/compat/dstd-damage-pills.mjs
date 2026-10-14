@@ -721,6 +721,31 @@ export function registerDamagePillProvider(fn) {
   _providers.push(fn);
 }
 
+export async function setProviderPillEnabled(message, { targetUuid = null, label, enabled = true }) {
+  if (!message || !label) return 0;
+  const overrides = foundry.utils.getProperty(message.flags, `${DSTD}.state.damageOverrides`) ?? {};
+  const apps = foundry.utils.getProperty(message.flags, `${DSTD}.state.applications`) ?? {};
+  const FR = foundry.data?.operators?.ForcedReplacement;
+  const payload = { [`flags.${DSTD}.state.updatedAt`]: Date.now() };
+  let changed = 0;
+  for (const [id, ov] of Object.entries(overrides)) {
+    if (apps[id]?.status === 'applied' || !Array.isArray(ov?.dstPills)) continue;
+    let hit = false;
+    const pills = ov.dstPills.map((p) => {
+      if (p.label !== label || (p.dstTarget ?? null) !== (targetUuid ?? null) || (p.enabled !== false) === enabled) return p;
+      hit = true;
+      const { enabled: _, ...rest } = p;
+      return enabled ? rest : { ...rest, enabled: false };
+    });
+    if (!hit) continue;
+    changed++;
+    const data = _pillOpData(ov, pills);
+    payload[`flags.${DSTD}.state.damageOverrides.${id}`] = FR ? new FR(data) : data;
+  }
+  if (changed) await safeUpdate(message, payload);
+  return changed;
+}
+
 function _pillRowFor(btn) {
   const host = btn.closest('[class*="action-row"]');
   if (!host?.parentElement) return null;
