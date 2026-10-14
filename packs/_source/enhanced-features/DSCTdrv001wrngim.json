@@ -1,0 +1,138 @@
+{
+ "folder": "DSCTfffDrvHero01",
+ "name": "Wrongly Imprisoned",
+ "type": "ability",
+ "_id": "DSCTdrv001wrngim",
+ "img": "icons/magic/control/debuff-chains-shackle-movement-red.webp",
+ "system": {
+  "_dsid": "",
+  "story": "",
+  "keywords": [],
+  "type": "triggered",
+  "category": "",
+  "resource": null,
+  "trigger": "You are winded",
+  "distance": {
+   "primary": "",
+   "secondary": "",
+   "tertiary": "",
+   "type": "self"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "custom": "",
+   "type": "self",
+   "value": null
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 0,
+    "before": true,
+    "description": "<p>you are stricken with a hacking cough that makes it impossible for you to hide or sneak.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+   },
+   "dsctDrvApplie001": {
+    "_id": "dsctDrvApplie001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "You can't hide or sneak while you are winded",
+     "display": "Hacking Cough",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctHackCough001",
+     "exclusiveSelf": true,
+     "end": "",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "_id": "dsctHackCough001",
+   "name": "Hacking Cough",
+   "img": "icons/magic/control/debuff-chains-shackle-movement-red.webp",
+   "type": "base",
+   "disabled": false,
+   "transfer": false,
+   "description": "<p>You can't hide or sneak. Ends when you are no longer winded.</p>",
+   "statuses": [],
+   "tint": "#ffffff",
+   "showIcon": 1,
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true,
+     "endsWhenNotWinded": true
+    }
+   },
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "start": null,
+   "origin": null,
+   "folder": null,
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.stealth.cannotHide",
+      "type": "override",
+      "value": "true",
+      "phase": "initial",
+      "priority": null
+     }
+    ]
+   },
+   "changes": [],
+   "_key": "!items.effects!DSCTdrv001wrngim.dsctHackCough001"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "derivedLine": "wrongly-imprisoned-you-are-winded"
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null
+ },
+ "_key": "!items!DSCTdrv001wrngim"
+}

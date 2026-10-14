@@ -1,0 +1,198 @@
+{
+ "folder": "DSCTfldTreasure1",
+ "name": "Thief of Joy",
+ "type": "ability",
+ "_id": "DSCTenhThiefJoy1",
+ "img": "icons/equipment/neck/collar-rounded-gold-pink.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "thief-of-joy-maneuver",
+  "story": "",
+  "keywords": [],
+  "type": "maneuver",
+  "category": "",
+  "resource": null,
+  "trigger": "",
+  "distance": {
+   "type": "special",
+   "primary": "",
+   "secondary": "",
+   "tertiary": ""
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "creature",
+   "value": 1,
+   "custom": ""
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "name": "",
+    "img": null,
+    "sort": 0,
+    "before": true,
+    "description": "<p>Choose a creature in your line of effect and learn their level. If their level is higher than yours, the torque grants you envy. If their level is equal to or lower than yours, the torque grants you disdain. From 5th level, a creature of your own level lets you choose. You can't hold more than one instance of either until 9th level, and you lose both at the end of the encounter.</p>"
+   },
+   "dsctDrvApplie001": {
+    "_id": "dsctDrvApplie001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "The torque grants you envy",
+     "display": "Envy",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctTJEnvy000001",
+     "exclusiveSelf": true,
+     "end": "",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
+   },
+   "dsctDrvApplie002": {
+    "_id": "dsctDrvApplie002",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 300000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "The torque grants you disdain",
+     "display": "Disdain",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctTJDisdain001",
+     "exclusiveSelf": true,
+     "end": "",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "_id": "dsctTJEnvy000001",
+   "name": "Envy",
+   "img": "icons/magic/control/hypnosis-mesmerism-eye.webp",
+   "type": "base",
+   "disabled": false,
+   "transfer": false,
+   "description": "<p>Expend it with Thief of Joy when a creature within 10 squares deals damage to another creature: you deal damage equal to the triggering damage to a creature adjacent to you.</p>",
+   "statuses": [],
+   "tint": "#ffffff",
+   "showIcon": 1,
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true,
+     "levelVs": {
+      "op": ">",
+      "orEqualFrom": 5
+     }
+    }
+   },
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "combatEnd",
+    "expired": false
+   },
+   "start": null,
+   "origin": null,
+   "folder": null,
+   "system": {
+    "changes": []
+   },
+   "changes": [],
+   "_key": "!items.effects!DSCTenhThiefJoy1.dsctTJEnvy000001"
+  },
+  {
+   "_id": "dsctTJDisdain001",
+   "name": "Disdain",
+   "img": "icons/magic/control/debuff-energy-hold-levitate-pink.webp",
+   "type": "base",
+   "disabled": false,
+   "transfer": false,
+   "description": "<p>Expend it with Thief of Joy when a creature within 10 squares deals damage to another creature: the triggering damage is halved.</p>",
+   "statuses": [],
+   "tint": "#ffffff",
+   "showIcon": 1,
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true,
+     "levelVs": {
+      "op": "<="
+     }
+    }
+   },
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "combatEnd",
+    "expired": false
+   },
+   "start": null,
+   "origin": null,
+   "folder": null,
+   "system": {
+    "changes": []
+   },
+   "changes": [],
+   "_key": "!items.effects!DSCTenhThiefJoy1.dsctTJDisdain001"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null
+ },
+ "_key": "!items!DSCTenhThiefJoy1"
+}

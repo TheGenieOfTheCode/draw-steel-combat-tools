@@ -1,0 +1,41 @@
+{
+ "folder": "DSCTfffDrvFeat01",
+ "name": "Thief of Joy",
+ "type": "treasure",
+ "_id": "DSCTdrvF01thfjoy",
+ "img": "icons/equipment/neck/collar-rounded-gold-pink.webp",
+ "system": {
+  "description": {
+   "value": "<p>Grants the Thief of Joy maneuver.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds the torque's maneuver to the wearer's sheet and leaves the torque's text alone.</em></p></section>",
+   "director": ""
+  },
+  "_dsid": "treasure"
+ },
+ "effects": [],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "enhancedEffectsOnly": true,
+   "enhancedByName": true,
+   "enhancedGrants": [
+    "Compendium.draw-steel-combat-tools.enhanced-abilities.Item.DSCTenhThiefJoy1"
+   ]
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null
+ },
+ "_key": "!items!DSCTdrvF01thfjoy"
+}
