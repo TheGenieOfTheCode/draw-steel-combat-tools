@@ -55,6 +55,12 @@ export const getSetting = (key) => {
   return _read(key);
 };
 
+export const effectStartFor = (actor) => {
+  const start = CONFIG.ActiveEffect.documentClass.getEffectStart();
+  start.combatant = game.combat?.getCombatantsByActor(actor)?.[0]?.id ?? start.combatant ?? null;
+  return start;
+};
+
 const getSocket = () => game.modules.get('draw-steel-combat-tools').api.socket;
 
 export const safeTakeDamage = async (actor, amount, options = {}) => {

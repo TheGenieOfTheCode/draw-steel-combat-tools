@@ -1,4 +1,5 @@
 import { isPrimaryGM } from "../ctlib.mjs";
+import { effectStartFor } from "../helpers.mjs";
 const M = 'draw-steel-combat-tools';
 const L = 'DSCT'; 
 const { RegionBehaviorType } = foundry.data.regionBehaviors;
@@ -47,7 +48,7 @@ async function _addEffect(actor, uuid, origin) {
   if (existing) {
     return existing.update({
       disabled: false,
-      start: ActiveEffect.implementation.getEffectStart(),
+      start: effectStartFor(actor),
       'duration.expired': false,
     });
   }
@@ -56,13 +57,14 @@ async function _addEffect(actor, uuid, origin) {
     disabled: false,
     transfer: false,
     origin,
+    start: effectStartFor(actor),
   }, { parent: actor });
 }
 
 async function _resetDuration(actor, uuid) {
   const existing = await _resolveEffect(actor, uuid);
   if (existing) return existing.update({
-    start: ActiveEffect.implementation.getEffectStart(),
+    start: effectStartFor(actor),
     'duration.expired': false,
   });
 }
@@ -71,7 +73,7 @@ async function _enableEffect(actor, uuid) {
   const existing = await _resolveEffect(actor, uuid);
   if (existing) return existing.update({
     disabled: false,
-    start: ActiveEffect.implementation.getEffectStart(),
+    start: effectStartFor(actor),
     'duration.expired': false,
   });
 }
