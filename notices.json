@@ -15,7 +15,7 @@
     {
       "id": "draw-steel-battle-log",
       "title": "Draw Steel: Battle Log",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "url": "https://github.com/TheGenieOfTheCode/draw-steel-battle-log/releases/latest",
       "reason": "[Combat Tools] Draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat cards match the dark theme."
     },
