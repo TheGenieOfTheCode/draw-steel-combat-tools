@@ -68,6 +68,7 @@ import { registerStealthTraits, stealthTraits } from './conditions/stealth-trait
 import { registerLineOfEffectFlags, registerCoverImmunity } from './conditions/line-of-effect.mjs';
 import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
 import { registerEnhancedBadge } from './enhanced-badge.mjs';
+import { registerEnhancedRedirects, enhancedRedirects } from './enhanced-redirects.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
 import { handleObservationRequest } from './conditions/observation-picker.mjs';
 import { registerLowCover } from './conditions/low-cover.mjs';
@@ -178,6 +179,7 @@ const api = {
   flankingAlly,
   allowOutOfRange,
   burstTargetsAround,
+  enhancedRedirects,
   rollDialog: {
     addPill: addExternalRollPill,
     applyTierMods,
@@ -222,6 +224,7 @@ Hooks.once('init', () => {
   registerCoverImmunity();
   registerEffectFlagPicker();
   registerEnhancedBadge();
+  registerEnhancedRedirects();
   if (STEALTH_WORKFLOW_READY) {
     registerStealthPath();
     registerSearch();
