@@ -229,7 +229,7 @@ const _syncEffects = async (item, effects) => {
   if (effects.length) await item.createEmbeddedDocuments('ActiveEffect', effects, { keepId: true });
 };
 
-const isDerivedTrigger = (item) => !!item?.getFlag?.('draw-steel-triggers', 'derived');
+const isDerivedTrigger = (item) => !!item?.flags?.['draw-steel-triggers']?.derived;
 
 export const isSwapCandidate = (item) =>
   !!item && !isDerivedTrigger(item) && !item.getFlag(ENH_FLAG, 'enhancedLock') && !item.getFlag(ENH_FLAG, 'enhanced');
