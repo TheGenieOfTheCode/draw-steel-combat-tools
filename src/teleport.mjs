@@ -456,6 +456,7 @@ export const executeTeleswap = async (tokenA, tokenB, maxDist, animate, colorHex
       }
     }
   });
+  return true;
 };
 
 export async function runTeleport(macroArgs = []) {

@@ -711,7 +711,9 @@ export async function runTeleportEffect(tv, item, { sourceActor = null, partnerT
     if (!userToken) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.sourceNotFound")); return; }
     const partner = await pickOther(userToken);
     if (!partner) return;
-    if (mode === "swap") await executeTeleswap(userToken, partner, dist, animate, color, duration);
+    if (mode === "swap") {
+      if (await executeTeleswap(userToken, partner, dist, animate, color, duration)) Hooks.callAll("dsct.teleswapped", { item, actor, token: userToken, partner });
+    }
     else await executeTeleport(userToken, dist, animate, color, duration, { adjacentTo: partner });
     return;
   }
