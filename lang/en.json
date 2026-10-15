@@ -974,7 +974,7 @@
       "setupPartial": "The party is missing {names}.",
       "followerOf": "{name}, follower of {owner}",
       "setupFill": "Add the missing members",
-      "setupCreate": "Create the party and add every player character",
+      "setupCreate": "Create the Party",
       "setupDone": "Added {count} to {name}.",
       "setupNoHeroes": "No player has a character assigned in their User Config, so there is nobody to add.",
       "ignoreDeadName": "Ignore Dead Languages",
