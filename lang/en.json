@@ -1067,9 +1067,22 @@
         },
         "swapLabel": "Teleswap {distance}",
         "adjacentLabel": "Teleport {distance} (Adjacent)",
+        "intoSpaceLabel": "Teleport Into Space",
         "mode": {
           "label": "Mode",
-          "hint": "Teleport moves the token to a free square in range. Teleswap swaps places with the targeted token. Adjacent teleports next to the targeted token."
+          "hint": "Teleport moves the token to a free square in range. Teleswap swaps places with the targeted token. Adjacent teleports next to it. Into Space moves a creature you pick into its space."
+        },
+        "partnerKeywords": {
+          "label": "Partner Keywords",
+          "hint": "Only creatures with one of these monster keywords can be picked, separated by commas, like voiceless talker."
+        },
+        "partnerMinion": {
+          "label": "Partner Can Be"
+        },
+        "PartnerMinion": {
+          "any": "Any Creature",
+          "minion": "Minions Only",
+          "nonMinion": "Non-Minions Only"
         },
         "distance": {
           "label": "Distance"
@@ -1086,7 +1099,8 @@
         "Mode": {
           "normal": "Teleport",
           "swap": "Teleswap",
-          "adjacent": "Teleport Adjacent to Target"
+          "adjacent": "Teleport Adjacent to Target",
+          "intoSpace": "Teleport Into Target's Space"
         }
       },
       "Heal": {
@@ -1566,6 +1580,10 @@
         "body": "<p>This operation is about to add <strong>{count} items</strong> to every actor sheet, which is more than expected (max {max}). Something may have gone wrong.</p><p>Proceed anyway?</p>"
       }
     },
+    "expiryReminder": {
+      "name": "Expiry Reminder [{name}]",
+      "description": "Tracks {name} on {target}. When this reminder ends, so does {name}. Disable it to switch {name} off, and delete either one to remove both."
+    },
     "notice": {
       "notActive": "Draw Steel: Combat Tools not active.",
       "noTargets": "No targets selected. Target tokens before applying.",
@@ -1721,6 +1739,7 @@
         "chooseDestination": "Choose where {name} teleports. Right-Click to cancel.",
         "chooseAdjacent": "Choose where {name} teleports next to {target}. Right-Click to cancel.",
         "needTarget": "DSCT | Target exactly 1 other token to serve as the other end of the teleport.",
+        "pickIntoSpace": "Pick the creature who teleports into the target's space.",
         "sameToken": "DSCT | The teleporting token and the target must be different tokens.",
         "swapTooFar": "DSCT | {a} and {b} are {dist} squares apart, beyond the teleswap range of {max}.",
         "swapBlocked": "DSCT | Teleswap blocked: one of the two destinations is occupied.",

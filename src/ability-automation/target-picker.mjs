@@ -572,9 +572,9 @@ function _drawTokenHighlights(hlName, tokens, selectedIds = null, hoverIds = nul
   }
 }
 
-export async function runSourcePicker({ exclude = new Set(), anyToken = false, hint = null } = {}) {
+export async function runSourcePicker({ exclude = new Set(), anyToken = false, hint = null, filter = null } = {}) {
   const hiding  = _hidingDefeated();
-  const visible = canvas.tokens.placeables.filter(t => !t.document.hidden && !(hiding && _isDefeated(t)) && !exclude.has(t.actor?.uuid));
+  const visible = canvas.tokens.placeables.filter(t => !t.document.hidden && !(hiding && _isDefeated(t)) && !exclude.has(t.actor?.uuid) && (!filter || filter(t)));
   return runColoredTokenPicker({
     tokens: (game.user.isGM || anyToken) ? visible : visible.filter(t => t.isOwner),
     title: game.i18n.localize('DSCT.picker.titleSource'),

@@ -242,7 +242,10 @@ const _clearTravelState = async (token) => {
 };
 
 export const executeTeleport = async (token, distance, animate, colorHex, animDuration = 600, opts = {}) => {
-   const chosenGrid = await chooseTeleportSquare(token, distance, colorHex, opts);
+   const into = opts.intoSpaceOf?.document ?? opts.intoSpaceOf ?? null;
+   const chosenGrid = into
+     ? { ...toGrid(into), targetElev: into.elevation ?? 0, arrivalElev: into.elevation ?? 0, willFall: false, isOnTerrain: false }
+     : await chooseTeleportSquare(token, distance, colorHex, opts);
    if (!chosenGrid) return;
 
    const origWorld = { x: token.document.x, y: token.document.y, elevation: token.document.elevation ?? 0 };
@@ -323,7 +326,8 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
      undoLog.push({ op: 'status', uuid: actor.uuid, effectId: status, active: true });
    }
 
-   const adjNote  = opts.adjacentTo ? `, arriving next to <strong>${opts.adjacentTo.name}</strong>` : '';
+   const adjNote  = into ? `, into <strong>${into.name}</strong>'s space`
+     : opts.adjacentTo ? `, arriving next to <strong>${opts.adjacentTo.name}</strong>` : '';
    const elevNote = chosenGrid.isOnTerrain ? ` (Elevation ${destElev})` : (destElev === 0 && origWorld.elevation !== 0 ? ` (Returned to Ground)` : '');
    let fallNote = '';
    if (chosenGrid.willFall && !fallCancelled) {

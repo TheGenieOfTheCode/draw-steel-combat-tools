@@ -160,6 +160,8 @@ function _registerPartials() {
     {{formGroup ctx.animate.field value=ctx.animate.src name="flatTeleport.animate" localize=true}}
     {{formGroup ctx.color.field value=ctx.color.src name="flatTeleport.color" localize=true}}
     {{formGroup ctx.duration.field value=ctx.duration.src name="flatTeleport.duration" localize=true}}
+    {{formGroup ctx.partnerKeywords.field value=ctx.partnerKeywords.src name="flatTeleport.partnerKeywords" localize=true}}
+    {{formGroup ctx.partnerMinion.field value=ctx.partnerMinion.src name="flatTeleport.partnerMinion" options=ctx.minionOptions localize=true}}
     {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatTeleport.spend.enabled" localize=true}}
     <div data-dsct-flat-spend-cost="flatTeleport" {{#unless ctx.spend.enabled.src}}hidden{{/unless}}>
       {{formGroup ctx.spend.value.field value=ctx.spend.value.src name="flatTeleport.spend.value" localize=true}}
@@ -592,6 +594,8 @@ class FlatTeleportSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
         animate:  new BooleanField({ initial: true, label: "DSCT.FlatEffect.Teleport.animate.label" }),
         color:    new StringField({ required: true, blank: false, initial: "#a030ff", label: "DSCT.FlatEffect.Teleport.color.label" }),
         duration: new NumberField({ integer: true, positive: true, nullable: false, required: true, initial: 600, label: "DSCT.FlatEffect.Teleport.duration.label" }),
+        partnerKeywords: new StringField({ required: false, blank: true, initial: "", label: "DSCT.FlatEffect.Teleport.partnerKeywords.label", hint: "DSCT.FlatEffect.Teleport.partnerKeywords.hint" }),
+        partnerMinion:   new StringField({ required: false, blank: false, initial: "any", label: "DSCT.FlatEffect.Teleport.partnerMinion.label" }),
         spend: new SchemaField({
           enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
           value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
@@ -622,8 +626,11 @@ class FlatTeleportSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
       animate:     { field: this.schema.getField("flatTeleport.animate"),     src: src.animate },
       color:       { field: this.schema.getField("flatTeleport.color"),       src: src.color },
       duration:    { field: this.schema.getField("flatTeleport.duration"),    src: src.duration },
+      partnerKeywords: { field: this.schema.getField("flatTeleport.partnerKeywords"), src: src.partnerKeywords ?? "" },
+      partnerMinion:   { field: this.schema.getField("flatTeleport.partnerMinion"),   src: src.partnerMinion ?? "any" },
       modeOptions:  teleportModeOptions(),
       moverOptions: teleportMoverOptions(),
+      minionOptions: ["any", "minion", "nonMinion"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Teleport.PartnerMinion.${value}`) })),
       spend: {
         enabled: { field: this.schema.getField("flatTeleport.spend.enabled"), src: src.spend.enabled },
         value:   { field: this.schema.getField("flatTeleport.spend.value"),   src: src.spend.value },
@@ -664,6 +671,7 @@ export function teleportDistance(tv, item, spent = 0) {
 export function teleportAutoLabel(tv, dist) {
   const key = tv.mode === "swap" ? "DSCT.FlatEffect.Teleport.swapLabel"
     : tv.mode === "adjacent" ? "DSCT.FlatEffect.Teleport.adjacentLabel"
+    : tv.mode === "intoSpace" ? "DSCT.FlatEffect.Teleport.intoSpaceLabel"
     : tv.mover === "target" ? "DSCT.FlatEffect.Teleport.targetLabel"
     : "DSCT.FlatEffect.Teleport.defaultLabel";
   return game.i18n.format(key, { distance: dist });
@@ -678,16 +686,26 @@ export async function runTeleportEffect(tv, item, { sourceActor = null, partnerT
   const dist = teleportDistance(tv, item, spent);
   const { mode = "normal", mover = "self", animate = true, color = "#a030ff", duration = 600 } = tv;
   const userToken = _tokenOfActor(actor) ?? (canvas.tokens.controlled.length === 1 ? canvas.tokens.controlled[0] : null);
+  const fits = partnerFilter(tv);
 
   const pickOther = async (exclude) => {
-    if (partnerToken && partnerToken.id !== exclude?.id) return partnerToken;
-    const targets = [...game.user.targets].filter(t => t.id !== exclude?.id);
+    if (partnerToken && partnerToken.id !== exclude?.id && fits(partnerToken)) return partnerToken;
+    const targets = [...game.user.targets].filter(t => t.id !== exclude?.id && fits(t));
     if (targets.length === 1) return targets[0];
     if (!getSetting("abilityAutomationEnabled")) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.needTarget")); return null; }
-    const picked = await runSourcePicker();
+    const picked = await runSourcePicker({ filter: fits });
     if (picked && picked.id === exclude?.id) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.sameToken")); return null; }
     return picked;
   };
+
+  if (mode === "intoSpace") {
+    const into = partnerToken ?? ([...game.user.targets].length === 1 ? [...game.user.targets][0] : null);
+    if (!into) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.needTarget")); return; }
+    const moving = await runSourcePicker({ exclude: new Set([into.actor?.uuid]), filter: fits, hint: game.i18n.localize("DSCT.notice.tp.pickIntoSpace") });
+    if (!moving) return;
+    await executeTeleport(moving, dist, animate, color, duration, { intoSpaceOf: into });
+    return;
+  }
 
   if (mode === "swap" || mode === "adjacent") {
     if (!userToken) { ui.notifications.warn(game.i18n.localize("DSCT.notice.tp.sourceNotFound")); return; }
@@ -713,7 +731,22 @@ export async function runTeleportEffect(tv, item, { sourceActor = null, partnerT
 }
 
 export function teleportModeOptions() {
-  return ["normal", "swap", "adjacent"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Teleport.Mode.${value}`) }));
+  return ["normal", "swap", "adjacent", "intoSpace"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Teleport.Mode.${value}`) }));
+}
+
+const kwWords = (s) => String(s ?? "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z]+/).filter(Boolean).map(w => w.replace(/s$/, ""));
+
+export function partnerFilter(tv) {
+  const wanted = String(tv?.partnerKeywords ?? "").split(",").map(s => kwWords(s)).filter(w => w.length);
+  const minion = tv?.partnerMinion ?? "any";
+  return (token) => {
+    const actor = token?.actor;
+    if (!actor) return false;
+    if (minion !== "any" && !!actor.system?.isMinion !== (minion === "minion")) return false;
+    if (!wanted.length) return true;
+    const have = [...(actor.system?.monster?.keywords ?? [])].map(kwWords);
+    return wanted.some(w => have.some(h => w.every(x => h.includes(x))));
+  };
 }
 
 export function teleportMoverOptions() {
@@ -1234,7 +1267,7 @@ function _buildTeleportButton(effect, item, message) {
   btn.className = "dsct-flat-teleport-btn";
   btn.dataset.mode         = mode;
   btn.dataset.mover        = mover || "self";
-  btn.dataset.tv           = JSON.stringify({ mode, mover: mover || "self", animate, color, duration });
+  btn.dataset.tv           = JSON.stringify({ mode, mover: mover || "self", animate, color, duration, partnerKeywords: tv.partnerKeywords ?? "", partnerMinion: tv.partnerMinion ?? "any" });
   btn.dataset.distance     = String(dist);
   btn.dataset.animate      = String(animate);
   btn.dataset.color        = color || "#a030ff";
@@ -1242,7 +1275,7 @@ function _buildTeleportButton(effect, item, message) {
   btn.dataset.actorUuid    = item.actor?.uuid ?? "";
   btn.dataset.spendEnabled = String(spend?.enabled ?? false);
   btn.dataset.spendValue   = String(spend?.value ?? 1);
-  const icon = mode === 'swap' ? 'fa-solid fa-people-arrows' : 'fa-solid fa-person-through-window';
+  const icon = mode === 'swap' ? 'fa-solid fa-people-arrows' : mode === 'intoSpace' ? 'fa-solid fa-person-arrow-down-to-line' : 'fa-solid fa-person-through-window';
   btn.innerHTML = `<i class="${icon}"></i> ${(display || defaultLabel) + spendSuffix}`;
   btn.title = game.i18n.localize(mode === 'normal' ? 'DSCT.panel.tp.enricherHint' : 'DSCT.panel.tp.enricherHintPair');
   return btn;
@@ -1322,8 +1355,65 @@ export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenI
       actorId: item?.actor?.id ?? null,
     });
   }
-  await actor.createEmbeddedDocuments('ActiveEffect', [data]);
+  
+  if (source.getFlag?.(MODULE_ID, 'casterValues') && item?.actor) {
+    const rollData = item.actor.getRollData?.() ?? {};
+    for (const list of [data.system?.changes, data.changes]) {
+      for (const change of list ?? []) {
+        if (!String(change.value ?? '').includes('@')) continue;
+        try { change.value = String(ds.utils.evaluateFormula(String(change.value), rollData, { contextName: item.uuid })); } catch {}
+      }
+    }
+  }
+  const reminder = source.getFlag?.(MODULE_ID, 'expiryReminder');
+  const giver = item?.actor ?? null;
+  if (reminder && giver) {
+    data.duration = { value: null, units: 'seconds', expiry: null, expired: false };
+    foundry.utils.setProperty(data, `flags.${MODULE_ID}.expiryReminderOwner`, giver.uuid);
+  }
+  const [created] = await actor.createEmbeddedDocuments('ActiveEffect', [data]);
+  if (reminder && giver && created) await createExpiryReminder(giver, created, reminder);
   return true;
+}
+
+async function createExpiryReminder(giver, effect, { expiry = 'turnStart', rounds = 1 } = {}) {
+  await giver.createEmbeddedDocuments('ActiveEffect', [{
+    name: game.i18n.format('DSCT.expiryReminder.name', { name: effect.name }),
+    img: effect.img, transfer: false, disabled: false,
+    description: `<p>${game.i18n.format('DSCT.expiryReminder.description', { name: foundry.utils.escapeHTML(effect.name), target: foundry.utils.escapeHTML(effect.parent?.name ?? '') })}</p>`,
+    duration: { value: rounds, units: 'rounds', expiry },
+    flags: { [MODULE_ID]: { expiryReminderFor: effect.uuid } },
+  }]);
+}
+
+const _primary = () => game.users.activeGM?.isSelf;
+
+function _linkedReminders(effect) {
+  const owner = effect.getFlag(MODULE_ID, 'expiryReminderOwner');
+  const actor = owner ? fromUuidSync(owner, { strict: false }) : null;
+  return (actor?.effects ?? []).filter(e => e.getFlag(MODULE_ID, 'expiryReminderFor') === effect.uuid);
+}
+
+export function registerExpiryReminders() {
+  Hooks.on('deleteActiveEffect', (effect) => {
+    if (!_primary()) return;
+    const linked = effect.getFlag(MODULE_ID, 'expiryReminderFor');
+    if (linked) fromUuid(linked).then(e => e?.delete()).catch(() => {});
+    if (effect.getFlag(MODULE_ID, 'expiryReminderOwner')) for (const r of _linkedReminders(effect)) r.delete().catch(() => {});
+  });
+  Hooks.on('updateActiveEffect', (effect, changed) => {
+    if (!_primary()) return;
+    const linked = effect.getFlag(MODULE_ID, 'expiryReminderFor');
+    if (!linked) return;
+    const expired = foundry.utils.getProperty(changed, 'duration.expired') === true;
+    const disabled = foundry.utils.getProperty(changed, 'disabled');
+    if (!expired && disabled === undefined) return;
+    fromUuid(linked).then(e => {
+      if (!e) return;
+      if (expired) return e.delete();
+      if (e.disabled !== disabled) return e.update({ disabled });
+    }).catch(() => {});
+  });
 }
 
 export async function removeFlatAppliedEffect(actor, statusId, { stack = false } = {}) {

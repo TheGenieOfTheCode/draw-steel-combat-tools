@@ -60,7 +60,7 @@ import {
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerResourcesUiCompat } from './compat/resources-ui-compat.mjs';
 import { registerAbilityHudCompat } from './compat/ability-hud-compat.mjs';
-import { registerFlatEffects, setPendingTriggerDamage } from './ability-automation/flat-special-effects.mjs';
+import { registerFlatEffects, setPendingTriggerDamage, registerExpiryReminders } from './ability-automation/flat-special-effects.mjs';
 import { registerTieredEffects } from './ability-automation/tiered-effects.mjs';
 import { registerChooseEffect } from './ability-automation/choose-effect.mjs';
 import { registerHideEffect, runHideFor } from './ability-automation/hide-effect.mjs';
@@ -250,6 +250,7 @@ Hooks.once('init', () => {
   registerStartupNotice();
   registerMaliceInjectors();
   registerFlatEffects();
+  registerExpiryReminders();
   registerTieredEffects();
   registerChooseEffect();
   registerHideEffect();
