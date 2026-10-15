@@ -289,7 +289,7 @@ function _patchCombatDock() {
 }
 
 export function registerSquadTurnHooks() {
-  Hooks.on('combatRoundChange', () => { _activatedGroupIds.clear(); _turnStarted.clear(); });
+  Hooks.on('combatRound', () => { _activatedGroupIds.clear(); _turnStarted.clear(); });
 
   if (typeof libWrapper !== 'undefined') {
     libWrapper.register('draw-steel-combat-tools', 'CONFIG.Combatant.documentClass.prototype._preUpdate', async function(wrapped, changes, options, user) {
