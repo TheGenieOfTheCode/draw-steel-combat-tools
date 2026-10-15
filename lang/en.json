@@ -1445,6 +1445,7 @@
         "effectHalf": "Damage halved",
         "effectDouble": "Damage doubled",
         "effectPlus": "+{n} damage",
+        "effectRolled": "+{n} damage, rolled on {formula}",
         "effectMinus": "-{n} damage",
         "effectSurge": "+{n} damage (1 surge)",
         "effectType": "Damage becomes {type}",

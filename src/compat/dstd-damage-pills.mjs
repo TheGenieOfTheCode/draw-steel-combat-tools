@@ -75,6 +75,7 @@ export function damagePillEffect(p) {
   if (p.kind === 'surge') return L('effectSurge', { n: Math.abs(Number(p.value) || 0) });
   if (p.kind === 'type') return L('effectType', { type: damageTypeLabel(p.value) });
   const v = Number(p.value) || 0;
+  if (p.formula && v >= 0) return L('effectRolled', { n: v, formula: p.formula });
   return v >= 0 ? L('effectPlus', { n: v }) : L('effectMinus', { n: Math.abs(v) });
 }
 
@@ -84,7 +85,8 @@ export function damagePillAmtStr(p) {
   if (p.kind === 'surge') return L('surgeAmt', { n: Math.abs(Number(p.value) || 0) });
   if (p.kind === 'type') return damageTypeLabel(p.value);
   const v = Number(p.value) || 0;
-  return v >= 0 ? `+${v}` : String(v);
+  const amt = v >= 0 ? `+${v}` : String(v);
+  return p.formula ? `${amt} (${p.formula})` : amt;
 }
 
 export function damagePillText(p) {
@@ -676,6 +678,7 @@ async function _openPillDamageEditor(message, button, fullEditor = false) {
     
     ...(p.dstSquad ? { dstSquad: true } : {}),
     ...(p.lineStyle ? { lineStyle: p.lineStyle } : {}),
+    ...(p.formula ? { formula: p.formula } : {}),
   }));
   if (!pills.length && !ov) return;
   const fam = ov?.dstFam ?? foundry.utils.randomID();
@@ -774,6 +777,15 @@ function _multSuffixFor(pills) {
     else if (x.pill.kind === 'double') doubles++;
   }
   return _multSuffixText(halves, doubles);
+}
+
+const DICE = /\b\d*d\d+(?:\s*[+-]\s*\d+)?\b/i;
+
+function _settledLabel(btn, amount) {
+  const span = btn.querySelector('span');
+  if (!span || !DICE.test(span.dataset.dsctBaseLabel ?? span.textContent)) return;
+  span.dataset.dsctBaseLabel = (span.dataset.dsctBaseLabel ?? span.textContent).replace(DICE, String(amount));
+  delete span.dataset.dsctMultSuffix;
 }
 
 function _applyMultSuffix(btn, suffix) {
@@ -904,7 +916,9 @@ function _injectDamagePills(message, root) {
   }
 
   for (const [opId, items] of byOp) {
+    const settled = overrides[opId]?.dstSplitBase != null && apps[opId]?.status !== 'applied' ? overrides[opId].amount : null;
     for (const btn of root.querySelectorAll(`button[data-dstd-action="applyDamage"][data-operation-id="${opId}"]`)) {
+      if (settled != null) _settledLabel(btn, settled);
       _applyMultSuffix(btn, suffixByOp.get(opId) ?? '');
       const rowEl = _pillRowFor(btn);
       if (!rowEl || rowEl.dataset.dsctPills === opId) continue;

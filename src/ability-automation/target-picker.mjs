@@ -740,6 +740,17 @@ function _restoreTargetsAfterUse(abilityUuid, previous) {
   Hooks.once('closeAbilityConfigurationDialog', () => setTimeout(restore, 5000));
 }
 
+export function burstTargetsAround(ability, originToken) {
+  const view = chooseTargeting(ability);
+  const distance = view?.distance ?? ability.system?.distance;
+  const target = view?.target ?? ability.system?.target;
+  if (!originToken || distance?.type !== 'burst' || target?.value != null || !EACH_TYPES.has(target?.type)) return null;
+  const radius = getItemRange(ability, view?.distance);
+  if (!radius) return null;
+  return _getValidTargets(originToken, target.type, radius, { excludeSelf: target.type !== 'selfAlly', checkLOS: true })
+    .filter(t => _inAreaFilter(ability, t) && !_isDefeated(t));
+}
+
 export function checkAndRunBurstTargeting(dialog) {
   const ability = dialog.options?.ability;
   if (!ability || !getSetting('abilityTargetingEnabled')) return null;
@@ -759,7 +770,7 @@ export function checkAndRunBurstTargeting(dialog) {
     const radius = getItemRange(ability, view?.distance);
     if (!radius) return null;
     tokens = _getValidTargets(casterToken, target.type, radius, { excludeSelf: target.type !== 'selfAlly', checkLOS: true })
-      .filter(t => _inAreaFilter(ability, t));
+      .filter(t => _inAreaFilter(ability, t) && !_isDefeated(t));
     label = `${radius} burst, ${target.type}`;
   }
   if (filter.includeSelf && !tokens.some(t => t.id === casterToken.id)) tokens.unshift(casterToken);

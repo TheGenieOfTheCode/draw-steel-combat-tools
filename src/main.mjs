@@ -1,5 +1,5 @@
 import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHooks, bypassNextFmGate } from './forced-movement/forced-movement.mjs';
-import { runColoredTokenPicker, _getValidTargets } from './ability-automation/target-picker.mjs';
+import { runColoredTokenPicker, _getValidTargets, burstTargetsAround } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections, rollBleeding } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync, allowOutOfRange } from './conditions/grab.mjs';
@@ -177,6 +177,7 @@ const api = {
   hasHighGround:    (attacker, target) => _hasHighGround(attacker, target),
   flankingAlly,
   allowOutOfRange,
+  burstTargetsAround,
   rollDialog: {
     addPill: addExternalRollPill,
     applyTierMods,
