@@ -1,0 +1,247 @@
+{
+  "folder": "DSCTfldDrvHero01",
+  "name": "Mark",
+  "type": "ability",
+  "_id": "DSCTdrv003markch",
+  "img": "icons/skills/targeting/crosshair-bars-yellow.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "freeTriggered",
+    "category": "",
+    "resource": null,
+    "trigger": "You or any ally uses an ability to deal rolled damage to a creature marked by you",
+    "distance": {
+      "type": "special",
+      "primary": "",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "custom": "",
+      "type": "creature",
+      "value": 1
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "name": "",
+        "img": null,
+        "sort": 0,
+        "before": true,
+        "description": "<p>you can spend 1 focus to gain one of the following benefits as a free triggered action.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+      },
+      "dsctChoose000001": {
+        "_id": "dsctChoose000001",
+        "type": "dsct.choose",
+        "name": "",
+        "img": null,
+        "sort": 140000,
+        "before": false,
+        "choose": {
+          "count": 1,
+          "choices": [
+            {
+              "name": "Extra Damage",
+              "icon": "",
+              "preview": "The ability deals extra damage equal to twice your Reason score.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Extra Damage"
+              ]
+            },
+            {
+              "name": "Spend a Recovery",
+              "icon": "",
+              "preview": "The creature dealing the damage can spend a Recovery.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Spend a Recovery"
+              ]
+            },
+            {
+              "name": "Shift",
+              "icon": "",
+              "preview": "The creature dealing the damage can shift up to a number of squares equal to your Reason score.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Effect (Shift)"
+              ]
+            },
+            {
+              "name": "Taunt",
+              "icon": "",
+              "preview": "If you damage a creature marked by you with a melee ability, the creature is taunted (EoT) by you until the end of their next turn.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Taunted"
+              ]
+            }
+          ]
+        }
+      },
+      "dsctDrvDamage001": {
+        "_id": "dsctDrvDamage001",
+        "type": "dsct.flatDamage",
+        "name": "Extra Damage",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatDamage": {
+          "displayText": "Extra damage equal to twice your Reason score",
+          "display": "",
+          "value": "2*@R",
+          "types": [],
+          "ignoredImmunities": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      },
+      "dsctDrvHeal00001": {
+        "_id": "dsctDrvHeal00001",
+        "type": "dsct.flatHeal",
+        "name": "Spend a Recovery",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatHeal": {
+          "displayText": "The creature dealing the damage spends a Recovery",
+          "display": "Spend a Recovery",
+          "spendRecovery": true,
+          "recoverySource": "self",
+          "amountType": "recoveryValue",
+          "amountFormula": "0",
+          "recoveryValueSource": "self",
+          "tempStamina": false,
+          "repeatable": false,
+          "recipient": "self",
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      },
+      "dsctDrvShift0001": {
+        "_id": "dsctDrvShift0001",
+        "type": "base",
+        "name": "Effect (Shift)",
+        "img": null,
+        "sort": 150000,
+        "before": false,
+        "description": "<p>The creature dealing the damage can shift up to a number of squares equal to your Reason score.</p>"
+      },
+      "dsctDrvApplie001": {
+        "_id": "dsctDrvApplie001",
+        "type": "dsct.flatApplied",
+        "name": "Taunted",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "The creature is taunted by you (EoT)",
+          "display": "Taunted (EoT)",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "taunted",
+          "exclusiveSelf": false,
+          "end": "turn",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": "mark-you-or-any-ally-uses-an-ability-to-deal-rolled-damage-to-a-creature-marked-"
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrv003markch"
+}

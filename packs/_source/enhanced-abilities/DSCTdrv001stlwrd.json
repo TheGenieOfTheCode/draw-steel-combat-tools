@@ -1,0 +1,140 @@
+{
+  "folder": "DSCTfldDrvHero01",
+  "name": "Steel Ward",
+  "type": "ability",
+  "_id": "DSCTdrv001stlwrd",
+  "img": "icons/magic/defensive/shield-barrier-glowing-triangle-green.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "triggered",
+    "category": "",
+    "resource": null,
+    "trigger": "You take damage, after the damage resolves",
+    "distance": {
+      "type": "special",
+      "primary": "",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "special",
+      "custom": "",
+      "value": null
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "name": "",
+        "img": null,
+        "sort": 0,
+        "before": true,
+        "description": "<p>you gain damage immunity equal to your Reason score until the end of your next turn.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+      },
+      "dsctDrvApplie001": {
+        "_id": "dsctDrvApplie001",
+        "type": "dsct.flatApplied",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "You gain damage immunity equal to your Reason score (EoT)",
+          "display": "Steel Ward",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "DPizJm3rKX46E5FF",
+          "exclusiveSelf": false,
+          "end": "",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "DPizJm3rKX46E5FF",
+      "name": "Steel Ward",
+      "img": "icons/magic/defensive/shield-barrier-glowing-triangle-green.webp",
+      "type": "base",
+      "disabled": false,
+      "transfer": false,
+      "description": "<p>You have damage immunity equal to [[lookup @R]]{your Reason score} until the end of your next turn.</p>",
+      "statuses": [],
+      "tint": "#ffffff",
+      "showIcon": 1,
+      "sort": 0,
+      "flags": {
+        "draw-steel-combat-tools": {
+          "enhanced": true
+        }
+      },
+      "duration": {
+        "value": null,
+        "units": "seconds",
+        "expiry": "turnEnd",
+        "expired": false
+      },
+      "start": null,
+      "origin": null,
+      "folder": null,
+      "system": {
+        "changes": [
+          {
+            "key": "system.damage.immunities.all",
+            "type": "upgrade",
+            "value": "@R",
+            "phase": "initial",
+            "priority": null
+          }
+        ],
+        "end": {
+          "roll": "1d10 + @combat.save.bonus"
+        }
+      },
+      "changes": [],
+      "_key": "!items.effects!DSCTdrv001stlwrd.DPizJm3rKX46E5FF"
+    }
+  ],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": "steel-ward-you-take-damage-after-the-damage-resolves"
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrv001stlwrd"
+}

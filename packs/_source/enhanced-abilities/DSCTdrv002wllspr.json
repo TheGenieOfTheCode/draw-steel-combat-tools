@@ -1,0 +1,95 @@
+{
+  "folder": "DSCTfldDrvHero01",
+  "name": "Wellspring of Grace",
+  "type": "ability",
+  "_id": "DSCTdrv002wllspr",
+  "img": "icons/magic/water/heart-ice-freeze.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "triggered",
+    "category": "",
+    "resource": null,
+    "trigger": "A target starts their turn in the area",
+    "distance": {
+      "primary": "",
+      "secondary": "",
+      "tertiary": "",
+      "type": "special"
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "custom": "",
+      "type": "creature",
+      "value": 1
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "name": "",
+        "img": null,
+        "sort": 0,
+        "before": true,
+        "description": "<p>they can spend a Recovery.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+      },
+      "dsctDrvHeal00001": {
+        "_id": "dsctDrvHeal00001",
+        "type": "dsct.flatHeal",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatHeal": {
+          "displayText": "They spend a Recovery",
+          "display": "Spend a Recovery",
+          "spendRecovery": true,
+          "recoverySource": "target",
+          "amountType": "recoveryValue",
+          "amountFormula": "0",
+          "recoveryValueSource": "target",
+          "tempStamina": false,
+          "repeatable": false,
+          "recipient": "target",
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": "wellspring-of-grace-a-target-starts-their-turn-in-the-area"
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrv002wllspr"
+}

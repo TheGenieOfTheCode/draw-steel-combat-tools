@@ -1,0 +1,95 @@
+{
+  "folder": "DSCTfldDrvHero01",
+  "name": "Dragon Dreams",
+  "type": "ability",
+  "_id": "DSCTdrv001drgndr",
+  "img": "icons/creatures/reptiles/dragon-horned-blue.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "triggered",
+    "category": "",
+    "resource": null,
+    "trigger": "You are reduced to 0 Stamina",
+    "distance": {
+      "primary": "5",
+      "secondary": "",
+      "tertiary": "",
+      "type": "burst"
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "custom": "",
+      "value": null,
+      "type": "creature"
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "name": "",
+        "img": null,
+        "sort": 0,
+        "before": true,
+        "description": "<p>you explode with heat and fire. You and each creature within 5 squares of you takes fire damage equal to twice your level. You can't reduce this damage for yourself in any way.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+      },
+      "dsctDrvDamage001": {
+        "_id": "dsctDrvDamage001",
+        "type": "dsct.flatDamage",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatDamage": {
+          "displayText": "Fire damage equal to twice your level",
+          "display": "Fire Damage",
+          "value": "2*@level",
+          "types": [
+            "fire"
+          ],
+          "ignoredImmunities": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": "dragon-dreams-you-are-reduced-to-0-stamina",
+      "areaFilter": {
+        "includeSelf": true
+      }
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrv001drgndr"
+}

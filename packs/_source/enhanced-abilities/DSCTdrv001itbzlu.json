@@ -1,0 +1,93 @@
+{
+  "folder": "DSCTfldDrvHero01",
+  "name": "Displace",
+  "type": "ability",
+  "_id": "DSCTdrv001itbzlu",
+  "img": "icons/magic/movement/trail-streak-impact-blue.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "triggered",
+    "category": "",
+    "resource": null,
+    "trigger": "You deal rolled damage to a creature",
+    "distance": {
+      "type": "special",
+      "primary": "",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "special",
+      "custom": "",
+      "value": null
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "name": "",
+        "img": null,
+        "sort": 0,
+        "before": true,
+        "description": "<p>you can use a maneuver to teleport you and that creature, letting you trade places provided you both fit into each other’s spaces.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+      },
+      "dsctDrvTelepo001": {
+        "_id": "dsctDrvTelepo001",
+        "type": "dsct.flatTeleport",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatTeleport": {
+          "displayText": "You and that creature trade places",
+          "display": "Trade Places",
+          "mode": "swap",
+          "mover": "self",
+          "distance": "99",
+          "animate": true,
+          "color": "#a030ff",
+          "duration": 600,
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": "treasure-displacer-you-deal-rolled-damage-to-a-creature"
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrv001itbzlu"
+}

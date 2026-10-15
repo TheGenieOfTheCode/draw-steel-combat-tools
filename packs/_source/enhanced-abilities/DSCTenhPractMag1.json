@@ -1,0 +1,301 @@
+{
+  "_id": "DSCTenhPractMag1",
+  "flags": {
+    "draw-steel": {},
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "effects": [],
+  "img": "icons/magic/light/hand-sparks-smoke-green.webp",
+  "name": "Practical Magic",
+  "system": {
+    "_dsid": "practical-magic",
+    "category": "",
+    "damageDisplay": "melee",
+    "distance": {
+      "primary": "1",
+      "secondary": "1",
+      "tertiary": "1",
+      "type": "self"
+    },
+    "effects": {
+      "C9ikI7guJqg94kaG": {
+        "sort": 100000,
+        "name": "",
+        "img": null,
+        "type": "dsct.choose",
+        "_id": "C9ikI7guJqg94kaG",
+        "description": "",
+        "before": false,
+        "choose": {
+          "choices": [
+            {
+              "icon": "icons/magic/control/energy-stream-link-large-white.webp",
+              "name": "Knockback",
+              "preview": "You use the Knockback maneuver, but its distance becomes the range of your Hurl Element ability, and you use Reason instead of Might for the power roll.",
+              "story": "",
+              "keywords": [
+                "magic",
+                "ranged",
+                "weapon"
+              ],
+              "distance": {
+                "type": "ranged",
+                "primary": "10",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "creature",
+                "custom": "",
+                "value": 1
+              },
+              "effects": [
+                "Knockback",
+                "Effect (Knockback)"
+              ]
+            },
+            {
+              "icon": "icons/magic/symbols/elements-air-earth-fire-water.webp",
+              "name": "Damage",
+              "preview": "You choose a creature within the distance of your Hurl Element ability and one of the following damage types: acid, cold, corruption, fire, lightning, poison, or sonic. That creature takes damage of the chosen type equal to your Reason score.",
+              "story": "",
+              "keywords": [
+                "magic"
+              ],
+              "distance": {
+                "type": "ranged",
+                "primary": "10",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "creature",
+                "custom": "",
+                "value": 1
+              },
+              "effects": [
+                "Damage",
+                "Effect (Damage)"
+              ]
+            },
+            {
+              "icon": "icons/magic/movement/trail-streak-zigzag-teal.webp",
+              "name": "Teleport",
+              "preview": "You teleport up to a number of squares equal to your Reason score. If you choose this option, you can spend essence to teleport 1 additional square for each essence spent.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Teleport",
+                "Spend",
+                "Effect (Teleport)"
+              ]
+            }
+          ],
+          "count": 1
+        }
+      },
+      "kj4NCjQT0Sg6ucup": {
+        "sort": 200000,
+        "name": "Damage",
+        "img": null,
+        "type": "dsct.flatDamage",
+        "_id": "kj4NCjQT0Sg6ucup",
+        "description": "",
+        "before": false,
+        "flatDamage": {
+          "value": "@chr",
+          "types": [
+            "acid",
+            "cold",
+            "corruption",
+            "fire",
+            "lightning",
+            "poison",
+            "sonic"
+          ],
+          "ignoredImmunities": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          },
+          "displayText": "",
+          "display": ""
+        }
+      },
+      "woJYzTZkZibhSsAi": {
+        "sort": 300000,
+        "name": "",
+        "img": null,
+        "type": "dsct.flatTeleport",
+        "_id": "woJYzTZkZibhSsAi",
+        "description": "",
+        "before": false,
+        "flatTeleport": {
+          "mode": "normal",
+          "distance": "@chr + @spend",
+          "animate": true,
+          "color": "#a030ff",
+          "duration": 600,
+          "spend": {
+            "enabled": false,
+            "value": 1
+          },
+          "displayText": "",
+          "display": "",
+          "mover": "self"
+        }
+      },
+      "GyF0BnNZfY5IWNkx": {
+        "sort": 400000,
+        "name": "",
+        "img": null,
+        "type": "spend",
+        "_id": "GyF0BnNZfY5IWNkx",
+        "description": "<p>You can spend essence to teleport 1 additional square for each essence spent.</p>",
+        "before": false,
+        "resource": {
+          "value": 1,
+          "multiple": true
+        }
+      },
+      "pT4BgUSeT0nDWnBs": {
+        "sort": 150000,
+        "name": "Effect (Knockback)",
+        "img": null,
+        "type": "base",
+        "_id": "pT4BgUSeT0nDWnBs",
+        "description": "<p>You use the @UUID[Compendium.draw-steel.abilities.Item.emug9cXuwndDrWzu]{Knockback} maneuver, but its distance becomes the range of your Hurl Element ability, and you use Reason instead of Might for the power roll.</p>",
+        "before": true
+      },
+      "bmOvvodEJwbP2YPw": {
+        "sort": 175000,
+        "name": "Effect (Damage)",
+        "img": null,
+        "type": "base",
+        "_id": "bmOvvodEJwbP2YPw",
+        "description": "<p>You choose a creature within the distance of your @UUID[Compendium.draw-steel.abilities.Item.ktkvtm6ryTcES6qy]{Hurl Element} ability and one of the following damage types: acid, cold, corruption, fire, lightning, poison, or sonic. That creature takes damage of the chosen type equal to your Reason score.</p>",
+        "before": false
+      },
+      "MyLzELJ42VGLUZLZ": {
+        "sort": 187500,
+        "name": "Effect (Teleport)",
+        "img": null,
+        "type": "base",
+        "_id": "MyLzELJ42VGLUZLZ",
+        "description": "<p>You teleport up to a number of squares equal to your Reason score. If you choose this option, you can spend essence to teleport 1 additional square for each essence spent.</p>",
+        "before": false
+      }
+    },
+    "keywords": [
+      "magic"
+    ],
+    "power": {
+      "effects": {
+        "EuE3a6j9hJ9qE6io": {
+          "sort": 100000,
+          "name": "Knockback",
+          "img": null,
+          "type": "forced",
+          "_id": "EuE3a6j9hJ9qE6io",
+          "forced": {
+            "tier1": {
+              "display": "{{forced}}",
+              "movement": [
+                "push"
+              ],
+              "distance": "1",
+              "properties": [],
+              "potency": {
+                "value": "@potency.weak",
+                "characteristic": "none"
+              }
+            },
+            "tier2": {
+              "display": "{{forced}}",
+              "movement": [
+                "push"
+              ],
+              "distance": "2",
+              "properties": [],
+              "potency": {
+                "value": "@potency.average",
+                "characteristic": ""
+              }
+            },
+            "tier3": {
+              "display": "{{forced}}",
+              "movement": [
+                "push"
+              ],
+              "distance": "3",
+              "properties": [],
+              "potency": {
+                "value": "@potency.strong",
+                "characteristic": ""
+              }
+            }
+          }
+        }
+      },
+      "roll": {
+        "characteristics": [
+          "reason"
+        ],
+        "formula": "@chr",
+        "reactive": false
+      }
+    },
+    "prerequisites": {
+      "dsid": [
+        "elementalist"
+      ],
+      "level": null,
+      "value": ""
+    },
+    "resource": null,
+    "source": {
+      "book": "Heroes",
+      "license": "Draw Steel Creator License",
+      "page": "114"
+    },
+    "story": "Your mastery of elemental power lets you customize your conjurations.",
+    "target": {
+      "custom": "",
+      "type": "self",
+      "value": null
+    },
+    "trigger": "",
+    "type": "maneuver"
+  },
+  "type": "ability",
+  "folder": "DSCTfldElemntl01",
+  "ownership": {
+    "default": 0
+  },
+  "sort": 0,
+  "_key": "!items!DSCTenhPractMag1"
+}

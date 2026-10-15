@@ -1,0 +1,101 @@
+{
+  "folder": "DSCTfldDrvMons01",
+  "name": "Loyalty Collar",
+  "type": "ability",
+  "_id": "DSCTdrv001sgcxoz",
+  "img": "icons/magic/fire/projectile-fireball-smoke-orange.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "triggered",
+    "category": "",
+    "resource": null,
+    "trigger": "The sparkslinger is reduced to 0 Stamina",
+    "distance": {
+      "type": "burst",
+      "primary": "1",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "enemyObject",
+      "custom": "",
+      "value": null
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "name": "",
+        "img": null,
+        "sort": 0,
+        "before": true,
+        "description": "<p>their loyalty collar explodes, dealing 1d6 damage to each adjacent enemy and object.</p><p><em>War Dog Sparkslinger, War Dog Crucibite, War Dog Sweeper, War Dog Pestilite, War Dog War Frog, War Dog Teletalite, War Dog Subcommander, War Dog Phosphorite, War Dog Neuronite, War Dog Eviscerite, War Dog Amalgamite</em></p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+      },
+      "dsctDrvDamage001": {
+        "_id": "dsctDrvDamage001",
+        "type": "dsct.flatDamage",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatDamage": {
+          "displayText": "1d6 damage",
+          "display": "1d6 Damage",
+          "value": "1d6",
+          "types": [],
+          "ignoredImmunities": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": [
+        "loyalty-collar-the-sparkslinger-is-reduced-to-0-stamina",
+        "loyalty-collar-the-crucibite-is-reduced-to-0-stamina",
+        "loyalty-collar-the-pestilite-is-reduced-to-0-stamina",
+        "loyalty-collar-the-war-frog-is-reduced-to-0-stamina",
+        "loyalty-collar-the-teletalite-is-reduced-to-0-stamina",
+        "loyalty-collar-the-subcommander-is-reduced-to-0-stamina",
+        "loyalty-collar-the-phosphorite-is-reduced-to-0-stamina",
+        "loyalty-collar-the-neuronite-is-reduced-to-0-stamina",
+        "loyalty-collar-the-eviscerite-is-reduced-to-0-stamina",
+        "loyalty-collar-the-amalgamite-is-reduced-to-0-stamina"
+      ]
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrv001sgcxoz"
+}

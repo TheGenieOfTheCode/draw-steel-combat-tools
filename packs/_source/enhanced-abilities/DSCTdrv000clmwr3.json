@@ -1,0 +1,107 @@
+{
+  "folder": "DSCTfldDrvHero01",
+  "name": "Reaver's Momentum / Raden Growing Ferocity and 11 more",
+  "type": "ability",
+  "_id": "DSCTdrv000clmwr3",
+  "img": "icons/magic/lightning/bolt-strike-blue.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "triggered",
+    "category": "",
+    "resource": null,
+    "trigger": "You slide a creature",
+    "distance": {
+      "type": "special",
+      "primary": "",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "special",
+      "custom": "",
+      "value": null
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "name": "",
+        "img": null,
+        "sort": 0,
+        "before": true,
+        "description": "<p>you gain 1 surge.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+      },
+      "dsctDrvResour001": {
+        "_id": "dsctDrvResour001",
+        "type": "dsct.flatResource",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatResource": {
+          "displayText": "You gain 1 surge",
+          "display": "1 Surge",
+          "amount": 1,
+          "type": "surge",
+          "recipient": "self",
+          "preApplied": false,
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": [
+        "growing-ferocity-you-slide-a-creature-t4",
+        "growing-ferocity-raden-growing-ferocity-you-shift-t4",
+        "growing-ferocity-you-push-a-creature-t4",
+        "metakinetic-mastery-you-take-damage-or-are-force-moved-t4",
+        "growing-ferocity-boren-growing-ferocity-you-grab-a-creature-t4",
+        "ward-of-delightful-consequences-you-take-damage",
+        "growing-ferocity-corven-growing-ferocity-you-shift-t4",
+        "cryokinetic-mastery-you-grab-a-creature-or-an-enemy-moves-1-or-more-squares-in-t-t4",
+        "growing-ferocity-vuken-growing-ferocity-you-push-a-creature-or-knock-a-creature--t4",
+        "chronokinetic-mastery-you-willingly-move-1-or-more-squares-as-part-of-an-ability-t4",
+        "lightning-soul-you-regain-stamina-in-combat",
+        "shadow-born-you-start-your-turn-with-concealment",
+        "slight-case-of-lycanthropy-you-make-a-non-minion-creature-winded-or-kill-a-non-m",
+        "thunderstruck-you-use-an-ability-to-deal-lightning-or-sonic-damage-to-another-cr",
+        "growing-ferocity-boren-growing-ferocity-you-make-a-strike-against-a-creature-you-t2"
+      ]
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrv000clmwr3"
+}

@@ -1,0 +1,466 @@
+{
+  "folder": "DSCTfldDrvHero01",
+  "name": "Saved in the Edit",
+  "type": "ability",
+  "_id": "DSCTdrv003svdedt",
+  "img": "icons/tools/scribal/ink-quill-pink.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "freeTriggered",
+    "category": "",
+    "resource": null,
+    "trigger": "You deal rolled damage to a creature or object, or enable a creature to spend a Recovery",
+    "distance": {
+      "type": "special",
+      "primary": "",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "custom": "",
+      "type": "creature",
+      "value": 1
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "name": "",
+        "img": null,
+        "sort": 0,
+        "before": true,
+        "description": "<p>you can use a free triggered action to give that creature or object one of the following effects until the start of your next turn.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+      },
+      "dsctChoose000001": {
+        "_id": "dsctChoose000001",
+        "type": "dsct.choose",
+        "name": "",
+        "img": null,
+        "sort": 140000,
+        "before": false,
+        "choose": {
+          "count": 1,
+          "choices": [
+            {
+              "name": "Weakness",
+              "icon": "",
+              "preview": "The target has damage weakness equal to your Presence score against any magic, psionic, or weapon ability.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Weakness"
+              ]
+            },
+            {
+              "name": "Immunity",
+              "icon": "",
+              "preview": "The target has damage immunity equal to your Presence score.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Immunity"
+              ]
+            },
+            {
+              "name": "Steady",
+              "icon": "",
+              "preview": "The target has a bonus to stability and a penalty to speed equal to your Presence score.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Steady"
+              ]
+            },
+            {
+              "name": "Swift",
+              "icon": "",
+              "preview": "The target has a bonus to speed and a penalty to stability equal to your Presence score.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Swift"
+              ]
+            }
+          ]
+        }
+      },
+      "dsctDrvApplie001": {
+        "_id": "dsctDrvApplie001",
+        "type": "dsct.flatApplied",
+        "name": "Weakness",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "Damage weakness equal to your Presence score",
+          "display": "Weakness",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "dsctSvdEditWeak1",
+          "exclusiveSelf": false,
+          "end": "",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      },
+      "dsctDrvApplie002": {
+        "_id": "dsctDrvApplie002",
+        "type": "dsct.flatApplied",
+        "name": "Immunity",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "Damage immunity equal to your Presence score",
+          "display": "Immunity",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "dsctSvdEditImmu1",
+          "exclusiveSelf": false,
+          "end": "",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      },
+      "dsctDrvApplie003": {
+        "_id": "dsctDrvApplie003",
+        "type": "dsct.flatApplied",
+        "name": "Steady",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "Stability up and speed down by your Presence score",
+          "display": "Steady",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "dsctSvdEditStdy1",
+          "exclusiveSelf": false,
+          "end": "",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      },
+      "dsctDrvApplie004": {
+        "_id": "dsctDrvApplie004",
+        "type": "dsct.flatApplied",
+        "name": "Swift",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "Speed up and stability down by your Presence score",
+          "display": "Swift",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "dsctSvdEditSwft1",
+          "exclusiveSelf": false,
+          "end": "",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "dsctSvdEditWeak1",
+      "name": "Saved in the Edit (Weakness)",
+      "img": "icons/tools/scribal/ink-quill-pink.webp",
+      "type": "base",
+      "disabled": false,
+      "transfer": false,
+      "description": "<p>Damage weakness equal to the troubadour's Presence score against any magic, psionic, or weapon ability, until the start of their next turn. Applied as weakness to all damage; nearly all damage comes from those abilities.</p>",
+      "statuses": [],
+      "tint": "#ffffff",
+      "showIcon": 1,
+      "sort": 0,
+      "flags": {
+        "draw-steel-combat-tools": {
+          "enhanced": true,
+          "casterValues": true,
+          "expiryReminder": {
+            "expiry": "turnStart",
+            "rounds": 1
+          }
+        }
+      },
+      "duration": {
+        "value": null,
+        "units": "seconds",
+        "expiry": null,
+        "expired": false
+      },
+      "start": null,
+      "origin": null,
+      "folder": null,
+      "system": {
+        "changes": [
+          {
+            "key": "system.damage.weaknesses.all",
+            "value": "@P",
+            "type": "add",
+            "priority": null,
+            "phase": "initial"
+          }
+        ]
+      },
+      "changes": [],
+      "_key": "!items.effects!DSCTdrv003svdedt.dsctSvdEditWeak1"
+    },
+    {
+      "_id": "dsctSvdEditImmu1",
+      "name": "Saved in the Edit (Immunity)",
+      "img": "icons/tools/scribal/ink-quill-pink.webp",
+      "type": "base",
+      "disabled": false,
+      "transfer": false,
+      "description": "<p>Damage immunity equal to the troubadour's Presence score until the start of their next turn.</p>",
+      "statuses": [],
+      "tint": "#ffffff",
+      "showIcon": 1,
+      "sort": 0,
+      "flags": {
+        "draw-steel-combat-tools": {
+          "enhanced": true,
+          "casterValues": true,
+          "expiryReminder": {
+            "expiry": "turnStart",
+            "rounds": 1
+          }
+        }
+      },
+      "duration": {
+        "value": null,
+        "units": "seconds",
+        "expiry": null,
+        "expired": false
+      },
+      "start": null,
+      "origin": null,
+      "folder": null,
+      "system": {
+        "changes": [
+          {
+            "key": "system.damage.immunities.all",
+            "value": "@P",
+            "type": "add",
+            "priority": null,
+            "phase": "initial"
+          }
+        ]
+      },
+      "changes": [],
+      "_key": "!items.effects!DSCTdrv003svdedt.dsctSvdEditImmu1"
+    },
+    {
+      "_id": "dsctSvdEditStdy1",
+      "name": "Saved in the Edit (Steady)",
+      "img": "icons/tools/scribal/ink-quill-pink.webp",
+      "type": "base",
+      "disabled": false,
+      "transfer": false,
+      "description": "<p>A bonus to stability and a penalty to speed equal to the troubadour's Presence score until the start of their next turn.</p>",
+      "statuses": [],
+      "tint": "#ffffff",
+      "showIcon": 1,
+      "sort": 0,
+      "flags": {
+        "draw-steel-combat-tools": {
+          "enhanced": true,
+          "casterValues": true,
+          "expiryReminder": {
+            "expiry": "turnStart",
+            "rounds": 1
+          }
+        }
+      },
+      "duration": {
+        "value": null,
+        "units": "seconds",
+        "expiry": null,
+        "expired": false
+      },
+      "start": null,
+      "origin": null,
+      "folder": null,
+      "system": {
+        "changes": [
+          {
+            "key": "system.combat.stability",
+            "value": "@P",
+            "type": "add",
+            "priority": null,
+            "phase": "initial"
+          },
+          {
+            "key": "system.movement.value",
+            "value": "-@P",
+            "type": "add",
+            "priority": null,
+            "phase": "initial"
+          }
+        ]
+      },
+      "changes": [],
+      "_key": "!items.effects!DSCTdrv003svdedt.dsctSvdEditStdy1"
+    },
+    {
+      "_id": "dsctSvdEditSwft1",
+      "name": "Saved in the Edit (Swift)",
+      "img": "icons/tools/scribal/ink-quill-pink.webp",
+      "type": "base",
+      "disabled": false,
+      "transfer": false,
+      "description": "<p>A bonus to speed and a penalty to stability equal to the troubadour's Presence score until the start of their next turn.</p>",
+      "statuses": [],
+      "tint": "#ffffff",
+      "showIcon": 1,
+      "sort": 0,
+      "flags": {
+        "draw-steel-combat-tools": {
+          "enhanced": true,
+          "casterValues": true,
+          "expiryReminder": {
+            "expiry": "turnStart",
+            "rounds": 1
+          }
+        }
+      },
+      "duration": {
+        "value": null,
+        "units": "seconds",
+        "expiry": null,
+        "expired": false
+      },
+      "start": null,
+      "origin": null,
+      "folder": null,
+      "system": {
+        "changes": [
+          {
+            "key": "system.movement.value",
+            "value": "@P",
+            "type": "add",
+            "priority": null,
+            "phase": "initial"
+          },
+          {
+            "key": "system.combat.stability",
+            "value": "-@P",
+            "type": "add",
+            "priority": null,
+            "phase": "initial"
+          }
+        ]
+      },
+      "changes": [],
+      "_key": "!items.effects!DSCTdrv003svdedt.dsctSvdEditSwft1"
+    }
+  ],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": "saved-in-the-edit-you-deal-rolled-damage-to-a-creature-or-object-or-enable-a-cre"
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrv003svdedt"
+}

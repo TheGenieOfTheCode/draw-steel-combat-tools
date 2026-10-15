@@ -1,0 +1,185 @@
+{
+  "folder": "DSCTfldDrvHero01",
+  "name": "Kuran’zoi Prismscale",
+  "type": "ability",
+  "_id": "DSCTdrv001krnzpr",
+  "img": "icons/equipment/chest/breastplate-layered-gold.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "triggered",
+    "category": "",
+    "resource": null,
+    "trigger": "A creature within 5 squares deals damage to you",
+    "distance": {
+      "primary": "",
+      "secondary": "",
+      "tertiary": "",
+      "type": "special"
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "custom": "",
+      "value": null,
+      "type": "special"
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "name": "",
+        "img": null,
+        "sort": 0,
+        "before": true,
+        "description": "<p>capture a moment of time in the armor, making that creature slowed (EoT). At 5th level, that creature also takes corruption damage equal to twice your highest characteristic score. At 9th level, you can release the moment to gain a +3 bonus to speed until the end of your next turn.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds these buttons to the derived triggered ability Triggers builds from this line.</em></p></section>"
+      },
+      "dsctDrvApplie001": {
+        "_id": "dsctDrvApplie001",
+        "type": "dsct.flatApplied",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "That creature is slowed (EoT)",
+          "display": "Slowed",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "slowed",
+          "exclusiveSelf": false,
+          "end": "turn",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      },
+      "dsctDrvDamage001": {
+        "_id": "dsctDrvDamage001",
+        "type": "dsct.flatDamage",
+        "name": "",
+        "img": null,
+        "sort": 200100,
+        "description": "",
+        "before": false,
+        "flatDamage": {
+          "displayText": "Corruption damage equal to twice your highest characteristic score (5th level)",
+          "display": "Corruption (5th level)",
+          "value": "2*max(@M, @A, @R, @I, @P)",
+          "types": [
+            "corruption"
+          ],
+          "ignoredImmunities": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      },
+      "dsctDrvApplie002": {
+        "_id": "dsctDrvApplie002",
+        "type": "dsct.flatApplied",
+        "name": "",
+        "img": null,
+        "sort": 200200,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "+3 speed until the end of your next turn (9th level)",
+          "display": "+3 Speed (9th level)",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "g7zaFj1NP675Tr9q",
+          "exclusiveSelf": true,
+          "end": "",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "g7zaFj1NP675Tr9q",
+      "name": "+3 Speed Bonus",
+      "img": "icons/equipment/chest/breastplate-layered-gold.webp",
+      "type": "base",
+      "disabled": false,
+      "transfer": false,
+      "description": "",
+      "statuses": [],
+      "tint": "#ffffff",
+      "showIcon": 1,
+      "sort": 0,
+      "flags": {
+        "draw-steel-combat-tools": {
+          "enhanced": true
+        }
+      },
+      "duration": {
+        "value": null,
+        "units": "seconds",
+        "expiry": "turnEnd",
+        "expired": false
+      },
+      "start": null,
+      "origin": null,
+      "folder": null,
+      "system": {
+        "changes": [
+          {
+            "key": "system.movement.value",
+            "value": 3,
+            "priority": null,
+            "type": "add",
+            "phase": "initial"
+          }
+        ]
+      },
+      "changes": [],
+      "_key": "!items.effects!DSCTdrv001krnzpr.g7zaFj1NP675Tr9q"
+    }
+  ],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": "treasure-kuranzoi-prismscale-a-creature-within-5-squares-deals-damage-to-you"
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrv001krnzpr"
+}
