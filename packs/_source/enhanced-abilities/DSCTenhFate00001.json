@@ -1,0 +1,233 @@
+{
+  "folder": "DSCTfldTalentL06",
+  "name": "Fate",
+  "type": "ability",
+  "_id": "DSCTenhFate00001",
+  "img": "icons/magic/unholy/energy-smoke-pink.webp",
+  "system": {
+    "source": {
+      "book": "Heroes",
+      "page": "196",
+      "license": "Draw Steel Creator License"
+    },
+    "_dsid": "fate",
+    "story": "Your foe gets a glimpse of how it will end for them.",
+    "keywords": [
+      "melee",
+      "psionic",
+      "chronopathy"
+    ],
+    "type": "main",
+    "category": "heroic",
+    "resource": 9,
+    "trigger": "",
+    "distance": {
+      "type": "melee",
+      "primary": "2",
+      "secondary": "1",
+      "tertiary": "1"
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "enemy",
+      "custom": "",
+      "value": 1
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [
+          "presence"
+        ],
+        "reactive": false
+      },
+      "effects": {
+        "97pcFgl1qnwnbxQR": {
+          "name": "",
+          "img": null,
+          "type": "damage",
+          "_id": "97pcFgl1qnwnbxQR",
+          "damage": {
+            "tier1": {
+              "value": "8 + @chr",
+              "types": [
+                "psychic"
+              ],
+              "ignoredImmunities": [],
+              "potency": {
+                "value": "@potency.weak",
+                "characteristic": "none"
+              }
+            },
+            "tier2": {
+              "value": "13 + @chr",
+              "types": [
+                "psychic"
+              ],
+              "ignoredImmunities": [],
+              "potency": {
+                "value": "@potency.average",
+                "characteristic": ""
+              }
+            },
+            "tier3": {
+              "value": "17 + @chr",
+              "types": [
+                "psychic"
+              ],
+              "ignoredImmunities": [],
+              "potency": {
+                "value": "@potency.strong",
+                "characteristic": ""
+              }
+            }
+          },
+          "sort": 0
+        }
+      }
+    },
+    "prerequisites": {
+      "dsid": [
+        "chronopathy"
+      ],
+      "value": "",
+      "level": null
+    },
+    "effects": {
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "description": "<p>The target has [[/apply \"Damage Weakness 5\"]] until the end of your next turn. Whenever the target takes damage while they have this weakness, they are knocked [[/apply prone]].</p>",
+        "before": true,
+        "name": "",
+        "img": null,
+        "sort": 0
+      },
+      "0Z8COXN94mhU8UDH": {
+        "sort": 100000,
+        "name": "",
+        "img": null,
+        "type": "strained",
+        "_id": "0Z8COXN94mhU8UDH",
+        "description": "<p>This ability gains the Strike keyword as the vision hurts the target’s psyche. You make a power roll, then are [[/apply weakened save]].</p>",
+        "before": true
+      },
+      "dsctApplied00001": {
+        "_id": "dsctApplied00001",
+        "type": "dsct.flatApplied",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "The target has damage weakness 5 until the end of your next turn",
+          "display": "Damage Weakness 5",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "34o9p6INyWzWvwiN",
+          "exclusiveSelf": false,
+          "end": "",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [
+    {
+      "name": "Damage Weakness 5",
+      "img": "icons/magic/unholy/energy-smoke-pink.webp",
+      "type": "base",
+      "origin": "Compendium.draw-steel.abilities.Item.eDMKIlAudmHd190J",
+      "transfer": false,
+      "_id": "34o9p6INyWzWvwiN",
+      "system": {
+        "end": {
+          "roll": "1d10 + @combat.save.bonus"
+        },
+        "changes": [
+          {
+            "key": "system.damage.weaknesses.all",
+            "value": 5,
+            "priority": null,
+            "type": "upgrade",
+            "phase": "initial"
+          }
+        ],
+        "project": {
+          "prerequisites": "",
+          "source": "",
+          "rollCharacteristic": [],
+          "yield": {
+            "kind": "weapon",
+            "amount": "1",
+            "display": ""
+          }
+        }
+      },
+      "disabled": false,
+      "duration": {
+        "value": null,
+        "units": "seconds",
+        "expiry": "turnEnd",
+        "expired": false
+      },
+      "description": "<p>Damage weakness 5. Whenever you take damage while you have this weakness, you are knocked prone. Ends at the end of the talent's next turn.</p>",
+      "tint": "#ffffff",
+      "statuses": [],
+      "sort": 0,
+      "flags": {
+        "draw-steel-combat-tools": {
+          "enhanced": true,
+          "expiryReminder": {
+            "expiry": "turnEnd",
+            "rounds": 1
+          }
+        }
+      },
+      "_stats": {
+        "compendiumSource": null,
+        "duplicateSource": null,
+        "exportSource": null,
+        "coreVersion": "14.361",
+        "systemId": "draw-steel",
+        "systemVersion": "1.1.0",
+        "createdTime": 1761072481922,
+        "modifiedTime": null,
+        "lastModifiedBy": null
+      },
+      "start": null,
+      "showIcon": 1,
+      "folder": null,
+      "_key": "!items.effects!DSCTenhFate00001.34o9p6INyWzWvwiN"
+    }
+  ],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.0",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTenhFate00001"
+}

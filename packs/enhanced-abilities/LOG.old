@@ -1,5 +1,0 @@
-2026/09/22-17:04:48.746 a138 Delete type=3 #1
-2026/09/22-17:04:48.749 77c0 Level-0 table #5: started
-2026/09/22-17:04:48.751 77c0 Level-0 table #5: 28270 bytes OK
-2026/09/22-17:04:48.752 77c0 Delete type=0 #3
-2026/09/22-17:04:48.752 77c0 Manual compaction at level-0 from '!folders!DSCTfldBasic0001' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhWodeSick1.dsctWodeBleed001' @ 0 : 0; will stop at (end)
