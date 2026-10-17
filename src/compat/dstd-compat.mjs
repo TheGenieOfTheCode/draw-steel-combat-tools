@@ -1327,6 +1327,38 @@ function _allowSoloCollapse(message, panel) {
   }, { capture: true });
 }
 
+function _squadFreeStrikePills(message, root) {
+  const sq = message.getFlag(M, 'squadFreeStrike');
+  const state = message.flags?.[DSTD]?.state;
+  if (!(sq?.minions?.length > 0) || !state || !isPrimaryGM()) return;
+  const pills = sq.minions.map(id => ({
+    kind: 'delta', value: sq.value, label: 'Free Strike', src: canvas.tokens.get(id)?.name ?? null, srcTokenId: id, source: 'trigger', dstSquad: true,
+  }));
+  const type = sq.type ?? '';
+  const update = {};
+  for (const btn of root?.querySelectorAll(`${DSTD_PANEL} [data-dstd-action="applyDamage"][data-operation-id]`) ?? []) {
+    const operationId = btn.dataset.operationId;
+    const existing = state.damageOverrides?.[operationId];
+    if (existing?.dstPills?.some(p => p.dstSquad)) continue;
+    const baseAmount = 0;
+    const all = [...(existing?.dstPills ?? []), ...pills];
+    update[`flags.${DSTD}.state.damageOverrides.${operationId}`] = {
+      ...(existing ?? {}),
+      amount: foldDamagePills(baseAmount, all),
+      baseAmount,
+      bonus: 0,
+      additional: existing?.additional ?? '',
+      damageType: existing?.damageType ?? type,
+      typeLabel: existing?.typeLabel ?? (type ? type.charAt(0).toUpperCase() + type.slice(1) : ''),
+      surges: existing?.surges ?? 0,
+      surgeDamage: existing?.surgeDamage ?? 0,
+      surgeBonus: existing?.surgeBonus ?? 0,
+      dstPills: all,
+    };
+  }
+  if (Object.keys(update).length) message.update(update).catch(() => {});
+}
+
 async function _injectFmButtons(message, root) {
   const panel = root?.querySelector(DSTD_PANEL);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons msgId=${message.id} hasPanel=${!!panel}`);
@@ -1335,7 +1367,7 @@ async function _injectFmButtons(message, root) {
   const abilityUuid = parts.find(p => p.abilityUuid)?.abilityUuid
                    ?? message.flags?.[DSTD]?.state?.abilityUuid;
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons abilityUuid=${abilityUuid}`);
-  if (!abilityUuid) return;
+  if (!abilityUuid) return _squadFreeStrikePills(message, root);
   const ability = await fromUuid(abilityUuid).catch(() => null);
   if (!ability) return;
 

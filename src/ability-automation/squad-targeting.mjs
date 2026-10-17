@@ -246,7 +246,7 @@ function _buildTargetMap(assignments, minionTokens, ability) {
   return result;
 }
 
-async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged = false, initialRange = range, ability = null) {
+async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged = false, initialRange = range, ability = null, opts = {}) {
   const GS  = canvas.grid.size;
   const CGD = canvas.grid.distance;
 
@@ -301,6 +301,7 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
   let _sqAutoAssign = () => {};
   let _sqUnselect   = () => {};
   const fsDamage  = eligibleMinions[0]?.actor?.system?.monster?.freeStrike ?? 0;
+  const maxPerTarget = opts.maxPerTarget ?? 3;
   const rangeNote = range !== initialRange ? ` · Free strikes can join from range ${range}` : '';
   const dist = ability?.system?.distance;
   const distP = parseInt(dist?.primary) || 0;
@@ -310,8 +311,8 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
                   : dist?.type === 'meleeRanged' ? `Melee ${distP} Ranged ${distS}`
                   : `Range ${initialRange}`;
   const overlay = beginPickerOverlay({
-    title: 'Group Action',
-    detail: `${distLabel}${rangeNote} · ${eligibleMinions.length} minions · Each extra minion on a target adds +${fsDamage} free strike damage`,
+    title: opts.title ?? 'Group Action',
+    detail: opts.detail ?? `${distLabel}${rangeNote} · ${eligibleMinions.length} minions · Each extra minion on a target adds +${fsDamage} free strike damage`,
     tokens: [...eligibleMinions, ...allTargets],
     onConfirm: () => _sqConfirm(),
     onCancel: () => _sqCancel(),
@@ -425,7 +426,7 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
       const maxDist = curCap === 0 ? initialRange * CGD : range * CGD;
       const dist    = tokFootprintDist(activeTok, t);
       if (dist >= maxDist) continue;
-      const atCap  = curCap >= 3;
+      const atCap  = curCap >= maxPerTarget;
       const color  = atCap ? 0x880000 : 0x4488FF;
       const border = atCap ? 0x440000 : 0x2244AA;
       const w = Math.max(1, Math.round(t.document.width));
@@ -489,8 +490,8 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
           : `${mTok.name} is too far to reinforce ${tTok.name}.`);
         return;
       }
-      if (effectiveCap >= 3) {
-        overlay.flashWarning('Maximum 3 minions can target the same creature.');
+      if (effectiveCap >= maxPerTarget) {
+        overlay.flashWarning(`Maximum ${maxPerTarget} minions can target the same creature.`);
         return;
       }
 
@@ -511,7 +512,7 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
     const runAutoAssign = () => {
       assignments.clear();
       targetCap.clear();
-      for (const [m, t] of _autoAssign(eligibleMinions, allTargets, isRanged, range, initialRange)) {
+      for (const [m, t] of (opts.assign ? opts.assign() : _autoAssign(eligibleMinions, allTargets, isRanged, range, initialRange))) {
         assignments.set(m, t);
         targetCap.set(t, (targetCap.get(t) ?? 0) + 1);
       }
@@ -616,7 +617,94 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
   });
 }
 
+function _assignFreeStrikes(minionTokens, candidates, range) {
+  const pref  = getSetting('squadAutoAssignStaminaPriority') ?? 'high';
+  const reach = range * (canvas.grid?.distance ?? 5);
+  const disp  = minionTokens[0]?.document?.disposition ?? CONST.TOKEN_DISPOSITIONS.NEUTRAL;
+  const enemies = candidates.filter(t =>
+    t.document.disposition !== CONST.TOKEN_DISPOSITIONS.NEUTRAL && t.document.disposition !== disp);
+  const byStamina = (a, b) => pref === 'none' ? 0
+    : pref === 'high' ? _getTargetStamina(b.t) - _getTargetStamina(a.t) : _getTargetStamina(a.t) - _getTargetStamina(b.t);
+  const assignments = new Map();
+  for (const m of minionTokens) {
+    const pick = enemies.map(t => ({ t, d: tokFootprintDist(m, t) })).filter(p => p.d < reach)
+      .sort((a, b) => byStamina(a, b) || a.d - b.d)[0];
+    if (pick) assignments.set(m.id, pick.t.id);
+  }
+  return assignments;
+}
+
+async function _postSquadFreeStrikes(assignments, strike) {
+  const byTarget = new Map();
+  for (const [minionId, targetId] of assignments) {
+    if (!byTarget.has(targetId)) byTarget.set(targetId, []);
+    byTarget.get(targetId).push(minionId);
+  }
+  const title = game.i18n.localize('DRAW_STEEL.Actor.npc.FreeStrike.DialogTitle');
+  for (const [targetId, minionIds] of byTarget) {
+    const target  = canvas.tokens.get(targetId);
+    const striker = canvas.tokens.get(minionIds[0]);
+    if (!target || !striker) continue;
+    setFoundryTargets([target]);
+    const roll = new ds.rolls.DamageRoll(String(strike.value), { type: strike.type, flavor: ds.CONFIG.damageTypes[strike.type]?.label });
+    await roll.evaluate();
+    await ChatMessage.implementation.create({
+      title,
+      speaker: ChatMessage.implementation.getSpeaker({ token: striker.document }),
+      type: 'standard',
+      'system.parts': [{ rolls: [roll], flavor: title, type: 'roll' }],
+      flags: { core: { canPopout: true }, [M]: { squadFreeStrike: { minions: minionIds, target: targetId, value: strike.value, type: strike.type ?? '' } } },
+    });
+  }
+}
+
+export async function runSquadFreeStrike(actor) {
+  if (!game.user.isGM || !actor?.system?.isMinion || !game.combat) return false;
+  if (!getSetting('abilityAutomationEnabled') || !getSetting('groupActionsEnabled')) return false;
+  const token = actor.token?.object ?? actor.getActiveTokens?.()[0] ?? null;
+  const combatant = token ? game.combat.combatants.find(c => c.tokenId === token.id) : null;
+  const group = combatant ? game.combat.groups?.contents.find(g => [...g.members].some(c => c.id === combatant.id)) : null;
+  if (!group) return false;
+  const minions = [...group.members]
+    .filter(c => c.actor?.system?.isMinion && !c.isDefeated)
+    .map(c => canvas.tokens.get(c.tokenId))
+    .filter(Boolean);
+  if (minions.length < 2) return false;
+
+  const strike = actor.system.freeStrike ?? {};
+  const range  = Math.max(strike.range?.melee ?? 1, strike.range?.ranged ?? 5);
+  const squadIds = new Set(minions.map(t => t.id));
+  const seen = new Set();
+  const targets = [];
+  for (const m of minions) {
+    for (const t of _getValidTargets(m, 'enemy', range, { excludeSelf: true })) {
+      if (seen.has(t.id) || squadIds.has(t.id)) continue;
+      seen.add(t.id);
+      targets.push(t);
+    }
+  }
+  const eligible = minions.filter(m => targets.some(t => tokFootprintDist(m, t) < range * canvas.grid.distance));
+  if (!eligible.length) return false;
+
+  _runSquadTargetingUI(eligible, targets, range, false, range, null, {
+    title: 'Group Free Strike',
+    detail: `Range ${range} · ${eligible.length} minions · Each minion deals its free strike (${strike.value}) to the target it's assigned`,
+    maxPerTarget: Infinity,
+    assign: () => _assignFreeStrikes(eligible, targets, range),
+  }).then(assignments => { if (assignments?.size) return _postSquadFreeStrikes(assignments, strike); });
+  return true;
+}
+
 export function registerSquadTargetingHooks() {
+  
+  
+  if (game.modules.get('lib-wrapper')?.active && !game.modules.get('draw-steel-triggers')?.active) {
+    libWrapper.register(M, 'ds.data.Actor.NPCModel.prototype.performFreeStrike', async function (wrapped, ...args) {
+      if (await runSquadFreeStrike(this.parent)) return;
+      return wrapped(...args);
+    }, 'MIXED');
+  }
+
   Hooks.on('closeAbilityConfigurationDialog', (app) => {
     const uuid = app.options?.ability?.uuid;
     if (uuid) _squadTargeted.delete(uuid);
