@@ -677,6 +677,7 @@ async function _openPillDamageEditor(message, button, fullEditor = false) {
     ...(p.enabled === false ? { enabled: false } : {}),
     
     ...(p.dstSquad ? { dstSquad: true } : {}),
+    ...(p.dealer ? { dealer: true } : {}),
     ...(p.lineStyle ? { lineStyle: p.lineStyle } : {}),
     ...(p.formula ? { formula: p.formula } : {}),
   }));
