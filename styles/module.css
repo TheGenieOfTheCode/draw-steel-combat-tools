@@ -2913,3 +2913,23 @@ body.dsbl-dark-chat.dsct-shift-targets .theme-dark .chat-message enriched-conten
 .application .dsct-source-note { color: var(--color-form-hint); }
 #dsct-tp-panel .dsct-token-col.dsct-tp-moving .dsct-token-img { box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-warm-2) 70%, transparent); }
 .application .dsct-wbs-content .dsct-name-input { font-weight: normal; }
+
+.dsct-source-pill > .dsct-pill-short { display: none; }
+.dsct-source-pill > .dsct-pill-body { display: contents; }
+body.dsct-compact-pills .chat-message .dsct-source-pill:has(> .dsct-pill-short) {
+  min-width: 0;
+  padding: 1px 6px 2px;
+  z-index: 0;
+}
+body.dsct-compact-pills .chat-message .dsct-source-pill > .dsct-pill-short {
+  display: block;
+  font-weight: 700;
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+body.dsct-compact-pills .chat-message .dsct-source-pill > .dsct-pill-short + .dsct-pill-body { display: none; }
+body.dsct-compact-pills .chat-message .dsct-source-pill:is(.dsct-pill-open, :focus-visible) > .dsct-pill-short { display: none; }
+body.dsct-compact-pills .chat-message .dsct-source-pill:is(.dsct-pill-open, :focus-visible) > .dsct-pill-short + .dsct-pill-body { display: contents; }
+body.dsct-compact-pills .chat-message .dsct-source-pill.dsct-pill-open:has(> .dsct-pill-short),
+body.dsct-compact-pills .chat-message .dsct-source-pill:focus-visible:has(> .dsct-pill-short) { padding: 3px 7px 4px; }
+body.dsct-compact-pills .chat-message .dsct-source-pill.dsct-pill-growing { overflow: hidden; }

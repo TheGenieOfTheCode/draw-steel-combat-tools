@@ -521,6 +521,10 @@
         "name": "Modifier Damage Editor",
         "hint": "Replaces the edit damage window on an ability in chat with an editor in the Alternative Ability Roll UI style, covering spent Surges, a change of damage type, and named changes listed under the damage button."
       },
+      "compactChatPills": {
+        "name": "Compact Modifier Pills",
+        "hint": "Modifier pills in chat messages shrink to their amount and show their full detail on hover."
+      },
       "skipPillEditor": {
         "name": "Cog Opens Add Modifier Directly",
         "hint": "The cog on a damage or power roll row goes straight to adding one modifier, instead of opening the editor first. Hold Shift while clicking it for the full editor."

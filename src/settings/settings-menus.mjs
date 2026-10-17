@@ -320,6 +320,7 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       'dstdRollPills',
       'dstdRollEditor',
       'pillDamageEditor',
+      'compactChatPills',
       'skipPillEditor',
       'multiplierOverride',
       'noMultiplierStacking',

@@ -6,6 +6,7 @@ import { preloadStickbug, rebuildSquadHuds } from '../squad-hud.mjs';
 import { refreshSquadTurnMarkers } from '../squad-turns.mjs';
 import { refreshHiddenMarkers } from '../conditions/hidden-markers.mjs';
 import { applyHealthEstimatePatch } from '../compat/health-estimate-compat.mjs';
+import { applyCompactPills } from '../compat/pill-compact.mjs';
 import { InstallMacrosMenu, EnhancedAbilitiesMenu } from '../setup-macros.mjs';
 import {
   ForcedMovementSettingsMenu,
@@ -682,6 +683,11 @@ export const registerSettings = () => {
     name: L('pillDamageEditor.name'), hint: L('pillDamageEditor.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'compactChatPills', {
+    name: L('compactChatPills.name'), hint: L('compactChatPills.hint'),
+    scope: 'client', config: false, type: Boolean, default: false, onChange: applyCompactPills,
+  });
+  Hooks.once('ready', () => applyCompactPills(game.settings.get(M, 'compactChatPills')));
   game.settings.register(M, 'skipPillEditor', {
     name: L('skipPillEditor.name'), hint: L('skipPillEditor.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

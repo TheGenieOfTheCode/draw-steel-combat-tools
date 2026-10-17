@@ -2,6 +2,7 @@ import { DSTD, registerPanelDecorator, isPrimaryGM, safeUpdate } from '../ctlib.
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
 import { markAreaCaps } from './dstd-area-cap.mjs';
+import { compactPillHTML } from './pill-compact.mjs';
 
 const M    = 'draw-steel-combat-tools';
 
@@ -931,7 +932,8 @@ function _injectDamagePills(message, root) {
         span.type = 'button';
         span.className = `dsct-source-pill dsct-dmg-pill dsct-dpill-${p.kind}${it.inert ? ' dsct-dpill-inert' : ''}${p.enabled === false ? ' dsct-pill-disabled' : ''}`;
         styleTypePill(span, p);
-        span.innerHTML = `<span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : ''}`;
+        const full = `<span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : ''}`;
+        span.innerHTML = compactPillHTML(foundry.utils.escapeHTML(p.kind === 'note' ? damagePillText(p) : damagePillAmtStr(p)), full);
         if (p.srcTokenId) span.dataset.srcTokenId = p.srcTokenId;
         if (p.lineFrom)   span.dataset.lineFrom   = p.lineFrom;
         if (p.lineStyle)  span.dataset.lineStyle  = p.lineStyle;

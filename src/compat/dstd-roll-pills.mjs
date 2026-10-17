@@ -2,6 +2,7 @@ import { DSTD, registerPanelDecorator, safeUpdate } from '../ctlib.mjs';
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { DSCTAddModifierDialog, TIER_KINDS, tierModsOf, applyTierMods, pillAmountLabel, pillCss } from '../ability-automation/roll-dialog-hooks.mjs';
 import { drawSourceLines, clearSourceLines } from '../ability-automation/source-lines.mjs';
+import { compactPillHTML } from './pill-compact.mjs';
 
 const M    = 'draw-steel-combat-tools';
 
@@ -333,7 +334,7 @@ function _chatPillHTML(p, msgId, targetKey) {
   if (p.srcTokenIds?.length) attrs += ` data-src-token-ids="${p.srcTokenIds.join(',')}"`;
   if (p.lineFrom)   attrs += ` data-line-from="${p.lineFrom}"`;
   if (p.lineStyle)  attrs += ` data-line-style="${p.lineStyle}"`;
-  return `<button type="button" class="${cls}"${attrs} title="${foundry.utils.escapeHTML(title)}"><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
+  return `<button type="button" class="${cls}"${attrs} title="${foundry.utils.escapeHTML(title)}">${compactPillHTML(_pillAmtStr(p), `<span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}`)}</button>`;
 }
 
 function _overrideSessionPills(roll, override) {

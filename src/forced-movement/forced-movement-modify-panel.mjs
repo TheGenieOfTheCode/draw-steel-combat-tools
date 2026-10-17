@@ -1,5 +1,6 @@
 import { safeUpdate } from '../ctlib.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
+import { compactPillHTML } from '../compat/pill-compact.mjs';
 ﻿import { getModuleApi } from '../helpers.mjs';
 
 export const replayModifiers = (baseStates, stack, states) => {
@@ -153,7 +154,7 @@ export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, 
   if (entry.srcTokenId) pillBtn.dataset.srcTokenId = entry.srcTokenId;
   const effectStr = _modEffectSummary(entry, baseStates);
   const fromStr = entry.noteSrc ? `<span class="dsct-pill-from">from ${esc(entry.noteSrc)}</span>` : '';
-  pillBtn.innerHTML = `<span class="dsct-pip">${effectStr ? `${esc(effectStr)} &middot; ${esc(noteName)}` : esc(noteName)}</span>${fromStr}`;
+  pillBtn.innerHTML = compactPillHTML(esc(effectStr || noteName), `<span class="dsct-pip">${effectStr ? `${esc(effectStr)} &middot; ${esc(noteName)}` : esc(noteName)}</span>${fromStr}`);
   const descLine = noteDesc ? `${noteDesc}\n` : '';
   pillBtn.title = `${descLine}${_buildModTooltip(entry, baseStates)}`;
 
