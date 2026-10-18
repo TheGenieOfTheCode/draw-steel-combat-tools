@@ -187,7 +187,7 @@
       },
       "tauntedEnabled": {
         "name": "Taunted",
-        "hint": "Adds an Apply Taunted button to Target Damage cards. The system handles the double bane."
+        "hint": "Adds an Apply Taunted button to Target Damage messages. The system handles the double bane."
       },
       "tauntedEffectIcon": {
         "name": "Taunted Effect Icon",
@@ -410,7 +410,7 @@
       "handedToTriggers": "Draw Steel: Triggers handles this while its Feature Triggers setting is on.",
       "judgementAutomation": {
         "name": "Judgement",
-        "hint": "Adds a button to the Judgement chat card to judge your target, then follows the judged creature: a reminder in chat each time Judgement can be used, and a prompt to judge someone new when the judged creature falls."
+        "hint": "Adds a button to the Judgement chat message to judge your target, then follows the judged creature: a reminder in chat each time Judgement can be used, and a prompt to judge someone new when the judged creature falls."
       },
       "judgedEffectIcon": {
         "name": "Judged Effect Icon",
@@ -426,7 +426,7 @@
       },
       "markAutomation": {
         "name": "Mark",
-        "hint": "Adds an Apply Mark button to every chat card that can mark, and prompts the Tactician to mark someone new within 10 squares when the marked creature falls. Knows which marks replace an earlier one and which do not."
+        "hint": "Adds an Apply Mark button to every chat message that can mark, and prompts the Tactician to mark someone new within 10 squares when the marked creature falls. Knows which marks replace an earlier one and which do not."
       },
       "markedEffectIcon": {
         "name": "Marked Effect Icon",
@@ -434,7 +434,7 @@
       },
       "aidAttackAutomation": {
         "name": "Aid Attack",
-        "hint": "Adds an Aid Attack button to the Aid Attack chat card. It marks the enemy you targeted so the next ally ability roll against them has an edge, and clears the mark once someone rolls against them or combat ends."
+        "hint": "Adds an Aid Attack button to the Aid Attack chat message. It marks the enemy you targeted so the next ally ability roll against them has an edge, and clears the mark once someone rolls against them or combat ends."
       },
       "aidAttackEffectIcon": {
         "name": "Aid Attack Effect Icon",
@@ -442,7 +442,7 @@
       },
       "imNoThreatEnabled": {
         "name": "I'm No Threat",
-        "hint": "Adds a button to the I'm No Threat chat card for choosing what the illusion looks like. The token takes that look until the Shadow makes a strike."
+        "hint": "Adds a button to the I'm No Threat chat message for choosing what the illusion looks like. The token takes that look until the Shadow makes a strike."
       },
       "imNoThreatEffectIcon": {
         "name": "I'm No Threat Effect Icon",
@@ -450,7 +450,7 @@
       },
       "abyssalEvolutionEnabled": {
         "name": "Abyssal Evolution",
-        "hint": "Adds a button to the Abyssal Evolution chat card for turning an abyssal minion into a horde creature of the same level."
+        "hint": "Adds a button to the Abyssal Evolution chat message for turning an abyssal minion into a horde creature of the same level."
       },
       "squadAutoAssignStaminaPriority": {
         "name": "Auto-Assign Stamina Priority",
@@ -503,7 +503,7 @@
       },
       "dstdSquadSections": {
         "name": "Group Squads in Damage Panels",
-        "hint": "Folds a damage panel's target rows into a collapsible section per squad, so a card that hits a whole minion squad reads as one line instead of eight. Targets outside a squad are left where they are."
+        "hint": "Folds a damage panel's target rows into a collapsible section per squad, so a message that hits a whole minion squad reads as one line instead of eight. Targets outside a squad are left where they are."
       },
       "dstdSquadSectionsOpen": {
         "name": "Open Squad Sections by Default",
