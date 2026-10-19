@@ -372,9 +372,39 @@ async function _autoApplyOwn(message, panel) {
   await message.setFlag(M, 'autoApplied', true);
   await new Promise(r => setTimeout(r, AUTO_APPLY_SETTLE_MS));
   const squadsOnCard = rows.map(r => _squadOfRow(r)?.id).filter(Boolean);
-  await _applyEffectsInOrder(message.id, panel.ownerDocument);
+  await _applyEffectsInOrder(message.id, panel.ownerDocument, { safe: true });
   await _noteSquadsSwept(message, squadsOnCard);
 }
+
+const PROMPT_WAIT_MS = 120000;
+
+const _promptOpen = () => !!document.getElementById('dsct-picker-topbar')
+  || document.body.classList.contains('dsct-picker-lock')
+  || !!document.getElementById('dsct-vertical-popup')
+  || [...foundry.applications.instances.values()].some(a => a.rendered
+    && (a instanceof foundry.applications.api.DialogV2 || /^(TargetedConditionPrompt|DefeatedMinionSelection)$/.test(a.constructor.name)));
+
+const _sourceOnCanvas = (message) => {
+  const uuid = message?.flags?.[DSTD]?.state?.sourceTokenUuid;
+  return !!(uuid && fromUuidSync(uuid)?.object);
+};
+
+const _wouldPrompt = (actionRow, btn, message) => {
+  const targetRow = actionRow.closest(DSTD_ROW);
+  const status = (btn.dataset.dsctDstdCond ?? '').match(/:cond:([\w-]+)$/)?.[1]
+    ?? (btn.dataset.dsctEnrichKey ?? '').match(/:enrich:([\w-]+)$/)?.[1]
+    ?? btn.dataset.dsctStatus ?? null;
+  if (status && SOURCED_STATUSES.has(status)) {
+    if (!getSetting('conditionsEnabled')) return true;
+    const others = canvas.tokens.controlled.filter(t => t.document.uuid.replace(/\./g, '__') !== targetRow?.dataset.targetKey).length;
+    if ((btn.dataset.dsctStatus || !_sourceOnCanvas(message)) && others !== 1) return true;
+  }
+  if (actionRow.classList.contains('dsct-dstd-fm-row')) {
+    if (/\b(Vertical|Slide)\b/.test(btn.textContent) || targetRow?.dataset.targetKey === 'selected-token') return true;
+    if (!_sourceOnCanvas(message) && canvas.tokens.controlled.length !== 1) return true;
+  }
+  return false;
+};
 
 const AUTO_APPLY_SETTLE_MS = 600;
 const FM_SETTLE_MAX_MS = 15000;
@@ -382,42 +412,57 @@ const NOT_APPLY = new Set(['undoDamage', 'undoStatus', 'editDamage', 'editRoll',
 
 const _effectRows = (targetRow) => [...targetRow.querySelectorAll(`.${DSTD}-action-row`)].filter(r => !r.classList.contains('dsct-dstd-global-row'));
 
-const _autoButton = (actionRow) => {
+const _autoButton = (actionRow, safe = false, message = null) => {
   if (!actionRow || actionRow.matches('[data-dsct-manual]')) return null;
   const btn = [...actionRow.children].find(c => c.tagName === 'BUTTON');
   if (!btn || btn.disabled || NOT_APPLY.has(btn.dataset.dstdAction) || btn.classList.contains(`${DSTD}-undo-button`)) return null;
   if (actionRow.classList.contains('dsct-dstd-fm-row') && !/\bAuto\b/.test(btn.textContent)) return null;
+  if (safe && _wouldPrompt(actionRow, btn, message)) return null;
   return btn;
 };
 
-const _applyEffectsInOrder = (msgId, msgDoc) => damageBatch(() => _withOneToast(async () => {
+const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => damageBatch(() => _withOneToast(async () => {
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
   const panelNow = () => msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`)?.querySelector(DSTD_PANEL);
   const rowOf = (key) => panelNow()?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(key)}"]`);
+  const actionAt = (key, col) => (rowOf(key) ? _effectRows(rowOf(key))[col] : null);
   const keys = [...(panelNow()?.querySelectorAll(DSTD_ROW) ?? [])].map(r => r.dataset.targetKey).filter(k => k && k !== 'selected-token');
-  for (let col = 0; ; col++) {
-    let anyRow = false;
-    for (const key of keys) {
-      const actionRow = rowOf(key) ? _effectRows(rowOf(key))[col] : null;
-      if (!actionRow) continue;
-      anyRow = true;
-      const btn = _autoButton(actionRow);
-      if (!btn) continue;
-      const isFm = actionRow.classList.contains('dsct-dstd-fm-row');
-      const before = applicationSignature(game.messages.get(msgId));
-      btn.click();
-      if (isFm) {
-        await wait(150);
-        const until = Date.now() + FM_SETTLE_MAX_MS;
-        while (window._dsctFMActive && Date.now() < until) await wait(50);
-      } else {
-        const until = Date.now() + ROW_SETTLE_MAX_MS;
-        while (Date.now() < until && applicationSignature(game.messages.get(msgId)) === before
-          && _autoButton(rowOf(key) ? _effectRows(rowOf(key))[col] : null)) await wait(25);
+  const targetsBefore = [...game.user.targets].map(t => t.id);
+  try {
+    for (let col = 0; ; col++) {
+      let anyRow = false;
+      for (const key of keys) {
+        const actionRow = actionAt(key, col);
+        if (!actionRow) continue;
+        anyRow = true;
+        const message = game.messages.get(msgId);
+        const btn = _autoButton(actionRow, safe, message);
+        if (!btn) continue;
+        const isFm = actionRow.classList.contains('dsct-dstd-fm-row');
+        const before = applicationSignature(message);
+        btn.click();
+        if (isFm) {
+          await wait(150);
+          const until = Date.now() + FM_SETTLE_MAX_MS;
+          while ((window._dsctFMActive || actionAt(key, col)?.classList.contains('is-executing')) && !_promptOpen() && Date.now() < until) await wait(50);
+        } else {
+          const until = Date.now() + ROW_SETTLE_MAX_MS;
+          while (Date.now() < until && applicationSignature(game.messages.get(msgId)) === before
+            && _autoButton(actionAt(key, col))) await wait(25);
+        }
+        const promptUntil = Date.now() + PROMPT_WAIT_MS;
+        while (_promptOpen() && Date.now() < promptUntil) await wait(100);
+        if (_promptOpen()) return;
+        await wait(ROW_REDRAW_MS);
       }
-      await wait(ROW_REDRAW_MS);
+      if (!anyRow) break;
     }
-    if (!anyRow) break;
+  } finally {
+    if (canvas.ready) {
+      const keep = new Set(targetsBefore);
+      for (const t of [...game.user.targets]) if (!keep.has(t.id)) t.setTarget(false, { releaseOthers: false, groupSelection: true });
+      for (const id of keep) canvas.tokens.get(id)?.setTarget(true, { releaseOthers: false, groupSelection: true });
+    }
   }
 }));
 
@@ -2932,6 +2977,7 @@ async function _injectFmButtons(message, root) {
       condBtn.type      = 'button';
       condBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
       condBtn.dataset.dsctFlatCondKey = condStateKey;
+      condBtn.dataset.dsctStatus = statusId;
       condBtn.dataset.tooltip = applyLbl;
       condBtn.disabled = condState.applied;
       condBtn.append(_makeCondIcon(), _makeSpan(applyLbl));
