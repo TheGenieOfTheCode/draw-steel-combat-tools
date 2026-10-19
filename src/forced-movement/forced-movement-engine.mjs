@@ -29,6 +29,7 @@ import { runMultiTokenPicker, setFoundryTargets } from '../ability-automation/ta
 import { beginPickerOverlay, endPickerOverlay } from '../ability-automation/picker-overlay.mjs';
 
 let _fmGateBypass = false;
+let _fmContextKey = null;
 
 export function bypassNextFmGate() {
   _fmGateBypass = true;
@@ -52,14 +53,17 @@ const _runForcedMovement = async (...args) => {
 const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false, juggernaut = false, noMoverCollisionDamage = false, noObstacleCollisionDamage = false, contextMessageId = null, origin = null) => {
   if (_fmGateBypass) {
     _fmGateBypass = false;
+    _fmContextKey = null;
   } else {
     
     
     
     
+    const fmKey = _fmContextKey;
+    _fmContextKey = null;
     const ctx = {
       type, distance, target: targetToken, source: sourceToken,
-      messageId: contextMessageId, origin, keywords: [...keywords],
+      messageId: contextMessageId, origin, fmKey, keywords: [...keywords],
       verticalHeight, fallReduction, noFallDamage, ignoreStability, bonusCreatureDmg, bonusObjectDmg,
       noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, fastMove,
       resume: (mods = {}) => {
@@ -2759,7 +2763,7 @@ export async function runForcedMovement(macroArgs = []) {
   } 
   else if (typeof macroArgs === 'object' && !Array.isArray(macroArgs) && 'movement' in macroArgs) {
     
-    const { movement, distance: distRaw, properties, verticalDistance = 0, fallReduction = 0, target: explicitTarget, source: explicitSource, contextMessageId = null, keywords: rawKeywords = [], origin = null } = macroArgs;
+    const { movement, distance: distRaw, properties, verticalDistance = 0, fallReduction = 0, target: explicitTarget, source: explicitSource, contextMessageId = null, keywords: rawKeywords = [], origin = null, fmKey = null } = macroArgs;
     const kwList = [...(rawKeywords ?? [])].map(k => String(k).toLowerCase());
     const type     = parseType(movement);
     const distance = parseInt(distRaw) || 0;
@@ -2796,6 +2800,7 @@ export async function runForcedMovement(macroArgs = []) {
     if (type === 'Pull' && verticalHeight > 0) verticalHeight = -verticalHeight;
 
     if (targetsToProcess.length === 1) {
+      _fmContextKey = fmKey;
       await _runForcedMovement(type, distance, targetsToProcess[0], source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, false, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin);
     } else {
       const results = [];

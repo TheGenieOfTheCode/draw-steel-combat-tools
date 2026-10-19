@@ -2617,6 +2617,7 @@ async function _injectFmButtons(message, root) {
           : { applied: false, undoMsgId: null, modStack: _flyingMod ? [_flyingMod] : [] };
         _fmState.set(stateKey, saved);
       }
+      saved.redirected = savedFlagState[subKey]?.redirected ?? null;
 
       const _flatFmDisplayOverride = effect.flatForced.display || null;
       const effInitF       = _effectiveState(baseState, saved.modStack);
@@ -2720,6 +2721,7 @@ async function _injectFmButtons(message, root) {
             source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null) ?? sourceToken,
             contextMessageId: message.id,
             origin: "powerRoll",
+            fmKey: subKey,
           });
         } catch { }
 
