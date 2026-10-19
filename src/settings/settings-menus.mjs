@@ -311,6 +311,8 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       header('Ability Range'),
       'enforceAbilityRange',
       'gmBypassRangeEnforcement',
+      header('Applying Damage'),
+      'autoApplyOwnAbilities',
       header('Ability Templates'),
       'abilityTemplateConfigEnabled',
       'abilityTemplateCleanup',

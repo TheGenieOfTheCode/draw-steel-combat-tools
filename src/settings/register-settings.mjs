@@ -154,6 +154,10 @@ export const registerSettings = () => {
     name: L('fmAutoForOwnAbilities.name'), hint: L('fmAutoForOwnAbilities.hint'),
     scope: 'client', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'autoApplyOwnAbilities', {
+    name: L('autoApplyOwnAbilities.name'), hint: L('autoApplyOwnAbilities.hint'),
+    scope: 'client', config: false, type: Boolean, default: false,
+  });
   game.settings.register(M, 'forcedMovementEnabled', {
     name: L('forcedMovementEnabled.name'), hint: L('forcedMovementEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
@@ -481,7 +485,7 @@ export const registerSettings = () => {
   game.settings.registerMenu(M, 'abilityAutomationSettings', {
     name: L('abilityAutomationSettings.name'), label: L('abilityAutomationSettings.label'),
     hint: L('abilityAutomationSettings.hint'),
-    icon: 'fas fa-wand-magic-sparkles', type: AbilityAutomationSettingsMenu, restricted: true,
+    icon: 'fas fa-wand-magic-sparkles', type: AbilityAutomationSettingsMenu, restricted: false,
   });
 
   game.settings.registerMenu(M, 'flatEffectsSettings', {

@@ -166,6 +166,10 @@ export function registerDstdCompat() {
     _lockSweptSquadUndos(panel, message);
   } });
   registerPanelDecorator({ id: 'combat-tools-forced-movement', priority: 100, decorate: ({ message, root }) => _injectFmButtons(message, root) });
+  registerPanelDecorator({ id: 'combat-tools-auto-apply', priority: 300, retry: [400], decorate: ({ message, panel }) => _autoApplyOwn(message, panel) });
+  Hooks.on('createChatMessage', (message, _options, userId) => {
+    if (userId === game.user.id && getSetting('autoApplyOwnAbilities')) _autoApplyEligible.add(message.id);
+  });
 
   
   
@@ -354,6 +358,69 @@ const _withOneToast = async (fn) => {
   }
 };
 
+const _autoApplyEligible = new Set();
+
+async function _autoApplyOwn(message, panel) {
+  if (!panel || !_autoApplyEligible.has(message.id)) return;
+  if (!getSetting('autoApplyOwnAbilities') || message.getFlag(M, 'autoApplied')) return void _autoApplyEligible.delete(message.id);
+  const rows = [...panel.querySelectorAll(DSTD_ROW)].filter(r => r.dataset.targetKey && r.dataset.targetKey !== 'selected-token');
+  if (!rows.some(r => _effectRows(r).some(_autoButton))) return;
+  const abilityUuid = _getMessageParts(message).find(p => p.abilityUuid)?.abilityUuid ?? message.flags?.[DSTD]?.state?.abilityUuid;
+  const ability = abilityUuid ? fromUuidSync(abilityUuid) : null;
+  _autoApplyEligible.delete(message.id);
+  if (!isOwnAbilityActor(ability?.actor)) return;
+  await message.setFlag(M, 'autoApplied', true);
+  await new Promise(r => setTimeout(r, AUTO_APPLY_SETTLE_MS));
+  const squadsOnCard = rows.map(r => _squadOfRow(r)?.id).filter(Boolean);
+  await _applyEffectsInOrder(message.id, panel.ownerDocument);
+  await _noteSquadsSwept(message, squadsOnCard);
+}
+
+const AUTO_APPLY_SETTLE_MS = 600;
+const FM_SETTLE_MAX_MS = 15000;
+const NOT_APPLY = new Set(['undoDamage', 'undoStatus', 'editDamage', 'editRoll', 'updateTargets', 'rollReactive']);
+
+const _effectRows = (targetRow) => [...targetRow.querySelectorAll(`.${DSTD}-action-row`)].filter(r => !r.classList.contains('dsct-dstd-global-row'));
+
+const _autoButton = (actionRow) => {
+  if (!actionRow || actionRow.matches('[data-dsct-manual]')) return null;
+  const btn = [...actionRow.children].find(c => c.tagName === 'BUTTON');
+  if (!btn || btn.disabled || NOT_APPLY.has(btn.dataset.dstdAction) || btn.classList.contains(`${DSTD}-undo-button`)) return null;
+  if (actionRow.classList.contains('dsct-dstd-fm-row') && !/\bAuto\b/.test(btn.textContent)) return null;
+  return btn;
+};
+
+const _applyEffectsInOrder = (msgId, msgDoc) => damageBatch(() => _withOneToast(async () => {
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  const panelNow = () => msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`)?.querySelector(DSTD_PANEL);
+  const rowOf = (key) => panelNow()?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(key)}"]`);
+  const keys = [...(panelNow()?.querySelectorAll(DSTD_ROW) ?? [])].map(r => r.dataset.targetKey).filter(k => k && k !== 'selected-token');
+  for (let col = 0; ; col++) {
+    let anyRow = false;
+    for (const key of keys) {
+      const actionRow = rowOf(key) ? _effectRows(rowOf(key))[col] : null;
+      if (!actionRow) continue;
+      anyRow = true;
+      const btn = _autoButton(actionRow);
+      if (!btn) continue;
+      const isFm = actionRow.classList.contains('dsct-dstd-fm-row');
+      const before = applicationSignature(game.messages.get(msgId));
+      btn.click();
+      if (isFm) {
+        await wait(150);
+        const until = Date.now() + FM_SETTLE_MAX_MS;
+        while (window._dsctFMActive && Date.now() < until) await wait(50);
+      } else {
+        const until = Date.now() + ROW_SETTLE_MAX_MS;
+        while (Date.now() < until && applicationSignature(game.messages.get(msgId)) === before
+          && _autoButton(rowOf(key) ? _effectRows(rowOf(key))[col] : null)) await wait(25);
+      }
+      await wait(ROW_REDRAW_MS);
+    }
+    if (!anyRow) break;
+  }
+}));
+
 const ROW_SETTLE_MAX_MS = 500;
 const ROW_REDRAW_MS = 60;
 
@@ -401,9 +468,8 @@ function _installGlobalDamageButtons(panel, message) {
   const targetRows = [...panel.querySelectorAll(DSTD_ROW)];
   if (targetRows.length <= 1) return;
 
-  const applyBtns = targetRows.map(r => r.querySelector('[data-dstd-action="applyDamage"]')).filter(Boolean);
   const undoBtns  = targetRows.map(r => r.querySelector('[data-dstd-action="undoDamage"]')).filter(Boolean);
-  const anyApplyEnabled = applyBtns.some(b => !b.disabled);
+  const anyApplyEnabled = targetRows.some(r => _effectRows(r).some(_autoButton));
   const anyUndoEnabled  = undoBtns.some(b => !b.disabled);
   if (!anyApplyEnabled && !anyUndoEnabled) return;
 
@@ -416,7 +482,7 @@ function _installGlobalDamageButtons(panel, message) {
   applyAllBtn.type = 'button';
   applyAllBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
   applyAllBtn.disabled = !anyApplyEnabled;
-  applyAllBtn.dataset.tooltip = 'Apply damage to all targets';
+  applyAllBtn.dataset.tooltip = 'Apply every effect to all targets, one effect at a time';
   applyAllBtn.append(_makeIcon('fa-solid fa-check-double'), _makeSpan('Apply All'));
 
   const undoAllBtn = document.createElement('button');
@@ -432,7 +498,7 @@ function _installGlobalDamageButtons(panel, message) {
     applyAllBtn.disabled = true;
 
     const squadsOnCard = targetRows.map(r => _squadOfRow(r)?.id).filter(Boolean);
-    await _clickSequentially(row => row.querySelector('[data-dstd-action="applyDamage"]'));
+    await _applyEffectsInOrder(msgId, msgDoc);
     await _noteSquadsSwept(message, squadsOnCard);
   });
 
@@ -2172,6 +2238,7 @@ async function _injectFmButtons(message, root) {
 
             const grabRow = document.createElement('div');
             grabRow.className = `${DSTD}-action-row dsct-dstd-condition-row`;
+            grabRow.dataset.dsctManual = '1';
             grabRow.append(grabBtn, undoGrabBtn, settingsGrabBtn);
             actions.appendChild(grabRow);
           }
@@ -2249,6 +2316,7 @@ async function _injectFmButtons(message, root) {
           });
           const pfRow = document.createElement('div');
           pfRow.className = `${DSTD}-action-row dsct-dstd-condition-row`;
+          pfRow.dataset.dsctManual = '1';
           pfRow.append(pfBtn);
           actions.appendChild(pfRow);
         }
@@ -3139,6 +3207,7 @@ async function _injectFmButtons(message, root) {
 
       const tpRow = document.createElement('div');
       tpRow.className = `${DSTD}-action-row`;
+      tpRow.dataset.dsctManual = '1';
       tpRow.append(tpBtn, undoTpBtn);
 
       const tpHandle = { tpRow, tpBtn, undoBtn: undoTpBtn, label: tpLabel, message, tpKey };
