@@ -148,7 +148,11 @@ export const registerSettings = () => {
   game.settings.registerMenu(M, 'forcedMovementSettings', {
     name: L('forcedMovementSettings.name'), label: L('forcedMovementSettings.label'),
     hint: L('forcedMovementSettings.hint'),
-    icon: 'fas fa-person-running', type: ForcedMovementSettingsMenu, restricted: true,
+    icon: 'fas fa-person-running', type: ForcedMovementSettingsMenu, restricted: false,
+  });
+  game.settings.register(M, 'fmAutoForOwnAbilities', {
+    name: L('fmAutoForOwnAbilities.name'), hint: L('fmAutoForOwnAbilities.hint'),
+    scope: 'client', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'forcedMovementEnabled', {
     name: L('forcedMovementEnabled.name'), hint: L('forcedMovementEnabled.hint'),

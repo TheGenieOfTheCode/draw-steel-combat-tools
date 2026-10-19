@@ -55,6 +55,10 @@ export const getSetting = (key) => {
   return _read(key);
 };
 
+export const isOwnAbilityActor = (actor) => !!actor && (game.user.isGM
+  ? !game.users.some((u) => u.active && !u.isGM && actor.testUserPermission(u, 'OWNER'))
+  : actor.isOwner);
+
 export const effectStartFor = (actor) => {
   const start = CONFIG.ActiveEffect.documentClass.getEffectStart();
   start.combatant = game.combat?.getCombatantsByActor(actor)?.[0]?.id ?? start.combatant ?? null;

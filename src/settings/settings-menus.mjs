@@ -60,7 +60,7 @@ export class ForcedMovementSettingsMenu extends SettingsSubmenu {
   static get enableKey()   { return 'forcedMovementEnabled'; }
 
   static get regularKeys() {
-    return ['forcedMovementEnabled', 'animationStepDelay', 'fallConfirmation', 'friendlyFireConfirmation', 'fmModifyGmOnly', 'dstdQuickFmButton'];
+    return ['forcedMovementEnabled', 'animationStepDelay', 'fallConfirmation', 'friendlyFireConfirmation', 'fmModifyGmOnly', 'dstdQuickFmButton', 'fmAutoForOwnAbilities'];
   }
 
   static get debugKeys() {

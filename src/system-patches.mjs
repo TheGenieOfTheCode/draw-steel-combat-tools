@@ -1,4 +1,4 @@
-import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, sightSamples, sightOriginPoints, messageDamageSource } from './helpers.mjs';
+import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, sightSamples, sightOriginPoints, messageDamageSource, isOwnAbilityActor } from './helpers.mjs';
 import { chooseMessageFilter, chooseKeywords } from './ability-automation/choose-effect.mjs';
 import { applyGrab, runGrab, grabChat } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
@@ -53,7 +53,6 @@ export function registerSystemPatches() {
   _registerButtonHooks();
 }
 
-
 function _patchVisionOrigins() {
   libWrapper.register(
     M,
@@ -81,7 +80,6 @@ function _patchVisionOrigins() {
     'MIXED',
   );
 }
-
 
 function _patchVisionTestPoints() {
   libWrapper.register(
@@ -318,7 +316,6 @@ function _patchDamageRollButton() {
   );
 }
 
-
 const _usedJudgementT3 = new Set();
 
 function _registerButtonHooks() {
@@ -475,6 +472,9 @@ function _registerButtonHooks() {
         ...(s.enabled === false ? { enabled: false } : {}),
       }));
       const baseStates = fmBtns.map(btn => _fmBaseStateFromBtn(btn));
+      if (getSetting('fmAutoForOwnAbilities') && isOwnAbilityActor(fmItem?.actor)) {
+        for (const st of baseStates) if (/^(push|pull)$/i.test(st.movement)) st.fastMove = true;
+      }
       const states     = baseStates.map(st => ({ ...st }));
 
       if (modStack.length > 0) replayModifiers(baseStates, modStack, states);

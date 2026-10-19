@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed } from '../helpers.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor } from '../helpers.mjs';
 import { triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
@@ -853,7 +853,8 @@ const _spendSuffix = (spend) => (spend?.enabled
 
 function _flatFmLabel(override, state) {
   if (!override) return _makeLabel(state);
-  return /\d/.test(override) ? override : `${override} ${state.distance}`;
+  const named = /\d/.test(override) ? override : `${override} ${state.distance}`;
+  return state.fastMove ? `Auto ${named}` : named;
 }
 
 function _makeLabel(state) {
@@ -1482,6 +1483,7 @@ async function _injectFmButtons(message, root) {
   const sourceDoc       = sourceTokenUuid ? await fromUuid(sourceTokenUuid).catch(() => null) : null;
   const sourceToken     = sourceDoc?.object ?? null;
   const sourceActor     = sourceToken?.actor ?? null;
+  const autoFm          = getSetting('fmAutoForOwnAbilities') && isOwnAbilityActor(ability.actor ?? sourceActor);
 
   const hasPurifyingFire = getSetting('purifyingFireEnabled') && !!sourceActor?.items?.some(i =>
     getItemDsid(i) === 'purifying-fire' || i.name.toLowerCase() === 'purifying fire'
@@ -1773,6 +1775,7 @@ async function _injectFmButtons(message, root) {
         if (actions.querySelector(`[data-dsct-fm-key="${stateKey}"]`)) continue;
 
         const baseState = _buildBaseState(movementType, baseDistance, properties, verticalDistance, fallReduction);
+        if (autoFm && /^(push|pull)$/i.test(movementType)) baseState.fastMove = true;
 
         const _tgtDoc      = tokenUuid ? fromUuidSync(tokenUuid) : null;
         const _tgtIsFlying = !baseState.vertical && (_tgtDoc?.actor?.statuses?.has('fly') ?? false);
@@ -2597,6 +2600,7 @@ async function _injectFmButtons(message, root) {
       if (actions.querySelector(`[data-dsct-fm-key="${stateKey}"]`)) continue;
 
       const baseState = _buildBaseState(firstMov, dist, props, 0, 0);
+      if (autoFm && /^(push|pull)$/i.test(firstMov)) baseState.fastMove = true;
 
       const _tgtDoc      = tokenUuid ? fromUuidSync(tokenUuid) : null;
       const _tgtIsFlying = !baseState.vertical && (_tgtDoc?.actor?.statuses?.has('fly') ?? false);
