@@ -290,7 +290,7 @@ export function registerDstdCompat() {
     const newState = { ...cur, applied: false };
     _fmState.set(stateKey, newState);
     const eff = _effectiveState(baseState, newState.modStack);
-    _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, flatDisplayOverride || _makeLabel(eff), _stabInfo(tokenUuid, eff), !!flatDisplayOverride);
+    _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, _flatFmLabel(flatDisplayOverride, eff), _stabInfo(tokenUuid, eff), !!flatDisplayOverride);
     if (quickBtn) _syncQuickBtn(quickBtn, newState, movementType, eff.distance);
     if (flagEntry?.applied) _persistDstdState(message, subKey, newState);
   });
@@ -850,6 +850,11 @@ function _buildBaseState(movementType, distance, properties, verticalDistance, f
 const _spendSuffix = (spend) => (spend?.enabled
   ? ` ${game.i18n.format('DSCT.FlatEffect.spend.costSuffix', { cost: spend.value ?? 1 })}`
   : '');
+
+function _flatFmLabel(override, state) {
+  if (!override) return _makeLabel(state);
+  return /\d/.test(override) ? override : `${override} ${state.distance}`;
+}
 
 function _makeLabel(state) {
   return [
@@ -2621,8 +2626,8 @@ async function _injectFmButtons(message, root) {
 
       const _flatFmDisplayOverride = effect.flatForced.display || null;
       const effInitF       = _effectiveState(baseState, saved.modStack);
-      const label          = (_flatFmDisplayOverride || _makeLabel(effInitF)) + _spendSuffix(effect.flatForced.spend);
-      const rowLabelFlatFn = (st) => (_flatFmDisplayOverride || `Apply ${_makeLabel(st)}`) + _stabSuffix(_stabInfo(tokenUuid, st), false);
+      const label          = _flatFmLabel(_flatFmDisplayOverride, effInitF) + _spendSuffix(effect.flatForced.spend);
+      const rowLabelFlatFn = (st) => (_flatFmDisplayOverride ? _flatFmLabel(_flatFmDisplayOverride, st) : `Apply ${_makeLabel(st)}`) + _stabSuffix(_stabInfo(tokenUuid, st), false);
 
       const applyFlatBtn = document.createElement('button');
       applyFlatBtn.type      = 'button';
@@ -2654,7 +2659,7 @@ async function _injectFmButtons(message, root) {
         _fmState.set(stateKey, newMods);
         if (!newMods.applied) {
           const effState = _effectiveState(baseState, newMods.modStack);
-          const effLabel = _flatFmDisplayOverride || _makeLabel(effState);
+          const effLabel = _flatFmLabel(_flatFmDisplayOverride, effState);
           _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newMods, effLabel, _stabInfo(tokenUuid, effState), !!_flatFmDisplayOverride);
           if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newMods, firstMov, effState.distance);
         }
@@ -2732,7 +2737,7 @@ async function _injectFmButtons(message, root) {
         if (!capturedMsgId) {
           const prevState = _fmState.get(stateKey) ?? saved;
           const prevEff   = _effectiveState(baseState, prevState.modStack);
-          _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, prevState, _flatFmDisplayOverride || _makeLabel(prevEff), _stabInfo(tokenUuid, prevEff), !!_flatFmDisplayOverride);
+          _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, prevState, _flatFmLabel(_flatFmDisplayOverride, prevEff), _stabInfo(tokenUuid, prevEff), !!_flatFmDisplayOverride);
           if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, prevState, firstMov, prevEff.distance);
           return;
         }
@@ -2740,7 +2745,7 @@ async function _injectFmButtons(message, root) {
         const newState = { ...cur, applied: true, undoMsgId: capturedMsgId };
         _fmState.set(stateKey, newState);
         _fmUndoIndex.set(capturedMsgId, { fmRow, applyBtn: applyFlatBtn, undoBtn: undoFlatBtn, modBtn: modFlatBtn, quickBtn: quickFlatBtn, stateKey, baseState, movementType: firstMov, message, subKey, tokenUuid, flatDisplayOverride: _flatFmDisplayOverride });
-        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _flatFmDisplayOverride || _makeLabel(clickState), _stabInfo(tokenUuid, clickState), !!_flatFmDisplayOverride);
+        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _flatFmLabel(_flatFmDisplayOverride, clickState), _stabInfo(tokenUuid, clickState), !!_flatFmDisplayOverride);
         if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newState, firstMov, clickState.distance);
         await _persistDstdState(message, subKey, newState);
       });
@@ -2765,7 +2770,7 @@ async function _injectFmButtons(message, root) {
         const newState = { ...cur, applied: false, undoMsgId: msgId };
         _fmState.set(stateKey, newState);
         const undoEff  = _effectiveState(baseState, newState.modStack);
-        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _flatFmDisplayOverride || _makeLabel(undoEff), _stabInfo(tokenUuid, undoEff), !!_flatFmDisplayOverride);
+        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _flatFmLabel(_flatFmDisplayOverride, undoEff), _stabInfo(tokenUuid, undoEff), !!_flatFmDisplayOverride);
         if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newState, firstMov, undoEff.distance);
         await _persistDstdState(message, subKey, newState);
       });
