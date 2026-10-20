@@ -15,7 +15,7 @@ function setOpen(pill, open) {
   for (const a of pill.getAnimations()) a.cancel();
   const from = pill.getBoundingClientRect();
   pill.classList.toggle('dsct-pill-open', open);
-  if (reducedMotion.matches || !pill.isConnected) return;
+  if ((globalThis.ctlib?.reducedEffects?.() ?? reducedMotion.matches) || !pill.isConnected) return;
   const to = pill.getBoundingClientRect();
   if (Math.abs(to.width - from.width) < 1 && Math.abs(to.height - from.height) < 1) return;
   pill.classList.add('dsct-pill-growing');
