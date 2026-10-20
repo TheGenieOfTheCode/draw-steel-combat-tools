@@ -445,6 +445,8 @@ const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => damageBat
           await wait(150);
           const until = Date.now() + FM_SETTLE_MAX_MS;
           while ((window._dsctFMActive || actionAt(key, col)?.classList.contains('is-executing')) && !_promptOpen() && Date.now() < until) await wait(50);
+        } else if (btn.dataset.dstdAction) {
+          await _dstdRowLanded(btn);
         } else {
           const until = Date.now() + ROW_SETTLE_MAX_MS;
           while (Date.now() < until && applicationSignature(game.messages.get(msgId)) === before
@@ -468,6 +470,12 @@ const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => damageBat
 
 const ROW_SETTLE_MAX_MS = 500;
 const ROW_REDRAW_MS = 60;
+const ROW_LAND_MAX_MS = 10000;
+
+const _dstdRowLanded = async (btn) => {
+  const until = Date.now() + ROW_LAND_MAX_MS;
+  while (Date.now() < until && btn.isConnected && btn.disabled && !_promptOpen()) await new Promise(r => setTimeout(r, 25));
+};
 
 const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock = false) => damageBatch(() => _withOneToast(async () => {
   
@@ -490,6 +498,7 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock =
         const before = applicationSignature(game.messages.get(msgId));
         btn.click();
         clicked = true;
+        if (btn.dataset.dstdAction) await _dstdRowLanded(btn);
         const until = Date.now() + ROW_SETTLE_MAX_MS;
         while (Date.now() < until && applicationSignature(game.messages.get(msgId)) === before) {
           await new Promise(r => setTimeout(r, 25));
