@@ -1,4 +1,5 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
+import { safeCreateEmbedded } from '../ctlib.mjs';
 import { applyStatus, SOURCED_STATUSES } from '../conditions/statuses.mjs';
 import { registerImNoThreatHooks } from './class-shadow/im-no-threat.mjs';
 import { registerJudgementHooks } from './class-censor/judgement.mjs';
@@ -84,7 +85,7 @@ export const registerAbilityInjectors = () => {
                   const data = foundry.utils.mergeObject(tmp.toObject(), { transfer: true });
                   if (endStr && ds?.CONFIG?.effectEnds?.[endStr])
                     data.duration = { expiry: ds.CONFIG.effectEnds[endStr].expiryEvent };
-                  await t.actor.createEmbeddedDocuments('ActiveEffect', [data]);
+                  await safeCreateEmbedded(t.actor, 'ActiveEffect', [data]);
                 }
               }
             }

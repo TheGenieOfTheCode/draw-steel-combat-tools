@@ -709,6 +709,7 @@ function _registerFMEditorFields() {
     if (pseudo?.type !== 'forced') return;
     const item = pseudo.item;
     if (!item) return;
+    const editable = item.isOwner && !item.compendium?.locked;
 
     const fallRed1 = item.getFlag(M, 'fmFallReduction1') ?? null;
 
@@ -746,6 +747,8 @@ function _registerFMEditorFields() {
 
       const vertInput = vertGroup.querySelector('input');
       const fallInput = fallGroup.querySelector('input');
+
+      if (!editable) vertInput.disabled = fallInput.disabled = true;
 
       vertInput.addEventListener('change', e => {
         const v = e.target.value.trim();

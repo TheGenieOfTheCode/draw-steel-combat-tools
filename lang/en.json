@@ -1704,6 +1704,7 @@
         "targetTooLarge": "{name} is too large to mimic (size {targetSize} vs {mySize}).",
         "illusionEnded": "{name}'s illusion ended.",
         "noTarget": "Select or target a token to open I'm No Threat.",
+        "notOwner": "Only the creature's owner or the Director can use I'm No Threat for it.",
         "noMimicTarget": "No target selected to mimic.",
         "illusionsEndedSettings": "I'm No Threat: ended {count} active illusion{s} due to settings change.",
         "animalsReset": "I'm No Threat animals reset to defaults.",

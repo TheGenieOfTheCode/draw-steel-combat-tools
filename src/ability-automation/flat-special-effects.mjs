@@ -1,5 +1,5 @@
 import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed } from '../helpers.mjs';
-import { DAMAGE_TYPES, isPrimaryGM, safeUpdate } from '../ctlib.mjs';
+import { DAMAGE_TYPES, isPrimaryGM, safeCreateEmbedded, safeDelete, safeSetFlag, safeToggleStatusEffect, safeUpdate } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 import { executeTeleport, executeTeleswap } from '../teleport.mjs';
@@ -830,8 +830,47 @@ export async function grantTempStamina(actor, amount, stackKey = null) {
   const before = actor.system.stamina?.temporary ?? 0;
   const held = actor.getFlag(MODULE_ID, 'tempFrom');
   const next = stackKey && held?.key === stackKey && held.total === before ? before + amount : amount;
-  await actor.update({ 'system.stamina.temporary': next, [`flags.${MODULE_ID}.tempFrom`]: stackKey ? { key: stackKey, total: next } : null });
+  await safeUpdate(actor, { 'system.stamina.temporary': next, [`flags.${MODULE_ID}.tempFrom`]: stackKey ? { key: stackKey, total: next } : null });
   return before;
+}
+
+
+export async function modifyAttributeSafely(actor, attribute, value, isDelta = false, isBar = true) {
+  if (actor.isOwner) return actor.modifyTokenAttribute(attribute, value, isDelta, isBar);
+  const sys = actor.system;
+  let updates;
+  if (attribute === 'stamina') {
+    isBar = true;
+    const group = sys.combatGroups?.size === 1 ? sys.combatGroup : null;
+    if (actor.isMinion && group) return safeUpdate(group, { 'system.staminaValue': isDelta ? group.system.staminaValue + value : value });
+    const { value: current, temporary, min, max } = sys.stamina;
+    const delta = isDelta ? -value : current + temporary - value;
+    if (!delta) return actor;
+    updates = {};
+    if (delta < 0) updates['system.stamina.value'] = Math.clamp(current - delta, min, max);
+    else {
+      const tempDamage = Math.min(delta, temporary);
+      const valueDamage = Math.max(0, delta - tempDamage);
+      updates['system.stamina.temporary'] = Math.max(0, temporary - tempDamage);
+      if (valueDamage) updates['system.stamina.value'] = Math.clamp(current - valueDamage, min, max);
+    }
+  } else if (attribute === 'hero.primary.value') {
+    isBar = false;
+    const current = foundry.utils.getProperty(sys, attribute);
+    let next = isDelta ? current + value : value;
+    if (next === current) return actor;
+    const classModel = sys.class?.system;
+    if (classModel) next = Math.max(ds.utils.evaluateFormula(classModel.minimum, classModel.parent.getRollData()), next);
+    updates = { [`system.${attribute}`]: next };
+  } else {
+    const attr = foundry.utils.getProperty(sys, attribute);
+    const current = isBar ? attr.value : attr;
+    const next = isDelta ? current + value : value;
+    if (next === current) return actor;
+    updates = isBar ? { [`system.${attribute}.value`]: Math.clamp(next, 0, attr.max) } : { [`system.${attribute}`]: next };
+  }
+  if (Hooks.call('modifyTokenAttribute', { attribute, value, isDelta, isBar }, updates, actor) === false) return actor;
+  return safeUpdate(actor, updates);
 }
 
 export function triggerDamageTypeFor(effect, message) {
@@ -1101,15 +1140,15 @@ export async function applyFlatResource(effect, item, message, { actors = null, 
     if (!message?.getFlag(MODULE_ID, spendKey)) {
       const payer = resourceActorFor(item);
       if (!await _spendResource(payer, spend.value || 1)) return null;
-      if (message) await message.setFlag(MODULE_ID, spendKey, true);
+      if (message) await safeSetFlag(message, MODULE_ID, spendKey, true);
     }
   }
 
   const path = RESOURCE_PATHS[type] ?? RESOURCE_PATHS.surge;
-  for (const actor of eligible) await actor.modifyTokenAttribute(path, amount, true, false);
+  for (const actor of eligible) await modifyAttributeSafely(actor, path, amount, true, false);
 
   const state = { applied: true, amount, type, actorUuids: eligible.map(a => a.uuid) };
-  if (message) await message.setFlag(MODULE_ID, resourceFlagKey(effect, targetKey), state);
+  if (message) await safeSetFlag(message, MODULE_ID, resourceFlagKey(effect, targetKey), state);
   return state;
 }
 
@@ -1123,9 +1162,9 @@ export async function undoFlatResource(effect, message, targetKey = null) {
   for (const uuid of uuids) {
     const doc = await fromUuid(uuid).catch(() => null);
     const actor = doc?.actor ?? doc ?? null;
-    if (actor) await actor.modifyTokenAttribute(path, -(cur.amount ?? 0), true, false);
+    if (actor) await modifyAttributeSafely(actor, path, -(cur.amount ?? 0), true, false);
   }
-  await message.setFlag(MODULE_ID, key, { ...cur, applied: false });
+  await safeSetFlag(message, MODULE_ID, key, { ...cur, applied: false });
   return true;
 }
 
@@ -1325,7 +1364,7 @@ export const flatAppliedStacks = (effect) => {
 export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenId = null, { stack = false } = {}) {
   if (!actor || !statusId) return false;
   if (isRegisteredStatus(statusId)) {
-    await actor.toggleStatusEffect(statusId, { active: true });
+    await safeToggleStatusEffect(actor, statusId, { active: true });
     return true;
   }
   const source = flatAppliedSource(item, statusId);
@@ -1373,18 +1412,19 @@ export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenI
     data.duration = { value: null, units: 'seconds', expiry: null, expired: false };
     foundry.utils.setProperty(data, `flags.${MODULE_ID}.expiryReminderOwner`, giver.uuid);
   }
-  const [created] = await actor.createEmbeddedDocuments('ActiveEffect', [data]);
-  if (reminder && giver && created) await createExpiryReminder(giver, created, reminder);
+  const [created] = (await safeCreateEmbedded(actor, 'ActiveEffect', [data])) ?? [];
+  if (reminder && giver && created) await createExpiryReminder(giver, created, reminder, actor);
   return true;
 }
 
-async function createExpiryReminder(giver, effect, { expiry = 'turnStart', rounds = 1 } = {}) {
-  await giver.createEmbeddedDocuments('ActiveEffect', [{
+async function createExpiryReminder(giver, effect, { expiry = 'turnStart', rounds = 1 } = {}, target = effect.parent) {
+  const uuid = effect.uuid ?? `${target?.uuid}.ActiveEffect.${effect._id}`;
+  await safeCreateEmbedded(giver, 'ActiveEffect', [{
     name: game.i18n.format('DSCT.expiryReminder.name', { name: effect.name }),
     img: effect.img, transfer: false, disabled: false,
-    description: `<p>${game.i18n.format('DSCT.expiryReminder.description', { name: foundry.utils.escapeHTML(effect.name), target: foundry.utils.escapeHTML(effect.parent?.name ?? '') })}</p>`,
+    description: `<p>${game.i18n.format('DSCT.expiryReminder.description', { name: foundry.utils.escapeHTML(effect.name), target: foundry.utils.escapeHTML(target?.name ?? '') })}</p>`,
     duration: { value: rounds, units: 'rounds', expiry },
-    flags: { [MODULE_ID]: { expiryReminderFor: effect.uuid } },
+    flags: { [MODULE_ID]: { expiryReminderFor: uuid } },
   }]);
 }
 
@@ -1421,12 +1461,14 @@ export function registerExpiryReminders() {
 export async function removeFlatAppliedEffect(actor, statusId, { stack = false } = {}) {
   if (!actor || !statusId) return;
   if (isRegisteredStatus(statusId)) {
-    await actor.toggleStatusEffect(statusId, { active: false });
+    await safeToggleStatusEffect(actor, statusId, { active: false });
     return;
   }
   const copies = actor.effects.filter(e => e.getFlag(MODULE_ID, FLAT_APPLIED_FROM) === statusId);
-  const ids = (stack ? copies.slice(-1) : copies).map(e => e.id);
-  if (ids.length) await actor.deleteEmbeddedDocuments('ActiveEffect', ids);
+  const doomed = stack ? copies.slice(-1) : copies;
+  if (!doomed.length) return;
+  if (actor.isOwner) await actor.deleteEmbeddedDocuments('ActiveEffect', doomed.map(e => e.id));
+  else for (const e of doomed) await safeDelete(e);
 }
 
 export function addFlatEffectListeners(section, item, message) {
@@ -1563,7 +1605,7 @@ export function addFlatEffectListeners(section, item, message) {
             ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Heal.noRecoveries", { name: recovActor.name }));
             continue;
           }
-          await recovActor.update({ "system.recoveries.value": available - 1 },
+          await safeUpdate(recovActor, { "system.recoveries.value": available - 1 },
             recovActor !== sourceActor && sourceActor ? { dsctRecoveryBy: sourceActor.uuid } : {});
         }
 
@@ -1581,7 +1623,7 @@ export function addFlatEffectListeners(section, item, message) {
         if (tempStamina) {
           await grantTempStamina(targetActor, amount, btn.dataset.tempStack === "true" ? item.name : null);
         } else {
-          await targetActor.modifyTokenAttribute("stamina", amount, true);
+          await modifyAttributeSafely(targetActor, "stamina", amount, true);
         }
         anyApplied = true;
       }
@@ -1656,7 +1698,8 @@ export function addFlatEffectListeners(section, item, message) {
         }
 
         if (btn.dataset.all === "true") {
-          await actor.deleteEmbeddedDocuments("ActiveEffect", cleansable.map(e => e.id), cleansed());
+          if (actor.isOwner) await actor.deleteEmbeddedDocuments("ActiveEffect", cleansable.map(e => e.id), cleansed());
+          else for (const e of cleansable) await safeDelete(e, cleansed());
           anyApplied = true;
           continue;
         }
@@ -1686,7 +1729,7 @@ export function addFlatEffectListeners(section, item, message) {
         }
 
         if (!chosen) continue;
-        await chosen.delete(cleansed());
+        await safeDelete(chosen, cleansed());
         anyApplied = true;
       }
 

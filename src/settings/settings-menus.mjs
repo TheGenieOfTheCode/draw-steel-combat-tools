@@ -69,6 +69,7 @@ export class ForcedMovementSettingsMenu extends SettingsSubmenu {
 
   _regularItems() {
     const items = super._regularItems();
+    if (!game.user.isGM) return items;
     items.push({
       isNestedMenu: true,
       id:    'dsct-sub-wb-btn',

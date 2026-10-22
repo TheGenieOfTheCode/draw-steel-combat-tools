@@ -1,6 +1,7 @@
-import { getSetting, getModuleApi, noLogFlag } from '../../helpers.mjs';
+import { getSetting, noLogFlag } from '../../helpers.mjs';
 import { chooseKeywords } from '../choose-effect.mjs';
 import { FitsOnResize } from '../../fit-window.mjs';
+import { safeUpdate, safeDelete } from '../../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -238,6 +239,7 @@ class ImNoThreatPanel extends FitsOnResize(ds.applications.api.DSApplication) {
           if (usedAt !== undefined && usedAt !== null && this._actor.system.hero.victories === usedAt) { ui.notifications.error(game.i18n.localize('DSCT.notice.int.alreadyUsedOutsideCombat')); return; }
         }
       } else {
+        if (!game.user.isGM) { ui.notifications.error('DRAW_STEEL.Setting.Malice.PlayerError', { localize: true }); return; }
         if ((game.actors.malice?.value ?? 0) < 1) { ui.notifications.error(game.i18n.localize('DSCT.notice.int.notEnoughMalice')); return; }
       }
     }
@@ -258,7 +260,8 @@ class ImNoThreatPanel extends FitsOnResize(ds.applications.api.DSApplication) {
     if (freeMimic) {
       const spendMsgId = freeMimicsByActor.get(this._actor.id);
       freeMimicsByActor.delete(this._actor.id);
-      if (spendMsgId) game.messages.get(spendMsgId)?.setFlag('draw-steel-combat-tools', 'intFreeMimicUsed', true);
+      const spendMsg = spendMsgId ? game.messages.get(spendMsgId) : null;
+      if (spendMsg) spendMsg.isOwner ? spendMsg.setFlag(M, 'intFreeMimicUsed', true) : safeUpdate(spendMsg, { [`flags.${M}.intFreeMimicUsed`]: true });
     } else if (isHero && inCombat) {
       await this._actor.update({ 'system.hero.primary.value': this._actor.system.hero.primary.value - 1 });
     } else if (isHero) {
@@ -340,8 +343,9 @@ export const openImNoThreatPanel = (actor = null) => {
   const target = actor
     ?? game.user.character
     ?? canvas.tokens.controlled[0]?.actor
-    ?? [...game.user.targets][0]?.actor;
+    ?? [...game.user.targets].find(t => t.actor?.isOwner)?.actor;
   if (!target) { ui.notifications.error(game.i18n.localize('DSCT.notice.int.noTarget')); return; }
+  if (!target.isOwner) { ui.notifications.warn(game.i18n.localize('DSCT.notice.int.notOwner')); return; }
   const existing = foundry.applications.instances.get('im-no-threat-panel');
   if (existing) existing.close();
   else new ImNoThreatPanel(target).render({ force: true });
@@ -682,13 +686,16 @@ export const registerImNoThreatHooks = () => {
         grantedMimicMsgs.add(msg.id);
       }
 
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'dsct-im-no-threat-btn';
-      btn.innerHTML = `<i class="fa-solid fa-masks-theater"></i> ${game.i18n.localize('DSCT.button.imNoThreat')}`;
-      btn.style.cssText = 'cursor:pointer;';
-      btn.addEventListener('click', (e) => { e.preventDefault(); getModuleApi(false)?.imNoThreat(game.actors.get(actorId) ?? null); });
-      btnArea().appendChild(btn);
+      const speakerActor = actorId ? game.actors.get(actorId) : null;
+      if (!speakerActor || speakerActor.isOwner) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dsct-im-no-threat-btn';
+        btn.innerHTML = `<i class="fa-solid fa-masks-theater"></i> ${game.i18n.localize('DSCT.button.imNoThreat')}`;
+        btn.style.cssText = 'cursor:pointer;';
+        btn.addEventListener('click', (e) => { e.preventDefault(); openImNoThreatPanel(speakerActor ?? null); });
+        btnArea().appendChild(btn);
+      }
 
       if (spendDetected) {
         const badge = document.createElement('div');
@@ -712,7 +719,7 @@ export const registerImNoThreatHooks = () => {
         notice.innerHTML = `<em>${game.i18n.localize('DSCT.button.illusionBroken')}</em>`;
         notice.style.cssText = 'margin-top:6px;opacity:0.6;font-size:0.9em;';
         btnArea().appendChild(notice);
-      } else {
+      } else if (game.actors.get(msg.getFlag(M, 'intIllusion')?.actorId)?.isOwner) {
         const actorId = msg.getFlag(M, 'intIllusion')?.actorId;
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -732,17 +739,18 @@ export const registerImNoThreatHooks = () => {
     }
   });
 
-  Hooks.on('deleteActiveEffect', async (effect) => {
+  Hooks.on('deleteActiveEffect', async (effect, _options, userId) => {
     if (effect.getFlag(M, 'effectType') !== 'int') return;
+    if (userId !== game.user.id) return;
     const actor = effect.parent;
     if (!actor) return;
     if (revertingActors.has(actor.id)) return;
     revertingActors.add(actor.id);
     try {
       const remaining = [...actor.effects].filter(e => e.getFlag(M, 'effectType') === 'int');
-      for (const e of remaining) await e.delete();
+      for (const e of remaining) await safeDelete(e);
       const tokenDoc = canvas.scene?.tokens.find(t => t.actorId === actor.id);
-      if (tokenDoc) await tokenDoc.update(snapAppearance(actor.prototypeToken));
+      if (tokenDoc) await safeUpdate(tokenDoc, snapAppearance(actor.prototypeToken));
       const panel = foundry.applications.instances.get('im-no-threat-panel');
       if (panel?._actor?.id === actor.id) { panel._clearIllusionState(); panel._refreshText(); }
     } finally {

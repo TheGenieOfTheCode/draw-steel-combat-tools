@@ -1,7 +1,7 @@
 import { applyGrab, buildFreeStrikeButton, sizeRankG, grabUiState, refreshGrabUis, grabChat } from './conditions/grab.mjs';
 import { getItemDsid, getSetting, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, undoDamage, getSquadGroup, safeDelete } from './helpers.mjs';
 import { registerAbilityInjectors } from './ability-automation/ability-automation.mjs';
-import { safeUpdate } from './ctlib.mjs';
+import { safeUpdate, safeSetFlag, dropKeyOverSocket } from './ctlib.mjs';
 
 export const triggerGrabberFreeStrike = async (grabberTok, grab) => {
   const api = getModuleApi(false);
@@ -28,16 +28,14 @@ export const resolveEscapeChatMessage = async (grabbedTokenId, resolution) => {
     m.getFlag('draw-steel-combat-tools', 'escapeGrab')?.speakerToken === grabbedTokenId &&
     !m.getFlag('draw-steel-combat-tools', 'escapeResolved')
   );
-  if (msg && (msg.isOwner || game.user.isGM)) {
-    await msg.setFlag('draw-steel-combat-tools', 'escapeResolved', resolution);
-  }
+  if (msg) await safeSetFlag(msg, 'draw-steel-combat-tools', 'escapeResolved', resolution);
 };
 
 export const resolveGrabConfirmChatMessage = async (msgId, resolution) => {
   if (!msgId) return;
   const msg = game.messages.get(msgId);
-  if (!msg || !(msg.isOwner || game.user.isGM)) return;
-  await msg.setFlag('draw-steel-combat-tools', 'grabConfirmResolved', resolution);
+  if (!msg) return;
+  await safeSetFlag(msg, 'draw-steel-combat-tools', 'grabConfirmResolved', resolution);
 };
 
 const _escapeGrabInFlight = new Set();
@@ -53,8 +51,6 @@ const getRollCharacteristics = (el) => {
   const flavorTxt = el.querySelector('.message-part-flavor')?.textContent?.trim() ?? '';
   return (rollLine + ' ' + flavorTxt).toLowerCase();
 };
-
-
 
 function _setBaneDialogLock(app, locked, reasons = []) {
   if (!app.element) return;
@@ -219,7 +215,6 @@ function registerRollDialogHooks() {
   });
 }
 
-
 export async function rollBleeding(actor, { tokenId = null, sourceMessageId = null, apply = getSetting('bleedingMode') === 'auto' } = {}) {
   if (!actor) return null;
   const level = actor.system.level ?? 1;
@@ -319,7 +314,6 @@ export function registerChatHooks() {
         }
       }
     }
-
 
   };
 
@@ -456,13 +450,13 @@ export function registerChatHooks() {
           e.preventDefault();
           stopBtn.disabled    = true;
           proceedBtn.disabled = true;
-          await msg.setFlag('draw-steel-combat-tools', 'ffCase1Resolved', 'stop');
+          await safeSetFlag(msg, 'draw-steel-combat-tools', 'ffCase1Resolved', 'stop');
         });
         proceedBtn.addEventListener('click', async (e) => {
           e.preventDefault();
           stopBtn.disabled    = true;
           proceedBtn.disabled = true;
-          await msg.setFlag('draw-steel-combat-tools', 'ffCase1Resolved', 'proceed');
+          await safeSetFlag(msg, 'draw-steel-combat-tools', 'ffCase1Resolved', 'proceed');
         });
         btnArea().appendChild(stopBtn);
         btnArea().appendChild(proceedBtn);
@@ -492,13 +486,13 @@ export function registerChatHooks() {
           e.preventDefault();
           confirmBtn.disabled = true;
           cancelBtn.disabled  = true;
-          await msg.setFlag('draw-steel-combat-tools', 'ffCase2Resolved', 'confirm');
+          await safeSetFlag(msg, 'draw-steel-combat-tools', 'ffCase2Resolved', 'confirm');
         });
         cancelBtn.addEventListener('click', async (e) => {
           e.preventDefault();
           confirmBtn.disabled = true;
           cancelBtn.disabled  = true;
-          await msg.setFlag('draw-steel-combat-tools', 'ffCase2Resolved', 'cancel');
+          await safeSetFlag(msg, 'draw-steel-combat-tools', 'ffCase2Resolved', 'cancel');
         });
         btnArea().appendChild(confirmBtn);
         btnArea().appendChild(cancelBtn);
@@ -511,7 +505,7 @@ export function registerChatHooks() {
             confirmBtn.disabled = true;
             cancelBtn.disabled  = true;
             ignoreBtn.disabled  = true;
-            await msg.setFlag('draw-steel-combat-tools', 'ffCase2Resolved', 'ignore');
+            await safeSetFlag(msg, 'draw-steel-combat-tools', 'ffCase2Resolved', 'ignore');
           });
           btnArea().appendChild(ignoreBtn);
         }
@@ -619,7 +613,7 @@ export function registerChatHooks() {
                 _bleedingInFlight.delete(msg.id); return;
               }
               const { dmg, rollMsg } = await rollBleeding(actor, { tokenId: bleedingData.tokenId, sourceMessageId: msg.id, apply: true });
-              await msg.setFlag('draw-steel-combat-tools', 'bleedingApplied', { dmg, rollMsgId: rollMsg?.id });
+              await safeSetFlag(msg, 'draw-steel-combat-tools', 'bleedingApplied', { dmg, rollMsgId: rollMsg?.id });
               if (getSetting('debugMode')) console.log(`DSCT | Bleeding | Auto-applied ${dmg} damage to ${actor.name}`);
               _bleedingInFlight.delete(msg.id);
             })();
@@ -630,13 +624,14 @@ export function registerChatHooks() {
         const applied = msg.getFlag('draw-steel-combat-tools', 'bleedingApplied');
         if (applied) {
           div.innerHTML = `<em><i class="fa-solid fa-droplet"></i> ${game.i18n.localize('DSCT.chat.bleeding.rollCreated')}</em>`;
-        } else {
+        } else if (game.user.isGM || fromUuidSync(bleedingData.actorUuid)?.isOwner) {
           div.innerHTML = `<button type="button" class="dsct-bleed-roll-btn" style="cursor:pointer;"><i class="fa-solid fa-droplet"></i> ${game.i18n.localize('DSCT.button.rollBleedingDamage')}</button>`;
-          div.querySelector('.dsct-bleed-roll-btn')?.addEventListener('click', async () => {
+          div.querySelector('.dsct-bleed-roll-btn')?.addEventListener('click', async (e) => {
+            e.currentTarget.disabled = true;
             const actor = await fromUuid(bleedingData.actorUuid);
             if (!actor) return;
             await rollBleeding(actor, { tokenId: bleedingData.tokenId, apply: false });
-            await msg.setFlag('draw-steel-combat-tools', 'bleedingApplied', { manual: true });
+            await safeSetFlag(msg, 'draw-steel-combat-tools', 'bleedingApplied', { manual: true });
           });
         }
       }
@@ -666,13 +661,15 @@ export function registerChatHooks() {
           if (getSetting('debugMode')) console.log(`DSCT | Bleeding | Undid ${rollData.dmg} damage on ${actor.name}`);
         }
         const sourceMsg = game.messages.get(rollData.sourceMsgId);
-        if (sourceMsg && (sourceMsg.isOwner || game.user.isGM)) {
+        if (sourceMsg?.isOwner) {
           await sourceMsg.unsetFlag('draw-steel-combat-tools', 'bleedingTriggered');
           await sourceMsg.unsetFlag('draw-steel-combat-tools', 'bleedingApplied');
+        } else if (sourceMsg) {
+          await safeUpdate(sourceMsg, { 'flags.draw-steel-combat-tools.bleedingTriggered': dropKeyOverSocket(), 'flags.draw-steel-combat-tools.bleedingApplied': dropKeyOverSocket() });
         }
-        if (msg.isOwner || game.user.isGM) await msg.delete();
+        await safeDelete(msg);
       });
-      btnArea().appendChild(btn);
+      if (game.user.isGM || fromUuidSync(rollData.actorUuid)?.isOwner) btnArea().appendChild(btn);
     }
 
     for (const btn of el.querySelectorAll('[data-dsct-action="dsct-free-strike"]')) {

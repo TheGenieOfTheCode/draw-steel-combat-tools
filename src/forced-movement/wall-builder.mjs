@@ -1178,6 +1178,7 @@ export class WallBuilderSettingsMenu extends ds.applications.api.DSApplication {
     });
 
     el.querySelector('#dsct-wb-reset-btn')?.addEventListener('click', async () => {
+      if (!game.user.isGM) return;
       await game.settings.set(M, 'materialRules',         foundry.utils.deepClone(MATERIAL_RULE_DEFAULTS));
       await game.settings.set(M, 'wallRestrictions',      foundry.utils.deepClone(WALL_RESTRICTION_DEFAULTS));
       await game.settings.set(M, 'customMaterials',       []);
@@ -1196,6 +1197,7 @@ export class WallBuilderSettingsMenu extends ds.applications.api.DSApplication {
   }
 
   async _doSave() {
+    if (!game.user.isGM) return;
     const el    = this.element;
     const intOr = (v, def) => { const n = parseInt(v); return isNaN(n) ? def : n; };
 

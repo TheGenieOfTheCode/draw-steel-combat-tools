@@ -423,6 +423,7 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
     hookId = Hooks.on('createChatMessage', async (msg) => {
       const parts = msg.system?.parts?.contents; if (!parts) return;
       const ar = parts.find(p => p.type === 'abilityResult'); if (!ar) return;
+      if (!msg.isAuthor || ar.abilityUuid !== grabItem.uuid) return;
       msg.setFlag(M, 'grabRoll', { grabberTokenId: grabberToken.id, targetTokenId: targetToken.id, appliedTier: ar.tier }).catch(() => {});
       await cleanup(ar.tier);
     });

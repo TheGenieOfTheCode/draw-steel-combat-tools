@@ -85,7 +85,6 @@ export async function fireEndTurn(member, combat, round) {
   );
 }
 
-
 const _turnStarted = new Set();
 const _startKey = (member) => `${member.id}:${member.combat?.round}:${member.group?.initiative}`;
 
@@ -110,7 +109,6 @@ function _syncSquadMarkerState() {
   if (staleGroup) refreshSquadMarkers(staleGroup, null);
   if (actualGroup) refreshSquadMarkers(actualGroup, game.combat.combatant?.token?.object ?? null);
 }
-
 
 export function refreshSquadTurnMarkers() {
   for (const token of canvas?.tokens?.placeables ?? []) token._refreshTurnMarker?.();
@@ -373,7 +371,7 @@ export function registerSquadTurnHooks() {
 
   Hooks.on('updateCombatantGroup', async (group, changes) => {
     if (!getSetting('squadSimultaneousTurns')) return;
-    if (!game.user.isGM) return;
+    if (!isPrimaryGM()) return;
     if (_squadBatchInProgress) return;
     if (!('initiative' in changes)) return;
     if (group.type !== 'squad' && !(group.type === 'base' && group.members.size > 1)) return;
@@ -408,7 +406,7 @@ export function registerSquadTurnHooks() {
 
   Hooks.on('updateCombatant', async (combatant, changes, options) => {
     if (!getSetting('squadSimultaneousTurns')) return;
-    if (!game.user.isGM) return;
+    if (!isPrimaryGM()) return;
     if (!('initiative' in changes)) return;
     if (options?._dsctSquadBatch) return;
     if (_squadBatchInProgress) return;
@@ -452,7 +450,7 @@ export function registerSquadTurnHooks() {
 
   Hooks.on('combatTurnChange', async (combat, previous, current) => {
     if (!getSetting('squadSimultaneousTurns')) return;
-    if (!game.user.isGM) return;
+    if (!isPrimaryGM()) return;
 
     const prev = combat.combatants.get(previous?.combatantId);
     const prevGroup = getSquadGroup(prev);
@@ -602,8 +600,6 @@ export function registerSquadTurnHooks() {
               _markerWrappers.set(this.id, wrapper);
               this._dsctMarkerWrapper = wrapper;
               this.turnMarker = marker;
-
-
 
               _drawMarker(this);
             } else _redrawIfRestyled(this);

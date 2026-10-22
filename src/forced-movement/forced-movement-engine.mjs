@@ -1866,11 +1866,11 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const prevWallData = walls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
           for (const wall of walls) {
             await safeUpdate(wall, { move: 0, sight: 0, light: 0, sound: 0 });
-            if (game.user.isGM) await addTags(wall, ['broken']);
+            await addTags(wall, ['broken']);
           }
           const ltBrokenAlpha = hasTags(tile, 'invisible') ? 0 : 0.8;
           await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: ltBrokenAlpha });
-          if (game.user.isGM) await addTags(tile, ['broken']);
+          await addTags(tile, ['broken']);
           undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
           undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
           for (const { wall, restrict } of prevWallData) {
@@ -2214,7 +2214,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
                   for (const w of allWalls) await safeUpdate(w, { 'flags.wall-height.top': wallTop - 1 });
                   const prevDmgTag = tile ? getTags(tile).find(t => t.startsWith('damaged:')) : null;
                   const prevDmgN   = prevDmgTag ? parseInt(prevDmgTag.split(':')[1]) : 0;
-                  if (tile && game.user.isGM) {
+                  if (tile) {
                     if (prevDmgTag) await removeTags(tile, [prevDmgTag]);
                     await addTags(tile, [`damaged:${prevDmgN + 1}`]);
                   }
@@ -2232,12 +2232,12 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
                   const prevWallData = allWalls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
                   for (const w of allWalls) {
                     await safeUpdate(w, { move: 0, sight: 0, light: 0, sound: 0 });
-                    if (game.user.isGM) await addTags(w, ['broken']);
+                    await addTags(w, ['broken']);
                   }
                   if (tile) {
                     const swBrokenAlpha = hasTags(tile, 'invisible') ? 0 : 0.8;
                     await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: swBrokenAlpha });
-                    if (game.user.isGM) await addTags(tile, ['broken']);
+                    await addTags(tile, ['broken']);
                     undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
                     undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
                   }
@@ -2422,11 +2422,11 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
               const prevWallData = walls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
               for (const wall of walls) {
                 await safeUpdate(wall, { move: 0, sight: 0, light: 0, sound: 0 });
-                if (game.user.isGM) await addTags(wall, ['broken']);
+                await addTags(wall, ['broken']);
               }
               const stBrokenAlpha = hasTags(tile, 'invisible') ? 0 : 0.8;
               await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: stBrokenAlpha });
-              if (game.user.isGM) await addTags(tile, ['broken']);
+              await addTags(tile, ['broken']);
 
               undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
               undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });

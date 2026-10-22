@@ -1,4 +1,4 @@
-import { isPrimaryGM } from "../ctlib.mjs";
+import { isPrimaryGM, safeUpdate, safeDelete, safeCreateEmbedded, safeToggleStatusEffect } from "../ctlib.mjs";
 import { effectStartFor } from "../helpers.mjs";
 const M = 'draw-steel-combat-tools';
 const L = 'DSCT'; 
@@ -46,24 +46,24 @@ async function _addEffect(actor, uuid, origin) {
   if (!source) return;
   const existing = actor.effects.find(e => e.origin === origin);
   if (existing) {
-    return existing.update({
+    return safeUpdate(existing, {
       disabled: false,
       start: effectStartFor(actor),
       'duration.expired': false,
     });
   }
-  return ActiveEffect.implementation.create({
+  return safeCreateEmbedded(actor, 'ActiveEffect', [{
     ...source.toObject(),
     disabled: false,
     transfer: false,
     origin,
     start: effectStartFor(actor),
-  }, { parent: actor });
+  }]);
 }
 
 async function _resetDuration(actor, uuid) {
   const existing = await _resolveEffect(actor, uuid);
-  if (existing) return existing.update({
+  if (existing) return safeUpdate(existing, {
     start: effectStartFor(actor),
     'duration.expired': false,
   });
@@ -71,7 +71,7 @@ async function _resetDuration(actor, uuid) {
 
 async function _enableEffect(actor, uuid) {
   const existing = await _resolveEffect(actor, uuid);
-  if (existing) return existing.update({
+  if (existing) return safeUpdate(existing, {
     disabled: false,
     start: effectStartFor(actor),
     'duration.expired': false,
@@ -80,12 +80,12 @@ async function _enableEffect(actor, uuid) {
 
 async function _disableEffect(actor, uuid) {
   const existing = await _resolveEffect(actor, uuid);
-  if (existing) return existing.update({ disabled: true });
+  if (existing) return safeUpdate(existing, { disabled: true });
 }
 
 async function _deleteEffect(actor, uuid) {
   const existing = await _resolveEffect(actor, uuid);
-  if (existing) return existing.delete();
+  if (existing) return safeDelete(existing);
 }
 
 class DSStatusRegionBehaviorType extends RegionBehaviorType {
@@ -107,7 +107,7 @@ class DSStatusRegionBehaviorType extends RegionBehaviorType {
     if (!actor || !this.statusId) return;
     if (!event.user.isSelf) return;
     if (!_passesDispositionFilter(this, event)) return;
-    actor.toggleStatusEffect(this.statusId, { active: true, overlay: this.overlay });
+    safeToggleStatusEffect(actor, this.statusId, { active: true, overlay: this.overlay });
   }
 
   static #onTokenExit(event) {
@@ -115,7 +115,7 @@ class DSStatusRegionBehaviorType extends RegionBehaviorType {
     if (!actor || !this.statusId) return;
     if (!event.user.isSelf) return;
     if (!_passesDispositionFilter(this, event)) return;
-    actor.toggleStatusEffect(this.statusId, { active: false, overlay: this.overlay });
+    safeToggleStatusEffect(actor, this.statusId, { active: false, overlay: this.overlay });
   }
 
   static events = {

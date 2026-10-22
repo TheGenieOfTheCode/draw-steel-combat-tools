@@ -1,5 +1,5 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor } from '../helpers.mjs';
-import { triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks } from '../ability-automation/flat-special-effects.mjs';
+import { triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks, modifyAttributeSafely } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
@@ -8,7 +8,7 @@ import { applyGrab, runGrab, endGrab, grabChat } from '../conditions/grab.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { applyStatus, SOURCED_STATUSES } from '../conditions/statuses.mjs';
-import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW, DAMAGE_TYPES, isPrimaryGM, safeUpdate } from '../ctlib.mjs';
+import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW, DAMAGE_TYPES, isPrimaryGM, safeUpdate, safeCreateEmbedded, safeSetFlag, executeAsDirector } from '../ctlib.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
@@ -28,6 +28,14 @@ const _fmExecutingKeys = new Set();
 const _flatCondState = new Map();
 
 function _dmgIcon(type) { return (DAMAGE_TYPES[type] ?? DAMAGE_TYPES.untyped).icon; }
+
+const SPEND_HANDLER = 'dsct.dstdSpendResource';
+
+async function _spendSourceResource(actor, cost) {
+  const local = actor.system.coreResource?.target === actor ? actor.isOwner : game.user.isGM;
+  if (local) return await actor.system.updateResource(-cost);
+  return await executeAsDirector(getModuleApi(false)?.socket, SPEND_HANDLER, actor.uuid, cost);
+}
 
 function _makeStatusIcon(iconSrc) {
   if (!iconSrc) {
@@ -148,7 +156,15 @@ function _creditPanelEffect(effect, data) {
 
 export function registerDstdCompat() {
   const dbg = getSetting('debugMode');
+  const messageProto = foundry.documents.ChatMessage.prototype;
+  if (game.modules.get(DSTD)?.active && !('user' in messageProto)) {
+    Object.defineProperty(messageProto, 'user', { get() { return this.author; }, configurable: true });
+  }
   Hooks.on('preCreateActiveEffect', _creditPanelEffect);
+  Hooks.once('ready', () => getModuleApi(false)?.socket?.register(SPEND_HANDLER, async (uuid, cost) => {
+    const actor = await fromUuid(uuid);
+    if (actor) await actor.system.updateResource(-cost);
+  }));
 
   
   registerPanelDecorator({ id: 'combat-tools-prelude', priority: 20, ignore: ['.dsct-dstd-fm-row', '.dsct-dstd-squad'], decorate: ({ message, panel }) => {
@@ -280,7 +296,8 @@ export function registerDstdCompat() {
     if (tp) {
       _tpUndoIndex.delete(msg.id);
       _syncTeleportRow(tp, { applied: false, undoMsgId: null, distance: null });
-      tp.message.setFlag(M, tp.tpKey, { applied: false, undoMsgId: null, distance: null }).catch(() => {});
+      if (isPrimaryGM() || (!game.users.activeGM && tp.message.isOwner))
+        tp.message.setFlag(M, tp.tpKey, { applied: false, undoMsgId: null, distance: null }).catch(() => {});
     }
     const entry = _fmUndoIndex.get(msg.id);
     if (!entry) return;
@@ -369,7 +386,7 @@ async function _autoApplyOwn(message, panel) {
   const ability = abilityUuid ? fromUuidSync(abilityUuid) : null;
   _autoApplyEligible.delete(message.id);
   if (!isOwnAbilityActor(ability?.actor)) return;
-  await message.setFlag(M, 'autoApplied', true);
+  await safeSetFlag(message, M, 'autoApplied', true);
   await new Promise(r => setTimeout(r, AUTO_APPLY_SETTLE_MS));
   const squadsOnCard = rows.map(r => _squadOfRow(r)?.id).filter(Boolean);
   await _applyEffectsInOrder(message.id, panel.ownerDocument, { safe: true });
@@ -2618,7 +2635,7 @@ async function _injectFmButtons(message, root) {
           if (tmp) {
             const data = foundry.utils.mergeObject(tmp.toObject(), { transfer: true });
             if (endStr && ds?.CONFIG?.effectEnds?.[endStr]) data.duration = { expiry: ds.CONFIG.effectEnds[endStr].expiryEvent };
-            if (targetToken.actor) await targetToken.actor.createEmbeddedDocuments('ActiveEffect', [data]);
+            if (targetToken.actor) await safeCreateEmbedded(targetToken.actor, 'ActiveEffect', [data]);
           }
         }
         enrichBtn.disabled        = true;
@@ -2862,8 +2879,8 @@ async function _injectFmButtons(message, root) {
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.system.updateResource(-_spendCost);
-            await message.setFlag(M, _fmSpendKey, true);
+            await _spendSourceResource(sourceActor, _spendCost);
+            await safeSetFlag(message, M, _fmSpendKey, true);
           }
         }
 
@@ -3083,8 +3100,8 @@ async function _injectFmButtons(message, root) {
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.system.updateResource(-_spendCost);
-            await message.setFlag(M, _condSpendKey, true);
+            await _spendSourceResource(sourceActor, _spendCost);
+            await safeSetFlag(message, M, _condSpendKey, true);
           }
         }
 
@@ -3189,8 +3206,8 @@ async function _injectFmButtons(message, root) {
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.system.updateResource(-_spendCost);
-            await message.setFlag(M, _healSpendKey, true);
+            await _spendSourceResource(sourceActor, _spendCost);
+            await safeSetFlag(message, M, _healSpendKey, true);
           }
         }
 
@@ -3219,7 +3236,7 @@ async function _injectFmButtons(message, root) {
             healBtn.disabled = false;
             return;
           }
-          await recovActor.update({ "system.recoveries.value": available - 1 });
+          await safeUpdate(recovActor, { "system.recoveries.value": available - 1 });
           recoveryActorUuid = recovActor.uuid;
         }
 
@@ -3240,12 +3257,12 @@ async function _injectFmButtons(message, root) {
           healedEntry = targetActor.system.stamina?.temporary ?? 0;
           await grantTempStamina(targetActor, amount, effect.flatHeal.tempStack ? ability.name : null);
         } else {
-          await targetActor.modifyTokenAttribute("stamina", amount, true);
+          await modifyAttributeSafely(targetActor, 'stamina', amount, true);
           healedEntry = (targetActor.system.stamina?.value ?? 0) - staminaBefore;
         }
 
         const freshCur = message.getFlag(M, healFlagKey) ?? { usedCount: 0, undoCount: 0, healed: [], recoveries: [] };
-        await message.setFlag(M, healFlagKey, {
+        await safeSetFlag(message, M, healFlagKey, {
           usedCount:  (freshCur.usedCount  ?? 0) + 1,
           undoCount:   freshCur.undoCount  ?? 0,
           
@@ -3272,18 +3289,18 @@ async function _injectFmButtons(message, root) {
         const recoveryActorUu = (freshCur.recoveries ?? [])[freshNet - 1] ?? null;
 
         if (tempStamina) {
-          await targetActor.update({ "system.stamina.temporary": healedAmount });
+          await safeUpdate(targetActor, { "system.stamina.temporary": healedAmount });
         } else if (healedAmount) {
-          await targetActor.modifyTokenAttribute("stamina", -healedAmount, true);
+          await modifyAttributeSafely(targetActor, 'stamina', -healedAmount, true);
         }
 
         if (recoveryActorUu) {
           const recovDoc   = await fromUuid(recoveryActorUu).catch(() => null);
           const recovActor = recovDoc?.actor ?? recovDoc ?? null;
-          if (recovActor) await recovActor.update({ "system.recoveries.value": (recovActor.system.recoveries?.value ?? 0) + 1 });
+          if (recovActor) await safeUpdate(recovActor, { "system.recoveries.value": (recovActor.system.recoveries?.value ?? 0) + 1 });
         }
 
-        await message.setFlag(M, healFlagKey, { ...freshCur, undoCount: (freshCur.undoCount ?? 0) + 1 });
+        await safeSetFlag(message, M, healFlagKey, { ...freshCur, undoCount: (freshCur.undoCount ?? 0) + 1 });
       });
 
       actions.appendChild(healRow);
@@ -3334,7 +3351,7 @@ async function _injectFmButtons(message, root) {
         _tpUndoIndex.delete(msgId);
         chatUndo.click();
         _syncTeleportRow(tpHandle, { applied: false, undoMsgId: null, distance: null });
-        await message.setFlag(M, tpKey, { applied: false, undoMsgId: null, distance: null });
+        await safeSetFlag(message, M, tpKey, { applied: false, undoMsgId: null, distance: null });
       });
 
       tpBtn.addEventListener('click', async (e) => {
@@ -3352,8 +3369,8 @@ async function _injectFmButtons(message, root) {
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost, resource: coreRes?.name ?? game.i18n.localize('DSCT.FlatEffect.spend.resource') }));
               return;
             }
-            await sourceActor.system.updateResource(-cost);
-            await message.setFlag(M, tpSpendKey, true);
+            await _spendSourceResource(sourceActor, cost);
+            await safeSetFlag(message, M, tpSpendKey, true);
           }
         }
         const td = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
@@ -3372,7 +3389,7 @@ async function _injectFmButtons(message, root) {
         const tpState = { applied: true, undoMsgId: capturedTpMsgId, distance: capturedTpDist };
         _tpUndoIndex.set(capturedTpMsgId, tpHandle);
         _syncTeleportRow(tpHandle, tpState);
-        await message.setFlag(M, tpKey, tpState);
+        await safeSetFlag(message, M, tpKey, tpState);
       });
 
       actions.appendChild(tpRow);
@@ -3508,8 +3525,8 @@ async function _injectFmButtons(message, root) {
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.system.updateResource(-_spendCost);
-            await message.setFlag(M, _clsSpendKey, true);
+            await _spendSourceResource(sourceActor, _spendCost);
+            await safeSetFlag(message, M, _clsSpendKey, true);
           }
         }
 
@@ -3532,9 +3549,10 @@ async function _injectFmButtons(message, root) {
 
         if (effect.flatCleanse.all) {
           const all = cleansable.map(ae => ae.toObject());
-          await targetActor.deleteEmbeddedDocuments('ActiveEffect', cleansable.map(ae => ae.id), cleansed());
+          if (targetActor.isOwner) await targetActor.deleteEmbeddedDocuments('ActiveEffect', cleansable.map(ae => ae.id), cleansed());
+          else for (const ae of cleansable) await safeDelete(ae, cleansed());
           const cur = message.getFlag(M, cleanseFlagKey) ?? { stack: [] };
-          await message.setFlag(M, cleanseFlagKey, { stack: [...(cur.stack ?? []), { all }] });
+          await safeSetFlag(message, M, cleanseFlagKey, { stack: [...(cur.stack ?? []), { all }] });
           undoCleanseBtn.disabled = false;
           cleanseRow.classList.add('is-applied');
           const appliedName = game.i18n.format('DSCT.FlatEffect.Cleanse.removedAll', { n: all.length });
@@ -3569,11 +3587,11 @@ async function _injectFmButtons(message, root) {
 
         if (!chosen) { cleanseBtn.disabled = false; return; }
         const removedData = chosen.toObject();
-        await chosen.delete(cleansed());
+        await safeDelete(chosen, cleansed());
 
         const freshCur = message.getFlag(M, cleanseFlagKey) ?? { stack: [] };
         const newStack = [...(freshCur.stack ?? []), removedData];
-        await message.setFlag(M, cleanseFlagKey, { stack: newStack });
+        await safeSetFlag(message, M, cleanseFlagKey, { stack: newStack });
 
         undoCleanseBtn.disabled = false;
         if (!repeatable) {
@@ -3619,10 +3637,10 @@ async function _injectFmButtons(message, root) {
         const newStack = freshStack.slice(0, -1);
 
         if (removedData) {
-          await targetActor.createEmbeddedDocuments('ActiveEffect', Array.isArray(removedData.all) ? removedData.all : [removedData]);
+          await safeCreateEmbedded(targetActor, 'ActiveEffect', Array.isArray(removedData.all) ? removedData.all : [removedData]);
         }
 
-        await message.setFlag(M, cleanseFlagKey, { stack: newStack });
+        await safeSetFlag(message, M, cleanseFlagKey, { stack: newStack });
 
         if (newStack.length > 0) undoCleanseBtn.disabled = false;
         const countEl = undoCleanseBtn.querySelector('sup');

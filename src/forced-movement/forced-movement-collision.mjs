@@ -38,6 +38,9 @@ const parseType = (raw) => {
 const embeddedUuid = (parent, type, doc) =>
   doc?.uuid ?? `${parent.uuid}.${type}.${doc?._id ?? doc?.id}`;
 
+const createdDoc = async (parent, type, doc) =>
+  doc?.uuid ? doc : await fromUuid(embeddedUuid(parent, type, doc));
+
 const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
   const GRID = getGRID();
   const [x1, y1, x2, y2] = wallDoc.c;
@@ -73,7 +76,7 @@ const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
   await safeUpdate(wallDoc, { c: [ip0.x, ip0.y, ip1.x, ip1.y] });
 
   const blockTagsToRemove = allTags.filter(t => t.startsWith('wall-block-') && t !== squareBlockId);
-  if (blockTagsToRemove.length > 0 && game.user.isGM) {
+  if (blockTagsToRemove.length > 0) {
     undoOps.push({ op: 'addTags', uuid: wallDoc.uuid, tags: blockTagsToRemove });
     await removeTags(wallDoc, blockTagsToRemove);
   }
@@ -104,7 +107,8 @@ const splitConvertedWall = async (wallDoc, gx, gy, undoOps) => {
     const created = await safeCreateEmbedded(canvas.scene, 'Wall', [newWallData]);
     if (created?.[0]) {
       undoOps.push({ op: 'delete', uuid: embeddedUuid(canvas.scene, 'Wall', created[0]) });
-      if (taggerTags.length) await addTags(created[0], taggerTags);
+      const createdWall = taggerTags.length ? await createdDoc(canvas.scene, 'Wall', created[0]) : null;
+      if (createdWall) await addTags(createdWall, taggerTags);
     }
   };
 
@@ -134,12 +138,12 @@ const breakTileFromTop = async (tile, fallDmg, undoOps, collisionMsgs, targetTok
   if (squaresBroken >= tileHeight) {
     for (const w of walls) {
       await safeUpdate(w, { move: 0, sight: 0, light: 0, sound: 0 });
-      if (game.user.isGM) await addTags(w, ['broken']);
+      await addTags(w, ['broken']);
     }
     const prevAlpha   = tile.document.alpha ?? getMaterialAlpha(mat);
     const brokenAlpha = hasTags(tile, 'invisible') ? 0 : 0.8;
     await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: brokenAlpha });
-    if (game.user.isGM) await addTags(tile, ['broken']);
+    await addTags(tile, ['broken']);
 
     const restrict = WALL_RESTRICTIONS()[mat] ?? WALL_RESTRICTIONS().stone;
     for (const w of walls) {
@@ -156,10 +160,8 @@ const breakTileFromTop = async (tile, fallDmg, undoOps, collisionMsgs, targetTok
 
   const newTop = tileTop - squaresBroken;
   for (const w of walls) await safeUpdate(w, { 'flags.wall-height.top': newTop });
-  if (game.user.isGM) {
-    if (prevDamagedTag) await removeTags(tile, [prevDamagedTag]);
-    await addTags(tile, [`damaged:${newDamagedN}`, 'partially-broken']);
-  }
+  if (prevDamagedTag) await removeTags(tile, [prevDamagedTag]);
+  await addTags(tile, [`damaged:${newDamagedN}`, 'partially-broken']);
 
   for (const w of walls) {
     undoOps.push({ op: 'update', uuid: w.uuid, data: { 'flags.wall-height.top': tileTop } });
@@ -191,16 +193,12 @@ const splitTileAtElevation = async (tile, splitElev, undoOps, collisionMsgs) => 
   const squaresLost = tileTop - splitElev;
   for (const w of walls) {
     await safeUpdate(w, { 'flags.wall-height.top': splitElev });
-    if (game.user.isGM) {
-      await removeTags(w, [blockTag]);
-      await addTags(w, [botTag, `damaged:${squaresLost}`]);
-    }
+    await removeTags(w, [blockTag]);
+    await addTags(w, [botTag, `damaged:${squaresLost}`]);
   }
 
-  if (game.user.isGM) {
-    await removeTags(tile, [blockTag]);
-    await addTags(tile, [botTag, 'partially-broken']);
-  }
+  await removeTags(tile, [blockTag]);
+  await addTags(tile, [botTag, 'partially-broken']);
 
   const tg = toGrid(tile.document);
   const edges = [
@@ -223,7 +221,8 @@ const splitTileAtElevation = async (tile, splitElev, undoOps, collisionMsgs) => 
     video: { loop: false, autoplay: false, volume: 0 },
     flags: {},
   }]);
-  if (createdTiles?.[0]) await addTags(createdTiles[0], topTileAllTags);
+  const createdTile = createdTiles?.[0] ? await createdDoc(canvas.scene, 'Tile', createdTiles[0]) : null;
+  if (createdTile) await addTags(createdTile, topTileAllTags);
 
   const createdWalls = [];
   for (const [x1, y1, x2, y2] of edges) {
@@ -234,7 +233,8 @@ const splitTileAtElevation = async (tile, splitElev, undoOps, collisionMsgs) => 
     }]);
     if (result?.[0]) {
       createdWalls.push(result[0]);
-      await addTags(result[0], topTileAllTags);
+      const createdWall = await createdDoc(canvas.scene, 'Wall', result[0]);
+      if (createdWall) await addTags(createdWall, topTileAllTags);
     }
   }
 
@@ -622,7 +622,7 @@ const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs, step 
       for (const w of allWalls) await safeUpdate(w, { 'flags.wall-height.top': wallTop - 1 });
       const prevDmgTag = tile ? getTags(tile).find(t => t.startsWith('damaged:')) : null;
       const prevDmgN   = prevDmgTag ? parseInt(prevDmgTag.split(':')[1]) : 0;
-      if (tile && game.user.isGM) {
+      if (tile) {
         if (prevDmgTag) await removeTags(tile, [prevDmgTag]);
         await addTags(tile, [`damaged:${prevDmgN + 1}`]);
       }
@@ -639,12 +639,12 @@ const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs, step 
       const prevWallData = allWalls.map(w => ({ wall: w, restrict: { move: w.move, sight: w.sight, light: w.light, sound: w.sound } }));
       for (const w of allWalls) {
         await safeUpdate(w, { move: 0, sight: 0, light: 0, sound: 0 });
-        if (game.user.isGM) await addTags(w, ['broken']);
+        await addTags(w, ['broken']);
       }
       if (tile) {
         const dBrokenAlpha = hasTags(tile, 'invisible') ? 0 : 0.8;
         await safeUpdate(tile.document, { 'texture.src': MATERIAL_ICONS.broken, alpha: dBrokenAlpha });
-        if (game.user.isGM) await addTags(tile, ['broken']);
+        await addTags(tile, ['broken']);
         undoOps.push({ op: 'update',     uuid: tile.document.uuid, data: { 'texture.src': getMaterialIcon(origMat), alpha: prevAlpha } });
         undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
       }

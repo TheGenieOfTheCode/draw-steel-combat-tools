@@ -1,5 +1,6 @@
 import { beginPickerOverlay } from './picker-overlay.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
+import { safeUpdate } from '../ctlib.mjs';
 
 const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
   const GS     = canvas.grid.size;
@@ -142,13 +143,13 @@ export const runTransform = async (target, actors, title = 'Transform', { color 
   if (!newActor) return;
 
   const protoImg = newActor.prototypeToken?.texture?.src ?? newActor.img;
-  await token.document.update({
+  await safeUpdate(token.document, {
     actorId:       newActor.id,
     name:          newActor.name,
     'texture.src': protoImg,
     actorLink:     newActor.prototypeToken?.actorLink ?? false,
   });
   const combatant = game.combat?.combatants.find(c => c.tokenId === token.id);
-  if (combatant) await combatant.update({ actorId: newActor.id, name: newActor.name, img: protoImg });
+  if (combatant) await safeUpdate(combatant, { actorId: newActor.id, name: newActor.name, img: protoImg });
   return token;
 };
