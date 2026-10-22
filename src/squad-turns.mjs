@@ -321,6 +321,11 @@ export function registerSquadTurnHooks() {
   
   
   
+  Hooks.on('refreshToken', (token) => {
+    const wrapper = token._dsctMarkerWrapper ?? _markerWrappers.get(token.id);
+    if (_pixiAlive(wrapper)) wrapper.visible = token.visible;
+  });
+
   Hooks.on('drawToken', (token) => {
     if (_isPreview(token) || !_markerWrappers.has(token.id)) return;
     _mdbg('redraw re-establishing marker for', token.name);
@@ -595,6 +600,7 @@ export function registerSquadTurnHooks() {
               const wrapper = new PIXI.Container();
               const { x, y } = this.document;
               wrapper.position.set(x, y);
+              wrapper.visible = this.visible;
               canvas.tokens.addChildAt(wrapper, 0);
               wrapper.addChild(marker);
               _markerWrappers.set(this.id, wrapper);
