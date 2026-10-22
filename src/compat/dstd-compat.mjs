@@ -412,10 +412,38 @@ const NOT_APPLY = new Set(['undoDamage', 'undoStatus', 'editDamage', 'editRoll',
 
 const _effectRows = (targetRow) => [...targetRow.querySelectorAll(`.${DSTD}-action-row`)].filter(r => !r.classList.contains('dsct-dstd-global-row'));
 
+const POTENCY_TEXT = /\{\{\s*potency\s*\}\}/i;
+
+const _tierHasPotency = (powerEffect, tier) => {
+  let display = '';
+  let characteristic = null;
+  for (let i = Number(tier); i >= 1; i--) {
+    const data = powerEffect?.applied?.[`tier${i}`];
+    display ||= String(data?.display ?? '').trim();
+    if (!characteristic && ds.CONFIG.characteristics?.[data?.potency?.characteristic]) characteristic = data.potency.characteristic;
+  }
+  return !!characteristic && POTENCY_TEXT.test(display);
+};
+
+const _tierEffectIds = (powerEffect, tier) => {
+  const effects = powerEffect?.applied?.[`tier${tier}`]?.effects;
+  return effects instanceof Map ? [...effects.keys()] : Object.keys(effects ?? {});
+};
+
+const _statusHasPotency = (btn, message) => {
+  const uuid = (message?.system?.parts?.contents ?? []).find(p => p.abilityUuid)?.abilityUuid;
+  const ability = uuid ? fromUuidSync(uuid) : null;
+  const tier = Number(btn.dataset.tier);
+  if (!ability || !tier) return false;
+  return (ability.system?.power?.effects ?? []).some(e => e.type === 'applied'
+    && _tierEffectIds(e, tier).includes(btn.dataset.effectId) && _tierHasPotency(e, tier));
+};
+
 const _autoButton = (actionRow, safe = false, message = null) => {
-  if (!actionRow || actionRow.matches('[data-dsct-manual]')) return null;
+  if (!actionRow || actionRow.matches('[data-dsct-manual], [data-dsct-potency]')) return null;
   const btn = [...actionRow.children].find(c => c.tagName === 'BUTTON');
   if (!btn || btn.disabled || NOT_APPLY.has(btn.dataset.dstdAction) || btn.classList.contains(`${DSTD}-undo-button`)) return null;
+  if (btn.dataset.dstdAction === 'applyStatus' && _statusHasPotency(btn, message)) return null;
   if (actionRow.classList.contains('dsct-dstd-fm-row') && !/\bAuto\b/.test(btn.textContent)) return null;
   if (safe && _wouldPrompt(actionRow, btn, message)) return null;
   return btn;
@@ -516,6 +544,20 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock =
   }
 }));
 
+const _canUndoAll = (rows, message) => {
+  if (game.user.isGM) return true;
+  const damaged = rows.filter(r => r.querySelector(`.${DSTD}-damage-row.is-applied, .${DSTD}-damage-row.has-stack`));
+  const undoOf = (r) => r.querySelector('[data-dstd-action="undoDamage"]');
+  if (!damaged.every(r => undoOf(r) && !undoOf(r).disabled)) return false;
+  const uuid = (message?.system?.parts?.contents ?? []).find(p => p.abilityUuid)?.abilityUuid;
+  if (uuid && fromUuidSync(uuid)?.isOwner) return true;
+  const records = message?.flags?.[DSTD]?.state?.applications ?? {};
+  return damaged.every((r) => {
+    const record = records[undoOf(r).dataset.operationId];
+    return (record?.appliedByUserId ?? record?.stack?.at?.(-1)?.appliedByUserId) === game.user.id;
+  });
+};
+
 function _installGlobalDamageButtons(panel, message) {
   panel.querySelector('.dsct-dstd-global-row')?.remove();
 
@@ -524,7 +566,7 @@ function _installGlobalDamageButtons(panel, message) {
 
   const undoBtns  = targetRows.map(r => r.querySelector('[data-dstd-action="undoDamage"]')).filter(Boolean);
   const anyApplyEnabled = targetRows.some(r => _effectRows(r).some(_autoButton));
-  const anyUndoEnabled  = undoBtns.some(b => !b.disabled);
+  const anyUndoEnabled  = undoBtns.some(b => !b.disabled) && _canUndoAll(targetRows, message);
   if (!anyApplyEnabled && !anyUndoEnabled) return;
 
   const msgId  = message.id;
@@ -558,7 +600,7 @@ function _installGlobalDamageButtons(panel, message) {
 
   undoAllBtn.addEventListener('click', async (e) => {
     e.stopPropagation(); e.preventDefault();
-    if (undoAllBtn.disabled) return;
+    if (undoAllBtn.disabled || !_canUndoAll(targetRows, game.messages.get(msgId))) return;
     undoAllBtn.disabled = true;
     const squadsOnCard = targetRows.map(r => _squadOfRow(r)?.id).filter(Boolean);
     await _clickSequentially(row => row.querySelector('[data-dstd-action="undoDamage"]'), true);
@@ -671,7 +713,7 @@ function _installSquadButtons(hdr, message, panel, squad) {
   const msgId = message.id;
   const msgDoc = panel.ownerDocument;
 
-  const enabled = (action) => squad.rows.some((r) => {
+  const enabled = (action) => (action !== 'undoDamage' || _canUndoAll(squad.rows, message)) && squad.rows.some((r) => {
     const b = r.querySelector(`[data-dstd-action="${action}"]`);
     return b && !b.disabled;
   });
@@ -1543,7 +1585,9 @@ async function _injectFmButtons(message, root) {
       if (!statusId || seen.has(statusId)) continue;
       seen.add(statusId);
       const displayLabel = label ?? game.i18n.localize(ds?.CONFIG?.conditions?.[statusId]?.name ?? statusId);
-      result.push({ statusId, endStr, label: displayLabel });
+      const lead = desc.slice(Math.max(0, match.index - 200), match.index).split(/[.!?](?:\s|<)|<\/p>|<br\s*\/?>/i).pop();
+      const potency = /\[\[\s*potency\b|\b(?:might|agility|reason|intuition|presence|[MARIP])\s*<\s*(?:\d|weak|average|strong|\[\[)/i.test(lead);
+      result.push({ statusId, endStr, label: displayLabel, potency });
     }
     return result;
   })());
@@ -2520,8 +2564,16 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    
-    for (const { statusId, endStr, label: enrichLabel } of descEnrichers) {
+    if (doConditions) {
+      for (const effect of appliedEffects) {
+        if (!_tierHasPotency(effect, rowTier)) continue;
+        for (const id of _tierEffectIds(effect, rowTier)) {
+          actions.querySelector(`[data-dsct-dstd-cond="${targetKey}:cond:${id}"]`)?.closest(`.${DSTD}-action-row`)?.setAttribute('data-dsct-potency', '1');
+        }
+      }
+    }
+
+    for (const { statusId, endStr, label: enrichLabel, potency: enrichPotency } of descEnrichers) {
       const enrichKey = `${targetKey}:enrich:${statusId}`;
       if (actions.querySelector(`[data-dsct-enrich-key="${enrichKey}"]`)) continue;
       if (actions.querySelector(`[data-dsct-dstd-cond*=":cond:${statusId}"]`)) continue;
@@ -2593,6 +2645,7 @@ async function _injectFmButtons(message, root) {
       const enrichRow = document.createElement('div');
       enrichRow.className = `${DSTD}-action-row dsct-dstd-condition-row`;
       enrichRow.append(enrichBtn, undoEnrichBtn);
+      if (enrichPotency) enrichRow.dataset.dsctPotency = '1';
       actions.appendChild(enrichRow);
     }
 
@@ -3002,6 +3055,7 @@ async function _injectFmButtons(message, root) {
       condRow.className = `${DSTD}-action-row ${DSTD}-status-row`;
       condRow.append(condBtn, undoCondBtn);
       if (condState.applied) condRow.classList.add('is-applied');
+      if (ds.CONFIG.characteristics?.[charKey]) condRow.dataset.dsctPotency = '1';
 
       const _syncCondRow = () => {
         const lbl = condState.applied ? `Applied: ${baseName}${potencyTag}` : applyLbl;
