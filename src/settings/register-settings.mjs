@@ -154,6 +154,10 @@ export const registerSettings = () => {
     name: L('fmAutoForOwnAbilities.name'), hint: L('fmAutoForOwnAbilities.hint'),
     scope: 'client', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'rollDialogDodge', {
+    name: L('rollDialogDodge.name'), hint: L('rollDialogDodge.hint'),
+    scope: 'client', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'autoApplyOwnAbilities', {
     name: L('autoApplyOwnAbilities.name'), hint: L('autoApplyOwnAbilities.hint'),
     scope: 'client', config: false, type: Boolean, default: false,

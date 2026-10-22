@@ -317,6 +317,8 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       'abilityTemplateConfigEnabled',
       'abilityTemplateCleanup',
       'abilityTemplateSeconds',
+      header('Roll Window'),
+      'rollDialogDodge',
       header('Visible Modifiers'),
       'rollDialogPillUI',
       'dstdRollPills',

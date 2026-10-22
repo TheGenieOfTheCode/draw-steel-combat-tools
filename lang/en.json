@@ -79,6 +79,10 @@
         "name": "Auto Path My Forced Movement",
         "hint": "Forced movement from your own abilities starts with Auto, so the push or pull finds its own path when you apply it. For the Director, that is every creature no online player owns."
       },
+      "rollDialogDodge": {
+        "name": "Roll Windows Stay Out of the Way",
+        "hint": "When a roll window opens, it moves off the creatures taking their turn and the ability's targets, staying as close to the middle of the screen as it can and clear of the sidebar, chat and other windows. It only moves when it opens."
+      },
       "autoApplyOwnAbilities": {
         "name": "Apply My Abilities Automatically",
         "hint": "When you use one of your own abilities on targets, apply everything as soon as the result is in, one effect at a time. Grabs, teleports and pushes without Auto stay manual. For the Director, that is every creature no online player owns."
