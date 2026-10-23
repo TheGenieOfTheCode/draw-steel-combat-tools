@@ -1,4 +1,5 @@
-import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed } from '../helpers.mjs';
+import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed, effectStartFor } from '../helpers.mjs';
+import { applyStatus } from '../conditions/statuses.mjs';
 import { DAMAGE_TYPES, isPrimaryGM, safeCreateEmbedded, safeDelete, safeSetFlag, safeToggleStatusEffect, safeUpdate } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
@@ -966,10 +967,11 @@ function _buildForcedRow(effect, item) {
 function _buildAppliedButton(effect, item) {
   const { statusId, display, spend } = effect.flatApplied;
   const statusEntry = statusId ? CONFIG.statusEffects.find(s => s.id === statusId) : null;
-  const label = display || statusEntry?.name || statusId;
+  const applied = statusId ? flatAppliedLabel(item, statusId) : null;
+  const label = display || applied?.name || statusId;
   if (!label && !statusId) return null;
 
-  const iconSrc = statusEntry?.img ?? statusEntry?.icon ?? null;
+  const iconSrc = applied?.img ?? statusEntry?.icon ?? null;
   let iconHtml;
   if (iconSrc && (iconSrc.includes("/") || iconSrc.includes("."))) {
     iconHtml = `<img src="${iconSrc}" style="width:1.35em;height:1.35em;object-fit:contain;vertical-align:middle;">`;
@@ -988,6 +990,7 @@ function _buildAppliedButton(effect, item) {
   btn.dataset.spendEnabled = String(spend?.enabled ?? false);
   btn.dataset.spendValue   = String(spend?.value ?? 1);
   btn.dataset.stack        = String(flatAppliedStacks(effect));
+  btn.dataset.end          = effect.flatApplied.end ?? "";
   btn.innerHTML = `${iconHtml} ${(label ?? statusId) + spendSuffix}`;
   return btn;
 }
@@ -1361,10 +1364,12 @@ export const flatAppliedStacks = (effect) => {
   return !!(props?.has?.('stack') ?? Array.from(props ?? []).includes('stack'));
 };
 
-export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenId = null, { stack = false } = {}) {
+export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenId = null, { stack = false, end = '' } = {}) {
   if (!actor || !statusId) return false;
+  const endEvent = ds.CONFIG.effectEnds?.[end]?.expiryEvent ?? null;
   if (isRegisteredStatus(statusId)) {
-    await safeToggleStatusEffect(actor, statusId, { active: true });
+    if (endEvent) await applyStatus(actor, statusId, { end });
+    else await safeToggleStatusEffect(actor, statusId, { active: true });
     return true;
   }
   const source = flatAppliedSource(item, statusId);
@@ -1411,6 +1416,9 @@ export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenI
   if (reminder && giver) {
     data.duration = { value: null, units: 'seconds', expiry: null, expired: false };
     foundry.utils.setProperty(data, `flags.${MODULE_ID}.expiryReminderOwner`, giver.uuid);
+  } else if (endEvent) {
+    data.duration = { expiry: endEvent };
+    data.start = effectStartFor(actor);
   }
   const [created] = (await safeCreateEmbedded(actor, 'ActiveEffect', [data])) ?? [];
   if (reminder && giver && created) await createExpiryReminder(giver, created, reminder, actor);
@@ -1559,7 +1567,7 @@ export function addFlatEffectListeners(section, item, message) {
 
       for (const target of targets) {
         if (!target.actor) continue;
-        await applyFlatAppliedEffect(target.actor, statusId, item, flatAppliedSourceToken(item, message), { stack: btn.dataset.stack === "true" });
+        await applyFlatAppliedEffect(target.actor, statusId, item, flatAppliedSourceToken(item, message), { stack: btn.dataset.stack === "true", end: btn.dataset.end });
       }
     });
   });

@@ -3111,7 +3111,7 @@ async function _injectFmButtons(message, root) {
         const td    = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
         const actor = td?.actor ?? null;
         if (!actor) return;
-        await applyFlatAppliedEffect(actor, statusId, ability, flatAppliedSourceToken(ability, message), { stack: flatAppliedStacks(effect) });
+        await applyFlatAppliedEffect(actor, statusId, ability, flatAppliedSourceToken(ability, message), { stack: flatAppliedStacks(effect), end: effect.flatApplied.end });
         condState = { applied: true };
         _flatCondState.set(condStateKey, condState);
         _syncCondRow();
