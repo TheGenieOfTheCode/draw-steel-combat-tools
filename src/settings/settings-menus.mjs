@@ -316,6 +316,7 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       header('Applying Damage'),
       'autoApplyOwnAbilities',
       'potencyChecks',
+      'hideApplyWord',
       header('Ability Templates'),
       'abilityTemplateConfigEnabled',
       'abilityTemplateCleanup',

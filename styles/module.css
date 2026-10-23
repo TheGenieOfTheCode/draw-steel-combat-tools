@@ -2102,6 +2102,8 @@ body.detached .chat-form {
 
 .dsct-dice-formula .dsct-die.dsct-die-dropped { opacity: 0.35; }
 
+body.dsct-hide-apply-word .dsct-apply-word { display: none; }
+
 .dsct-dice-formula .dsct-die-mod {
   flex: 0 0 auto;
   margin-left: 2px;

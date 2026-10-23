@@ -7,6 +7,7 @@ import { refreshSquadTurnMarkers } from '../squad-turns.mjs';
 import { refreshHiddenMarkers } from '../conditions/hidden-markers.mjs';
 import { applyHealthEstimatePatch } from '../compat/health-estimate-compat.mjs';
 import { applyCompactPills } from '../compat/pill-compact.mjs';
+import { applyHideApplyWord } from '../compat/dstd-apply-word.mjs';
 import { InstallMacrosMenu, EnhancedAbilitiesMenu } from '../setup-macros.mjs';
 import {
   ForcedMovementSettingsMenu,
@@ -712,6 +713,11 @@ export const registerSettings = () => {
     scope: 'client', config: false, type: Boolean, default: false, onChange: applyCompactPills,
   });
   Hooks.once('ready', () => applyCompactPills(game.settings.get(M, 'compactChatPills')));
+  game.settings.register(M, 'hideApplyWord', {
+    name: L('hideApplyWord.name'), hint: L('hideApplyWord.hint'),
+    scope: 'client', config: false, type: Boolean, default: true, onChange: applyHideApplyWord,
+  });
+  Hooks.once('ready', () => applyHideApplyWord(game.settings.get(M, 'hideApplyWord')));
   game.settings.register(M, 'skipPillEditor', {
     name: L('skipPillEditor.name'), hint: L('skipPillEditor.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
