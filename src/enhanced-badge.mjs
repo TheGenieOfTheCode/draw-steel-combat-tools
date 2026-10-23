@@ -1,4 +1,4 @@
-import { ENHANCED_PACKS, enhancedKey, enhancedNameKey, enhancedDocKey } from './setup-macros.mjs';
+import { enhancedPackIds, enhancedKey, enhancedNameKey, enhancedDocKey } from './setup-macros.mjs';
 
 const M = 'draw-steel-combat-tools';
 const LOCK = 'enhancedLock';
@@ -9,7 +9,7 @@ let _dsids = null;
 
 async function _loadIndex() {
   _dsids = new Set();
-  for (const id of ENHANCED_PACKS) {
+  for (const id of enhancedPackIds()) {
     const pack = game.packs.get(id);
     if (!pack) continue;
     const index = await pack.getIndex({ fields: ['system._dsid', 'flags.draw-steel-combat-tools.enhancedByName'] });

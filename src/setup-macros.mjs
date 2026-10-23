@@ -134,9 +134,13 @@ const ENH_FLAG = 'draw-steel-combat-tools';
 
 export const ENHANCED_PACK = 'draw-steel-combat-tools.enhanced-abilities';
 
-export const ENHANCED_PACKS = [ENHANCED_PACK, 'draw-steel-combat-tools.enhanced-features'];
+const OWN_ENHANCED_PACKS = [ENHANCED_PACK, 'draw-steel-combat-tools.enhanced-features'];
 
-const enhancedPacks = () => ENHANCED_PACKS.map(id => game.packs.get(id)).filter(Boolean);
+export const enhancedPackIds = () => [...OWN_ENHANCED_PACKS, ...game.packs
+  .filter(p => p.metadata.packageName !== ENH_FLAG && p.metadata.flags?.[ENH_FLAG]?.enhanced === true)
+  .map(p => p.collection)];
+
+const enhancedPacks = () => enhancedPackIds().map(id => game.packs.get(id)).filter(Boolean);
 
 async function enhancedDocuments() {
   const out = [];
