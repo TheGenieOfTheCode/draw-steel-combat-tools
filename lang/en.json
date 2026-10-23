@@ -1460,7 +1460,11 @@
       "potency": {
         "Affected": "Affected",
         "Resisted": "Resisted",
-        "Tooltip": "Potency {chr} < {potency}. The target counts as {chr} {resist}."
+        "TipPotency": "Potency",
+        "TipBase": "base {n}",
+        "TipTarget": "Target's {chr}",
+        "TipBelow": "{chr} of {resist} is lower than the potency of {potency}.",
+        "TipMeets": "{chr} of {resist} is not lower than the potency of {potency}."
       },
       "effectMods": {
         "Edit": "Modify this effect",

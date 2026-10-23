@@ -78,7 +78,7 @@ export function potencyVerdict({ actor, characteristic, value, condition = 'fail
   const failed = actor.system.checkPotency(potency, chrKey);
   const chr = actor.system.characteristics?.[chrKey];
   const affected = force != null ? force > 0 : (condition === 'success' ? !failed : failed);
-  return { potency, characteristic: chrKey, resist: (chr?.value ?? 0) + (chr?.resist ?? 0), failed, affected, forced: force != null };
+  return { potency, characteristic: chrKey, resist: (chr?.value ?? 0) + (chr?.resist ?? 0), resistBonus: chr?.resist ?? 0, failed, affected, forced: force != null };
 }
 
 const tierOf = (message, state, targetKey) => Number(state.tierOverrides?.[targetKey]?.tier)
@@ -110,16 +110,50 @@ export function potencyEffectsOf(messageId, targetKey) {
   return out;
 }
 
-function verdictTag(row, button, verdict) {
-  row.querySelectorAll('.dsct-potency-verdict').forEach(e => e.remove());
+const STAT_SUFFIX = /\s*\([MARIP]: -?\d+\)\s*$/;
+
+function stripStat(button) {
+  const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+  let last = null;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.data.trim()) last = node;
+  if (last && STAT_SUFFIX.test(last.data)) last.data = last.data.replace(STAT_SUFFIX, '');
+}
+
+function verdictTooltip(verdict, { name, base, pills }) {
+  const esc = foundry.utils.escapeHTML;
+  const chr = ds.CONFIG.characteristics[verdict.characteristic];
+  const abbr = chr?.rollKey ?? verdict.characteristic;
+  const chrName = game.i18n.localize(chr?.label ?? verdict.characteristic);
+  const mods = pills.filter(({ p }) => p.enabled !== false && ['potency', 'potencyForce', 'resistWith'].includes(p.kind))
+    .map(({ p }) => `<li>${esc(pillAmountLabel(p))} &middot; ${esc(p.reason ?? '')}</li>`);
+  const actor = verdict.resist - (verdict.resistBonus ?? 0);
+  const lines = verdict.forced
+    ? [`<p>${esc(E(verdict.affected ? 'TooltipAlways' : 'TooltipNever'))}</p>`]
+    : [
+      `<p><strong>${esc(L('TipPotency'))}</strong> ${esc(abbr)} &lt; ${verdict.potency}${verdict.potency !== base ? ` <span class="dsct-tip-dim">(${esc(L('TipBase', { n: base }))})</span>` : ''}</p>`,
+      `<p><strong>${esc(L('TipTarget', { chr: chrName }))}</strong> ${verdict.resist}${verdict.resistBonus ? ` <span class="dsct-tip-dim">(${actor} ${verdict.resistBonus > 0 ? '+' : '-'} ${Math.abs(verdict.resistBonus)})</span>` : ''}</p>`,
+      `<p>${esc(L(verdict.failed ? 'TipBelow' : 'TipMeets', { chr: chrName, resist: verdict.resist, potency: verdict.potency }))}</p>`,
+    ];
+  if (mods.length) lines.push(`<ul class="dsct-tip-mods">${mods.join('')}</ul>`);
+  return `<header class="metadata"><h3 class="name">${esc(name)}</h3><aside class="category"><h4>${esc(L(verdict.affected ? 'Affected' : 'Resisted'))}</h4></aside></header>`
+    + `<section class="content dsct-potency-tip">${lines.join('')}</section>`;
+}
+
+function verdictTag(row, button, verdict, detail) {
   row.classList.toggle('dsct-potency-resisted', !verdict.affected);
   row.dataset.dsctPotencyVerdict = verdict.affected ? 'affected' : 'resisted';
-  const abbr = ds.CONFIG.characteristics[verdict.characteristic]?.rollKey ?? verdict.characteristic;
+  const className = `dsct-potency-verdict ${verdict.affected ? 'is-affected' : 'is-resisted'}`;
+  const text = L(verdict.affected ? 'Affected' : 'Resisted');
+  const tip = verdictTooltip(verdict, detail);
+  const current = row.querySelectorAll('.dsct-potency-verdict');
+  if (current.length === 1 && current[0].parentElement === button && current[0].className === className
+    && current[0].textContent === text && current[0].dataset.dsctTip === tip) return;
+  current.forEach(e => e.remove());
   const tag = document.createElement('span');
-  tag.className = `dsct-potency-verdict ${verdict.affected ? 'is-affected' : 'is-resisted'}`;
-  tag.textContent = L(verdict.affected ? 'Affected' : 'Resisted');
-  tag.dataset.tooltip = verdict.forced ? E(verdict.affected ? 'TooltipAlways' : 'TooltipNever')
-    : L('Tooltip', { chr: abbr, potency: verdict.potency, resist: verdict.resist });
+  tag.className = className;
+  tag.textContent = text;
+  tag.dataset.dsctTip = tip;
+  tag.dataset.dsctTipClass = 'draw-steel';
   button.append(tag);
 }
 
@@ -163,11 +197,12 @@ function decorate(message, panel) {
       if (!found) continue;
       const pills = effectPills(override, found.effectId);
       const mods = pillMods(pills);
+      const name = effectName(ability, found.statusId);
+      stripStat(found.button);
       if (checks && found.potency) {
         const verdict = potencyVerdict({ actor, ...found.potency, shift: mods.shift, force: mods.force, resistWith: mods.resistWith });
-        if (verdict) verdictTag(row, found.button, verdict);
+        if (verdict) verdictTag(row, found.button, verdict, { name, base: found.potency.value, pills });
       }
-      const name = effectName(ability, found.statusId);
       const recur = found.recurring && (mods.recurDelta || mods.recurMult !== 1 || mods.recurType || mods.recurIgnore)
         ? { delta: mods.recurDelta, mult: mods.recurMult, type: mods.recurType, ignore: mods.recurIgnore } : null;
       const modsJson = (mods.end || mods.saveMod || recur)

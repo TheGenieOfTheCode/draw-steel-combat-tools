@@ -2104,6 +2104,10 @@ body.detached .chat-form {
 
 body.dsct-hide-apply-word .dsct-apply-word { display: none; }
 
+#tooltip .dsct-potency-tip p { margin: 0.25rem 0; }
+#tooltip .dsct-potency-tip .dsct-tip-dim { opacity: 0.7; }
+#tooltip .dsct-potency-tip .dsct-tip-mods { margin: 0.25rem 0 0; padding-left: 1.2rem; }
+
 .dsct-dice-formula .dsct-die-mod {
   flex: 0 0 auto;
   margin-left: 2px;
@@ -2947,6 +2951,8 @@ body.dsct-compact-pills .chat-message .dsct-source-pill.dsct-pill-growing { over
   overflow: visible;
   text-overflow: clip;
   border: 1px solid currentColor;
+  pointer-events: auto;
+  cursor: help;
 }
 
 .dsct-potency-verdict.is-affected {
