@@ -165,15 +165,18 @@ function _buildOverride(basis, eff, dsctPills, dsctBaseOff, dsctGlobalOff = [], 
   const banes = Math.max(0, Math.min(2, eff.banes));
   const net = edges - banes;
   const singleAdj = Math.abs(net) === 1 ? Math.sign(net) * 2 : 0;
+  
+  const natural = eff.base ? Number(eff.base.amount) || 0 : basis.naturalTotal;
   return {
-    tier: applyTierMods(computeTierFromDice(basis.naturalTotal, edges, banes, eff.bonuses, basis.criticalThreshold, basis.staticModifier), eff.tierMods),
-    total: basis.naturalTotal + basis.staticModifier + singleAdj + eff.bonuses,
-    naturalTotal: basis.naturalTotal,
+    tier: applyTierMods(computeTierFromDice(natural, edges, banes, eff.bonuses, basis.criticalThreshold, basis.staticModifier), eff.tierMods),
+    total: natural + basis.staticModifier + singleAdj + eff.bonuses,
+    naturalTotal: natural,
     staticModifier: basis.staticModifier,
     edges,
     banes,
     bonuses: eff.bonuses,
-    isCritical: basis.naturalTotal >= basis.criticalThreshold,
+    isCritical: natural >= basis.criticalThreshold,
+    ...(eff.base?.dice?.length ? { dsctBaseDice: eff.base.dice } : {}),
     dsctPills,
     dsctBaseOff,
     dsctGlobalOff,
@@ -187,8 +190,10 @@ function _effectiveFrom(basis, o) {
   
   const sums = { edge: 0, bane: 0, bonus: 0 };
   const tiers = [];
+  let base = null;
   const add = (p) => {
-    if (TIER_KINDS.has(p.kind)) tiers.push(p);
+    if (p.kind === 'base') base = p;
+    else if (TIER_KINDS.has(p.kind)) tiers.push(p);
     else sums[p.kind] = (sums[p.kind] ?? 0) + (Number(p.amount) || 0);
   };
   for (const [i, p] of (o.basePills ?? []).entries()) {
@@ -218,6 +223,7 @@ function _effectiveFrom(basis, o) {
     banes: Math.max(0, Math.min(2, sums.bane)),
     bonuses: sums.bonus,
     tierMods: tierModsOf(tiers),
+    base,
   };
 }
 
@@ -352,6 +358,7 @@ function _overrideSessionPills(roll, override) {
   if (db)  pills.push({ kind: 'bane',  amount: db,  reason, src, srcTokenId });
   if (dbo) pills.push({ kind: 'bonus', amount: dbo, reason, src, srcTokenId });
   if (override.dstTierShift) pills.push({ kind: 'tier', amount: Number(override.dstTierShift), reason, src, srcTokenId });
+  if (override.dstDiceTotal != null) pills.push({ kind: 'base', amount: Number(override.dstDiceTotal), dice: override.dstDice ?? null, reason, src, srcTokenId });
   return pills;
 }
 
@@ -394,11 +401,12 @@ function _basePills(roll, prov, target, ctx = null) {
   return pills;
 }
 
-function _diceIcons(rollLine, roll) {
+function _diceIcons(rollLine, roll, override = null) {
   const formula = rollLine.querySelector(`.${DSTD}-roll-formula`);
   if (!formula || formula.dataset.dsctDice) return;
 
-  const faces = _diceResults(roll).filter(f => f >= 1 && f <= 10);
+  const baseDice = override?.dsctBaseDice ?? override?.dstDice ?? null;
+  const faces = (baseDice?.length ? baseDice : _diceResults(roll)).filter(f => f >= 1 && f <= 10);
   if (!faces.length) return;
 
   formula.dataset.dsctDice = '1';
@@ -511,9 +519,14 @@ export function injectRollPills(message, root) {
     if (!roll) { if (dbg) console.log(`DSCT | roll pills | no power roll for ${targetKey}`); continue; }
 
     if (dbg && !_diceResults(roll).length) console.log(`DSCT | roll pills | ${targetKey} power roll carries no dice`);
-    _diceIcons(rollLine, roll);
-
     const override = state.tierOverrides?.[targetKey] ?? null;
+    _diceIcons(rollLine, roll, override);
+    
+    if (override?.dsctBaseDice?.length && override.total != null) {
+      const totalEl = rollLine.querySelector(`.${DSTD}-roll-total`);
+      if (totalEl) totalEl.textContent = String(override.total);
+    }
+
     const baseOff = _overrideBaseOff(override);
     const pills = _basePills(roll, prov, target, ctx).map((p, idx) => ({
       ...p, toggleable: canEdit, baseIdx: idx, disabled: (p.enabled === false) !== baseOff.has(idx),
@@ -590,6 +603,10 @@ async function _writeOverride(message, targetKey, overrideData) {
   const api = getModuleApi(false);
   if (api?.socket) return safeUpdate(message, payload);
   ui.notifications.warn(game.i18n.localize('DSCT.notice.rollPills.noPermission'));
+}
+
+export function addResultPill(msgId, targetKey, pill) {
+  return _mutateOverride(msgId, targetKey, ({ session }) => { session.push({ ...pill }); });
 }
 
 async function _mutateOverride(msgId, targetKey, mutate) {

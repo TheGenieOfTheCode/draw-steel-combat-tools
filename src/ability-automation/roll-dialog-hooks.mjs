@@ -43,6 +43,7 @@ export function pillAmountLabel(p) {
   if (p.kind === 'autoTier') return `Tier ${n} Outcome`;
   if (p.kind === 'tierFloor') return `Tier ${n} or Higher`;
   if (p.kind === 'tierCeiling') return `Tier ${n} or Lower`;
+  if (p.kind === 'base') return `Base Roll ${p.dice?.length ? p.dice.join(' + ') : n}`;
   const kindLabel = p.kind === 'edge' ? 'Edge' : p.kind === 'bane' ? 'Bane' : (n >= 0 ? 'Bonus' : 'Penalty');
   const plural = p.kind !== 'bonus' && Math.abs(n) !== 1 ? 's' : '';
   return `${n >= 0 ? '+' : ''}${n} ${kindLabel}${plural}`;
@@ -51,6 +52,7 @@ export function pillAmountLabel(p) {
 export function pillCss(p) {
   if (p.kind === 'tier') return (Number(p.amount) || 0) >= 0 ? 'edge dsct-pill-tier' : 'bane dsct-pill-tier';
   if (TIER_KINDS.has(p.kind)) return 'bonus dsct-pill-tier';
+  if (p.kind === 'base') return 'bonus dsct-pill-base';
   return p.kind;
 }
 
