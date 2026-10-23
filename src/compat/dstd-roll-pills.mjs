@@ -92,9 +92,11 @@ function _globalBasePills(message, prov) {
   const re  = Number(baseRoll.options?.edges ?? 0)   - sums.edge;
   const rb  = Number(baseRoll.options?.banes ?? 0)   - sums.bane;
   const rbo = Number(baseRoll.options?.bonuses ?? 0) - sums.bonus;
+  const rd  = _rolledDiceNet(baseRoll) - (sums.dice ?? 0);
   if (re > 0)  pills.push({ kind: 'edge',  amount: re,  reason: 'Rolled', src: null });
   if (rb > 0)  pills.push({ kind: 'bane',  amount: rb,  reason: 'Rolled', src: null });
   if (rbo)     pills.push({ kind: 'bonus', amount: rbo, reason: 'Rolled', src: null });
+  if (rd)      pills.push({ kind: 'dice',  amount: rd,  reason: 'Rolled', src: null });
   return pills;
 }
 
@@ -113,6 +115,28 @@ function _diceResults(powerRoll) {
     const die = powerRoll?.dice?.[0] ?? powerRoll?.terms?.find(t => t?.faces === 10);
     return (die?.results ?? []).filter(r => r.active !== false).map(r => Number(r.result) || 0);
   } catch { return []; }
+}
+
+function _allDice(powerRoll) {
+  try {
+    const die = powerRoll?.dice?.[0] ?? powerRoll?.terms?.find(t => t?.faces === 10);
+    return (die?.results ?? []).map(r => ({ v: Number(r.result) || 0, kept: r.active !== false && !r.discarded })).filter(d => d.v >= 1 && d.v <= 10);
+  } catch { return []; }
+}
+
+function _rolledDiceNet(powerRoll) {
+  const die = powerRoll?.dice?.[0] ?? powerRoll?.terms?.find(t => t?.faces === 10);
+  const extra = Math.max(0, (Number(die?.number) || 2) - 2);
+  if (!extra) return 0;
+  return (die.modifiers ?? []).some(m => /^kl/i.test(m)) ? -extra : extra;
+}
+
+function _pickDice(all, net) {
+  const n = Math.min(all.length, 2 + Math.abs(net));
+  const out = all.slice(0, n).map(d => ({ v: d.v, kept: true }));
+  const order = out.map((d, i) => i).sort((a, b) => (net > 0 ? out[a].v - out[b].v : out[b].v - out[a].v) || b - a);
+  for (const i of order.slice(0, n - 2)) out[i].kept = false;
+  return out;
 }
 
 function _readNaturalRoll(powerRoll) {
@@ -157,6 +181,8 @@ function _rollBasis(powerRoll, override = null) {
     edges:   Number(powerRoll?.options?.edges ?? 0),
     banes:   Number(powerRoll?.options?.banes ?? 0),
     bonuses: Number(powerRoll?.options?.bonuses ?? 0),
+    allDice: _allDice(powerRoll),
+    rolledNet: _rolledDiceNet(powerRoll),
   };
 }
 
@@ -166,7 +192,10 @@ function _buildOverride(basis, eff, dsctPills, dsctBaseOff, dsctGlobalOff = [], 
   const net = edges - banes;
   const singleAdj = Math.abs(net) === 1 ? Math.sign(net) * 2 : 0;
   
-  const natural = eff.base ? Number(eff.base.amount) || 0 : basis.naturalTotal;
+  const diceNet = !eff.base && basis.allDice?.length && eff.dice !== basis.rolledNet ? eff.dice : null;
+  const natural = eff.base ? Number(eff.base.amount) || 0
+    : diceNet != null ? _pickDice(basis.allDice, diceNet).reduce((s, d) => s + (d.kept ? d.v : 0), 0)
+    : basis.naturalTotal;
   return {
     tier: applyTierMods(computeTierFromDice(natural, edges, banes, eff.bonuses, basis.criticalThreshold, basis.staticModifier), eff.tierMods),
     total: natural + basis.staticModifier + singleAdj + eff.bonuses,
@@ -177,6 +206,7 @@ function _buildOverride(basis, eff, dsctPills, dsctBaseOff, dsctGlobalOff = [], 
     bonuses: eff.bonuses,
     isCritical: natural >= basis.criticalThreshold,
     ...(eff.base?.dice?.length ? { dsctBaseDice: eff.base.dice } : {}),
+    ...(diceNet != null ? { dsctDiceNet: diceNet } : {}),
     dsctPills,
     dsctBaseOff,
     dsctGlobalOff,
@@ -224,6 +254,7 @@ function _effectiveFrom(basis, o) {
     bonuses: sums.bonus,
     tierMods: tierModsOf(tiers),
     base,
+    dice: sums.dice ?? 0,
   };
 }
 
@@ -388,16 +419,20 @@ function _basePills(roll, prov, target, ctx = null) {
     const re  = Number(roll.options?.edges ?? 0)   - sums.edge;
     const rb  = Number(roll.options?.banes ?? 0)   - sums.bane;
     const rbo = Number(roll.options?.bonuses ?? 0) - sums.bonus;
+    const rd  = _rolledDiceNet(roll) - (sums.dice ?? 0);
     if (re > 0)  pills.push({ kind: 'edge',  amount: re,  reason: 'Rolled', src: null });
     if (rb > 0)  pills.push({ kind: 'bane',  amount: rb,  reason: 'Rolled', src: null });
     if (rbo)     pills.push({ kind: 'bonus', amount: rbo, reason: 'Rolled', src: null });
+    if (rd)      pills.push({ kind: 'dice',  amount: rd,  reason: 'Rolled', src: null });
   } else {
     const oe  = Number(roll.options?.edges ?? 0);
     const ob  = Number(roll.options?.banes ?? 0);
     const obo = Number(roll.options?.bonuses ?? 0);
+    const od  = _rolledDiceNet(roll);
     if (oe)  pills.push({ kind: 'edge',  amount: oe,  reason: 'Rolled', src: null });
     if (ob)  pills.push({ kind: 'bane',  amount: ob,  reason: 'Rolled', src: null });
     if (obo) pills.push({ kind: 'bonus', amount: obo, reason: 'Rolled', src: null });
+    if (od)  pills.push({ kind: 'dice',  amount: od,  reason: 'Rolled', src: null });
     pills.push(..._rolledTierPills(roll));
   }
   return pills;
@@ -408,21 +443,32 @@ function _diceIcons(rollLine, roll, override = null) {
   if (!formula || formula.dataset.dsctDice) return;
 
   const baseDice = override?.dsctBaseDice ?? override?.dstDice ?? null;
-  const faces = (baseDice?.length ? baseDice : _diceResults(roll)).filter(f => f >= 1 && f <= 10);
-  if (!faces.length) return;
+  const dice = baseDice?.length ? baseDice.filter(f => f >= 1 && f <= 10).map(v => ({ v, kept: true }))
+    : override?.dsctDiceNet != null ? _pickDice(_allDice(roll), Number(override.dsctDiceNet))
+    : _allDice(roll);
+  if (!dice.length) return;
 
   formula.dataset.dsctDice = '1';
-  const bonus = (formula.textContent ?? '').replace(/^\s*\d*d\d+/i, '').trim();
+  const text = (formula.textContent ?? '').trim();
+  const bonus = text.replace(/^\s*\d*d\d+(?:k[hl]\d*)?/i, '').trim();
 
   formula.classList.add('dsct-dice-formula');
   formula.replaceChildren();
 
-  for (const face of faces) {
+  for (const { v, kept } of dice) {
     const die = document.createElement('img');
-    die.className = 'dsct-die';
-    die.src = `modules/${M}/assets/Dice/die-${face}.png`;
-    die.alt = String(face);
+    die.className = kept ? 'dsct-die' : 'dsct-die dsct-die-dropped';
+    die.src = `modules/${M}/assets/Dice/die-${v}.png`;
+    die.alt = String(v);
     formula.append(die);
+  }
+
+  const tip = rollLine.dataset.tooltip;
+  if (tip && !baseDice?.length && _allDice(roll).length > 2) {
+    const natural = dice.reduce((s, d) => s + (d.kept ? d.v : 0), 0);
+    let lines = tip.split('\n').map(l => l.startsWith('Dice:') ? `Dice: ${dice.map(d => d.kept ? d.v : `(${d.v})`).join(' + ')} = ${natural}` : l);
+    if (override?.dsctDiceNet != null && override.total != null) lines = lines.map(l => l.startsWith('Total:') ? `Total: ${override.total}` : l);
+    rollLine.dataset.tooltip = [`Formula: ${text}`, ...lines].join('\n');
   }
 
   if (bonus) {
@@ -524,7 +570,7 @@ export function injectRollPills(message, root) {
     const override = state.tierOverrides?.[targetKey] ?? null;
     _diceIcons(rollLine, roll, override);
     
-    if (override?.dsctBaseDice?.length && override.total != null) {
+    if ((override?.dsctBaseDice?.length || override?.dsctDiceNet != null) && override.total != null) {
       const totalEl = rollLine.querySelector(`.${DSTD}-roll-total`);
       if (totalEl) totalEl.textContent = String(override.total);
     }
@@ -564,7 +610,9 @@ export function injectRollPills(message, root) {
     const rollLine = summary.querySelector(`.${DSTD}-roll-line`);
     const baseRoll = _findBaseRoll(message);
     if (rollLine && baseRoll) {
-      _diceIcons(rollLine, baseRoll);
+      const basis = _rollBasis(baseRoll);
+      const eff = _effectiveFrom(basis, { basePills: ctx.globalBase, baseOff: ctx.globalBaseOff, session: ctx.globalPills });
+      _diceIcons(rollLine, baseRoll, _buildOverride(basis, eff, ctx.globalPills, [...ctx.globalBaseOff]));
       summary.querySelectorAll('.dsct-roll-pills-row').forEach(e => e.remove());
       if (canEdit && getSetting('dstdRollEditor') && !rollLine.querySelector('.dsct-global-cog')) {
         const btn = document.createElement('button');
@@ -942,6 +990,11 @@ class RollEditorAddDialog extends DSCTAddModifierDialog {
       _dsctOrigTargets: {},
     }, tokenId, options);
     this._editor = editor;
+  }
+
+  _onRender(context, options) {
+    this.element.querySelectorAll('.dsct-amw-type-btn[data-kind="dice"]').forEach(b => b.remove());
+    super._onRender(context, options);
   }
 
   _submit() {

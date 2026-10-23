@@ -48,6 +48,7 @@ export function pillAmountLabel(p) {
   if (p.kind === 'tierFloor') return `Tier ${n} or Higher`;
   if (p.kind === 'tierCeiling') return `Tier ${n} or Lower`;
   if (p.kind === 'base') return `Base Roll ${p.dice?.length ? p.dice.join(' + ') : n}`;
+  if (p.kind === 'dice') return `+${Math.abs(n)} ${Math.abs(n) === 1 ? 'Die' : 'Dice'} (Drop ${n >= 0 ? 'Lowest' : 'Highest'})`;
   if (p.kind === 'potency') return `${n >= 0 ? '+' : ''}${n} Potency`;
   if (p.kind === 'saveMod') return `${n >= 0 ? '+' : ''}${n} Save`;
   if (p.kind === 'potencyForce') return n >= 0 ? 'Always Lands' : 'Never Lands';
@@ -66,6 +67,7 @@ export function pillCss(p) {
   if (p.kind === 'tier') return (Number(p.amount) || 0) >= 0 ? 'edge dsct-pill-tier' : 'bane dsct-pill-tier';
   if (TIER_KINDS.has(p.kind)) return 'bonus dsct-pill-tier';
   if (p.kind === 'base') return 'bonus dsct-pill-base';
+  if (p.kind === 'dice') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-dice`;
   if (p.kind === 'potency') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-potency`;
   if (p.kind === 'saveMod') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-effect`;
   if (p.kind === 'potencyForce') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-effect`;
@@ -73,6 +75,34 @@ export function pillCss(p) {
   if (p.kind === 'recurMult') return `${(Number(p.amount) || 0) >= 1 ? 'edge' : 'bane'} dsct-pill-effect`;
   if (EFFECT_PILL_KINDS.has(p.kind)) return 'bonus dsct-pill-effect';
   return p.kind;
+}
+
+export function diceModeOf(pills) {
+  const net = (pills ?? []).filter(p => p.enabled && p.kind === 'dice').reduce((n, p) => n + (Math.trunc(Number(p.amount)) || 0), 0);
+  return net > 0 ? `${net}kh` : net < 0 ? `${-net}kl` : null;
+}
+
+let _pendingDice = null;
+export const notePendingDice = (mode) => { _pendingDice = mode ? { mode, at: Date.now() } : null; };
+const _takePendingDice = () => {
+  const p = _pendingDice;
+  _pendingDice = null;
+  return p && Date.now() - p.at < 10000 ? p.mode : null;
+};
+
+export function registerPowerRollDice() {
+  if (!game.modules.get('lib-wrapper')?.active) return;
+  libWrapper.register('draw-steel-combat-tools', 'ds.rolls.PowerRoll.prototype.evaluate', function (wrapped, ...args) {
+    const term = this.terms?.[0];
+    if (!this._evaluated && term instanceof foundry.dice.terms.Die && !term._evaluated) {
+      const [, extra, keep] = String(this.options?.dsctDice ?? _takePendingDice() ?? '').match(/^(\d+)(kh|kl)$/) ?? [];
+      if (extra && term.faces === 10 && term.number === 2 && !term.modifiers?.length) {
+        term.number = 2 + Number(extra);
+        term.modifiers = [`${keep}2`];
+      }
+    }
+    return wrapped(...args);
+  }, 'WRAPPER');
 }
 
 export function registerTierOutcomes() {
@@ -452,6 +482,9 @@ export function _recomputeAndSync(app) {
   const globalTier = tierModsOf(tierPills('global'));
   if (globalTier) ctx.modifiers.dsctTier = globalTier;
   else delete ctx.modifiers.dsctTier;
+  const dice = diceModeOf(app._dsctSources);
+  if (dice) ctx.modifiers.dsctDice = dice;
+  else delete ctx.modifiers.dsctDice;
 
   for (const [tokenId, target] of Object.entries(ctx.targets ?? {})) {
     const orig = origTs[tokenId] ?? { edges: 0, banes: 0, bonuses: 0 };
@@ -484,6 +517,8 @@ export function _recomputeAndSync(app) {
       const targetTier = tierModsOf([...tierPills('global'), ...tierPills(tokenId)]);
       if (targetTier) target.combinedModifiers.dsctTier = targetTier;
       else delete target.combinedModifiers.dsctTier;
+      if (dice) target.combinedModifiers.dsctDice = dice;
+      else delete target.combinedModifiers.dsctDice;
     }
   }
 }
@@ -793,7 +828,7 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
   }
 
   _syncValueField() {
-    if (this._valueGroup) this._valueGroup.style.display = (this._kind === 'bonus' || this._tierValued) ? '' : 'none';
+    if (this._valueGroup) this._valueGroup.style.display = (this._kind === 'bonus' || this._kind === 'dice' || this._tierValued) ? '' : 'none';
     if (!this._valueInput) return;
     if (this._tierValued) {
       this._valueInput.max = '3';
@@ -803,8 +838,8 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
 
   _readValueAmount() {
     if (this._tierValued) return Math.clamp(parseInt(this._valueInput?.value) || 3, 1, 3);
-    if (this._kind !== 'bonus') return this._negate ? -this._amount : this._amount;
-    const raw = Math.abs(parseFloat(this._valueInput?.value) || 1);
+    if (this._kind !== 'bonus' && this._kind !== 'dice') return this._negate ? -this._amount : this._amount;
+    const raw = this._kind === 'dice' ? Math.max(1, Math.abs(parseInt(this._valueInput?.value) || 1)) : Math.abs(parseFloat(this._valueInput?.value) || 1);
     return this._negate ? -raw : raw;
   }
 
@@ -971,5 +1006,6 @@ export function registerRollDialogPillHooks() {
 
   Hooks.on('closeAbilityConfigurationDialog', (app) => {
     if (app._dsctPillClickOff) { app._dsctPillClickOff(); app._dsctPillClickOff = null; }
+    notePendingDice(app.config != null ? app.options.context?.modifiers?.dsctDice ?? null : null);
   });
 }

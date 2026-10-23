@@ -46,7 +46,7 @@ import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
 import { registerSettings } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
 import { registerRollDialogDodge } from './ability-automation/roll-dialog-dodge.mjs';
-import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
+import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, registerPowerRollDice, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills, addResultPill } from './compat/dstd-roll-pills.mjs';
 import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
@@ -257,6 +257,7 @@ Hooks.once('init', () => {
   registerSystemPatches();
   registerCornerVision();
   registerTierOutcomes();
+  registerPowerRollDice();
   registerRollDialogPillHooks();
   registerSquadTargetingHooks();
   registerStartupNotice();

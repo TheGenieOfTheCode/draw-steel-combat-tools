@@ -2100,6 +2100,8 @@ body.detached .chat-form {
   vertical-align: middle;
 }
 
+.dsct-dice-formula .dsct-die.dsct-die-dropped { opacity: 0.35; }
+
 .dsct-dice-formula .dsct-die-mod {
   flex: 0 0 auto;
   margin-left: 2px;
