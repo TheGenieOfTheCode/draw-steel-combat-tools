@@ -1425,7 +1425,7 @@ export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenI
   return true;
 }
 
-async function createExpiryReminder(giver, effect, { expiry = 'turnStart', rounds = 1 } = {}, target = effect.parent) {
+export async function createExpiryReminder(giver, effect, { expiry = 'turnStart', rounds = 1 } = {}, target = effect.parent) {
   const uuid = effect.uuid ?? `${target?.uuid}.ActiveEffect.${effect._id}`;
   await safeCreateEmbedded(giver, 'ActiveEffect', [{
     name: game.i18n.format('DSCT.expiryReminder.name', { name: effect.name }),

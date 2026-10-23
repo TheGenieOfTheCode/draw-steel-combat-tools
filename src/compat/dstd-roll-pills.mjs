@@ -1,6 +1,6 @@
 import { DSTD, registerPanelDecorator, safeUpdate } from '../ctlib.mjs';
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
-import { DSCTAddModifierDialog, TIER_KINDS, tierModsOf, applyTierMods, pillAmountLabel, pillCss } from '../ability-automation/roll-dialog-hooks.mjs';
+import { DSCTAddModifierDialog, TIER_KINDS, EFFECT_PILL_KINDS, tierModsOf, applyTierMods, pillAmountLabel, pillCss } from '../ability-automation/roll-dialog-hooks.mjs';
 import { drawSourceLines, clearSourceLines } from '../ability-automation/source-lines.mjs';
 import { compactPillHTML } from './pill-compact.mjs';
 
@@ -280,11 +280,13 @@ function _rolledTierPills(roll) {
   return out;
 }
 
+export const chatPillHTML = (p, msgId, targetKey) => _chatPillHTML(p, msgId, targetKey);
+
 function _chatPillHTML(p, msgId, targetKey) {
   const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
   let cls = `dsct-source-pill dsct-chat-roll-pill dsct-pill-${pillCss(p)}`;
   let attrs = '';
-  let title = `${_pillAmtStr(p)} on the power roll`;
+  let title = `${_pillAmtStr(p)} ${EFFECT_PILL_KINDS.has(p.kind) ? 'on this effect' : 'on the power roll'}`;
   if (p.echo) {
     cls += ' dsct-chat-pill-echo';
     if (p.disabled) cls += ' dsct-pill-disabled';
@@ -532,6 +534,7 @@ export function injectRollPills(message, root) {
       ...p, toggleable: canEdit, baseIdx: idx, disabled: (p.enabled === false) !== baseOff.has(idx),
     })).filter(p => !p.removed);
     _overrideSessionPills(roll, override).forEach((p, idx) => {
+      if (EFFECT_PILL_KINDS.has(p.kind)) return;
       pills.push({ ...p, removable: canEdit, overrideIdx: idx, disabled: p.enabled === false });
     });
     if (ctx.grouped) {

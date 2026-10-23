@@ -15,6 +15,10 @@ function pill(id, kind, amount, reason, src, scope, dsNative = false) {
 
 export const TIER_KINDS = new Set(['tier', 'autoTier', 'tierFloor', 'tierCeiling']);
 
+export const EFFECT_PILL_KINDS = new Set(['potency', 'potencyForce', 'resistWith', 'effectEnd', 'saveMod', 'recurAmount', 'recurMult', 'recurType', 'recurIgnore']);
+
+export const EFFECT_END_LABELS = { originTurn: 'DSCT.panel.effectMods.EndOriginTurn', originNextStart: 'DSCT.panel.effectMods.EndOriginNextStart' };
+
 export function tierModsOf(pills) {
   const mods = { shift: 0, auto: [], floor: null, ceiling: null };
   for (const p of pills ?? []) {
@@ -44,6 +48,15 @@ export function pillAmountLabel(p) {
   if (p.kind === 'tierFloor') return `Tier ${n} or Higher`;
   if (p.kind === 'tierCeiling') return `Tier ${n} or Lower`;
   if (p.kind === 'base') return `Base Roll ${p.dice?.length ? p.dice.join(' + ') : n}`;
+  if (p.kind === 'potency') return `${n >= 0 ? '+' : ''}${n} Potency`;
+  if (p.kind === 'saveMod') return `${n >= 0 ? '+' : ''}${n} Save`;
+  if (p.kind === 'potencyForce') return n >= 0 ? 'Always Lands' : 'Never Lands';
+  if (p.kind === 'recurAmount') return `${n >= 0 ? '+' : ''}${n} Recurring`;
+  if (p.kind === 'recurMult') return n < 1 ? 'Half Recurring' : 'Double Recurring';
+  if (p.kind === 'recurType') return `Recurring ${game.i18n.localize(ds.CONFIG.damageTypes?.[p.damageType]?.label ?? p.damageType ?? '')}`;
+  if (p.kind === 'recurIgnore') return 'Recurring Ignores Immunity';
+  if (p.kind === 'resistWith') return `Resists with ${ds.CONFIG.characteristics?.[p.characteristic]?.rollKey ?? p.characteristic}`;
+  if (p.kind === 'effectEnd') return `Lasts: ${EFFECT_END_LABELS[p.end] ? game.i18n.localize(EFFECT_END_LABELS[p.end]) : game.i18n.localize(ds.CONFIG.effectEnds?.[p.end]?.abbreviation ?? p.end)}`;
   const kindLabel = p.kind === 'edge' ? 'Edge' : p.kind === 'bane' ? 'Bane' : (n >= 0 ? 'Bonus' : 'Penalty');
   const plural = p.kind !== 'bonus' && Math.abs(n) !== 1 ? 's' : '';
   return `${n >= 0 ? '+' : ''}${n} ${kindLabel}${plural}`;
@@ -53,6 +66,12 @@ export function pillCss(p) {
   if (p.kind === 'tier') return (Number(p.amount) || 0) >= 0 ? 'edge dsct-pill-tier' : 'bane dsct-pill-tier';
   if (TIER_KINDS.has(p.kind)) return 'bonus dsct-pill-tier';
   if (p.kind === 'base') return 'bonus dsct-pill-base';
+  if (p.kind === 'potency') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-potency`;
+  if (p.kind === 'saveMod') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-effect`;
+  if (p.kind === 'potencyForce') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-effect`;
+  if (p.kind === 'recurAmount') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-effect`;
+  if (p.kind === 'recurMult') return `${(Number(p.amount) || 0) >= 1 ? 'edge' : 'bane'} dsct-pill-effect`;
+  if (EFFECT_PILL_KINDS.has(p.kind)) return 'bonus dsct-pill-effect';
   return p.kind;
 }
 

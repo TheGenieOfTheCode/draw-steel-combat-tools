@@ -183,6 +183,7 @@ export function registerDstdCompat() {
   } });
   registerPanelDecorator({ id: 'combat-tools-forced-movement', priority: 100, decorate: ({ message, root }) => _injectFmButtons(message, root) });
   registerPanelDecorator({ id: 'combat-tools-auto-apply', priority: 300, retry: [400], decorate: ({ message, panel }) => _autoApplyOwn(message, panel) });
+  registerPanelDecorator({ id: 'combat-tools-potency-deferred', priority: 310, retry: [400], decorate: ({ message, panel }) => _applyDeferredPotency(message, panel) });
   Hooks.on('createChatMessage', (message, _options, userId) => {
     if (userId === game.user.id && getSetting('autoApplyOwnAbilities')) _autoApplyEligible.add(message.id);
   });
@@ -387,10 +388,16 @@ async function _autoApplyOwn(message, panel) {
   _autoApplyEligible.delete(message.id);
   if (!isOwnAbilityActor(ability?.actor)) return;
   await safeSetFlag(message, M, 'autoApplied', true);
-  await new Promise(r => setTimeout(r, AUTO_APPLY_SETTLE_MS));
-  const squadsOnCard = rows.map(r => _squadOfRow(r)?.id).filter(Boolean);
-  await _applyEffectsInOrder(message.id, panel.ownerDocument, { safe: true });
-  await _noteSquadsSwept(message, squadsOnCard);
+  if (getSetting('potencyChecks') === 'apply') _potencyWatch.set(message.id, new Set());
+  _autoRunning.add(message.id);
+  try {
+    await new Promise(r => setTimeout(r, AUTO_APPLY_SETTLE_MS));
+    const squadsOnCard = rows.map(r => _squadOfRow(r)?.id).filter(Boolean);
+    await _applyEffectsInOrder(message.id, panel.ownerDocument, { safe: true });
+    await _noteSquadsSwept(message, squadsOnCard);
+  } finally {
+    _autoRunning.delete(message.id);
+  }
 }
 
 const PROMPT_WAIT_MS = 120000;
@@ -456,11 +463,22 @@ const _statusHasPotency = (btn, message) => {
     && _tierEffectIds(e, tier).includes(btn.dataset.effectId) && _tierHasPotency(e, tier));
 };
 
+const _rowMessage = (actionRow, message) => message ?? game.messages.get(actionRow.closest('li.chat-message')?.dataset.messageId);
+
+const _damageHeld = (actionRow, message) => {
+  const opId = actionRow.closest(DSTD_ROW)?.querySelector('button[data-dstd-action="applyDamage"]')?.dataset.operationId;
+  return !!(opId && _rowMessage(actionRow, message)?.flags?.[DSTD]?.state?.applications?.[opId]?.dstHeld);
+};
+
+const _potencyWatch = new Map();
+const _autoRunning = new Set();
+
 const _autoButton = (actionRow, safe = false, message = null) => {
   if (!actionRow || actionRow.matches('[data-dsct-manual]')) return null;
-  
+
   const verdict = getSetting('potencyChecks') === 'apply' ? actionRow.dataset.dsctPotencyVerdict ?? null : null;
   if (verdict === 'resisted' || (verdict !== 'affected' && actionRow.matches('[data-dsct-potency]'))) return null;
+  if (verdict === 'affected' && _damageHeld(actionRow, message)) return null;
   const btn = [...actionRow.children].find(c => c.tagName === 'BUTTON');
   if (!btn || btn.disabled || NOT_APPLY.has(btn.dataset.dstdAction) || btn.classList.contains(`${DSTD}-undo-button`)) return null;
   if (btn.dataset.dstdAction === 'applyStatus' && verdict !== 'affected' && _statusHasPotency(btn, message)) return null;
@@ -468,6 +486,36 @@ const _autoButton = (actionRow, safe = false, message = null) => {
   if (safe && _wouldPrompt(actionRow, btn, message)) return null;
   return btn;
 };
+
+const _rowKey = (actionRow) => {
+  const btn = [...actionRow.children].find(c => c.tagName === 'BUTTON');
+  return btn?.dataset.operationId ?? btn?.dataset.dsctFlatCondKey ?? btn?.dataset.dsctDstdCond ?? null;
+};
+
+async function _applyDeferredPotency(message, panel) {
+  const tried = _potencyWatch.get(message.id);  if (!panel || !tried || _autoRunning.has(message.id)) return;
+  if (getSetting('potencyChecks') !== 'apply') return void _potencyWatch.delete(message.id);
+  let waiting = false;
+  for (const row of panel.querySelectorAll(DSTD_ROW)) {
+    for (const actionRow of _effectRows(row)) {
+      const key = _rowKey(actionRow);
+      if (!key || tried.has(key)) continue;
+      if (actionRow.classList.contains('is-applied')) { tried.add(key); continue; }
+      const verdict = actionRow.dataset.dsctPotencyVerdict;
+      const first = [...actionRow.children].find(c => c.tagName === 'BUTTON');
+      const potencyRow = !!verdict || actionRow.matches('[data-dsct-potency]')
+        || (first?.dataset.dstdAction === 'applyStatus' && _statusHasPotency(first, message));
+      if (!potencyRow) continue;
+      if (!verdict || _damageHeld(actionRow, message)) { waiting = true; continue; }
+      if (verdict !== 'affected') continue;
+      const btn = _autoButton(actionRow, true, message);
+      if (!btn) continue;
+      tried.add(key);
+      return void btn.click();
+    }
+  }
+  if (!waiting) _potencyWatch.delete(message.id);
+}
 
 const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => damageBatch(() => _withOneToast(async () => {
   const wait = (ms) => new Promise(r => setTimeout(r, ms));

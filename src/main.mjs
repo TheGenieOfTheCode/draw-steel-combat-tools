@@ -50,7 +50,7 @@ import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgem
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills, addResultPill } from './compat/dstd-roll-pills.mjs';
 import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
-import { registerDstdPotency, potencyVerdict } from './compat/dstd-potency.mjs';
+import { registerDstdPotency, potencyVerdict, potencyEffectsOf } from './compat/dstd-potency.mjs';
 import { registerStatusSuppression } from './conditions/suppress-status.mjs';
 import { registerWindedEffects } from './conditions/winded-effects.mjs';
 import {
@@ -69,6 +69,7 @@ import { registerHideEffect, runHideFor } from './ability-automation/hide-effect
 import { registerStealthTraits, stealthTraits } from './conditions/stealth-traits.mjs';
 import { registerLineOfEffectFlags, registerCoverImmunity } from './conditions/line-of-effect.mjs';
 import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
+import { registerRecurringDamage } from './conditions/recurring-damage.mjs';
 import { registerEnhancedBadge } from './enhanced-badge.mjs';
 import { registerEnhancedRedirects, enhancedRedirects } from './enhanced-redirects.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
@@ -187,6 +188,7 @@ const api = {
     addPill: addExternalRollPill,
     addResultPill,
     potencyVerdict,
+    potencyEffectsOf,
     applyTierMods,
     tierModsOf,
   },
@@ -205,6 +207,7 @@ Hooks.once('init', () => {
   registerSettings();
   registerChatHooks();
   registerGrabHooks();
+  registerRecurringDamage();
   registerKnockbackGuard();
   registerGrabTierSync();
   registerConditionHooks();

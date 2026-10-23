@@ -124,6 +124,7 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
       header('Bleeding'),
       'bleedingEnabled',
       'bleedingMode',
+      'recurringDamage',
       header('Grab'),
       'grabEnabled',
       'gmBypassesSizeCheck',

@@ -365,6 +365,12 @@ export const registerSettings = () => {
     choices: { 'auto': L('bleedingMode.choice.auto'), 'manual': L('bleedingMode.choice.manual') },
     default: 'auto',
   });
+  game.settings.register(M, 'recurringDamage', {
+    name: L('recurringDamage.name'), hint: L('recurringDamage.hint'),
+    scope: 'world', config: false, type: String,
+    choices: { 'auto': L('recurringDamage.choice.auto'), 'manual': L('recurringDamage.choice.manual'), 'off': L('recurringDamage.choice.off') },
+    default: 'auto',
+  });
   game.settings.register(M, 'areaDamageEnabled', {
     name: L('areaDamageEnabled.name'), hint: L('areaDamageEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

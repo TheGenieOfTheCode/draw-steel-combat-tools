@@ -1,5 +1,6 @@
 import { getSetting } from './helpers.mjs';
 import { isPrimaryGM } from './ctlib.mjs';
+import { onCombatantTurnStart } from './conditions/recurring-damage.mjs';
 
 const _priorGroupInitiative = new Map();
 let _squadBatchInProgress = false;
@@ -42,6 +43,7 @@ export async function fireStartTurn(member, combat, { skipRegionEvents = false }
   const idx = combat.turns.findIndex(c => c === member);
   if (idx < 0) return;
   await member.actor?.system?._onStartTurn?.(member);
+  await onCombatantTurnStart(member);
   const ctx = { round: combat.round, turn: idx, skipped: false };
   const combatProxy = Object.create(combat, {
     combatant: { get: () => member, configurable: true }

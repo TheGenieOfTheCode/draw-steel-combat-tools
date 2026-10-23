@@ -239,6 +239,15 @@
           "manual": "Manual (post roll to apply)"
         }
       },
+      "recurringDamage": {
+        "name": "Recurring Damage",
+        "hint": "Effects with recurring damage deal it at the start of the affected creature's turn: applied for you with an undo, posted for you to apply, or left alone.",
+        "choice": {
+          "auto": "Auto-Apply (with undo)",
+          "manual": "Manual (post damage to apply)",
+          "off": "Off"
+        }
+      },
       "squadToolsSettings": {
         "name": "Squad Tools Settings",
         "label": "Configure Squad Tools",
@@ -862,7 +871,20 @@
         "stealth": "Stealth",
         "grab": "Grabbing",
         "forcedMovement": "Forced Movement",
-        "lineOfEffect": "Line of Effect"
+        "lineOfEffect": "Line of Effect",
+        "recurring": "Recurring Damage"
+      },
+      "recurring": {
+        "type": {
+          "label": "Recurring {type} damage",
+          "description": "The creature takes this much {type} damage at the start of each of their turns while the effect lasts.",
+          "values": "A number of damage"
+        },
+        "ignoresImmunity": {
+          "label": "Recurring damage ignores immunity",
+          "description": "This effect's recurring damage ignores damage immunity to its type.",
+          "values": "true"
+        }
       },
       "forcedMovement": {
         "noObjectCollisionDamage": {
@@ -1436,6 +1458,32 @@
         "Resisted": "Resisted",
         "Tooltip": "Potency {chr} < {potency}. The target counts as {chr} {resist}."
       },
+      "effectMods": {
+        "Edit": "Modify this effect",
+        "EditTitle": "Modify {name}",
+        "LowerPotency": "Lower Potency",
+        "RaisePotency": "Raise Potency",
+        "AlwaysLands": "Always Lands",
+        "NeverLands": "Never Lands",
+        "ResistWith": "Resist With Another Characteristic",
+        "Duration": "Change the Duration",
+        "SaveBonus": "Save Bonus",
+        "SavePenalty": "Save Penalty",
+        "Lasts": "Lasts until",
+        "Characteristic": "Characteristic",
+        "EndOriginTurn": "End of the source's turn",
+        "EndOriginNextStart": "Start of the source's next turn",
+        "RecurUp": "Recurring Up",
+        "RecurDown": "Recurring Down",
+        "RecurDouble": "Double Recurring",
+        "RecurHalf": "Halve Recurring",
+        "RecurType": "Recurring Type",
+        "RecurIgnore": "Ignore Immunity",
+        "DamageType": "Damage type",
+        "TooltipAlways": "A modifier makes this effect land whatever the potency.",
+        "TooltipNever": "A modifier stops this effect from landing.",
+        "Custom": "Custom"
+      },
       "extraDamage": {
         "apply": "{name}: {amount} {type}",
         "applied": "{name}: applied {amount} {type}",
@@ -1906,6 +1954,8 @@
       "acceptEscape": "Accept Escape",
       "stayGrabbed": "Stay Grabbed",
       "undoBleeding": "Undo Bleeding",
+      "undoRecurring": "Undo Recurring Damage",
+      "applyRecurring": "Apply Recurring Damage",
       "applyJudgement": "Apply Judgement",
       "aidAttack": "Aid Attack",
       "imNoThreat": "I'm No Threat",
@@ -1976,6 +2026,11 @@
         "applying": "Bleeding: applying Stamina loss...",
         "rollTitle": "Bleeding: {name}",
         "rollCreated": "Bleeding Stamina loss rolled."
+      },
+      "recurring": {
+        "title": "Recurring Damage",
+        "line": "{n} {type} damage",
+        "ignores": "(ignores immunity)"
       },
       "squads": {
         "captainFell": "<strong>Captain fallen:</strong> {name} has fallen as captain of {group}.",

@@ -2960,3 +2960,10 @@ body.dsct-compact-pills .chat-message .dsct-source-pill.dsct-pill-growing { over
 .is-applied .dsct-potency-verdict {
   display: none;
 }
+
+.dsct-recurring-title {
+  margin: 0 0 4px;
+  font-size: var(--font-size-16, 16px);
+  border: none;
+}
+
