@@ -162,6 +162,12 @@ export const registerSettings = () => {
     name: L('autoApplyOwnAbilities.name'), hint: L('autoApplyOwnAbilities.hint'),
     scope: 'client', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'potencyChecks', {
+    name: L('potencyChecks.name'), hint: L('potencyChecks.hint'),
+    scope: 'world', config: false, type: String, default: 'show',
+    choices: { off: L('potencyChecks.choice.off'), show: L('potencyChecks.choice.show'), apply: L('potencyChecks.choice.apply') },
+    onChange: () => ui.chat?.render?.(),
+  });
   game.settings.register(M, 'forcedMovementEnabled', {
     name: L('forcedMovementEnabled.name'), hint: L('forcedMovementEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

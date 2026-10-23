@@ -50,6 +50,7 @@ import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgem
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills, addResultPill } from './compat/dstd-roll-pills.mjs';
 import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
+import { registerDstdPotency, potencyVerdict } from './compat/dstd-potency.mjs';
 import { registerStatusSuppression } from './conditions/suppress-status.mjs';
 import { registerWindedEffects } from './conditions/winded-effects.mjs';
 import {
@@ -185,6 +186,7 @@ const api = {
   rollDialog: {
     addPill: addExternalRollPill,
     addResultPill,
+    potencyVerdict,
     applyTierMods,
     tierModsOf,
   },
@@ -265,6 +267,7 @@ Hooks.once('init', () => {
   registerDstdRollPills();
   registerDstdDamagePills();
   registerDstdExtraDamage();
+  registerDstdPotency();
   registerStatusSuppression();
   registerWindedEffects();
   registerHealthEstimateCompat();

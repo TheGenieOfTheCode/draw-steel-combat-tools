@@ -87,6 +87,15 @@
         "name": "Apply My Abilities Automatically",
         "hint": "When you use one of your own abilities on targets, apply everything as soon as the result is in, one effect at a time. Grabs, teleports and pushes without Auto stay manual. For the Director, that is every creature no online player owns."
       },
+      "potencyChecks": {
+        "name": "Potency Checks",
+        "hint": "Checks each condition with a potency against the target and marks it Affected or Resisted. With auto-apply, conditions the target is affected by are applied too and resisted ones are skipped.",
+        "choice": {
+          "off": "Off",
+          "show": "Show",
+          "apply": "Show and auto-apply"
+        }
+      },
       "dstdQuickFmButton": {
         "name": "Quick Forced Movement Button",
         "hint": "With more than one target, add a small forced movement button to the collapsed target header, beside the damage button. The damage button shrinks to an icon and a number to make room."
@@ -1421,6 +1430,11 @@
         "tag": "Area",
         "tagTooltip": "Area damage. A minion takes no more than its own Stamina from it.",
         "cappedTooltip": "Capped at {cap}: area damage to a minion is capped at its Stamina."
+      },
+      "potency": {
+        "Affected": "Affected",
+        "Resisted": "Resisted",
+        "Tooltip": "Potency {chr} < {potency}. The target counts as {chr} {resist}."
       },
       "extraDamage": {
         "apply": "{name}: {amount} {type}",

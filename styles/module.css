@@ -2933,3 +2933,30 @@ body.dsct-compact-pills .chat-message .dsct-source-pill:is(.dsct-pill-open, :foc
 body.dsct-compact-pills .chat-message .dsct-source-pill.dsct-pill-open:has(> .dsct-pill-short),
 body.dsct-compact-pills .chat-message .dsct-source-pill:focus-visible:has(> .dsct-pill-short) { padding: 3px 7px 4px; }
 body.dsct-compact-pills .chat-message .dsct-source-pill.dsct-pill-growing { overflow: hidden; }
+
+.dsct-potency-verdict {
+  flex: none;
+  margin-left: auto;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: var(--font-size-11, 11px);
+  overflow: visible;
+  text-overflow: clip;
+  border: 1px solid currentColor;
+}
+
+.dsct-potency-verdict.is-affected {
+  color: var(--color-level-success, #4fb365);
+}
+
+.dsct-potency-verdict.is-resisted {
+  color: var(--color-text-secondary);
+}
+
+.dsct-potency-resisted:not(.is-applied) > button:first-child > :not(.dsct-potency-verdict) {
+  opacity: .55;
+}
+
+.is-applied .dsct-potency-verdict {
+  display: none;
+}

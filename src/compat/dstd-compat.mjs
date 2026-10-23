@@ -457,10 +457,13 @@ const _statusHasPotency = (btn, message) => {
 };
 
 const _autoButton = (actionRow, safe = false, message = null) => {
-  if (!actionRow || actionRow.matches('[data-dsct-manual], [data-dsct-potency]')) return null;
+  if (!actionRow || actionRow.matches('[data-dsct-manual]')) return null;
+  
+  const verdict = getSetting('potencyChecks') === 'apply' ? actionRow.dataset.dsctPotencyVerdict ?? null : null;
+  if (verdict === 'resisted' || (verdict !== 'affected' && actionRow.matches('[data-dsct-potency]'))) return null;
   const btn = [...actionRow.children].find(c => c.tagName === 'BUTTON');
   if (!btn || btn.disabled || NOT_APPLY.has(btn.dataset.dstdAction) || btn.classList.contains(`${DSTD}-undo-button`)) return null;
-  if (btn.dataset.dstdAction === 'applyStatus' && _statusHasPotency(btn, message)) return null;
+  if (btn.dataset.dstdAction === 'applyStatus' && verdict !== 'affected' && _statusHasPotency(btn, message)) return null;
   if (actionRow.classList.contains('dsct-dstd-fm-row') && !/\bAuto\b/.test(btn.textContent)) return null;
   if (safe && _wouldPrompt(actionRow, btn, message)) return null;
   return btn;
