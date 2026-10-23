@@ -164,13 +164,30 @@ export function _hasHighGround(casterToken, targetToken) {
   return casterElev === terrainElev;
 }
 
-function _buildGlobalPills(actor) {
+export const EXTRA_DICE_FLAG = 'flags.draw-steel-combat-tools.extraDice';
+
+function _effectDice(eff, keywords) {
+  const changes = (eff.system?.changes?.length ? eff.system.changes : eff.changes) ?? [];
+  let net = changes.filter(c => c.key === EXTRA_DICE_FLAG).reduce((n, c) => n + (Math.trunc(Number(c.value)) || 0), 0);
+  if (eff.type === 'abilityModifier' && [...(eff.system?.filters?.keywords ?? [])].every(k => keywords.has(k))) {
+    const number = changes.find(c => c.key === 'power.roll.dice.number');
+    const extra = Math.max(0, (Math.trunc(Number(number?.value)) || 2) - 2);
+    const low = changes.find(c => c.key === 'power.roll.dice.mode')?.value === 'kl';
+    net += low ? -extra : extra;
+  }
+  return net;
+}
+
+function _buildGlobalPills(actor, ability = null) {
   const pills = [];
-  
+
   if (actor.statuses?.has('weakened'))   pills.push(pill(mkId('wk'), 'bane', 1, 'Weakened',   null, 'global', true));
   if (actor.statuses?.has('restrained')) pills.push(pill(mkId('rs'), 'bane', 1, 'Restrained', null, 'global', true));
-  
+
+  const keywords = ability ? chooseKeywords(ability) : new Set();
   for (const eff of actor.appliedEffects ?? []) {
+    const dice = _effectDice(eff, keywords);
+    if (dice) pills.push(pill(mkId(`ae-d-${eff.id}`), 'dice', dice, eff.name, null, 'global'));
     if (eff.type !== 'abilityModifier') continue;
     for (const ch of eff.changes ?? []) {
       const amt = Math.abs(parseInt(ch.value) || 1);
@@ -405,7 +422,7 @@ function _buildModifierSources(app) {
                    ?? canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
   const targetEntries = Object.entries(app.options.context?.targets ?? {});
 
-  const pills = [..._buildGlobalPills(actor)];
+  const pills = [..._buildGlobalPills(actor, ability)];
 
   if (getSetting('grabEnabled') && casterToken && getItemDsid(ability) === 'escape-grab') {
     const grab = window._activeGrabs?.get(casterToken.id);
