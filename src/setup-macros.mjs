@@ -210,17 +210,28 @@ const _retypeSafe = (item, system) => {
   return out;
 };
 
-const _overwriteLanded = (item, system) => {
+const _unlanded = (item, system) => {
   const held = item.toObject()?.system ?? {};
+  const out = [];
   for (const path of _typedMapPaths(system, '', [])) {
     const want = path ? foundry.utils.getProperty(system, path) : system;
     const have = path ? foundry.utils.getProperty(held, path) : held;
     if (!want || typeof want !== 'object') continue;
     for (const [id, entry] of Object.entries(want)) {
-      if (typeof entry?.type === 'string' && have?.[id]?.type !== entry.type) return false;
+      if (typeof entry?.type === 'string' && have?.[id]?.type !== entry.type) out.push({ key: path ? `${path}.${id}` : id, entry });
     }
   }
-  return true;
+  return out;
+};
+
+const _overwriteLanded = (item, system) => !_unlanded(item, system).length;
+
+const _retypeInTwoSteps = async (item, system) => {
+  const stale = _unlanded(item, system);
+  const ops = foundry.data?.operators;
+  if (!stale.length || !ops?.ForcedDeletion) return;
+  await item.update(Object.fromEntries(stale.map(({ key }) => [`system.${key}`, new ops.ForcedDeletion()])));
+  await item.update(Object.fromEntries(stale.map(({ key, entry }) => [`system.${key}`, entry])));
 };
 
 const _syncEffects = async (item, effects) => {
@@ -362,6 +373,7 @@ export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
   if (!item.getFlag(ENH_FLAG, 'enhanced')) flags.enhancedSwapped = true;
 
   await item.update({ name: data.name, img: data.img, system: _retypeSafe(item, data.system) });
+  if (!_overwriteLanded(item, data.system)) await _retypeInTwoSteps(item, data.system);
 
   if (!_overwriteLanded(item, data.system)) {
     console.warn(`DSCT | enhanced | Foundry rejected the overwrite of "${item.name}" on ${item.parent?.name ?? 'the sidebar'}. Left unflagged so it is tried again rather than marked enhanced.`);
