@@ -308,6 +308,7 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       header('Targeting'),
       'abilityTargetingEnabled',
       'alwaysRepickTargets',
+      'sortTargetsNearest',
       'autoConfirmSelection',
       'areaPicker',
       'areaPickerTurnStep',

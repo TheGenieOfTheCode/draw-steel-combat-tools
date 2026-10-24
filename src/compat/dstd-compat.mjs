@@ -159,6 +159,51 @@ function _creditPanelEffect(effect, data) {
   }
 }
 
+const NEAREST_FIRST = /starting with the (?:target|creature)s? nearest to you/i;
+
+const _abilitySaysNearest = (abilityUuid) => {
+  const ability = abilityUuid ? fromUuidSync(abilityUuid) : null;
+  return [...(ability?.system?.effects?.contents ?? [])].some((e) => NEAREST_FIRST.test(e.description ?? ''));
+};
+
+const _targetKey = (t) => t?.tokenUuid ?? t?.actorUuid ?? '';
+
+function _nearestFirst(state, targets) {
+  if (!Array.isArray(targets) || targets.length < 2) return null;
+  if (getSetting('sortTargetsNearest') !== 'all' && !_abilitySaysNearest(state?.abilityUuid)) return null;
+  const source = state?.sourceTokenUuid ? fromUuidSync(state.sourceTokenUuid)?.object : null;
+  if (!source) return null;
+  const reach = (t) => {
+    const token = t?.tokenUuid ? fromUuidSync(t.tokenUuid)?.object : null;
+    if (!token) return Infinity;
+    const rise = Math.abs((source.document.elevation ?? 0) - (token.document.elevation ?? 0)) * canvas.grid.distance;
+    return Math.max(tokFootprintDist(source, token), rise);
+  };
+  const sorted = targets.map((t) => ({ t, d: reach(t) })).sort((a, b) => a.d - b.d).map((e) => e.t);
+  return sorted.some((t, i) => t !== targets[i]) ? sorted : null;
+}
+
+function _sortNewPanelTargets(message, _data, _options, userId) {
+  if (userId !== game.userId) return;
+  const state = message.flags?.[DSTD]?.state;
+  const sorted = _nearestFirst(state, state?.targets);
+  if (sorted) message.updateSource({ [`flags.${DSTD}.state.targets`]: sorted });
+}
+
+function _sortUpdatedPanelTargets(message, changes) {
+  const path = `flags.${DSTD}.state.targets`;
+  const flat = path in changes;
+  const next = flat ? changes[path] : foundry.utils.getProperty(changes, path);
+  if (!Array.isArray(next)) return;
+  const stored = message.flags?.[DSTD]?.state ?? {};
+  const had = new Set((stored.targets ?? []).map(_targetKey));
+  if (had.size === next.length && next.every((t) => had.has(_targetKey(t)))) return;
+  const sorted = _nearestFirst({ ...stored, ...(foundry.utils.getProperty(changes, `flags.${DSTD}.state`) ?? {}) }, next);
+  if (!sorted) return;
+  if (flat) changes[path] = sorted;
+  else foundry.utils.setProperty(changes, path, sorted);
+}
+
 export function registerDstdCompat() {
   const dbg = getSetting('debugMode');
   const messageProto = foundry.documents.ChatMessage.prototype;
@@ -170,6 +215,9 @@ export function registerDstdCompat() {
     const actor = await fromUuid(uuid);
     if (actor) await actor.system.updateResource(-cost);
   }));
+  
+  Hooks.once('ready', () => Hooks.on('preCreateChatMessage', _sortNewPanelTargets));
+  Hooks.on('preUpdateChatMessage', _sortUpdatedPanelTargets);
 
   
   registerPanelDecorator({ id: 'combat-tools-prelude', priority: 20, ignore: ['.dsct-dstd-fm-row', '.dsct-dstd-squad'], decorate: ({ message, panel }) => {

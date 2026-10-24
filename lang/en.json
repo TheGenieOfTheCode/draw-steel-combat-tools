@@ -523,6 +523,14 @@
         "name": "Always Re-Pick Targets",
         "hint": "Clear whatever you had targeted before an ability resolves, so you are always asked to pick again. Update Targets on a chat message asks again too."
       },
+      "sortTargetsNearest": {
+        "name": "Sort Targets Nearest First",
+        "hint": "List the targets on a chat message from nearest to farthest from the creature using the ability, so Apply All and Auto Apply resolve the nearest first. Elsewhere they keep the order you targeted them in.",
+        "choice": {
+          "all": "All Abilities",
+          "ability": "When an Ability Says So"
+        }
+      },
       "autoConfirmSelection": {
         "name": "Auto-Confirm Target Selection",
         "hint": "Confirm as soon as you have picked as many targets as the ability allows, with no need to press Enter. When there are no more valid targets than it allows, they are picked for you."

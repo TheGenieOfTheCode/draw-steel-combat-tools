@@ -680,6 +680,14 @@ export const registerSettings = () => {
     name: L('alwaysRepickTargets.name'), hint: L('alwaysRepickTargets.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'sortTargetsNearest', {
+    name: L('sortTargetsNearest.name'), hint: L('sortTargetsNearest.hint'),
+    scope: 'world', config: false, type: String, default: 'all',
+    choices: {
+      all:     L('sortTargetsNearest.choice.all'),
+      ability: L('sortTargetsNearest.choice.ability'),
+    },
+  });
   game.settings.register(M, 'autoConfirmSelection', {
     name: L('autoConfirmSelection.name'), hint: L('autoConfirmSelection.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
