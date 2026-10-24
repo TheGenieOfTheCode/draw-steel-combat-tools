@@ -7,6 +7,7 @@ import { withStatusSource, registerStatusSources } from './conditions/statuses.m
 import { runForcedMovement } from './forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv, persistStack } from './forced-movement/forced-movement-modify-panel.mjs';
 import { executeAsDirector, safeUpdate } from './ctlib.mjs';
+import { setTip, tipFor } from './chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -238,7 +239,7 @@ function _buildGrabButton(original, item, tier, properties = new Set()) {
   btn.dataset.dsctTier   = String(tier ?? 0);
   btn.dataset.maxGrabs   = String(maxGrabs);
   btn.dataset.properties = JSON.stringify([...properties]);
-  btn.dataset.tooltip    = 'Holding Shift bypasses restrictions';
+  setTip(btn, tipFor('grab'));
   return btn;
 }
 
@@ -390,8 +391,7 @@ function _registerButtonHooks() {
             fireBtn.className = btn.className;
             fireBtn.innerHTML = `<i class="fa-solid fa-fire"></i> ${game.i18n.format('DSCT.button.purifyingFireDamage', { amount: roll.total })}`;
             fireBtn.style.cssText = 'cursor:pointer;';
-            if (btn.dataset.tooltip)          fireBtn.dataset.tooltip          = btn.dataset.tooltip;
-            if (btn.dataset.tooltipDirection) fireBtn.dataset.tooltipDirection = btn.dataset.tooltipDirection;
+            setTip(fireBtn, tipFor('purifyingFire', { title: game.i18n.format('DSCT.button.purifyingFireDamage', { amount: roll.total }) }));
             fireBtn.dataset.dsctAction = 'dsct-purifying-fire';
             fireBtn.dataset.index      = btn.dataset.index;
             fireBtn.dataset.dsctArea   = btn.dataset.dsctArea ?? 'false';
@@ -523,7 +523,7 @@ function _registerButtonHooks() {
           const pencilBtn = document.createElement('button');
           pencilBtn.type = 'button';
           pencilBtn.className = 'dsct-fm-edit';
-          pencilBtn.title = 'Modify Forced Movement';
+          setTip(pencilBtn, tipFor('fmModify'));
           pencilBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
           wrapper.appendChild(pencilBtn);
 

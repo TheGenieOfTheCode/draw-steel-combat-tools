@@ -9,6 +9,7 @@ import { markRevealed } from './conditions/stealth.mjs';
 import { runSourcePicker } from './ability-automation/target-picker.mjs';
 import { beginPickerOverlay } from './ability-automation/picker-overlay.mjs';
 import { FitsOnResize } from './fit-window.mjs';
+import { setTip, tipFor } from './chat-tips.mjs';
 
 
 const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}) => new Promise((resolve) => {
@@ -555,7 +556,9 @@ export class TeleportPanel extends FitsOnResize(ds.applications.api.DSApplicatio
     const execBtn = this.element.querySelector('[data-action="execute-tp"]');
     if (execBtn) {
       execBtn.innerHTML = `<i class="fas fa-magic"></i> ${this._executeLabel()}`;
-      execBtn.title = this._mode === 'normal' ? game.i18n.localize('DSCT.panel.tp.shiftHint') : '';
+      const runTip = tipFor('teleportRun', { title: this._executeLabel() });
+      if (this._mode === 'normal') runTip.body = `${runTip.body} ${game.i18n.localize('DSCT.panel.tp.shiftHint')}.`;
+      setTip(execBtn, runTip);
     }
   }
 
@@ -1036,8 +1039,7 @@ export const registerTeleportHooks = () => {
       }
       const displayLabel = labelTemplate != null ? resolveLabel(labelTemplate, 0) : null;
       a.innerHTML = `<i class="${tpIcon(mode)}"></i> ${displayLabel ?? defaultTpLabel(mode, fixedName, dist)}`;
-      if (mode) a.title = game.i18n.localize('DSCT.panel.tp.enricherHintPair');
-      else if (!fixedName) a.title = game.i18n.localize('DSCT.panel.tp.enricherHint');
+      if (mode || !fixedName) setTip(a, tipFor('teleport', { title: a.textContent.trim(), body: game.i18n.localize(mode ? 'DSCT.panel.tp.enricherHintPair' : 'DSCT.panel.tp.enricherHint') }));
 
       return a;
     },

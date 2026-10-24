@@ -1,4 +1,5 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
+import { richTip, setTip, tipFor } from '../chat-tips.mjs';
 import { executeAsDirector } from '../ctlib.mjs';
 import { SOURCED_STATUSES, resolveStatusSource, notePendingSource, effectSourceUuids, toActor } from './statuses.mjs';
 
@@ -99,8 +100,10 @@ function addTooltipLine() {
       const el = await inner.call(this, match, options);
       const a = el?.matches?.('a') ? el : el?.querySelector?.('a');
       if (a && enabled()) {
-        const line = game.i18n.localize('DSCT.applyToTargets.tooltip');
-        a.dataset.tooltip = a.dataset.tooltip ? `${a.dataset.tooltip}<br>${line}` : line;
+        const esc = foundry.utils.escapeHTML;
+        const before = a.dataset.tooltip ? game.i18n.localize(a.dataset.tooltip) : '';
+        const lines = [before, game.i18n.localize('DSCT.applyToTargets.tooltip')].filter(Boolean);
+        setTip(a, richTip({ ...tipFor('applyToTargets', { title: a.textContent.trim() }), html: lines.map((l) => `<p>${esc(l)}</p>`).join('') }));
       }
       return el;
     },

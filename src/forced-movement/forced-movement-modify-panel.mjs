@@ -1,6 +1,7 @@
 import { safeUpdate } from '../ctlib.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
 import { compactPillHTML } from '../compat/pill-compact.mjs';
+import { richTip, setTip, tipAttrs, tipFor } from '../chat-tips.mjs';
 ﻿import { getModuleApi } from '../helpers.mjs';
 
 export const replayModifiers = (baseStates, stack, states) => {
@@ -155,8 +156,8 @@ export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, 
   const effectStr = _modEffectSummary(entry, baseStates);
   const fromStr = entry.noteSrc ? `<span class="dsct-pill-from">from ${esc(entry.noteSrc)}</span>` : '';
   pillBtn.innerHTML = compactPillHTML(esc(effectStr || noteName), `<span class="dsct-pip">${effectStr ? `${esc(effectStr)} &middot; ${esc(noteName)}` : esc(noteName)}</span>${fromStr}`);
-  const descLine = noteDesc ? `${noteDesc}\n` : '';
-  pillBtn.title = `${descLine}${_buildModTooltip(entry, baseStates)}`;
+  const tipLines = [noteDesc, ...String(_buildModTooltip(entry, baseStates) ?? '').split('\n')].filter(Boolean);
+  setTip(pillBtn, richTip({ ...tipFor('fmPill', { title: noteName }), html: tipLines.map((l) => `<p>${esc(l)}</p>`).join('') }));
 
   
   
@@ -338,10 +339,10 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
                 <option value="pull"  ${state.movement === 'pull'  ? 'selected' : ''}>Pull</option>
                 <option value="slide" ${state.movement === 'slide' ? 'selected' : ''}>Slide</option>
               </select>
-              <span class="dsct-fm-distance-display" title="Current effective distance">${state.distance}</span>
+              <span class="dsct-fm-distance-display" ${tipAttrs(tipFor('fmPanelDistance'))}>${state.distance}</span>
               <span style="font-size:11px;color:var(--dsct-textDim);">&#177;</span>
               <input type="number" data-field="distance-${i}" value="0" step="1"
-                style="width:31px;text-align:center;" title="Distance delta - adds to current effective distance">
+                style="width:31px;text-align:center;" ${tipAttrs(tipFor('fmPanelDelta'))}>
             </div>
           </div>
 
@@ -350,13 +351,13 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
               <input type="checkbox" data-field="vertical-${i}" ${state.vertical ? 'checked' : ''}> Vertical
             </label>
             <input type="number" data-field="vertDist-${i}" placeholder="${state.distance}" step="1"
-              style="width:48px;text-align:center;" title="Leave blank to match distance">
+              style="width:48px;text-align:center;" ${tipAttrs(tipFor('fmPanelVertical'))}>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div class="dsct-section-label" title="The token the movement originates from. Push moves away from it, pull toward it. Blank keeps the default source.">FM Source</div>
+            <div class="dsct-section-label" ${tipAttrs(tipFor('fmPanelSource'))}>FM Source</div>
             <div class="dsct-fm-src-wrap">
-              <button type="button" class="dsct-amw-target-fill dsct-fm-src-fill" data-fill-target="fmSrc-${i}" title="Use currently targeted token">
+              <button type="button" class="dsct-amw-target-fill dsct-fm-src-fill" data-fill-target="fmSrc-${i}" ${tipAttrs(tipFor('useTarget'))}>
                 <i class="fa-solid fa-bullseye-pointer"></i>
               </button>
               <input type="text" data-field="fmSrc-${i}" placeholder="Default" class="dsct-fm-name-input dsct-fm-src-input"
@@ -369,7 +370,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div class="dsct-section-label">Fall Reduction</div>
             <input type="number" data-field="fallRed-${i}" value="${state.fallReduction}" min="0" step="1"
-              style="width:36px;text-align:center;" title="Bonus on top of Agility">
+              style="width:36px;text-align:center;" ${tipAttrs(tipFor('fmPanelFall'))}>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -448,7 +449,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
     const saveBtnEl = this.element.querySelector('[data-action="save-preset"]');
     const updateSaveShift = (held) => {
       saveBtnEl.style.color = held ? 'var(--dsct-text-active)' : 'var(--dsct-text-dim)';
-      saveBtnEl.title = held ? 'Shift+Click to overwrite existing preset' : 'Save current inputs as a preset';
+      setTip(saveBtnEl, tipFor(held ? 'presetOverwrite' : 'presetSave'));
     };
     const onShiftDown = (e) => { if (e.key === 'Shift') updateSaveShift(true);  };
     const onShiftUp   = (e) => { if (e.key === 'Shift') updateSaveShift(false); };

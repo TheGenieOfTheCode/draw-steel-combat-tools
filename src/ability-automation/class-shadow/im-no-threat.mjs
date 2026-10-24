@@ -2,6 +2,7 @@ import { getSetting, noLogFlag } from '../../helpers.mjs';
 import { chooseKeywords } from '../choose-effect.mjs';
 import { FitsOnResize } from '../../fit-window.mjs';
 import { safeUpdate, safeDelete } from '../../ctlib.mjs';
+import { tipAttrs, tipFor } from '../../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -469,8 +470,8 @@ const _buildGrid = (filter) => {
   const list = q ? INT_EMOJI_LIST.filter(([, n]) => n.includes(q)) : INT_EMOJI_LIST;
   const grid = document.getElementById('dsct-int-epicker-grid');
   if (!grid) return;
-  grid.innerHTML = list.map(([e]) =>
-    `<button type="button" class="dsct-emoji-btn" title="${e}" data-emoji="${e}">${e}</button>`
+  grid.innerHTML = list.map(([e, n]) =>
+    `<button type="button" class="dsct-emoji-btn" ${tipAttrs(tipFor('emoji', { title: n }))} data-emoji="${e}">${e}</button>`
   ).join('');
 };
 
@@ -539,7 +540,7 @@ const DEFAULT_ICON = 'icons/creatures/mammals/humanoid-fox-cat-archer.webp';
 const buildRow = (idx, animal) => `
   <tr>
     <td>
-      <button type="button" class="dsct-int-icon-pick" data-idx="${idx}" title="Click to change icon">
+      <button type="button" class="dsct-int-icon-pick" data-idx="${idx}" ${tipAttrs(tipFor('pickIcon', { category: game.i18n.localize('DSCT.tip.intColumn.category') }))}>
         <img src="${animal.src || DEFAULT_ICON}" class="dsct-wb-icon-img">
       </button>
       <input type="hidden" name="src-${idx}"  value="${animal.src || DEFAULT_ICON}">
@@ -549,13 +550,13 @@ const buildRow = (idx, animal) => `
       <input type="text" name="name-${idx}" value="${animal.name}" placeholder="Name" class="dsct-name-input">
     </td>
     <td>
-      <button type="button" class="dsct-int-emoji-trigger" data-idx="${idx}" title="Pick emoji">
+      <button type="button" class="dsct-int-emoji-trigger" data-idx="${idx}" ${tipAttrs(tipFor('pickEmoji'))}>
         ${animal.emoji || '+'}
       </button>
       <input type="hidden" name="emoji-${idx}" value="${animal.emoji ?? ''}">
     </td>
     <td>
-      <button type="button" class="dsct-int-delete-animal dsct-delete-btn" title="Remove animal">
+      <button type="button" class="dsct-int-delete-animal dsct-delete-btn" ${tipAttrs(tipFor('removeAnimal'))}>
         <i class="fa-solid fa-trash-can"></i>
       </button>
     </td>

@@ -4,6 +4,7 @@ import { beginPickerOverlay } from './picker-overlay.mjs';
 import { getStrikeType } from './class-shadow/crossfade.mjs';
 import { _recomputeAndSync, _injectPillUI } from './roll-dialog-hooks.mjs';
 import { chooseKeywords } from './choose-effect.mjs';
+import { richBarButtons } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -321,14 +322,14 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
     extraButtons: [{
       className: 'dsct-picker-suggest',
       icon: 'fa-solid fa-wand-magic-sparkles',
-      label: 'Suggestions',
+      label: game.i18n.localize('DSCT.picker.squad.suggest'),
       kbd: 'Double-click',
-      tooltip: 'Auto-assign every minion to a suggested target. You can still rearrange before confirming.',
+      tooltip: game.i18n.localize('DSCT.picker.squad.suggestTip'),
       onClick: () => _sqAutoAssign(),
     }, {
       icon: 'fa-solid fa-eraser',
-      label: 'Unselect All',
-      tooltip: 'Clear every assignment and start over.',
+      label: game.i18n.localize('DSCT.picker.squad.unselect'),
+      tooltip: game.i18n.localize('DSCT.picker.squad.unselectTip'),
       onClick: () => _sqUnselect(),
     }],
     controls: [
@@ -339,6 +340,7 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
     cancelOnRightClick: !!getSetting('cancelOnRightClick'),
     onRightClick: () => _sqRightClick(),
   });
+  richBarButtons(game.i18n.localize('DSCT.tip.groupAction.category'));
 
   const refreshNotif = () => {
     if (activeMinionId) {

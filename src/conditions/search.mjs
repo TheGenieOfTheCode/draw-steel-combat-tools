@@ -1,6 +1,7 @@
 import { getSetting, getModuleApi, tokFootprintDist, hasSightToToken } from '../helpers.mjs';
 import { hiddenFrom, isHiddenFrom, stealthActive, revealWithReason, setHiddenFrom, isObjectToken, markObjectFound } from './stealth.mjs';
 import { activateFaces, executeAsDirector, safeUpdate } from '../ctlib.mjs';
+import { tipAttrs, tipFor } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 const ABILITY_PART_ID = 'abilityUse'.padEnd(16, '0');
@@ -158,15 +159,15 @@ function _rollLine(side, { masked = false, hero = '' } = {}) {
   if (!side || side.total === null || side.total === undefined) return '';
   const dice = (side.dice ?? []).map(f => `<img class="dsct-die" src="modules/${M}/assets/Dice/die-${f}.png" alt="${f}">`).join('');
   const mods = (side.mods ?? []).map(m =>
-    `<span class="dsct-die-mod" data-tooltip="${esc(m.label ?? '')}">${m.value > 0 ? '+' : '−'}${Math.abs(m.value)}</span>`).join('');
+    `<span class="dsct-die-mod" ${tipAttrs(tipFor('searchMod', { title: m.label ?? '', data: { n: `${m.value > 0 ? '+' : '−'}${Math.abs(m.value)}` } }))}>${m.value > 0 ? '+' : '−'}${Math.abs(m.value)}</span>`).join('');
   const reroll = side.rerolls
-    ? `<i class="fa-solid fa-rotate dsct-search-rerolled" data-tooltip="${esc(game.i18n.format('DSCT.search.rerolled', { n: side.rerolls }))}"></i>`
+    ? `<i class="fa-solid fa-rotate dsct-search-rerolled" ${tipAttrs(tipFor('searchRerolled', { body: game.i18n.format('DSCT.search.rerolled', { n: side.rerolls }) }))}></i>`
     : '';
   return `<span class="dsct-search-roll-line"><span class="dsct-search-roll-box"><span class="dsct-search-roll-formula dsct-dice-formula">${dice}${mods}</span><span class="dsct-search-roll-total">${side.total}${reroll}</span></span>${hero}</span>`;
 }
 
 const _heroBtn = (side, actor, tokenId) => (_canHeroReroll(side, actor)
-  ? `<button type="button" class="dsct-search-hero" data-token-id="${foundry.utils.escapeHTML(tokenId ?? '')}" data-tooltip="${foundry.utils.escapeHTML(game.i18n.localize('DSCT.search.heroReroll'))}"><i class="fa-solid fa-medal"></i></button>`
+  ? `<button type="button" class="dsct-search-hero" data-token-id="${foundry.utils.escapeHTML(tokenId ?? '')}" ${tipAttrs(tipFor('searchHero', { body: game.i18n.localize('DSCT.search.heroReroll') }))}><i class="fa-solid fa-medal"></i></button>`
   : '');
 
 const _withinRange = (a, b) => tokFootprintDist(a, b) < RANGE * canvas.grid.distance;
@@ -354,7 +355,7 @@ const esc = (s) => foundry.utils.escapeHTML(String(s ?? ''));
 
 const _nameHTML = (name, tokenId, cls = 'dsct-search-name') =>
   tokenId
-    ? `<span class="${cls} dsct-search-link" data-token-id="${esc(tokenId)}" data-tooltip="${esc(L('DSCT.search.pingHint'))}">${esc(name)}</span>`
+    ? `<span class="${cls} dsct-search-link" data-token-id="${esc(tokenId)}" ${tipAttrs(tipFor('searchPing', { title: name, body: L('DSCT.search.pingHint') }))}>${esc(name)}</span>`
     : `<span class="${cls}">${esc(name)}</span>`;
 
 const _isMasked = (row, redact) => redact && !row.playerOwned && ['pending', 'hidden', 'decoy'].includes(row.status);

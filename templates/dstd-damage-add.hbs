@@ -6,7 +6,7 @@
     <button type="button" class="dsct-amw-type-btn bonus"       data-kind="delta">{{localize "DSCT.panel.damagePills.bonus"}}</button>
     <button type="button" class="dsct-amw-type-btn bonus"       data-kind="delta" data-negate="1">{{localize "DSCT.panel.damagePills.penalty"}}</button>
     {{#if hasSurge}}
-    <button type="button" class="dsct-amw-type-btn edge" data-kind="surge" {{#if surgeDisabled}}disabled{{/if}} title="{{surgeTooltip}}">{{localize "DSCT.panel.damagePills.surge"}}</button>
+    <button type="button" class="dsct-amw-type-btn edge" data-kind="surge" {{#if surgeDisabled}}disabled{{/if}} {{dsctTip "surge" body=surgeTooltip}}>{{localize "DSCT.panel.damagePills.surge"}}</button>
     {{/if}}
     <button type="button" class="dsct-amw-type-btn bane" data-kind="type">{{localize "DSCT.panel.damagePills.type"}}</button>
   </div>
@@ -40,7 +40,7 @@
     <label>{{localize "DSCT.panel.damagePills.sourceActor"}}</label>
     <div class="form-fields dsct-amw-source-actor">
       <input type="text" class="dsct-amw-source-input" placeholder="{{localize "DSCT.panel.damagePills.sourcePh"}}">
-      <button type="button" class="dsct-amw-target-fill" title="{{localize "DSCT.panel.damagePills.targetFill"}}">
+      <button type="button" class="dsct-amw-target-fill" {{dsctTip "useTarget"}}>
         <i class="fa-solid fa-bullseye-pointer"></i>
       </button>
     </div>

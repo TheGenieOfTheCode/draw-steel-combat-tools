@@ -2,7 +2,7 @@
   <div class="dsct-re-formula">{{formula}}</div>
   <div class="dsct-re-total"></div>
   {{#if dice.length}}
-  <div class="dsct-re-dice" title="{{localize "DSCT.panel.rollEditor.natural" natural=natural}}">
+  <div class="dsct-re-dice" {{dsctTip "naturalRoll" natural=natural}}>
     {{#each dice}}<img class="dsct-re-die-img" src="modules/draw-steel-combat-tools/assets/Dice/die-{{this}}.png" alt="{{this}}">{{/each}}
   </div>
   {{else}}

@@ -1,4 +1,5 @@
 import { services } from './ctlib.mjs';
+import { setTip, tipFor } from './chat-tips.mjs';
 ﻿import { getSetting, monsterFilter as filter } from './helpers.mjs';
 import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 import { assignSquadCaptain } from './squad-labels.mjs';
@@ -296,7 +297,7 @@ function _openHudEditor(entry) {
   const input = document.createElement('input');
   input.type = 'text';
   input.placeholder = `${entry.currHP ?? 0}`;
-  input.title = 'Enter value or delta (+3, -2)';
+  setTip(input, tipFor('squadStamina'));
   input.style.cssText = 'width:100%;background:transparent;color:#fff;border:none;outline:none;font-size:15px;text-align:center;';
   wrap.appendChild(input);
   document.body.appendChild(wrap);

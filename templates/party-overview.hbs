@@ -36,7 +36,7 @@
               {{#each pills}}
               <span class="dsct-po-pill{{#unless count}} is-gap{{/unless}}{{#if isPreferred}} is-preferred{{/if}}{{#if isIgnored}} is-ignored{{/if}}"
                     data-kind="{{kind}}" data-key="{{key}}"
-                    data-tooltip="{{#if count}}{{holders}}{{else}}{{localize 'DSCT.party.nobody'}}{{/if}}">
+                    {{#if count}}{{dsctTip "partyPill" title=label body=holders}}{{else}}{{dsctTip "partyPill" title=label body=(localize 'DSCT.party.nobody')}}{{/if}}>
                 {{label}}{{#if showCount}} <b class="dsct-po-n">{{count}}</b>{{/if}}
               </span>
               {{/each}}

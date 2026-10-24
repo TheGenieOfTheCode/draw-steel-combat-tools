@@ -7,6 +7,7 @@ import {
 } from './target-picker.mjs';
 import { hitToken } from '../ctlib.mjs';
 import { releaseAreaHold } from '../regions/template-lifetime.mjs';
+import { richBarButtons, setTip } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 const DS = 'draw-steel';
@@ -408,10 +409,14 @@ async function runAreaPicker(ability, area, caster) {
       }] : [])] : [],
     });
 
+    const tipCategory = game.i18n.localize('DSCT.tip.areaPicker.category');
+    richBarButtons(tipCategory);
     const turnButton = document.querySelector('#dsct-picker-topbar .dsct-area-turn');
     const cycleTurn = (dir) => {
       _turnStep = TURN_STEPS[(TURN_STEPS.indexOf(_turnStep) + dir + TURN_STEPS.length) % TURN_STEPS.length];
-      if (turnButton) turnButton.innerHTML = `<i class="fa-solid fa-rotate"></i> ${foundry.utils.escapeHTML(L('turn', { n: _turnStep }))}`;
+      if (!turnButton) return;
+      turnButton.innerHTML = `<i class="fa-solid fa-rotate"></i> ${foundry.utils.escapeHTML(L('turn', { n: _turnStep }))}`;
+      setTip(turnButton, { title: L('turn', { n: _turnStep }), category: tipCategory, body: L('turnTip') });
     };
     turnButton?.addEventListener('contextmenu', (ev) => { ev.preventDefault(); cycleTurn(-1); });
 

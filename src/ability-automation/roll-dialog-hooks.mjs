@@ -5,6 +5,7 @@ import { stealthTraits } from '../conditions/stealth-traits.mjs';
 import { sizeRankG } from '../conditions/grab.mjs';
 import { getStrikeType, isCrossfadeStrike, getCrossfadeEdgeForAbility } from './class-shadow/crossfade.mjs';
 import { chooseKeywords } from './choose-effect.mjs';
+import { richTip, tipAttrs, tipFor } from '../chat-tips.mjs';
 
 let _pillIdCounter = 0;
 const mkId = (s) => `dsct-p-${++_pillIdCounter}-${s}`;
@@ -550,12 +551,18 @@ function _pillHTML(p) {
   const fromStr      = p.src ? `<span class="dsct-pill-from">from ${p.src}</span>` : '';
   const disClass     = p.enabled ? '' : ' dsct-pill-disabled';
   const custClass    = p.custom ? ' dsct-pill-custom' : '';
-  const title        = p.custom ? 'Click to toggle · Right-click to remove' : (p.enabled ? 'Click to disable' : 'Click to enable');
+  const esc          = foundry.utils.escapeHTML;
+  const hint         = game.i18n.localize(p.custom ? 'DSCT.tip.pillCustom' : (p.enabled ? 'DSCT.tip.pillOn' : 'DSCT.tip.pillOff'));
+  const tip          = richTip({
+    title: [amtStr, p.reason].filter(Boolean).join(' · '),
+    category: game.i18n.localize(EFFECT_PILL_KINDS.has(p.kind) ? 'DSCT.tip.effectPill.category' : 'DSCT.tip.rollPill.category'),
+    html: [p.src ? game.i18n.format('DSCT.tip.pillFrom', { source: p.src }) : '', hint].filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join(''),
+  });
   const srcTokenAttr = (p.srcTokenIds?.length > 0
     ? ` data-src-token-ids="${p.srcTokenIds.join(',')}"`
     : (p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : ''))
     + (p.lineFrom ? ` data-line-from="${p.lineFrom}"` : '');
-  return `<button type="button" class="dsct-source-pill dsct-pill-${pillCss(p)}${disClass}${custClass}"${srcTokenAttr} data-pill-id="${p.id}" title="${title}"><span class="dsct-pip">${amtStr} &middot; ${p.reason}</span>${fromStr}</button>`;
+  return `<button type="button" class="dsct-source-pill dsct-pill-${pillCss(p)}${disClass}${custClass}"${srcTokenAttr} data-pill-id="${p.id}" ${tipAttrs(tip)}><span class="dsct-pip">${amtStr} &middot; ${p.reason}</span>${fromStr}</button>`;
 }
 
 export function _injectPillUI(app) {
@@ -608,7 +615,7 @@ export function _injectPillUI(app) {
       const globalPills = app._dsctSources.filter(p => p.scope === 'global');
       const row = document.createElement('div');
       row.className = 'dsct-mod-pills-row dsct-rdp-pill-injection';
-      row.innerHTML = `<span class="dsct-pills-label">Global</span>${globalPills.map(_pillHTML).join('')}<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" data-scope="global" title="Add global modifier">+</button>`;
+      row.innerHTML = `<span class="dsct-pills-label">Global</span>${globalPills.map(_pillHTML).join('')}<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" data-scope="global" ${tipAttrs(tipFor('addGlobalModifier'))}>+</button>`;
       fg.after(row);
     }
   }
@@ -666,7 +673,7 @@ export function _injectPillUI(app) {
     const targetPills = app._dsctSources.filter(p => p.scope === tokenId);
     const row = document.createElement('div');
     row.className = 'dsct-mod-pills-row dsct-rdp-pill-injection';
-    row.innerHTML = `<span class="dsct-pills-label">Target</span>${targetPills.map(_pillHTML).join('')}<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" data-scope="${tokenId}" title="Add modifier">+</button>`;
+    row.innerHTML = `<span class="dsct-pills-label">Target</span>${targetPills.map(_pillHTML).join('')}<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" data-scope="${tokenId}" ${tipAttrs(tipFor('addModifier'))}>+</button>`;
     fg.after(row);
   }
 

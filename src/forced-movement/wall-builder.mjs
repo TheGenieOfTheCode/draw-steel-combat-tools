@@ -11,6 +11,7 @@ import {
 import { beginPickerOverlay } from '../ability-automation/picker-overlay.mjs';
 import { isPrimaryGM } from '../ctlib.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
+import { tipAttrs, tipFor } from '../chat-tips.mjs';
 
 let _wbHideUi = false;
 
@@ -1068,7 +1069,7 @@ const buildRow = (idx, origName, isBase, iconSrc, r, rs) => {
   return `
     <tr>
       <td>
-        <button type="button" class="dsct-wb-icon-pick" data-idx="${idx}" title="Click to change icon">
+        <button type="button" class="dsct-wb-icon-pick" data-idx="${idx}" ${tipAttrs(tipFor('pickIcon', { category: game.i18n.localize('DSCT.tip.wbColumn.category') }))}>
           <img src="${icon}" class="dsct-wb-icon-img">
         </button>
         <input type="hidden" name="icon-${idx}"     value="${icon}">
@@ -1094,7 +1095,7 @@ const buildRow = (idx, origName, isBase, iconSrc, r, rs) => {
       <td>${restrictSelect(`sound-${idx}`, rs.sound)}</td>
       <td>
         ${!isBase
-          ? `<button type="button" class="dsct-delete-mat dsct-delete-btn" title="Remove material">
+          ? `<button type="button" class="dsct-delete-mat dsct-delete-btn" ${tipAttrs(tipFor('removeMaterial'))}>
                <i class="fa-solid fa-trash-can"></i>
              </button>`
           : ''}

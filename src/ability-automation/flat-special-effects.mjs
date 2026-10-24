@@ -5,6 +5,7 @@ import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 import { executeTeleport, executeTeleswap } from '../teleport.mjs';
 import { runSourcePicker } from './target-picker.mjs';
+import { setTip, tipFor } from '../chat-tips.mjs';
 
 const { SchemaField, SetField, StringField, NumberField, BooleanField } = foundry.data.fields;
 const MODULE_ID = "draw-steel-combat-tools";
@@ -939,7 +940,7 @@ function _buildForcedRow(effect, item) {
   editBtn.type = "button";
   editBtn.className = "dsct-flat-forced-edit-btn";
   editBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
-  editBtn.title = game.i18n.localize("DSCT.FlatEffect.FM.editTooltip");
+  setTip(editBtn, tipFor('fmDistance', { title: game.i18n.localize("DSCT.FlatEffect.FM.editTooltip") }));
   editBtn.style.cssText = "flex:0 0 auto;width:2.25em;padding:0;display:flex;align-items:center;justify-content:center;";
   editBtn.addEventListener("click", async (e) => {
     e.stopPropagation();
@@ -1265,7 +1266,7 @@ function _buildResourceRow(effect, item, message) {
   undoBtn.className = "dsct-flat-resource-undo-btn";
   undoBtn.dataset.effectId = effect.id;
   undoBtn.disabled = !applied;
-  undoBtn.title = game.i18n.localize("DSCT.FlatEffect.Resource.undo");
+  setTip(undoBtn, tipFor('resourceUndo'));
   undoBtn.style.cssText = "flex:0 0 auto;width:2.25em;padding:0;display:flex;align-items:center;justify-content:center;";
   undoBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i>';
 
@@ -1321,7 +1322,7 @@ function _buildTeleportButton(effect, item, message) {
   btn.dataset.spendValue   = String(spend?.value ?? 1);
   const icon = mode === 'swap' ? 'fa-solid fa-people-arrows' : mode === 'intoSpace' ? 'fa-solid fa-person-arrow-down-to-line' : 'fa-solid fa-person-through-window';
   btn.innerHTML = `<i class="${icon}"></i> ${(display || defaultLabel) + spendSuffix}`;
-  btn.title = game.i18n.localize(mode === 'normal' ? 'DSCT.panel.tp.enricherHint' : 'DSCT.panel.tp.enricherHintPair');
+  setTip(btn, tipFor('teleport', { title: btn.textContent.trim(), body: game.i18n.localize(mode === 'normal' ? 'DSCT.panel.tp.enricherHint' : 'DSCT.panel.tp.enricherHintPair') }));
   return btn;
 }
 

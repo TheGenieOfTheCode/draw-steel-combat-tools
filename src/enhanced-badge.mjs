@@ -1,4 +1,5 @@
 import { enhancedPackIds, enhancedKey, enhancedNameKey, enhancedDocKey } from './setup-macros.mjs';
+import { setTip, tipFor } from './chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 const LOCK = 'enhancedLock';
@@ -59,7 +60,7 @@ function _badge(item) {
   a.dataset.state = state;
   a.innerHTML = `<i class="fas ${_ICONS[state]}"></i>`;
   const click = canToggle ? ` ${L(state === 'ignored' ? 'unlockHint' : 'lockHint')}` : '';
-  a.dataset.tooltip = `<strong>${L(`${state}.label`)}</strong><br>${L(`${state}.hint`)}${click}`;
+  setTip(a, tipFor('enhancedBadge', { title: L(`${state}.label`), body: `${L(`${state}.hint`)}${click}` }));
 
   if (canToggle) {
     

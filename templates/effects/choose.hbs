@@ -20,12 +20,12 @@
     <summary class="dsct-choice-summary">
       <i class="fa-solid fa-chevron-right dsct-choice-caret"></i>
       <button type="button" class="dsct-choice-icon" data-action="dsctPickIcon" data-index="{{choice.index}}"
-              data-fallback="{{choice.iconPreview}}" data-tooltip="DSCT.choose.icon.hint">
+              data-fallback="{{choice.iconPreview}}" {{dsctTip "chooseIcon" body=(localize "DSCT.choose.icon.hint")}}>
         <img src="{{choice.iconPreview}}" alt="">
       </button>
       <span class="dsct-choice-title">{{#if choice.src.name}}{{choice.src.name}}{{else}}{{localize "DSCT.choose.unnamed" n=choice.number}}{{/if}}</span>
       <a class="dsct-choice-remove" data-action="dsctRemoveChoice" data-index="{{choice.index}}"
-         data-tooltip="DSCT.choose.remove"><i class="fa-solid fa-trash"></i></a>
+         {{dsctTip "chooseRemove"}}><i class="fa-solid fa-trash"></i></a>
     </summary>
 
     <div class="dsct-choice-body">

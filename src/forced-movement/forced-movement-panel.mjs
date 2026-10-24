@@ -4,6 +4,7 @@ import {
 import { pickTarget } from './forced-movement-engine.mjs';
 import { runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
+import { tipAttrs, tipFor } from '../chat-tips.mjs';
 
 export class ForcedMovementPanel extends FitsOnResize(ds.applications.api.DSApplication) {
   constructor() {
@@ -55,7 +56,7 @@ export class ForcedMovementPanel extends FitsOnResize(ds.applications.api.DSAppl
 
     const slots  = cols * cols;
     const filled = targets.slice(0, slots).map(t =>
-      `<img src="${t.document.texture.src}" class="dsct-token-img" style="width:${cell}px;height:${cell}px;" title="${t.name}">`
+      `<img src="${t.document.texture.src}" class="dsct-token-img" style="width:${cell}px;height:${cell}px;" ${tipAttrs(tipFor('panelTarget', { title: t.name }))}>`
     ).join('');
     const empty  = Array(Math.max(0, slots - Math.min(count, slots))).fill(
       `<div class="dsct-token-placeholder" style="width:${cell}px;height:${cell}px;"></div>`

@@ -9,7 +9,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <div class="dsct-section-label">{{localize "DSCT.panel.modFm.source"}}</div>
       <div class="dsct-fm-src-wrap">
-        <button type="button" class="dsct-amw-target-fill dsct-fm-src-fill" title="{{localize "DSCT.panel.damagePills.targetFill"}}">
+        <button type="button" class="dsct-amw-target-fill dsct-fm-src-fill" {{dsctTip "useTarget"}}>
           <i class="fa-solid fa-bullseye-pointer"></i>
         </button>
         <input type="text" data-field="note-src" placeholder="Optional" class="dsct-fm-name-input dsct-fm-src-input">
@@ -30,10 +30,10 @@
       <option value="{{value}}">{{label}}</option>
       {{/each}}
     </select>
-    <button type="button" data-action="save-preset" title="Save current inputs as a preset" class="dsct-fm-icon-btn">
+    <button type="button" data-action="save-preset" {{dsctTip "presetSave"}} class="dsct-fm-icon-btn">
       <i class="fas fa-save" style="margin:0;"></i>
     </button>
-    <button type="button" data-action="delete-preset" title="Delete selected preset" class="dsct-fm-icon-btn">
+    <button type="button" data-action="delete-preset" {{dsctTip "presetDelete"}} class="dsct-fm-icon-btn">
       <i class="fas fa-trash" style="margin:0;"></i>
     </button>
   </div>

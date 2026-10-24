@@ -3,6 +3,7 @@ import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
 import { markAreaCaps } from './dstd-area-cap.mjs';
 import { compactPillHTML } from './pill-compact.mjs';
+import { pillTip, richTip, setTip, tipAttrs, tipFor } from '../chat-tips.mjs';
 
 const M    = 'draw-steel-combat-tools';
 
@@ -205,11 +206,11 @@ class DsctDamageEditor extends ds.applications.api.DSApplication {
         const srcAttr = (p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : '')
           + (p.lineFrom ? ` data-line-from="${p.lineFrom}"` : '')
           + (p.lineStyle ? ` data-line-style="${p.lineStyle}"` : '');
-        return `<button type="button" class="dsct-source-pill dsct-de-pill dsct-dpill-${p.kind}${off ? ' dsct-pill-disabled' : ''}${x.inert ? ' dsct-dpill-inert' : ''}"${_typePillStyleAttr(p)} data-pill-idx="${x.idx}"${srcAttr} title="${foundry.utils.escapeHTML(title)}"><span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${fromStr}</button>`;
+        return `<button type="button" class="dsct-source-pill dsct-de-pill dsct-dpill-${p.kind}${off ? ' dsct-pill-disabled' : ''}${x.inert ? ' dsct-dpill-inert' : ''}"${_typePillStyleAttr(p)} data-pill-idx="${x.idx}"${srcAttr} ${tipAttrs(pillTip({ title: damagePillText(p), category: game.i18n.localize('DSCT.tip.damagePill.category'), src: p.src, hint: title }))}><span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${fromStr}</button>`;
       });
       const label = this._cfg.label
         ? `<span class="dsct-pills-label">${foundry.utils.escapeHTML(this._cfg.label)}</span>` : '';
-      const addBtn = `<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" title="${L('addPill')}">+</button>`;
+      const addBtn = `<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" ${tipAttrs(tipFor('addDamageModifier'))}>+</button>`;
       rowEl.innerHTML = `${label}${items.join('')}${addBtn}`;
     }
     setTimeout(() => this.setPosition({ height: 'auto' }), 0);
@@ -937,9 +938,8 @@ function _injectDamagePills(message, root) {
         if (p.srcTokenId) span.dataset.srcTokenId = p.srcTokenId;
         if (p.lineFrom)   span.dataset.lineFrom   = p.lineFrom;
         if (p.lineStyle)  span.dataset.lineStyle  = p.lineStyle;
-        let tooltip = it.inert
-          ? (p.kind === 'type' ? L('typeOverridden') : L('inert'))
-          : damagePillEffect(p);
+        const lines = [it.inert ? (p.kind === 'type' ? L('typeOverridden') : L('inert')) : damagePillEffect(p)];
+        if (p.src) lines.push(game.i18n.format('DSCT.tip.pillFrom', { source: p.src }));
         if (it.toggleable && canRemove) {
           span.classList.add('dsct-dmg-pill-live');
           span.dataset.dpillOp = opId;
@@ -948,12 +948,13 @@ function _injectDamagePills(message, root) {
           if (it.custom) {
             span.classList.add('dsct-pill-custom');
             span.dataset.dpillCustom = '1';
-            tooltip += `<br>${L('sessionPill')}`;
+            lines.push(L('sessionPill'));
           } else {
-            tooltip += `<br>${L('toggleTooltip')}`;
+            lines.push(L('toggleTooltip'));
           }
         }
-        span.dataset.tooltip = tooltip;
+        const esc = foundry.utils.escapeHTML;
+        setTip(span, richTip({ ...tipFor('damagePill', { title: damagePillText(p) }), html: lines.filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join('') }));
         rowEl.appendChild(span);
       }
     }

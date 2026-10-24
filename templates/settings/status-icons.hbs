@@ -4,10 +4,10 @@
   <h4 class="dsct-status-icons-group">{{label}}</h4>
   <div class="dsct-status-icons-grid">
     {{#each tiles}}
-    <div class="dsct-status-tile{{#if changed}} changed{{/if}}" data-status-id="{{id}}" role="button" tabindex="0" data-tooltip="{{localize "DSCT.statusIcons.pick"}}">
+    <div class="dsct-status-tile{{#if changed}} changed{{/if}}" data-status-id="{{id}}" role="button" tabindex="0" {{dsctTip "statusIcon" title=name body=(localize "DSCT.statusIcons.pick")}}>
       <img class="dsct-status-tile-img" src="{{img}}" alt="">
       <span class="dsct-status-tile-name">{{name}}</span>
-      {{#if changed}}<button type="button" class="dsct-status-tile-reset" data-reset="{{id}}" data-tooltip="{{localize "DSCT.statusIcons.reset"}}" aria-label="{{localize "DSCT.statusIcons.reset"}}"><i class="fa-solid fa-rotate-left"></i></button>{{/if}}
+      {{#if changed}}<button type="button" class="dsct-status-tile-reset" data-reset="{{id}}" {{dsctTip "statusIconReset" body=(localize "DSCT.statusIcons.reset")}} aria-label="{{localize "DSCT.statusIcons.reset"}}"><i class="fa-solid fa-rotate-left"></i></button>{{/if}}
     </div>
     {{/each}}
   </div>

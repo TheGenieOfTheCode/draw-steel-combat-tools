@@ -9,6 +9,7 @@ import { applyGrab, buildGrabListHTML, handleGrabListClick, grabUiState } from '
 import { DAMAGE_TYPES as DMG, damageTypeLabel } from '../ctlib.mjs';
 import { runSourcePicker, runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
+import { setTip, tipAttrs, tipFor } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -167,7 +168,7 @@ export class DamageConditionsPanel extends FitsOnResize(ds.applications.api.DSAp
 
     const slots  = cols * cols;
     const filled = targets.slice(0, slots).map(t =>
-      `<img src="${t.document.texture.src}" class="dsct-token-img" style="width:${cell}px;height:${cell}px;" title="${t.name}">`
+      `<img src="${t.document.texture.src}" class="dsct-token-img" style="width:${cell}px;height:${cell}px;" ${tipAttrs(tipFor('panelTarget', { title: t.name }))}>`
     ).join('');
     const empty  = Array(Math.max(0, slots - Math.min(count, slots))).fill(
       `<div class="dsct-token-placeholder" style="width:${cell}px;height:${cell}px;"></div>`
@@ -346,7 +347,7 @@ export class DamageConditionsPanel extends FitsOnResize(ds.applications.api.DSAp
       fist.type = 'button';
       fist.id = 'dc-grab-toggle';
       fist.className = 'header-control icon fa-solid fa-hand-fist dsct-dc-grab-fist';
-      fist.dataset.tooltip = game.i18n.localize('DSCT.panel.dc.activeGrabs');
+      setTip(fist, tipFor('activeGrabs', { title: game.i18n.localize('DSCT.panel.dc.activeGrabs') }));
       fist.addEventListener('click', () => this._setGrabsExpanded(!this._grabsExpanded));
       const kebab = header.querySelector('[data-action="toggleControls"]');
       header.insertBefore(fist, kebab ?? header.querySelector('[data-action="close"]'));

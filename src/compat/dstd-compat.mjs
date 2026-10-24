@@ -3,6 +3,10 @@ import { triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, e
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker, pickTargetsFor, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { pickAreaTargetsFor } from '../ability-automation/area-picker.mjs';
+import { setTip, tipFor } from '../chat-tips.mjs';
+
+const _tip = (el, key, opts = {}) => setTip(el, tipFor(key, opts));
+const _appliedTip = (el, key, title) => setTip(el, tipFor(key, { title, body: game.i18n.localize('DSCT.tip.applied') }));
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { applyGrab, runGrab, endGrab, grabChat } from '../conditions/grab.mjs';
@@ -648,14 +652,14 @@ function _installGlobalDamageButtons(panel, message) {
   applyAllBtn.type = 'button';
   applyAllBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
   applyAllBtn.disabled = !anyApplyEnabled;
-  applyAllBtn.dataset.tooltip = 'Apply every effect to all targets, one effect at a time';
+  _tip(applyAllBtn, 'applyAll');
   applyAllBtn.append(_makeIcon('fa-solid fa-check-double'), _makeSpan('Apply All'));
 
   const undoAllBtn = document.createElement('button');
   undoAllBtn.type = 'button';
   undoAllBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
   undoAllBtn.disabled = !anyUndoEnabled;
-  undoAllBtn.dataset.tooltip = 'Undo damage for all targets';
+  _tip(undoAllBtn, 'undoAll');
   undoAllBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
   applyAllBtn.addEventListener('click', async (e) => {
@@ -761,7 +765,7 @@ const _guardLockedUndos = () => {
     if (!btn) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    ui.notifications.info(btn.dataset.tooltip || game.i18n.format('DSCT.tooltip.undoWholeSquad', { group: '' }));
+    ui.notifications.info(game.i18n.format('DSCT.tooltip.undoWholeSquad', { group: btn.dataset.dsctSquadName ?? '' }));
   }, true);
 };
 
@@ -774,7 +778,8 @@ function _lockSweptSquadUndos(panel, message) {
     if (!undo) continue;
     if (!squad || !swept.has(squad.id)) { undo.classList.remove('dsct-squad-undo-locked'); continue; }
     undo.classList.add('dsct-squad-undo-locked');
-    undo.dataset.tooltip = game.i18n.format('DSCT.tooltip.undoWholeSquad', { group: squad.name });
+    undo.dataset.dsctSquadName = squad.name;
+    _tip(undo, 'squadUndoLocked', { data: { group: squad.name } });
   }
 }
 
@@ -792,7 +797,7 @@ function _installSquadButtons(hdr, message, panel, squad) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `${DSTD}-icon-button dsct-dstd-squad-btn ${cls} ${extra}`.trim();
-    btn.dataset.tooltip = game.i18n.format(tooltip, { group: squad.name });
+    _tip(btn, tooltip, { data: { group: squad.name } });
     btn.disabled = !enabled(action);
     btn.append(_makeIcon(icon));
     btn.addEventListener('click', async (e) => {
@@ -814,8 +819,8 @@ function _installSquadButtons(hdr, message, panel, squad) {
   };
 
   hdr.append(
-    make('dsct-dstd-squad-apply', 'fa-solid fa-check-double', 'DSCT.tooltip.squadApplyAll', 'applyDamage'),
-    make('dsct-dstd-squad-undo', 'fa-solid fa-rotate-left', 'DSCT.tooltip.squadUndoAll', 'undoDamage', `${DSTD}-undo-button`),
+    make('dsct-dstd-squad-apply', 'fa-solid fa-check-double', 'squadApply', 'applyDamage'),
+    make('dsct-dstd-squad-undo', 'fa-solid fa-rotate-left', 'squadUndo', 'undoDamage', `${DSTD}-undo-button`),
   );
 }
 
@@ -1029,7 +1034,8 @@ function _syncResourceRow({ resRow, resBtn, undoBtn, label, compact }, state) {
   resRow.classList.toggle('is-applied', applied);
   if (compact) resBtn.dataset.dsctCompact = compact;
   const text = applied ? resourceAppliedLabel(state) : label;
-  resBtn.dataset.tooltip = text;
+  if (applied) _appliedTip(resBtn, 'resource', text);
+  else _tip(resBtn, 'resource', { title: text });
   const span = resBtn.querySelector('span');
   if (span) span.textContent = text;
   undoBtn.disabled = !applied;
@@ -1043,7 +1049,8 @@ function _syncTeleportRow({ tpRow, tpBtn, undoBtn, label }, state) {
     : (state.distance == null
       ? game.i18n.localize('DSCT.FlatEffect.Teleport.applied')
       : game.i18n.format('DSCT.FlatEffect.Teleport.appliedDist', { distance: state.distance }));
-  tpBtn.dataset.tooltip = text;
+  if (applied) _appliedTip(tpBtn, 'teleport', text);
+  else _tip(tpBtn, 'teleport', { title: text });
   const span = tpBtn.querySelector('span');
   if (span) span.textContent = text;
   undoBtn.disabled = !applied || !state?.undoMsgId;
@@ -1127,11 +1134,11 @@ function _syncQuickBtn(btn, state, movementType, distance) {
   if (state.applied) {
     btn.disabled = true;
     btn.replaceChildren(_makeIcon('fa-solid fa-check'));
-    btn.dataset.tooltip = 'FM Applied';
+    _tip(btn, 'fmQuickApplied');
   } else {
     btn.disabled = false;
     btn.replaceChildren(_makeIcon(_fmQuickIcon(movementType)), _makeSpan(String(distance)));
-    btn.dataset.tooltip = `${movementType.charAt(0).toUpperCase() + movementType.slice(1)} ${distance}`;
+    _tip(btn, 'fmQuick', { title: `${movementType.charAt(0).toUpperCase() + movementType.slice(1)} ${distance}` });
   }
 }
 
@@ -1151,7 +1158,7 @@ function _setRowExecuting(fmRow, applyBtn, undoBtn, modBtn, quickBtn) {
   fmRow.classList.remove('is-applied', 'is-undone');
   applyBtn.disabled = true;
   applyBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right fa-fade'), _makeSpan('Forced Movement in Progress'));
-  applyBtn.dataset.tooltip = 'Forced Movement in Progress';
+  _tip(applyBtn, 'fmRunning');
   undoBtn.disabled = true;
   modBtn.disabled  = true;
   if (quickBtn) quickBtn.disabled = true;
@@ -1180,23 +1187,23 @@ function _syncRow(fmRow, applyBtn, undoBtn, modBtn, state, label, stabInfo = nul
   fmRow.classList.remove('is-executing');
   if (state.redirected) {
     applyBtn.replaceChildren(_makeIcon('fa-solid fa-shuffle'), _makeSpan(`Redirected: ${state.redirected.newTargetName || state.redirected.newTargetKey}`));
-    applyBtn.dataset.tooltip = state.redirected.modName || label;
+    _tip(applyBtn, 'fmRedirected', { title: state.redirected.modName || label });
     fmRow.classList.add('is-redirected');
     fmRow.classList.remove('is-applied', 'is-undone');
     applyBtn.disabled = true;
     undoBtn.disabled = false;
-    undoBtn.dataset.tooltip = 'Undo Redirect';
+    _tip(undoBtn, 'fmRedirectUndo');
     modBtn.disabled = true;
     return;
   }
   fmRow.classList.remove('is-redirected');
-  undoBtn.dataset.tooltip = 'Undo FM';
+  _tip(undoBtn, 'fmUndo');
   const suffix  = _stabSuffix(stabInfo, state.applied);
   const fmLabel = verbatim
     ? (state.applied ? `Applied: ${label}` : label) + suffix
     : (state.applied ? `Applied ${label}` : `Apply ${label}`) + suffix;
   applyBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right'), _makeSpan(fmLabel));
-  applyBtn.dataset.tooltip = fmLabel;
+  _tip(applyBtn, state.applied ? 'fmApplied' : 'fm', { title: fmLabel });
   if (state.applied) {
     fmRow.classList.add('is-applied');
     fmRow.classList.remove('is-undone');
@@ -1437,7 +1444,7 @@ function _buildSyntheticHeader(message, ability) {
     btn.type = 'button';
     btn.className = `${DSTD}-icon-button ${DSTD}-update-targets`;
     btn.dataset.dsctUpdateTargets = '1';
-    btn.dataset.tooltip = label;
+    _tip(btn, 'updateTargets', { title: label });
     btn.append(_makeIcon('fa-solid fa-bullseye'), _makeSpan(label));
     btn.addEventListener('click', async (e) => {
       e.preventDefault(); e.stopPropagation();
@@ -1570,7 +1577,8 @@ function _allowSoloCollapse(message, panel) {
           if (!src || !quick.isConnected) return;
           const done = !!src.closest(`.${DSTD}-action-row`)?.classList.contains('is-applied');
           quick.disabled = src.disabled;
-          quick.dataset.tooltip = src.dataset.tooltip ?? '';
+          if (src.dataset.dsctTip) setTip(quick, src.dataset.dsctTip);
+          else _tip(quick, 'quickRow', { title: src.dataset.tooltip || src.textContent.trim() });
           quick.classList.toggle('is-applied', done);
           quick.replaceChildren(...[...src.childNodes].map((n) => n.cloneNode(true)));
           _compactify(quick, done);
@@ -2122,18 +2130,18 @@ async function _injectFmButtons(message, root) {
         const applyBtn = document.createElement('button');
         applyBtn.type         = 'button';
         applyBtn.className    = `${DSTD}-action-button ${DSTD}-stretch-button`;
-        applyBtn.dataset.tooltip = label;
+        _tip(applyBtn, 'fm', { title: label });
 
         const undoBtn = document.createElement('button');
         undoBtn.type         = 'button';
         undoBtn.className    = `${DSTD}-icon-button ${DSTD}-undo-button dsct-dstd-undo-btn`;
-        undoBtn.dataset.tooltip = 'Undo FM';
+        _tip(undoBtn, 'fmUndo');
         undoBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
         const modBtn = document.createElement('button');
         modBtn.type         = 'button';
         modBtn.className    = `${DSTD}-icon-button ${DSTD}-cog-button dsct-dstd-modify-btn`;
-        modBtn.dataset.tooltip = 'Modify FM';
+        _tip(modBtn, 'fmModify');
         modBtn.append(_makeIcon('fa-solid fa-gear'));
 
         const fmRow = document.createElement('div');
@@ -2323,7 +2331,7 @@ async function _injectFmButtons(message, root) {
           
           for (const qdBtn of head.querySelectorAll(`.${DSTD}-quick-damage:not(.dsct-dstd-quick-fm-btn):not([data-dsct-condensed])`)) {
             const fullText = qdBtn.textContent.trim();
-            if (!qdBtn.dataset.tooltip) qdBtn.dataset.tooltip = fullText;
+            if (!qdBtn.dataset.dsctTip) _tip(qdBtn, 'quickDamage', { title: qdBtn.dataset.tooltip || fullText });
             const numMatch = fullText.match(/\d+/);
             const iconEls  = [...qdBtn.children].filter(c => c.tagName === 'I' || c.tagName === 'IMG');
             qdBtn.replaceChildren(...iconEls);
@@ -2374,21 +2382,21 @@ async function _injectFmButtons(message, root) {
             grabBtn.type = 'button';
             grabBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
             grabBtn.dataset.dsctDstdCond = condKey;
-            grabBtn.dataset.tooltip = alreadyGrabbed ? 'Applied: Grabbed' : 'Holding Shift bypasses restrictions';
+            _tip(grabBtn, alreadyGrabbed ? 'grabApplied' : 'grab');
             grabBtn.disabled = alreadyGrabbed;
             grabBtn.append(grabImg, grabSpan);
 
             const undoGrabBtn = document.createElement('button');
             undoGrabBtn.type = 'button';
             undoGrabBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
-            undoGrabBtn.dataset.tooltip = 'End Grab';
+            _tip(undoGrabBtn, 'grabUndo');
             undoGrabBtn.disabled = !alreadyGrabbed;
             undoGrabBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
             const settingsGrabBtn = document.createElement('button');
             settingsGrabBtn.type = 'button';
             settingsGrabBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-cog-button`);
-            settingsGrabBtn.dataset.tooltip = 'Grab settings are in the Conditions menu';
+            _tip(settingsGrabBtn, 'grabSettings');
             settingsGrabBtn.disabled = true;
             settingsGrabBtn.append(_makeIcon('fa-solid fa-gear'));
 
@@ -2421,7 +2429,7 @@ async function _injectFmButtons(message, root) {
               grabBtn.disabled = true;
               undoGrabBtn.disabled = false;
               grabSpan.textContent = 'Applied: Grabbed';
-              grabBtn.dataset.tooltip = 'Applied: Grabbed';
+              _tip(grabBtn, 'grabApplied');
             });
 
             undoGrabBtn.addEventListener('click', async (e) => {
@@ -2433,7 +2441,7 @@ async function _injectFmButtons(message, root) {
               grabBtn.disabled = false;
               undoGrabBtn.disabled = true;
               grabSpan.textContent = 'Grabbed';
-              grabBtn.dataset.tooltip = 'Holding Shift bypasses restrictions';
+              _tip(grabBtn, 'grab');
             });
 
             const grabRow = document.createElement('div');
@@ -2448,7 +2456,7 @@ async function _injectFmButtons(message, root) {
             condBtn.type      = 'button';
             condBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
             condBtn.dataset.dsctDstdCond = condKey;
-            condBtn.dataset.tooltip = 'Apply Frightened';
+            _tip(condBtn, 'frightened');
             condBtn.append(_makeIcon('fa-solid fa-skull'), _makeSpan('Apply Frightened'));
             condBtn.addEventListener('click', async (e) => {
               e.stopPropagation(); e.preventDefault();
@@ -2473,7 +2481,7 @@ async function _injectFmButtons(message, root) {
             condBtn.type      = 'button';
             condBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
             condBtn.dataset.dsctDstdCond = condKey;
-            condBtn.dataset.tooltip = 'Apply Taunted';
+            _tip(condBtn, 'taunted');
             condBtn.append(_makeIcon('fa-solid fa-skull'), _makeSpan('Apply Taunted'));
             condBtn.addEventListener('click', async (e) => {
               e.stopPropagation(); e.preventDefault();
@@ -2507,7 +2515,7 @@ async function _injectFmButtons(message, root) {
           pfBtn.type      = 'button';
           pfBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
           pfBtn.dataset.dsctDstdCond = pfKey;
-          pfBtn.dataset.tooltip = game.i18n.format('DSCT.button.purifyingFireDamage', { amount });
+          _tip(pfBtn, 'purifyingFire', { title: game.i18n.format('DSCT.button.purifyingFireDamage', { amount }) });
           pfBtn.append(_makeIcon('fa-solid fa-fire'), _makeSpan(game.i18n.format('DSCT.button.purifyingFireDamage', { amount })));
           pfBtn.addEventListener('click', async (e) => {
             e.stopPropagation(); e.preventDefault();
@@ -2545,7 +2553,8 @@ async function _injectFmButtons(message, root) {
         markBtn.type = 'button';
         markBtn.classList.add(`${DSTD}-action-button`, `${DSTD}-stretch-button`);
         markBtn.dataset.dsctMarkKey = markKey;
-        markBtn.dataset.tooltip     = markIsApplied ? appliedLbl : applyLbl;
+        if (markIsApplied) _appliedTip(markBtn, 'mark', appliedLbl);
+        else _tip(markBtn, 'mark', { title: applyLbl });
         markBtn.disabled            = markIsApplied;
         const markImg = document.createElement('img');
         markImg.src = 'icons/skills/targeting/crosshair-pointed-orange.webp';
@@ -2558,7 +2567,7 @@ async function _injectFmButtons(message, root) {
         const undoMarkBtn = document.createElement('button');
         undoMarkBtn.type = 'button';
         undoMarkBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
-        undoMarkBtn.dataset.tooltip = 'Undo Mark';
+        _tip(undoMarkBtn, 'markUndo');
         undoMarkBtn.disabled        = !markIsApplied;
         undoMarkBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
@@ -2570,7 +2579,7 @@ async function _injectFmButtons(message, root) {
           markBtn.disabled        = true;
           undoMarkBtn.disabled    = false;
           markSpan.textContent    = appliedLbl;
-          markBtn.dataset.tooltip = appliedLbl;
+          _appliedTip(markBtn, 'mark', appliedLbl);
         });
 
         undoMarkBtn.addEventListener('click', async (e) => {
@@ -2588,7 +2597,7 @@ async function _injectFmButtons(message, root) {
           markBtn.disabled        = false;
           undoMarkBtn.disabled    = true;
           markSpan.textContent    = applyLbl;
-          markBtn.dataset.tooltip = applyLbl;
+          _tip(markBtn, 'mark', { title: applyLbl });
         });
 
         const markRow = document.createElement('div');
@@ -2614,7 +2623,8 @@ async function _injectFmButtons(message, root) {
         judgeBtn.type = 'button';
         judgeBtn.classList.add(`${DSTD}-action-button`, `${DSTD}-stretch-button`);
         judgeBtn.dataset.dsctJudgeKey = judgeKey;
-        judgeBtn.dataset.tooltip      = judgeIsApplied ? 'Applied: Judgement' : 'Apply Judgement';
+        if (judgeIsApplied) _appliedTip(judgeBtn, 'judgement', 'Applied: Judgement');
+        else _tip(judgeBtn, 'judgement');
         judgeBtn.disabled             = judgeIsApplied;
         const judgeImg = document.createElement('img');
         judgeImg.src = 'icons/magic/death/skull-humanoid-white-red.webp';
@@ -2627,7 +2637,7 @@ async function _injectFmButtons(message, root) {
         const undoJudgeBtn = document.createElement('button');
         undoJudgeBtn.type = 'button';
         undoJudgeBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
-        undoJudgeBtn.dataset.tooltip = 'Undo Judgement';
+        _tip(undoJudgeBtn, 'judgementUndo');
         undoJudgeBtn.disabled        = !judgeIsApplied;
         undoJudgeBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
@@ -2639,7 +2649,7 @@ async function _injectFmButtons(message, root) {
           judgeBtn.disabled        = true;
           undoJudgeBtn.disabled    = false;
           judgeSpan.textContent    = 'Applied: Judgement';
-          judgeBtn.dataset.tooltip = 'Applied: Judgement';
+          _appliedTip(judgeBtn, 'judgement', 'Applied: Judgement');
         });
 
         undoJudgeBtn.addEventListener('click', async (e) => {
@@ -2656,7 +2666,7 @@ async function _injectFmButtons(message, root) {
           judgeBtn.disabled        = false;
           undoJudgeBtn.disabled    = true;
           judgeSpan.textContent    = 'Apply Judgement';
-          judgeBtn.dataset.tooltip = 'Apply Judgement';
+          _tip(judgeBtn, 'judgement');
         });
 
         const judgeRow = document.createElement('div');
@@ -2691,7 +2701,8 @@ async function _injectFmButtons(message, root) {
       enrichBtn.type = 'button';
       enrichBtn.classList.add(`${DSTD}-action-button`, `${DSTD}-stretch-button`);
       enrichBtn.dataset.dsctEnrichKey = enrichKey;
-      enrichBtn.dataset.tooltip = isApplied ? appliedLbl : applyLbl;
+      if (isApplied) _appliedTip(enrichBtn, 'enricher', appliedLbl);
+      else _tip(enrichBtn, 'enricher', { title: applyLbl });
       enrichBtn.disabled = isApplied;
       const enrichSpan = document.createElement('span');
       enrichSpan.textContent = isApplied ? appliedLbl : applyLbl;
@@ -2700,7 +2711,7 @@ async function _injectFmButtons(message, root) {
       const undoEnrichBtn = document.createElement('button');
       undoEnrichBtn.type = 'button';
       undoEnrichBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
-      undoEnrichBtn.dataset.tooltip = `Undo ${enrichLabel}`;
+      _tip(undoEnrichBtn, 'conditionUndo', { title: `Undo ${enrichLabel}`, category: game.i18n.localize('DSCT.tip.enricher.category') });
       undoEnrichBtn.disabled = !isApplied;
       undoEnrichBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
@@ -2729,7 +2740,7 @@ async function _injectFmButtons(message, root) {
         enrichBtn.disabled        = true;
         undoEnrichBtn.disabled    = false;
         enrichSpan.textContent    = appliedLbl;
-        enrichBtn.dataset.tooltip = appliedLbl;
+        _appliedTip(enrichBtn, 'enricher', appliedLbl);
       });
 
       undoEnrichBtn.addEventListener('click', async (e) => {
@@ -2744,7 +2755,7 @@ async function _injectFmButtons(message, root) {
         enrichBtn.disabled        = false;
         undoEnrichBtn.disabled    = true;
         enrichSpan.textContent    = applyLbl;
-        enrichBtn.dataset.tooltip = applyLbl;
+        _tip(enrichBtn, 'enricher', { title: applyLbl });
       });
 
       const enrichRow = document.createElement('div');
@@ -2812,7 +2823,8 @@ async function _injectFmButtons(message, root) {
       applyDmgBtn.dataset.dstdAction  = 'applyDamage';
       applyDmgBtn.dataset.target      = targetJSON;
       applyDmgBtn.dataset.operationId = operationId;
-      applyDmgBtn.dataset.tooltip     = fullLabel;
+      if (isApplied) _appliedTip(applyDmgBtn, 'damage', fullLabel);
+      else _tip(applyDmgBtn, 'damage', { title: fullLabel });
       applyDmgBtn.disabled = isApplied;
       Object.assign(applyDmgBtn.dataset, synDataset);
       const dmgLabel = isApplied ? `Applied ${appRecord?.amount ?? dispAmount}` : fullLabel;
@@ -2831,7 +2843,7 @@ async function _injectFmButtons(message, root) {
       undoDmgBtn.dataset.dstdAction  = 'undoDamage';
       undoDmgBtn.dataset.target      = targetJSON;
       undoDmgBtn.dataset.operationId = operationId;
-      undoDmgBtn.dataset.tooltip     = game.i18n.localize('DSTD.Chat.Undo') || 'Undo';
+      _tip(undoDmgBtn, 'damageUndo');
       undoDmgBtn.disabled = targetObj.selectedToken ? stackCount <= 0 : !isApplied;
       undoDmgBtn.append(_makeIcon('fa-solid fa-rotate-left'));
       if (targetObj.selectedToken && stackCount > 0) {
@@ -2847,7 +2859,7 @@ async function _injectFmButtons(message, root) {
       editDmgBtn.dataset.dstdAction  = 'editDamage';
       editDmgBtn.dataset.target      = targetJSON;
       editDmgBtn.dataset.operationId = operationId;
-      editDmgBtn.dataset.tooltip     = game.i18n.localize('DSTD.Chat.EditDamage') || 'Edit Damage';
+      _tip(editDmgBtn, 'damageEdit');
       Object.assign(editDmgBtn.dataset, synDataset);
       editDmgBtn.append(_makeIcon('fa-solid fa-gear'));
 
@@ -2866,7 +2878,7 @@ async function _injectFmButtons(message, root) {
         quickDmgBtn.className = `${DSTD}-action-button ${DSTD}-quick-damage dsct-dstd-quick-dmg-btn`;
         if (dispType) quickDmgBtn.classList.add(`${DSTD}-damage-type-${dispType}`);
         quickDmgBtn.disabled  = isApplied;
-        quickDmgBtn.dataset.tooltip = fullLabel;
+        _tip(quickDmgBtn, 'quickDamage', { title: fullLabel });
         quickDmgBtn.addEventListener('click', () => { if (!quickDmgBtn.disabled) applyDmgBtn.click(); });
         quickDmgBtn.append(_makeIcon(_dmgIcon(dispType)), _makeSpan(String(dispAmount)));
         head.insertBefore(quickDmgBtn, toggle);
@@ -2916,18 +2928,18 @@ async function _injectFmButtons(message, root) {
       const applyFlatBtn = document.createElement('button');
       applyFlatBtn.type      = 'button';
       applyFlatBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
-      applyFlatBtn.dataset.tooltip = label;
+      _tip(applyFlatBtn, 'fm', { title: label });
 
       const undoFlatBtn = document.createElement('button');
       undoFlatBtn.type      = 'button';
       undoFlatBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button dsct-dstd-undo-btn`;
-      undoFlatBtn.dataset.tooltip = 'Undo FM';
+      _tip(undoFlatBtn, 'fmUndo');
       undoFlatBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
       const modFlatBtn = document.createElement('button');
       modFlatBtn.type      = 'button';
       modFlatBtn.className = `${DSTD}-icon-button ${DSTD}-cog-button dsct-dstd-modify-btn`;
-      modFlatBtn.dataset.tooltip = 'Modify FM';
+      _tip(modFlatBtn, 'fmModify');
       modFlatBtn.append(_makeIcon('fa-solid fa-gear'));
 
       const fmRow = document.createElement('div');
@@ -3092,7 +3104,7 @@ async function _injectFmButtons(message, root) {
 
         for (const qdBtn of head.querySelectorAll(`.${DSTD}-quick-damage:not(.dsct-dstd-quick-fm-btn):not([data-dsct-condensed])`)) {
           const fullText = qdBtn.textContent.trim();
-          if (!qdBtn.dataset.tooltip) qdBtn.dataset.tooltip = fullText;
+          if (!qdBtn.dataset.dsctTip) _tip(qdBtn, 'quickDamage', { title: qdBtn.dataset.tooltip || fullText });
           const numMatch = fullText.match(/\d+/);
           const iconEls  = [...qdBtn.children].filter(c => c.tagName === 'I' || c.tagName === 'IMG');
           qdBtn.replaceChildren(...iconEls);
@@ -3145,14 +3157,14 @@ async function _injectFmButtons(message, root) {
       condBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
       condBtn.dataset.dsctFlatCondKey = condStateKey;
       condBtn.dataset.dsctStatus = statusId;
-      condBtn.dataset.tooltip = applyLbl;
+      _tip(condBtn, 'condition', { title: applyLbl });
       condBtn.disabled = condState.applied;
       condBtn.append(_makeCondIcon(), _makeSpan(applyLbl));
 
       const undoCondBtn = document.createElement('button');
       undoCondBtn.type      = 'button';
       undoCondBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      undoCondBtn.dataset.tooltip = `Undo ${baseName}`;
+      _tip(undoCondBtn, 'conditionUndo', { title: `Undo ${baseName}` });
       undoCondBtn.disabled = !condState.applied;
       undoCondBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
@@ -3167,7 +3179,8 @@ async function _injectFmButtons(message, root) {
         condRow.classList.toggle('is-applied', condState.applied);
         condBtn.disabled = condState.applied;
         condBtn.replaceChildren(_makeCondIcon(), _makeSpan(lbl));
-        condBtn.dataset.tooltip = lbl;
+        if (condState.applied) _appliedTip(condBtn, 'condition', lbl);
+        else _tip(condBtn, 'condition', { title: lbl });
         undoCondBtn.disabled = !condState.applied;
       };
 
@@ -3251,7 +3264,8 @@ async function _injectFmButtons(message, root) {
       healBtn.dataset.dsctFlatHealKey = healFlagKey;
       const appliedHealAmt = isApplied ? (cur.granted?.[netUsed - 1] ?? cur.healed?.[netUsed - 1] ?? null) : null;
       const healLabel = appliedHealAmt != null ? `Applied ${appliedHealAmt}` : applyLbl;
-      healBtn.dataset.tooltip = healLabel;
+      if (appliedHealAmt != null) _appliedTip(healBtn, 'heal', healLabel);
+      else _tip(healBtn, 'heal', { title: healLabel });
       healBtn.dataset.dsctCompact = `${appliedHealAmt ?? amountStr} ${tempStamina ? 'Temp' : 'Healing'}`;
       healBtn.disabled = isApplied;
       const healIcon = tempStamina ? 'fa-solid fa-shield-halved' : 'fa-solid fa-heart-pulse';
@@ -3260,7 +3274,7 @@ async function _injectFmButtons(message, root) {
       const undoHealBtn = document.createElement('button');
       undoHealBtn.type      = 'button';
       undoHealBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      undoHealBtn.dataset.tooltip = `Undo ${applyLbl}${netUsed > 1 ? ` (${netUsed})` : ''}`;
+      _tip(undoHealBtn, 'healUndo', { title: `Undo ${applyLbl}${netUsed > 1 ? ` (${netUsed})` : ''}` });
       undoHealBtn.disabled = netUsed === 0;
       const undoIcon = _makeIcon('fa-solid fa-rotate-left');
       if (repeatable && netUsed > 0) {
@@ -3416,7 +3430,7 @@ async function _injectFmButtons(message, root) {
       const undoTpBtn = document.createElement('button');
       undoTpBtn.type = 'button';
       undoTpBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      undoTpBtn.dataset.tooltip = `${game.i18n.localize('DSCT.FlatEffect.Teleport.undo')} ${tpLabel}`;
+      _tip(undoTpBtn, 'teleportUndo', { title: `${game.i18n.localize('DSCT.FlatEffect.Teleport.undo')} ${tpLabel}` });
       undoTpBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
       const tpRow = document.createElement('div');
@@ -3510,7 +3524,7 @@ async function _injectFmButtons(message, root) {
       const undoResBtn = document.createElement('button');
       undoResBtn.type = 'button';
       undoResBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      undoResBtn.dataset.tooltip = game.i18n.localize('DSCT.FlatEffect.Resource.undo');
+      _tip(undoResBtn, 'resourceUndo');
       undoResBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
       const resRow = document.createElement('div');
@@ -3525,7 +3539,7 @@ async function _injectFmButtons(message, root) {
       
       if (perRow && resTargetActor && !canGainResource(resTargetActor, type)) {
         resBtn.disabled = true;
-        resBtn.dataset.tooltip = game.i18n.format('DSCT.notice.flatResource.noPool', { name: resTargetActor.name });
+        _tip(resBtn, 'resourceNoPool', { title: resLabel, data: { name: resTargetActor.name } });
       }
 
       resBtn.addEventListener('click', async (e) => {
@@ -3564,14 +3578,15 @@ async function _injectFmButtons(message, root) {
       cleanseBtn.dataset.dsctFlatCleanseKey = cleanseFlagKey;
       const appliedCleanseName = isApplied ? (cur.stack?.[0]?.name ?? applyLbl) : null;
       const cleanseLabel = appliedCleanseName != null ? `Removed: ${appliedCleanseName}` : applyLbl;
-      cleanseBtn.dataset.tooltip = cleanseLabel;
+      if (appliedCleanseName != null) _tip(cleanseBtn, 'cleanseApplied', { title: cleanseLabel });
+      else _tip(cleanseBtn, 'cleanse', { title: cleanseLabel });
       cleanseBtn.disabled = isApplied;
       cleanseBtn.append(_makeIcon('fa-solid fa-broom'), _makeSpan(cleanseLabel));
 
       const undoCleanseBtn = document.createElement('button');
       undoCleanseBtn.type      = 'button';
       undoCleanseBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      undoCleanseBtn.dataset.tooltip = `Undo ${applyLbl}`;
+      _tip(undoCleanseBtn, 'cleanseUndo', { title: `Undo ${applyLbl}` });
       undoCleanseBtn.disabled = stackLen === 0;
       const undoClsIcon = _makeIcon('fa-solid fa-rotate-left');
       if (stackLen > 1) {
@@ -3645,7 +3660,7 @@ async function _injectFmButtons(message, root) {
           cleanseRow.classList.add('is-applied');
           const appliedName = game.i18n.format('DSCT.FlatEffect.Cleanse.removedAll', { n: all.length });
           cleanseBtn.replaceChildren(_makeIcon('fa-solid fa-broom'), _makeSpan(appliedName));
-          cleanseBtn.dataset.tooltip = appliedName;
+          _tip(cleanseBtn, 'cleanseApplied', { title: appliedName });
           return;
         }
 
@@ -3686,7 +3701,7 @@ async function _injectFmButtons(message, root) {
           cleanseRow.classList.add('is-applied');
           const appliedName = `Removed: ${removedData?.name ?? applyLbl}`;
           cleanseBtn.replaceChildren(_makeIcon('fa-solid fa-broom'), _makeSpan(appliedName));
-          cleanseBtn.dataset.tooltip = appliedName;
+          _tip(cleanseBtn, 'cleanseApplied', { title: appliedName });
         } else {
           cleanseBtn.disabled = false;
         }

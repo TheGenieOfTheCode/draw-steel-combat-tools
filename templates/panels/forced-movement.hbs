@@ -26,7 +26,7 @@
           <option value="Pull">{{localize "DSCT.panel.fm.pull"}}</option>
           <option value="Slide">{{localize "DSCT.panel.fm.slide"}}</option>
         </select>
-        <input type="number" id="fm-dist" value="1" min="0" step="1" class="dsct-input-sm" title="Squares">
+        <input type="number" id="fm-dist" value="1" min="0" step="1" class="dsct-input-sm" {{dsctTip "fmPanelSquares"}}>
       </div>
     </div>
 
@@ -34,14 +34,14 @@
       <label class="dsct-checkbox-label">
         <input type="checkbox" id="fm-vert-check"> {{localize "DSCT.panel.fm.vertical"}}
       </label>
-      <input type="number" id="fm-vert-dist" placeholder="Dist" step="1" class="dsct-input-md" title="Leave blank to match horizontal distance">
+      <input type="number" id="fm-vert-dist" placeholder="Dist" step="1" class="dsct-input-md" {{dsctTip "fmPanelVertical"}}>
     </div>
 
     <div class="dsct-divider"></div>
 
     <div class="dsct-row">
       <div class="dsct-param-label">{{localize "DSCT.panel.fm.fallReduction"}}</div>
-      <input type="number" id="fm-fall-red" value="0" min="0" step="1" class="dsct-input-sm" title="Bonus (Stacks with Agility)">
+      <input type="number" id="fm-fall-red" value="0" min="0" step="1" class="dsct-input-sm" {{dsctTip "fmPanelFall"}}>
     </div>
 
     <div class="dsct-row">

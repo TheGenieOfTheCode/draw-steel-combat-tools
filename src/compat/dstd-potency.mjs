@@ -4,6 +4,7 @@ import { DSCTAddModifierDialog, EFFECT_PILL_KINDS, EFFECT_END_LABELS, pillAmount
 import { addResultPill, chatPillHTML } from './dstd-roll-pills.mjs';
 import { createExpiryReminder } from '../ability-automation/flat-special-effects.mjs';
 import { RECURRING_PREFIX, RECURRING_IGNORES, hasRecurring } from '../conditions/recurring-damage.mjs';
+import { setTip, tipFor, TIP_CLASS } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 const L = (k, data) => data ? game.i18n.format(`DSCT.panel.potency.${k}`, data) : game.i18n.localize(`DSCT.panel.potency.${k}`);
@@ -153,7 +154,7 @@ function verdictTag(row, button, verdict, detail) {
   tag.className = className;
   tag.textContent = text;
   tag.dataset.dsctTip = tip;
-  tag.dataset.dsctTipClass = 'draw-steel';
+  tag.dataset.dsctTipClass = TIP_CLASS;
   button.append(tag);
 }
 
@@ -236,7 +237,7 @@ function effectCog(row, message, targetKey, effectId, name, hasPotency, hasRecur
   const cog = document.createElement('button');
   cog.type = 'button';
   cog.className = `${DSTD}-icon-button ${DSTD}-cog-button dsct-effect-cog`;
-  cog.dataset.tooltip = E('Edit');
+  setTip(cog, tipFor('potencyEdit'));
   cog.innerHTML = '<i class="fa-solid fa-gear"></i>';
   cog.disabled = row.classList.contains('is-applied');
   cog.addEventListener('click', (ev) => {

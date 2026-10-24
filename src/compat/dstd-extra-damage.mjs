@@ -1,4 +1,5 @@
 import { DSTD, DSTD_ROW, DAMAGE_TYPES, registerPanelDecorator, safeUpdate } from '../ctlib.mjs';
+import { setTip, tipFor } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG = 'extraDamage';
@@ -80,7 +81,8 @@ function _decorate(message, panel) {
       apply.type = 'button';
       apply.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
       if (x.type) apply.classList.add(`${DSTD}-damage-type-${x.type}`);
-      Object.assign(apply.dataset, { dstdAction: 'applyDamage', target: targetJSON, operationId, tooltip: label }, dataset);
+      Object.assign(apply.dataset, { dstdAction: 'applyDamage', target: targetJSON, operationId }, dataset);
+      setTip(apply, tipFor('extraDamage', { title: label }));
       apply.disabled = applied;
       const span = document.createElement('span');
       span.textContent = applied ? L('applied', { name: x.label, amount: record?.amount ?? x.amount, type: typeLabel || L('untyped') }) : label;
@@ -89,7 +91,8 @@ function _decorate(message, panel) {
       const undo = document.createElement('button');
       undo.type = 'button';
       undo.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      Object.assign(undo.dataset, { dstdAction: 'undoDamage', target: targetJSON, operationId, tooltip: game.i18n.localize('DSTD.Chat.Undo') || 'Undo' });
+      Object.assign(undo.dataset, { dstdAction: 'undoDamage', target: targetJSON, operationId });
+      setTip(undo, tipFor('damageUndo'));
       undo.disabled = !applied;
       undo.append(_icon('fa-solid fa-rotate-left'));
 
