@@ -699,7 +699,7 @@ export class WallBuilderPanel extends FitsOnResize(ds.applications.api.DSApplica
 
       const onMove  = (e) => { hoverGrid = toGrid(e.data.getLocalPosition(canvas.app.stage)); redraw(hoverGrid); };
       const onClick = (e) => {
-        if (e.data.button === 2) { if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } return; }
+        if (e.data.button !== 0) return;
         const gpos = toGrid(e.data.getLocalPosition(canvas.app.stage));
         const idx  = selected.findIndex(g => g.x === gpos.x && g.y === gpos.y);
         if (idx >= 0) selected.splice(idx, 1); else selected.push(gpos);
@@ -742,6 +742,9 @@ export class WallBuilderPanel extends FitsOnResize(ds.applications.api.DSApplica
         onUiToggle: (hidden) => { _wbHideUi = hidden; },
         onConfirm: () => { cleanup(); resolve(selected); },
         onCancel: () => { cleanup(); resolve(null); },
+        controls: [{ input: 'CTLIB.picker.help.click', action: 'DSCT.picker.help.toggleSquare' }],
+        cancelOnRightClick: !!getSetting('cancelOnRightClick'),
+        onRightClick: () => { if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } },
       });
     });
   }

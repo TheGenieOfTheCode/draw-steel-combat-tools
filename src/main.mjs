@@ -26,6 +26,7 @@ import { registerTriggersDerived } from './compat/triggers-derived.mjs';
 import { registerApplyToTargets, applyEnricherPayload } from './conditions/apply-to-targets.mjs';
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
+import { registerAreaLineRendering } from './ability-automation/area-picker.mjs';
 import { registerSearch, pointOut, runSearch, spendHeroToken } from './conditions/search.mjs';
 import { registerHiddenMarkers } from './conditions/hidden-markers.mjs';
 import { registerPartyOverview } from './party/overview.mjs';
@@ -222,6 +223,7 @@ Hooks.once('init', () => {
   registerPeek();
   registerColorFields();
   registerBurrowRendering();
+  registerAreaLineRendering();
   registerHiddenMarkers();
   if (getSetting('partyToolsEnabled')) {
     registerPartyOverview();

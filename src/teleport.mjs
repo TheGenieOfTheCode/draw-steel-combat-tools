@@ -173,7 +173,7 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}
   };
 
   const onClick = (e) => {
-    if (e.data.button === 2) { if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } return; }
+    if (e.data.button !== 0) return;
     const pos  = e.data.getLocalPosition(canvas.app.stage);
     const gpos = toGrid(pos);
     const chosen = candidates.find(g =>
@@ -215,6 +215,9 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}
     holeRects,
     showConfirm: false,
     onCancel: () => { cleanup(); resolve(null); },
+    controls: [{ input: 'CTLIB.picker.help.click', action: 'CTLIB.picker.help.chooseSquare' }],
+    cancelOnRightClick: !!getSetting('cancelOnRightClick'),
+    onRightClick: () => { if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } },
   });
 });
 

@@ -300,6 +300,7 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
   let _sqCancel     = () => {};
   let _sqAutoAssign = () => {};
   let _sqUnselect   = () => {};
+  let _sqRightClick = () => {};
   const fsDamage  = eligibleMinions[0]?.actor?.system?.monster?.freeStrike ?? 0;
   const maxPerTarget = opts.maxPerTarget ?? 3;
   const rangeNote = range !== initialRange ? ` · Free strikes can join from range ${range}` : '';
@@ -330,6 +331,13 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
       tooltip: 'Clear every assignment and start over.',
       onClick: () => _sqUnselect(),
     }],
+    controls: [
+      { input: 'DSCT.picker.help.clickMinion', action: 'DSCT.picker.help.pickUpMinion' },
+      { input: 'DSCT.picker.help.clickTarget', action: 'DSCT.picker.help.assignMinion' },
+      { input: 'DSCT.picker.help.rightClickHolding', action: 'DSCT.picker.help.putDownMinion' },
+    ],
+    cancelOnRightClick: !!getSetting('cancelOnRightClick'),
+    onRightClick: () => _sqRightClick(),
   });
 
   const refreshNotif = () => {
@@ -468,7 +476,6 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
       canvas.stage.off('mousedown', onClick);
       canvas.stage.off('mousemove', onMove);
       document.removeEventListener('keydown', onKey);
-      document.removeEventListener('contextmenu', onContextMenu);
       if (container.parent) container.parent.removeChild(container);
       container.destroy({ children: true });
       window._dsctSquadTargetingContainer = null;
@@ -596,8 +603,7 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
       }
     };
 
-    const onContextMenu = (e) => {
-      e.preventDefault();
+    _sqRightClick = () => {
       if (activeMinionId) {
         activeMinionId  = null;
         hoveredTargetId = null;
@@ -613,7 +619,6 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
     canvas.stage.on('mousedown', onClick);
     canvas.stage.on('mousemove', onMove);
     document.addEventListener('keydown', onKey);
-    document.addEventListener('contextmenu', onContextMenu);
   });
 }
 

@@ -1370,6 +1370,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       };
 
       const onRightClick = () => {
+        if (_cleaned) return;
         if (path.length > 0) {
           const count = pathSegments.pop() ?? 1;
           for (let i = 0; i < count; i++) path.pop();
@@ -1391,7 +1392,6 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         _cleaned = true;
         overlay.off('pointermove', onMove);
         overlay.off('pointerdown', onClick);
-        overlay.off('rightdown',   onRightClick);
         document.removeEventListener('keydown', onKeyDown);
         canvas.app.stage.removeChild(overlay);
         canvas.app.stage.removeChild(graphics);
@@ -1540,7 +1540,6 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
 
       overlay.on('pointermove', onMove);
       overlay.on('pointerdown', onClick);
-      overlay.on('rightdown',   onRightClick);
       document.addEventListener('keydown', onKeyDown);
       redraw(null);
       const vertNote = isVertical ? ` vertical ${reducedVert}` : '';
@@ -1550,6 +1549,12 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         holeRects: fmHoleRects(),
         onConfirm: () => { cleanup(isVertical); resolve(path); },
         onCancel: () => { cleanup(); resolve(null); },
+        controls: [
+          { input: 'DSCT.picker.help.clickSquare', action: 'DSCT.picker.help.addStep' },
+          { input: 'DSCT.picker.help.clickStart', action: 'DSCT.picker.help.finishMove' },
+          { input: 'CTLIB.picker.help.rightClick', action: getSetting('cancelOnRightClick') ? 'DSCT.picker.help.undoStepOrCancel' : 'DSCT.picker.help.undoStep' },
+        ],
+        onRightClick,
       });
       updateFmHoles = () => fmOverlay?.setHoleRects(fmHoleRects());
     });

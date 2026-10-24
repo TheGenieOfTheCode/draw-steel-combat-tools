@@ -253,6 +253,9 @@ function _runPeekPicker(casterToken, options) {
       showConfirm: false,
       showCancel: true,
       onCancel: () => done(null),
+      controls: [{ input: 'DSCT.picker.help.clickSquare', action: 'DSCT.picker.help.peek' }],
+      cancelOnRightClick: true,
+      onRightClick: () => done(null),
     });
 
     const atEvent = (event) => {
@@ -266,13 +269,6 @@ function _runPeekPicker(casterToken, options) {
     const onMove = (event) => { hover = atEvent(event); paint(); };
     const onDown = (event) => {
       if (event.target?.closest?.('#dsct-picker-topbar')) return;
-      if (event.button === 2) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        done(null);
-        return;
-      }
       if (event.button !== 0 || !hover) return;
       event.preventDefault();
       event.stopPropagation();
@@ -410,6 +406,12 @@ async function _runTargetPicker(ability, casterToken, { maxTargets: maxOverride 
       tokens: validTokens,
       onConfirm: () => tryConfirm(),
       onCancel: () => doCancel(),
+      controls: [
+        { input: 'CTLIB.picker.help.click', action: 'CTLIB.picker.help.toggleToken' },
+        { input: 'CTLIB.picker.help.doubleClickEmpty', action: 'CTLIB.picker.confirm' },
+      ],
+      cancelOnRightClick: !!getSetting('cancelOnRightClick'),
+      onRightClick: () => { if (getSetting('cancelOnRightClick')) doCancel(); },
     });
     const syncStatus = () => {
       overlay.setStatus(game.i18n.format('DSCT.picker.pickCount', { max: maxTargets, s: maxS, n: selectedTokens.size }));
@@ -484,10 +486,6 @@ async function _runTargetPicker(ability, casterToken, { maxTargets: maxOverride 
     };
 
     const onClick = (event) => {
-      if (event.data.originalEvent.button === 2) {
-        if (getSetting('cancelOnRightClick')) doCancel();
-        return;
-      }
       if (event.data.originalEvent.button !== 0) return;
 
       const pos     = event.data.getLocalPosition(canvas.app.stage);
@@ -528,7 +526,6 @@ async function _runTargetPicker(ability, casterToken, { maxTargets: maxOverride 
 
     const onContextMenu = (e) => {
       e.preventDefault();
-      if (getSetting('cancelOnRightClick')) doCancel();
     };
 
     
@@ -604,6 +601,9 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
       tokens,
       onConfirm: () => doConfirm(),
       onCancel: () => { cleanup(); resolve(null); },
+      controls: [{ input: 'CTLIB.picker.help.click', action: 'CTLIB.picker.help.toggleToken' }],
+      cancelOnRightClick: !!getSetting('cancelOnRightClick'),
+      onRightClick: () => { if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } },
     });
     const syncStatus = () => {
       const count = game.i18n.format('DSCT.picker.selectedCount', { n: selectedIds.size });
@@ -635,10 +635,6 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
     };
 
     const onClick = (event) => {
-      if (event.data.originalEvent.button === 2) {
-        if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); }
-        return;
-      }
       if (event.data.originalEvent.button !== 0) return;
       const pos = event.data.getLocalPosition(canvas.app.stage);
       const hit = _hitToken(pos, tokens);
@@ -668,7 +664,7 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
       }
     };
 
-    const onContextMenu = (e) => { e.preventDefault(); if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } };
+    const onContextMenu = (e) => { e.preventDefault(); };
 
     canvas.stage.on('mousedown', onClick);
     canvas.stage.on('mousemove', onMove);
@@ -738,6 +734,23 @@ function _restoreTargetsAfterUse(abilityUuid, previous) {
   };
   Hooks.on('createChatMessage', created);
   Hooks.once('closeAbilityConfigurationDialog', () => setTimeout(restore, 5000));
+}
+
+export const casterTokenFor = (ability) => _getCasterToken(ability);
+
+
+export async function pickTargetsFor(ability) {
+  if (!_isPickerEligible(ability, chooseTargeting(ability))) return undefined;
+  const casterToken = _getCasterToken(ability);
+  if (!casterToken) return undefined;
+  const selected = await _runTargetPicker(ability, casterToken);
+  if (!selected?.length) { await _undoAutoPeek(casterToken); return null; }
+  return selected;
+}
+
+export function areaCandidates(ability, casterToken, targetType) {
+  return _getValidTargets(casterToken, targetType, 0, { excludeSelf: targetType !== 'selfAlly', checkLOS: false, respectHidden: false })
+    .filter(t => _inAreaFilter(ability, t) && !_isDefeated(t));
 }
 
 export function burstTargetsAround(ability, originToken) {

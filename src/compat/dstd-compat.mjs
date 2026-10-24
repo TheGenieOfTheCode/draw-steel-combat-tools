@@ -1,7 +1,8 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor, effectStartFor } from '../helpers.mjs';
 import { triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks, modifyAttributeSafely } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
-import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
+import { runColoredTokenPicker, pickTargetsFor, setFoundryTargets } from '../ability-automation/target-picker.mjs';
+import { pickAreaTargetsFor } from '../ability-automation/area-picker.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { applyGrab, runGrab, endGrab, grabChat } from '../conditions/grab.mjs';
@@ -201,6 +202,7 @@ export function registerDstdCompat() {
     
     try { _seedPanelAnchor(message, root); }
     catch (err) { if (getSetting('debugMode')) console.warn('DSCT | panel anchor |', err); }
+    _watchUpdateTargets(message, root);
     const msgId = message.id;
     setTimeout(() => {
 
@@ -1358,6 +1360,38 @@ const _dstdLoc = (key, data) => {
   const out = data ? game.i18n.format(full, data) : game.i18n.localize(full);
   return out === full ? null : out;
 };
+
+const UPDATE_TARGETS = '[data-dstd-action="updateTargets"], [data-dsct-update-targets]';
+
+async function _repickForMessage(message) {
+  const abilityUuid = _getMessageParts(message).find(p => p.abilityUuid)?.abilityUuid ?? message.flags?.[DSTD]?.state?.abilityUuid;
+  const ability = abilityUuid ? await fromUuid(abilityUuid).catch(() => null) : null;
+  if (!ability) return undefined;
+  const area = await pickAreaTargetsFor(ability);
+  return area !== undefined ? area : pickTargetsFor(ability);
+}
+
+function _watchUpdateTargets(message, root) {
+  if (root.dataset.dsctRepick) return;
+  root.dataset.dsctRepick = '1';
+  root.addEventListener('click', async (event) => {
+    const button = event.target.closest?.(UPDATE_TARGETS);
+    if (!button) return;
+    if (button.dataset.dsctRepicked) { delete button.dataset.dsctRepicked; return; }
+    if (!getSetting('abilityTargetingEnabled')) return;
+    if (game.user.targets.size && !getSetting('alwaysRepickTargets')) return;
+    if (!game.user.isGM && !message.isOwner && message.author?.id !== game.user.id) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const picked = await _repickForMessage(message);
+    if (picked === null) return;
+    if (picked) setFoundryTargets(picked);
+    const live = button.isConnected ? button
+      : document.querySelector(`li.chat-message[data-message-id="${message.id}"]`)?.querySelector(UPDATE_TARGETS) ?? button;
+    live.dataset.dsctRepicked = '1';
+    live.click();
+  }, true);
+}
 
 async function _updateSyntheticTargets(message) {
   let collect = null;

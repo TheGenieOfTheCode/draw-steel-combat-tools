@@ -521,11 +521,23 @@
       },
       "alwaysRepickTargets": {
         "name": "Always Re-Pick Targets",
-        "hint": "Clear whatever you had targeted before an ability resolves, so you are always asked to pick again."
+        "hint": "Clear whatever you had targeted before an ability resolves, so you are always asked to pick again. Update Targets on a chat message asks again too."
       },
       "autoConfirmSelection": {
         "name": "Auto-Confirm Target Selection",
         "hint": "Confirm as soon as you have picked as many targets as the ability allows, with no need to press Enter. When there are no more valid targets than it allows, they are picked for you."
+      },
+      "areaPicker": {
+        "name": "Area Picker",
+        "hint": "Before the roll window, place an ability's burst, cube or line on the map and see who it catches. Turn it off to place areas yourself after the roll."
+      },
+      "areaPickerTurnStep": {
+        "name": "Line Turn Step",
+        "hint": "How far each Shift + scroll turns a line when the Area Picker opens. The Turn button changes it for that pick. Everyone sets their own."
+      },
+      "areaPickerPlayerExclude": {
+        "name": "Players Can Exclude Area Targets",
+        "hint": "Players can click a creature in an area they place to leave it out, even if the area would hit it. The Director always can."
       },
       "rollDialogPillUI": {
         "name": "Alternative Ability Roll UI",
@@ -1328,7 +1340,57 @@
       "titleReposition": "Reposition",
       "repositionInstruction": "Choose a square adjacent to {grabber} for {name}",
       "pickCount": "Pick up to {max} target{s} · {n} selected",
-      "selectedCount": "{n} selected"
+      "selectedCount": "{n} selected",
+      "help": {
+        "peek": "Peek from that square",
+        "clickMinion": "Click a minion's icon",
+        "pickUpMinion": "Pick that minion up",
+        "clickTarget": "Click a target",
+        "assignMinion": "Send the minion you are holding at it",
+        "rightClickHolding": "Right-click while holding a minion",
+        "putDownMinion": "Put it down",
+        "toggleObserver": "Switch whether that creature is observing",
+        "clickSquare": "Click a lit square",
+        "addStep": "Move one more square",
+        "clickStart": "Click the creature or a square already moved through",
+        "finishMove": "End the movement there",
+        "undoStep": "Take back the last square",
+        "undoStepOrCancel": "Take back the last square, or cancel once none are left",
+        "toggleSquare": "Add or remove that square",
+        "clickMap": "Click the map",
+        "placeArea": "Place the area",
+        "turnScroll": "Shift or Ctrl + scroll",
+        "turnLine": "Turn the line while placing it",
+        "clickEmpty": "Click empty map",
+        "moveArea": "Pick the area up and place it again",
+        "clickInArea": "Click a creature in the area",
+        "excludeTarget": "Leave it out, or put it back",
+        "rightClickTurn": "Right-click Turn",
+        "smallerStep": "Use a smaller turn step"
+      }
+    },
+    "areaPicker": {
+      "detail": {
+        "burst": "{n} burst",
+        "cube": "{n} cube within {range}",
+        "line": "{l} x {w} line within {range}"
+      },
+      "placing": "Click to place the area",
+      "placingLine": "Click to place the line, Shift + scroll to turn it",
+      "empty": "Click the map to place the area, or double-click for a suggestion",
+      "count": "{n} target{s} in the area",
+      "countExcluded": "{n} target{s} in the area, {x} left out",
+      "excludeHint": "Click a target to leave it out",
+      "suggest": "Suggest",
+      "suggestTip": "Place the area where it covers the most targets, on the grid and within range.",
+      "move": "Move Area",
+      "moveTip": "Take the area away and place it again.",
+      "turn": "Turn {n}°",
+      "turnTip": "How far each Shift + scroll turns the line. Click for a bigger step, right-click for a smaller one.",
+      "noSuggestion": "No spot in range reaches a target.",
+      "outOfRange": "The area has to be within {range} squares of you.",
+      "noArea": "Place the area first.",
+      "cancelled": "Area targeting cancelled."
     },
     "panel": {
       "title": {

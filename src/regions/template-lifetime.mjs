@@ -119,8 +119,13 @@ async function _trackOngoing(region, item) {
   await safeSetFlag(region, M, REGION_EFFECT, effectUuid);
 }
 
-async function _onCreateRegion(region, _options, userId) {
+async function _onCreateRegion(region, options, userId) {
   if (userId !== game.user.id) return;
+  if (options?.dsctAreaHold) return;
+  await _startLifetime(region);
+}
+
+async function _startLifetime(region) {
   if (!getSetting('abilityTemplateCleanup')) return;
   if (!isPlacedTemplate(region)) return;
 
@@ -130,6 +135,9 @@ async function _onCreateRegion(region, _options, userId) {
   if (isOngoing(item, region)) await _trackOngoing(region, item);
   else _scheduleSweep(region);
 }
+
+export const releaseAreaHold = (region) => _startLifetime(region)
+  .catch(err => console.warn('DSCT | template lifetime | tracking failed:', err));
 
 async function _onDeleteRegion(region) {
   const uuid = region.uuid;

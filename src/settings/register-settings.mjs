@@ -684,6 +684,19 @@ export const registerSettings = () => {
     name: L('autoConfirmSelection.name'), hint: L('autoConfirmSelection.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'areaPicker', {
+    name: L('areaPicker.name'), hint: L('areaPicker.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'areaPickerTurnStep', {
+    name: L('areaPickerTurnStep.name'), hint: L('areaPickerTurnStep.hint'),
+    scope: 'client', config: false, type: String, default: '5',
+    choices: { 5: '5°', 15: '15°', 30: '30°', 45: '45°', 90: '90°' },
+  });
+  game.settings.register(M, 'areaPickerPlayerExclude', {
+    name: L('areaPickerPlayerExclude.name'), hint: L('areaPickerPlayerExclude.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
   game.settings.register(M, 'rollDialogPillUI', {
     name: L('rollDialogPillUI.name'), hint: L('rollDialogPillUI.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

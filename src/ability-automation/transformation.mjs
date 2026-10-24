@@ -21,13 +21,15 @@ const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
     tokens: candidates,
     showConfirm: false,
     onCancel: () => { cleanup(); resolve(null); },
+    controls: [{ input: 'CTLIB.picker.help.click', action: 'CTLIB.picker.help.chooseToken' }],
+    cancelOnRightClick: true,
+    onRightClick: () => { cleanup(); resolve(null); },
   });
   const cleanup = () => {
     overlay.end();
     canvas.interface.grid.destroyHighlightLayer(hlName);
     canvas.stage.off('mousedown', onClick);
     document.removeEventListener('keydown', onKey);
-    document.removeEventListener('contextmenu', onCancel);
   };
   const onClick = (ev) => {
     if (ev.data.originalEvent.button !== 0) return;
@@ -42,10 +44,8 @@ const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
     resolve(hit);
   };
   const onKey    = (ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); cleanup(); resolve(null); } };
-  const onCancel = (ev) => { ev.preventDefault(); cleanup(); resolve(null); };
   canvas.stage.on('mousedown', onClick);
   document.addEventListener('keydown', onKey);
-  document.addEventListener('contextmenu', onCancel);
 });
 
 
