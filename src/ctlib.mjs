@@ -28,7 +28,8 @@ export const {
   setPickerTarget, setRaisedDeadVisible, sightBlockPoint, sightLinesToToken, sightOriginPoints, sightSamplePoints,
   sightSamples, sizeRank, snapStamina, spaceSamplePoints, squareIsConcealed, stackedPrompt, tierOf, tileAt,
   tileIsOpenDoor, toCenter, toGrid, toWorld, tokFootprintDist, tokenAt, tokenCoverMode, touchesGround, undoDamage,
-  visibleSquareCorners, visibleTargetCorners, wallBetween, wallBlocksMovement, wallGrantsCover
+  visibleSquareCorners, visibleTargetCorners, wallBetween, wallBlocksMovement, wallGrantsCover,
+  TIP_CLASS, richTip, tipFrom, setTip, tipAttrs, pillTip
 } = lib;
 
 export const SettingsSubmenu = lib.settingsSubmenu?.() ?? lib.SettingsSubmenu;

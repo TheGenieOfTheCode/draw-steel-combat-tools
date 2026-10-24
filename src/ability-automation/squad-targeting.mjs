@@ -4,7 +4,6 @@ import { beginPickerOverlay } from './picker-overlay.mjs';
 import { getStrikeType } from './class-shadow/crossfade.mjs';
 import { _recomputeAndSync, _injectPillUI } from './roll-dialog-hooks.mjs';
 import { chooseKeywords } from './choose-effect.mjs';
-import { richBarButtons } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -325,11 +324,13 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
       label: game.i18n.localize('DSCT.picker.squad.suggest'),
       kbd: 'Double-click',
       tooltip: game.i18n.localize('DSCT.picker.squad.suggestTip'),
+      tipCategory: game.i18n.localize('DSCT.tip.groupAction.category'),
       onClick: () => _sqAutoAssign(),
     }, {
       icon: 'fa-solid fa-eraser',
       label: game.i18n.localize('DSCT.picker.squad.unselect'),
       tooltip: game.i18n.localize('DSCT.picker.squad.unselectTip'),
+      tipCategory: game.i18n.localize('DSCT.tip.groupAction.category'),
       onClick: () => _sqUnselect(),
     }],
     controls: [
@@ -340,7 +341,6 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
     cancelOnRightClick: !!getSetting('cancelOnRightClick'),
     onRightClick: () => _sqRightClick(),
   });
-  richBarButtons(game.i18n.localize('DSCT.tip.groupAction.category'));
 
   const refreshNotif = () => {
     if (activeMinionId) {

@@ -7,7 +7,7 @@ import {
 } from './target-picker.mjs';
 import { hitToken } from '../ctlib.mjs';
 import { releaseAreaHold } from '../regions/template-lifetime.mjs';
-import { richBarButtons, setTip } from '../chat-tips.mjs';
+import { setTip } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 const DS = 'draw-steel';
@@ -374,6 +374,7 @@ async function runAreaPicker(ability, area, caster) {
 
   return new Promise((resolve) => {
     const movable = area.shape !== 'burst';
+    const tipCategory = game.i18n.localize('DSCT.tip.areaPicker.category');
     const overlay = beginPickerOverlay({
       title: ability.name,
       detail,
@@ -394,23 +395,24 @@ async function runAreaPicker(ability, area, caster) {
         label: L('suggest'),
         kbd: 'Double-click',
         tooltip: L('suggestTip'),
+        tipCategory,
         onClick: () => suggest(),
       }, {
         icon: 'fa-solid fa-arrows-up-down-left-right',
         label: L('move'),
         tooltip: L('moveTip'),
+        tipCategory,
         onClick: () => startPlacing(),
       }, ...(area.shape === 'line' ? [{
         className: 'dsct-area-turn',
         icon: 'fa-solid fa-rotate',
         label: L('turn', { n: _turnStep }),
         tooltip: L('turnTip'),
+        tipCategory,
         onClick: () => cycleTurn(1),
       }] : [])] : [],
     });
 
-    const tipCategory = game.i18n.localize('DSCT.tip.areaPicker.category');
-    richBarButtons(tipCategory);
     const turnButton = document.querySelector('#dsct-picker-topbar .dsct-area-turn');
     const cycleTurn = (dir) => {
       _turnStep = TURN_STEPS[(TURN_STEPS.indexOf(_turnStep) + dir + TURN_STEPS.length) % TURN_STEPS.length];
