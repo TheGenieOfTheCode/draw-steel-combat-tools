@@ -1,14 +1,14 @@
 {
   "schema": 1,
   "latest": {
-    "version": "1.2.5",
+    "version": "1.2.6",
     "url": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest"
   },
   "recommends": [
     {
       "id": "draw-steel-death-tracker",
       "title": "Draw Steel: Death Tracker",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "url": "https://github.com/TheGenieOfTheCode/draw-steel-death-tracker/releases/latest",
       "reason": "[Combat Tools] Keeps track of who falls: deaths announced in chat with an undo, the right minions taken from a squad, and the fallen left where they fell."
     },
