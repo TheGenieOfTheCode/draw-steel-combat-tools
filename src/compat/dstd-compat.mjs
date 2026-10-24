@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor } from '../helpers.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor, effectStartFor } from '../helpers.mjs';
 import { triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks, modifyAttributeSafely } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
@@ -2685,7 +2685,10 @@ async function _injectFmButtons(message, root) {
           const tmp = await CONFIG.ActiveEffect.documentClass.fromStatusEffect(statusId).catch(() => null);
           if (tmp) {
             const data = foundry.utils.mergeObject(tmp.toObject(), { transfer: true });
-            if (endStr && ds?.CONFIG?.effectEnds?.[endStr]) data.duration = { expiry: ds.CONFIG.effectEnds[endStr].expiryEvent };
+            if (endStr && ds?.CONFIG?.effectEnds?.[endStr]) {
+              data.duration = { expiry: ds.CONFIG.effectEnds[endStr].expiryEvent };
+              data.start = effectStartFor(targetToken.actor);
+            }
             if (targetToken.actor) await safeCreateEmbedded(targetToken.actor, 'ActiveEffect', [data]);
           }
         }

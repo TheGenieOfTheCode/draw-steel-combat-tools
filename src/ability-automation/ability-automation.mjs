@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi } from '../helpers.mjs';
+import { getSetting, getModuleApi, effectStartFor } from '../helpers.mjs';
 import { safeCreateEmbedded } from '../ctlib.mjs';
 import { applyStatus, SOURCED_STATUSES } from '../conditions/statuses.mjs';
 import { registerImNoThreatHooks } from './class-shadow/im-no-threat.mjs';
@@ -83,8 +83,10 @@ export const registerAbilityInjectors = () => {
                 const tmp = await CONFIG.ActiveEffect.documentClass.fromStatusEffect(statusId).catch(() => null);
                 if (tmp) {
                   const data = foundry.utils.mergeObject(tmp.toObject(), { transfer: true });
-                  if (endStr && ds?.CONFIG?.effectEnds?.[endStr])
+                  if (endStr && ds?.CONFIG?.effectEnds?.[endStr]) {
                     data.duration = { expiry: ds.CONFIG.effectEnds[endStr].expiryEvent };
+                    data.start = effectStartFor(t.actor);
+                  }
                   await safeCreateEmbedded(t.actor, 'ActiveEffect', [data]);
                 }
               }
