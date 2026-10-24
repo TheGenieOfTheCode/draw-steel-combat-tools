@@ -140,7 +140,10 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   const type = damageType || 'untyped';
   
   const ignoredImmunities = staminaLoss ? ['all'] : (ignoreImmunity ? [type] : []);
-  const effectiveAmt      = (isArea && squadGroup) ? Math.min(amount, actor.system.stamina.max ?? amount) : amount;
+  
+  
+  const lossWeakness      = staminaLoss ? (actor.system.calculateImmunityAndWeakness?.({ type, ignoredImmunities }).weakness ?? 0) : 0;
+  const effectiveAmt      = (isArea && squadGroup) ? Math.min(amount, actor.system.stamina.max ?? amount) : amount - lossWeakness;
 
   const take = () => safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities, staminaLoss, ...(fall ? { dsctFall: true } : {}), ...(forced ? { dsctForced: true } : {}), ...(source ? { dsbl: { source } } : {}) });
   await (staminaLoss ? asStaminaLoss(take) : take());

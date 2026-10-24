@@ -42,14 +42,22 @@ const _escapeGrabInFlight = new Set();
 const _bleedingInFlight   = new Set();
 const _recentlyCreated    = new Set();
 
-const getActionType = (el) => {
-  return el.querySelector('document-embed dd.type')?.textContent?.trim() ?? '';
-};
+const BLEED_ACTIONS = new Set(['main', 'triggered', 'freeTriggered']);
+const BLEED_CHARACTERISTICS = ['might', 'agility'];
 
-const getRollCharacteristics = (el) => {
-  const rollLine  = el.querySelector('document-embed .powerResult strong')?.textContent ?? '';
-  const flavorTxt = el.querySelector('.message-part-flavor')?.textContent?.trim() ?? '';
-  return (rollLine + ' ' + flavorTxt).toLowerCase();
+const bleedsOn = (msg) => {
+  for (const part of normalizeCollection(msg.system?.parts)) {
+    if (part.type === 'test') {
+      const flavor = part.flavor ?? '';
+      if (BLEED_CHARACTERISTICS.some(c => flavor.includes(game.i18n.localize(ds.CONFIG.characteristics[c]?.label ?? c)))) return true;
+      continue;
+    }
+    const ability = part.abilityUuid ? fromUuidSync(part.abilityUuid) : null;
+    if (!ability) continue;
+    if (BLEED_ACTIONS.has(ability.system?.type)) return true;
+    if (part.type === 'abilityResult' && BLEED_CHARACTERISTICS.includes(ability.system?.power?.characteristic?.key)) return true;
+  }
+  return false;
 };
 
 function _setBaneDialogLock(app, locked, reasons = []) {
@@ -249,11 +257,7 @@ export function registerChatHooks() {
       const speakerTokenId = msg.speaker?.token;
       const speakerTok = speakerTokenId ? getTokenById(speakerTokenId) : null;
       if (speakerTok?.actor?.statuses?.has('bleeding')) {
-        const actionType = getActionType(el).toLowerCase();
-        const rollChars  = getRollCharacteristics(el);
-        const triggers   = actionType.includes('main action') || actionType.includes('triggered action')
-                        || rollChars.includes('might') || rollChars.includes('agility');
-        if (triggers) {
+        if (bleedsOn(msg)) {
           _bleedingInFlight.add(msg.id);
           await msg.setFlag('draw-steel-combat-tools', 'bleedingTriggered', {
             tokenId: speakerTokenId,
