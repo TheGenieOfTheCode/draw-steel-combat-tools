@@ -519,6 +519,23 @@ const _statusHasPotency = (btn, message) => {
 
 const _rowMessage = (actionRow, message) => message ?? game.messages.get(actionRow.closest('li.chat-message')?.dataset.messageId);
 
+const TRIGGERS_ID = 'draw-steel-triggers';
+const HELD_KINDS = new Set(['held', 'damageHeld', 'resolutionHeld']);
+const HOLD_GRACE_MS = 150;
+const HOLD_WAIT_MS = 600000;
+
+const _heldNow = (msgId) => !!game.modules.get(TRIGGERS_ID)?.api?.getQueueMirror?.()?.some(e => HELD_KINDS.has(e.kind))
+  || Object.values(game.messages.get(msgId)?.flags?.[DSTD]?.state?.applications ?? {}).some(a => a?.dstHeld);
+
+const _waitForHolds = async (msgId) => {
+  if (!game.modules.get(TRIGGERS_ID)?.active) return true;
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  await wait(HOLD_GRACE_MS);
+  const until = Date.now() + HOLD_WAIT_MS;
+  while (_heldNow(msgId) && Date.now() < until) await wait(200);
+  return !_heldNow(msgId);
+};
+
 const _damageHeld = (actionRow, message) => {
   const opId = actionRow.closest(DSTD_ROW)?.querySelector('button[data-dstd-action="applyDamage"]')?.dataset.operationId;
   return !!(opId && _rowMessage(actionRow, message)?.flags?.[DSTD]?.state?.applications?.[opId]?.dstHeld);
@@ -571,43 +588,52 @@ async function _applyDeferredPotency(message, panel) {
   if (!waiting) _potencyWatch.delete(message.id);
 }
 
-const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => damageBatch(() => _withOneToast(async () => {
+const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => _withOneToast(async () => {
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
   const panelNow = () => msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`)?.querySelector(DSTD_PANEL);
   const rowOf = (key) => panelNow()?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(key)}"]`);
   const actionAt = (key, col) => (rowOf(key) ? _effectRows(rowOf(key))[col] : null);
   const keys = [...(panelNow()?.querySelectorAll(DSTD_ROW) ?? [])].map(r => r.dataset.targetKey).filter(k => k && k !== 'selected-token');
   const targetsBefore = [...game.user.targets].map(t => t.id);
-  try {
-    for (let col = 0; ; col++) {
-      let anyRow = false;
-      for (const key of keys) {
-        const actionRow = actionAt(key, col);
-        if (!actionRow) continue;
-        anyRow = true;
-        const message = game.messages.get(msgId);
-        const btn = _autoButton(actionRow, safe, message);
-        if (!btn) continue;
-        const isFm = actionRow.classList.contains('dsct-dstd-fm-row');
-        const before = applicationSignature(message);
-        btn.click();
-        if (isFm) {
-          await wait(150);
-          const until = Date.now() + FM_SETTLE_MAX_MS;
-          while ((window._dsctFMActive || actionAt(key, col)?.classList.contains('is-executing')) && !_promptOpen() && Date.now() < until) await wait(50);
-        } else if (btn.dataset.dstdAction) {
-          await _dstdRowLanded(btn);
-        } else {
-          const until = Date.now() + ROW_SETTLE_MAX_MS;
-          while (Date.now() < until && applicationSignature(game.messages.get(msgId)) === before
-            && _autoButton(actionAt(key, col))) await wait(25);
-        }
-        const promptUntil = Date.now() + PROMPT_WAIT_MS;
-        while (_promptOpen() && Date.now() < promptUntil) await wait(100);
-        if (_promptOpen()) return;
-        await wait(ROW_REDRAW_MS);
+  const runColumn = (col) => damageBatch(async () => {
+    let anyRow = false;
+    let damaged = false;
+    for (const key of keys) {
+      const actionRow = actionAt(key, col);
+      if (!actionRow) continue;
+      anyRow = true;
+      const message = game.messages.get(msgId);
+      const btn = _autoButton(actionRow, safe, message);
+      if (!btn) continue;
+      const isFm = actionRow.classList.contains('dsct-dstd-fm-row');
+      const before = applicationSignature(message);
+      if (btn.dataset.dstdAction === 'applyDamage') damaged = true;
+      btn.click();
+      if (isFm) {
+        await wait(150);
+        const until = Date.now() + FM_SETTLE_MAX_MS;
+        while ((window._dsctFMActive || actionAt(key, col)?.classList.contains('is-executing')) && !_promptOpen() && Date.now() < until) await wait(50);
+      } else if (btn.dataset.dstdAction) {
+        await _dstdRowLanded(btn);
+      } else {
+        const until = Date.now() + ROW_SETTLE_MAX_MS;
+        while (Date.now() < until && applicationSignature(game.messages.get(msgId)) === before
+          && _autoButton(actionAt(key, col))) await wait(25);
       }
-      if (!anyRow) break;
+      const promptUntil = Date.now() + PROMPT_WAIT_MS;
+      while (_promptOpen() && Date.now() < promptUntil) await wait(100);
+      if (_promptOpen()) return { stop: true };
+      if (!(await _waitForHolds(msgId))) return { stop: true };
+      await wait(ROW_REDRAW_MS);
+    }
+    return { anyRow, damaged };
+  });
+  try {
+    if (!(await _waitForHolds(msgId))) return;
+    for (let col = 0; ; col++) {
+      const { stop, anyRow, damaged } = await runColumn(col);
+      if (stop || !anyRow) break;
+      if (damaged && keys.some(key => actionAt(key, col + 1))) await services.get('settleDeaths')?.();
     }
   } finally {
     if (canvas.ready) {
@@ -616,7 +642,7 @@ const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => damageBat
       for (const id of keep) canvas.tokens.get(id)?.setTarget(true, { releaseOthers: false, groupSelection: true });
     }
   }
-}));
+});
 
 const ROW_SETTLE_MAX_MS = 500;
 const ROW_REDRAW_MS = 60;
