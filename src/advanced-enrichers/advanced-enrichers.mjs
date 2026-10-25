@@ -109,10 +109,33 @@ const flatEffectOf = (message, a) => {
   return id ? (abilityOf(message)?.system?.effects?.get?.(String(id)) ?? null) : null;
 };
 
+const argSpec = (cfg) => {
+  const has = (k) => cfg[k] != null && cfg[k] !== '';
+  if (!has('distance') && !has('targetType') && !has('count')) return null;
+  const opts = ds.CONFIG.abilities?.targets?.[cfg.targetType]?.targetOptions;
+  const ally = !!opts?.has('ally'), enemy = !!opts?.has('enemy');
+  return {
+    ...(has('count') ? { mode: 'pick', count: Math.max(1, Number(cfg.count) || 1) } : {}),
+    ...(has('distance') ? { range: Math.max(0, Number(cfg.distance) || 0) } : {}),
+    ...(['self', 'target', 'area'].includes(cfg.from) ? { origin: cfg.from } : {}),
+    ...(opts ? { disposition: ally && enemy ? 'any' : ally ? 'ally' : enemy ? 'enemy' : 'none', includeSelf: opts.has('self') } : {}),
+  };
+};
+
+const ARG_DEFAULTS = { mode: 'all', origin: 'self', range: 1, disposition: 'any', count: 1, includeSelf: false };
+
+const isOthers = (a) => {
+  const cfg = sourceConfig(a);
+  return cfg.recipient === 'others' || !!argSpec(cfg);
+};
+
 const othersOf = (message, a) => {
   const effect = flatEffectOf(message, a);
-  const spec = effect ? othersSpec(effect) : null;
-  if (!spec) return null;
+  const args = argSpec(sourceConfig(a));
+  const base = effect ? othersSpec(effect) : null;
+  if (!base && !args) return null;
+  const spec = { ...ARG_DEFAULTS, ...(base ?? {}), ...(args ?? {}) };
+  if (!base && args.range == null) spec.range = Number(abilityOf(message)?.system?.distance?.primary) || 1;
   const ctx = {
     sourceToken: sourceDoc(message, a)?.object ?? null,
     targetTokens: flatTargets(message).map((u) => fromUuidSync(u)?.object).filter(Boolean),
@@ -136,7 +159,7 @@ const targetsOf = (message, st, ec, kind) => {
   }
   if (cfg.recipient === 'self') return speakerTargets(message, a);
   if (cfg.recipient === 'target') return flatTargets(message);
-  if (cfg.recipient === 'others') return othersOf(message, a)?.live() ?? [];
+  if (isOthers(a)) return othersOf(message, a)?.live() ?? [];
   if (kind.recipient === 'speaker' ? !OTHERS.test(sentenceBefore(ec)) : meansSpeaker(ec)) return speakerTargets(message, a);
   return flatTargets(message);
 };
@@ -953,7 +976,7 @@ const refundCost = async (message, key) => {
 };
 
 const retarget = async (message, key, a) => {
-  const others = sourceConfig(a).recipient === 'others' ? othersOf(message, a) : null;
+  const others = isOthers(a) ? othersOf(message, a) : null;
   if (others) {
     const candidates = others.candidates();
     if (!candidates.length) return void ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.Others.noneInReach', { name: abilityOf(message)?.name ?? '' }));
@@ -973,7 +996,7 @@ const retarget = async (message, key, a) => {
 };
 
 const freezeOthers = async (message, key, a) => {
-  if (sourceConfig(a).recipient !== 'others') return;
+  if (!isOthers(a)) return;
   const st = stateOf(message, key);
   if (Array.isArray(st.targets) && st.othersSig == null) return;
   const others = othersOf(message, a);
@@ -1202,8 +1225,14 @@ const onClick = (ec, a, message, key, kind) => async (event) => {
     }
     if (chip) return void await applyRows(kind, message, key, a, chip.dataset.advUuids.split(' '));
     if (event.shiftKey && link) {
-      const mine = [...game.user.targets].map((t) => t.document.uuid);
+      let mine = [...game.user.targets].map((t) => t.document.uuid);
       if (!mine.length) return void ui.notifications.warn(L('shiftNoTargets'));
+      const others = isOthers(a) ? othersOf(message, a) : null;
+      if (others) {
+        const reach = new Set(others.candidates().map((t) => t.document.uuid));
+        mine = mine.filter((u) => reach.has(u)).slice(0, others.spec.mode === 'pick' ? others.spec.count : undefined);
+        if (!mine.length) return void ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.Others.noneInReach', { name: abilityOf(message)?.name ?? '' }));
+      }
       await write(message, key, { targets: mine, othersSig: null });
       return void await applyRows(kind, game.messages.get(message.id) ?? message, key, a, mine);
     }
