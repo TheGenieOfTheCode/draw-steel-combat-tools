@@ -42,6 +42,7 @@ import { triggerAbyssalEvolution, registerMaliceInjectors } from './ability-auto
 import { registerCrossfadeHooks } from './ability-automation/class-shadow/crossfade.mjs';
 import { registerSquadTargetingHooks, _pendingSquadMap, runSquadFreeStrike } from './ability-automation/squad-targeting.mjs';
 import { registerStartupNotice, showStartupNotice } from './startup-notice.mjs';
+import { registerSettingsReport, showSettingsReport } from './settings-report.mjs';
 import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-shadow/hesitation.mjs';
 import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
 import { registerSettings } from './settings/register-settings.mjs';
@@ -131,6 +132,7 @@ const api = {
   grabPanel:        toggleGrabPanel,
   endGrab:          endGrab,
   startupNotice:    showStartupNotice,
+  settingsReport:   showSettingsReport,
   judgement:        applyJudgement,
   mark:             applyMark,
   aidAttack:        applyAidAttack,
@@ -269,6 +271,7 @@ Hooks.once('init', () => {
   registerRollDialogPillHooks();
   registerSquadTargetingHooks();
   registerStartupNotice();
+  registerSettingsReport();
   registerMaliceInjectors();
   registerFlatEffects();
   registerExpiryReminders();

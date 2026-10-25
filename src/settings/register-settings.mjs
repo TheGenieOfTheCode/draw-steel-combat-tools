@@ -9,6 +9,7 @@ import { applyHealthEstimatePatch } from '../compat/health-estimate-compat.mjs';
 import { applyCompactPills } from '../compat/pill-compact.mjs';
 import { applyHideApplyWord } from '../compat/dstd-apply-word.mjs';
 import { InstallMacrosMenu, EnhancedAbilitiesMenu } from '../setup-macros.mjs';
+import { SettingsReportMenu } from '../settings-report.mjs';
 import {
   ForcedMovementSettingsMenu,
   ConditionsSettingsMenu,
@@ -937,4 +938,10 @@ export const registerSettings = () => {
     hint: L('distributeEnhanced.hint'),
     icon: 'fas fa-book-sparkles', type: EnhancedAbilitiesMenu, restricted: true,
   });
+  game.settings.registerMenu(M, 'settingsReport', {
+    name: L('settingsReport.name'), label: L('settingsReport.label'),
+    hint: L('settingsReport.hint'),
+    icon: 'fas fa-list-check', type: SettingsReportMenu, restricted: false,
+  });
+  game.settings.register(M, 'settingsReportSeen', { scope: 'client', config: false, type: String, default: '' });
 };

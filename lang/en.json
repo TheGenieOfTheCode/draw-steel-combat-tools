@@ -66,6 +66,11 @@
         "label": "Add to Every Actor",
         "hint": "Adds every ability from the DSCT: Enhanced Abilities compendium to every actor in the world that does not already have it. Hide and Search gather the scattered stealth rules into one action each."
       },
+      "settingsReport": {
+        "name": "Settings Report",
+        "label": "Show Report",
+        "hint": "Posts a chat message, only to you, listing every setting you can change that differs from its default, with buttons to restore them."
+      },
       "macroPromptMode": {
         "name": "Sample Macro Import Prompt",
         "hint": "When to offer the Director the sample macros on load.",
@@ -1736,6 +1741,10 @@
       "undoWholeSquad": "Damage was applied to all of {group} at once, so undo the squad rather than one of its members."
     },
     "tip": {
+      "reportReset": { "title": "Restore Default", "category": "Settings Report", "body": "Sets this one setting back to its default." },
+      "reportRestore": { "title": "Restore Section", "category": "Settings Report", "body": "Sets every setting listed in this section back to its default, after you confirm." },
+      "reportChanged": { "title": "Default Changed", "category": "Settings Report", "body": "Combat Tools {version} changed this setting's default. Your value may be the old default rather than a choice." },
+      "reportClient": { "title": "This Device Only", "category": "Settings Report", "body": "This setting is saved in this browser, so other devices and players keep their own." },
       "manual": { "title": "Resolved by Hand", "category": "Not Automated", "body": "Combat Tools doesn't automate this part of the ability, so resolve it at the table." },
       "applied": "Already applied. The undo button next to it reverses it.",
       "applyAll": { "title": "Apply All", "category": "All Targets", "body": "Applies every effect on this chat message to every target, one effect at a time, in the order they're listed." },
@@ -2331,6 +2340,21 @@
       "visExtraCombatTurn": "Active Combat Turn",
       "visExtraControlled": "Token Controlled",
       "visExtraHover": "Token Hovered"
+    },
+    "settingsReport": {
+      "title": "Combat Tools Settings Report",
+      "titleChanged": "Combat Tools Changed Some Defaults",
+      "blurb": "These settings differ from their defaults. Some may be defaults from an older version that never updated. Restore what you didn't choose on purpose.",
+      "blurbChanged": "This update changed the defaults below, and your settings still use the old values. Restore any you didn't choose on purpose.",
+      "none": "All your Combat Tools settings match their defaults.",
+      "general": "General",
+      "on": "On",
+      "off": "Off",
+      "empty": "Empty",
+      "default": "(default {value})",
+      "changedIn": "Changed in {version}",
+      "confirmTitle": "Restore Defaults",
+      "confirmBody": "Restore all {count} settings in {section} to their defaults?"
     },
     "rangeConfirm": {
       "title": "Out of Range",
