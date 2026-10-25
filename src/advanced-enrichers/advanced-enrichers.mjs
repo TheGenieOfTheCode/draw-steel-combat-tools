@@ -1365,6 +1365,24 @@ const placeholders = (a) => {
   for (const k of ['dsctDetail', 'dsctTip']) if (a.dataset[k]?.includes('@')) a.dataset[k] = marip(a.dataset[k]);
 };
 
+const amountSlot = (a) => {
+  if (a.querySelector(':scope > span')) return;
+  const formula = a.dataset.formula ?? a.dataset.formulas?.split('&')[0];
+  if (!formula) return;
+  const shown = marip(String(formula)).trim();
+  const rx = new RegExp(`(^|\\s)(${shown.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\s|$)`);
+  for (const node of [...a.childNodes]) {
+    if (node.nodeType !== Node.TEXT_NODE) continue;
+    const m = node.nodeValue.match(rx);
+    if (!m) continue;
+    const at = m.index + m[1].length;
+    const rest = node.splitText(at);
+    rest.nodeValue = rest.nodeValue.slice(shown.length);
+    node.after(Object.assign(document.createElement('span'), { textContent: shown }));
+    return;
+  }
+};
+
 const wrapEnricher = (id) => {
   const i = CONFIG.TextEditor.enrichers.findIndex((e) => e.id === id);
   if (i < 0) return;
@@ -1381,6 +1399,7 @@ const wrapEnricher = (id) => {
       if (a && advancedEnrichersOn()) placeholders(a);
       if (a && advancedEnrichersOn() && untypedAutoDamage(id, a, match)) a.append(` ${L('flatDamage', { type: '' }).trim()}`);
       if (a && advancedEnrichersOn()) titleCaseText(a);
+      if (a && advancedEnrichersOn() && match.groups?.label) amountSlot(a);
       if (a && compactOn()) compactLink(id, a);
       return el;
     },

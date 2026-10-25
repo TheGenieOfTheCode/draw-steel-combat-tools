@@ -3251,7 +3251,8 @@ section.dsct-adv-empty-panel {
 
 enriched-content.dsct-adv-done > a {
   text-decoration: line-through;
-  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-decoration-thickness: 2px;
+  text-decoration-color: light-dark(#2a1a2e, #f2ecf8);
 }
 
 img.dsct-adv-icon,
