@@ -34,7 +34,8 @@
       "statusEffect": {},
       "statusEffectEvents": {},
       "activeEffect": {},
-      "activeEffectEvents": {}
+      "activeEffectEvents": {},
+      "damageEvents": {}
     }
   },
   "esmodules": [

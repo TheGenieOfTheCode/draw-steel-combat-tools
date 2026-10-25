@@ -1,5 +1,6 @@
 import { getSetting, safeDelete, safeCreateEmbedded, safeSetFlag, noLogFlag } from '../helpers.mjs';
 import { isPrimaryGM } from '../ctlib.mjs';
+import { afterChoiceHoldsArea } from '../ability-automation/choose-effect.mjs';
 
 const M  = 'draw-steel-combat-tools';
 const DS = 'draw-steel';
@@ -65,13 +66,25 @@ function lifetimeMs() {
   return seconds * 1000;
 }
 
+const AREA_CHOICE_HOLD_MS = 600000;
+const _heldSince = new Map();
+
 async function _sweep(uuid) {
   const timer = _pending.get(uuid);
   if (timer) clearTimeout(timer);
   _pending.delete(uuid);
 
   const region = await fromUuid(uuid).catch(() => null);
-  if (region) await safeDelete(region);
+  if (!region) return;
+  const item = fromUuidSync(abilityOf(region) ?? '');
+  const since = _heldSince.get(uuid) ?? Date.now();
+  if (item && afterChoiceHoldsArea(item) && Date.now() - since < AREA_CHOICE_HOLD_MS) {
+    _heldSince.set(uuid, since);
+    _scheduleSweep(region);
+    return;
+  }
+  _heldSince.delete(uuid);
+  await safeDelete(region);
 }
 
 function _scheduleSweep(region) {

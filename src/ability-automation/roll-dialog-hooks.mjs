@@ -389,7 +389,8 @@ function _buildTargetPills(app, tokenId) {
   
   const _doubled = stealthTraits(targetToken).concealmentBaneDoubled ? 2 : 1;
 
-  if (getSetting('coverBaneEnabled') && casterToken && _dealsDamage(ability)) {
+  const ignores = (what) => !!ability.getFlag?.('draw-steel-combat-tools', `ignores${what}`);
+  if (getSetting('coverBaneEnabled') && casterToken && _dealsDamage(ability) && !ignores('Cover')) {
     const p = pill(mkId(`cov-${tokenId}`), 'bane', _doubled, 'Cover', null, tokenId, false);
     p.enabled = coverWithBurrow(casterToken, targetToken);
     pills.push(p);
@@ -398,7 +399,7 @@ function _buildTargetPills(app, tokenId) {
   
   
   if (getSetting('stealthSystemEnabled') && casterToken && abilityKeywords.has('strike')
-      && !stealthTraits(casterToken).ignoresConcealmentBane) {
+      && !stealthTraits(casterToken).ignoresConcealmentBane && !ignores('Concealment')) {
     const p = pill(mkId(`conc-${tokenId}`), 'bane', _doubled, 'Concealment', null, tokenId, false);
     p.enabled = isConcealed(targetToken);
     pills.push(p);

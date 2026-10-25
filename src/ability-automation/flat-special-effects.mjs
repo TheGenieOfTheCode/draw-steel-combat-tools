@@ -18,6 +18,37 @@ function _setField(opts = {}) {
   return new StringField({ ...opts, required: true, blank: false });
 }
 
+const OTHERS_MODES = ["all", "pick"];
+const OTHERS_ORIGINS = ["target", "self", "area"];
+const OTHERS_DISPOSITIONS = ["any", "ally", "enemy"];
+const OTHERS_KEYS = ["mode", "origin", "range", "disposition", "count", "includeSelf"];
+
+function _othersField() {
+  const L = (key) => ({ label: `DSCT.FlatEffect.Others.${key}.label`, hint: `DSCT.FlatEffect.Others.${key}.hint` });
+  return new SchemaField({
+    mode:        new StringField({ required: true, blank: false, initial: "all", choices: OTHERS_MODES, ...L("mode") }),
+    origin:      new StringField({ required: true, blank: false, initial: "target", choices: OTHERS_ORIGINS, ...L("origin") }),
+    range:       new NumberField({ integer: true, min: 0, initial: 1, nullable: false, required: true, ...L("range") }),
+    disposition: new StringField({ required: true, blank: false, initial: "any", choices: OTHERS_DISPOSITIONS, ...L("disposition") }),
+    count:       new NumberField({ integer: true, positive: true, initial: 1, nullable: false, required: true, ...L("count") }),
+    includeSelf: new BooleanField({ initial: false, ...L("includeSelf") }),
+  });
+}
+
+function _othersContext(effect, prefix) {
+  const src = effect._source[prefix] ?? {};
+  const options = (key, values) => values.map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Others.${key}.${value}`) }));
+  return {
+    isOthers: src.recipient === "others",
+    others: Object.fromEntries(OTHERS_KEYS.map(k => [k, { field: effect.schema.getField(`${prefix}.others.${k}`), src: src.others?.[k] }])),
+    othersModeOptions: options("mode", OTHERS_MODES),
+    othersOriginOptions: options("origin", OTHERS_ORIGINS),
+    othersDispositionOptions: options("disposition", OTHERS_DISPOSITIONS),
+  };
+}
+
+const _recipientOptions = (values) => values.map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Resource.Recipient.${value}`) }));
+
 export function flatSetting(key, fallback) {
   try {
     const v = game.settings.get('draw-steel-combat-tools', key);
@@ -27,8 +58,21 @@ export function flatSetting(key, fallback) {
 const _flatDefault = flatSetting;
 
 function _registerPartials() {
+  Handlebars.registerPartial("dsct.flat-others", `
+    <div data-dsct-flat-others="{{prefix}}" {{#unless ctx.isOthers}}hidden{{/unless}}>
+      {{formGroup ctx.others.mode.field value=ctx.others.mode.src name=(concat prefix ".others.mode") options=ctx.othersModeOptions localize=true}}
+      {{formGroup ctx.others.origin.field value=ctx.others.origin.src name=(concat prefix ".others.origin") options=ctx.othersOriginOptions localize=true}}
+      {{formGroup ctx.others.range.field value=ctx.others.range.src name=(concat prefix ".others.range") localize=true}}
+      {{formGroup ctx.others.disposition.field value=ctx.others.disposition.src name=(concat prefix ".others.disposition") options=ctx.othersDispositionOptions localize=true}}
+      {{formGroup ctx.others.count.field value=ctx.others.count.src name=(concat prefix ".others.count") localize=true}}
+      {{formGroup ctx.others.includeSelf.field value=ctx.others.includeSelf.src name=(concat prefix ".others.includeSelf") localize=true}}
+    </div>
+  `);
+
   Handlebars.registerPartial("dsct.flat-damage", `
     {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatDamage.displayText" localize=true}}
+    {{formGroup ctx.recipient.field value=ctx.recipient.src name="flatDamage.recipient" options=ctx.recipientOptions localize=true}}
+    {{> "dsct.flat-others" ctx=ctx prefix="flatDamage"}}
     {{formGroup ctx.value.field value=ctx.value.src name="flatDamage.value" localize=true}}
     {{formGroup ctx.types.field value=ctx.types.src name="flatDamage.types" options=ctx.damageTypes localize=true}}
     {{formGroup ctx.ignoredImmunities.field value=ctx.ignoredImmunities.src name="flatDamage.ignoredImmunities" options=ctx.immunityTypes localize=true}}
@@ -42,6 +86,8 @@ function _registerPartials() {
   Handlebars.registerPartial("dsct.flat-forced", `
     {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatForced.displayText" localize=true}}
     {{formGroup ctx.movement.field value=ctx.movement.src name="flatForced.movement" options=ctx.movementOptions localize=true}}
+    {{formGroup ctx.origin.field value=ctx.origin.src name="flatForced.origin" options=ctx.originOptions localize=true}}
+    {{formGroup ctx.requiresStatus.field value=ctx.requiresStatus.src name="flatForced.requiresStatus" options=ctx.statusOptions localize=true}}
     {{formGroup ctx.distance.field value=ctx.distance.src name="flatForced.distance" localize=true}}
     {{formGroup ctx.properties.field value=ctx.properties.src name="flatForced.properties" options=ctx.propertyOptions localize=true}}
     {{formGroup ctx.spend.enabled.field value=ctx.spend.enabled.src name="flatForced.spend.enabled" localize=true}}
@@ -79,6 +125,7 @@ function _registerPartials() {
     </div>
     {{formGroup ctx.display.field value=ctx.display.src name="flatResource.display" localize=true}}
     {{formGroup ctx.recipient.field value=ctx.recipient.src name="flatResource.recipient" options=ctx.recipientOptions localize=true}}
+    {{> "dsct.flat-others" ctx=ctx prefix="flatResource"}}
     {{formGroup ctx.preApplied.field value=ctx.preApplied.src name="flatResource.preApplied" localize=true}}
   `);
 
@@ -133,6 +180,7 @@ function _registerPartials() {
   Handlebars.registerPartial("dsct.flat-heal", `
     {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatHeal.displayText" localize=true}}
     {{formGroup ctx.recipient.field value=ctx.recipient.src name="flatHeal.recipient" options=ctx.recipientOptions localize=true}}
+    {{> "dsct.flat-others" ctx=ctx prefix="flatHeal"}}
     {{formGroup ctx.spendRecovery.field value=ctx.spendRecovery.src name="flatHeal.spendRecovery" localize=true}}
     <div data-dsct-heal-recovery-source="flatHeal" {{#unless ctx.spendRecovery.src}}hidden{{/unless}}>
       {{formGroup ctx.recoverySource.field value=ctx.recoverySource.src name="flatHeal.recoverySource" options=ctx.sourceOptions localize=true}}
@@ -186,6 +234,8 @@ class FlatDamageSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Bas
           label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.ignoredImmunities.label",
           hint: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.ignoredImmunities.hint",
         }),
+        recipient: new StringField({ required: false, blank: false, initial: "target", label: "DSCT.FlatEffect.Damage.recipient.label", hint: "DSCT.FlatEffect.Damage.recipient.hint" }),
+        others: _othersField(),
         spend: new SchemaField({
           enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
           value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
@@ -217,6 +267,9 @@ class FlatDamageSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Bas
       value:             { field: this.schema.getField("flatDamage.value"),       src: this._source.flatDamage.value },
       types:             { field: this.schema.getField("flatDamage.types"),       src: this._source.flatDamage.types },
       ignoredImmunities: { field: this.schema.getField("flatDamage.ignoredImmunities"), src: this._source.flatDamage.ignoredImmunities },
+      recipient: { field: this.schema.getField("flatDamage.recipient"), src: this._source.flatDamage.recipient ?? "target" },
+      recipientOptions: _recipientOptions(["target", "others"]),
+      ..._othersContext(this, "flatDamage"),
       damageTypes: Object.entries(ds.CONFIG.damageTypes).map(([k, v]) => ({ value: k, label: v.label })),
       immunityTypes: [
         { value: "all", label: game.i18n.localize("DRAW_STEEL.Damage.Immunities.All") },
@@ -240,6 +293,8 @@ class FlatForcedSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Bas
         displayText: new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.displayText.label", hint: "DSCT.FlatEffect.displayText.hint" }),
         display:     new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",     hint: "DSCT.FlatEffect.display.hint" }),
         movement: new SetField(_setField(), { initial: () => [_flatDefault('flatDefaultMovement', 'push')], label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.movement.label" }),
+        origin: new StringField({ required: true, blank: false, initial: "source", choices: ["source", "area"], label: "DSCT.FlatEffect.Forced.origin.label", hint: "DSCT.FlatEffect.Forced.origin.hint" }),
+        requiresStatus: new StringField({ required: false, blank: true, initial: "", label: "DSCT.FlatEffect.Forced.requiresStatus.label", hint: "DSCT.FlatEffect.Forced.requiresStatus.hint" }),
         distance: new ds.data.fields.FormulaField({ deterministic: true, initial: () => _flatDefault('flatDefaultForcedDistance', '1'), label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.distance.label" }),
         properties: new SetField(_setField(), { label: "DRAW_STEEL.POWER_ROLL_EFFECT.FIELDS.properties.label" }),
         spend: new SchemaField({
@@ -273,6 +328,11 @@ class FlatForcedSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Bas
       displayText: { field: this.schema.getField("flatForced.displayText"), src: this._source.flatForced.displayText },
       display:     { field: this.schema.getField("flatForced.display"),     src: this._source.flatForced.display },
       movement:    { field: this.schema.getField("flatForced.movement"),    src: this._source.flatForced.movement },
+      origin:      { field: this.schema.getField("flatForced.origin"),      src: this._source.flatForced.origin ?? "source" },
+      originOptions: ["source", "area"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Forced.origin.${value}`) })),
+      requiresStatus: { field: this.schema.getField("flatForced.requiresStatus"), src: this._source.flatForced.requiresStatus ?? "" },
+      statusOptions: [{ value: "", label: game.i18n.localize("DSCT.FlatEffect.Forced.requiresStatus.any") },
+        ...CONFIG.statusEffects.map(s => ({ value: s.id, label: game.i18n.localize(s.name) }))],
       distance:    { field: this.schema.getField("flatForced.distance"),    src: this._source.flatForced.distance },
       properties:  { field: this.schema.getField("flatForced.properties"), src: this._source.flatForced.properties },
       movementOptions: Object.entries(ds.CONFIG.abilities.forcedMovement).map(([value, { label }]) => ({ value, label })),
@@ -409,6 +469,7 @@ class FlatResourceSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
           value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
         }),
         recipient: new StringField({ required: false, blank: false, initial: "self", label: "DSCT.FlatEffect.Resource.recipient.label", hint: "DSCT.FlatEffect.Resource.recipient.hint" }),
+        others: _othersField(),
         preApplied: new BooleanField({ label: "DSCT.FlatEffect.Resource.preApplied.label", hint: "DSCT.FlatEffect.Resource.preApplied.hint" }),
       }),
     });
@@ -440,7 +501,8 @@ class FlatResourceSpecialEffect extends ds.data.pseudoDocuments.specialEffects.B
         value:   { field: this.schema.getField("flatResource.spend.value"),   src: this._source.flatResource.spend.value },
       },
       recipient: { field: this.schema.getField("flatResource.recipient"), src: this._source.flatResource.recipient },
-      recipientOptions: ["self", "target"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Resource.Recipient.${value}`) })),
+      recipientOptions: _recipientOptions(["self", "target", "others"]),
+      ..._othersContext(this, "flatResource"),
       preApplied: { field: this.schema.getField("flatResource.preApplied"), src: this._source.flatResource.preApplied },
     };
   }
@@ -457,12 +519,13 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
         spendRecovery:       new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.spendRecovery.label",            hint: "DSCT.FlatEffect.Heal.spendRecovery.hint" }),
         recoverySource:      new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoverySource.label" }),
         amountType:          new StringField({ required: false, blank: false, initial: () => _flatDefault('flatDefaultHealAmountType', 'recoveryValue'), label: "DSCT.FlatEffect.Heal.amountType.label" }),
-        amountFormula:       new ds.data.fields.FormulaField({ initial: "0",                           label: "DSCT.FlatEffect.Heal.amountFormula.label" }),
+        amountFormula:       new ds.data.fields.FormulaField({ initial: "0",                           label: "DSCT.FlatEffect.Heal.amountFormula.label", hint: "DSCT.FlatEffect.Heal.amountFormula.hint" }),
         recoveryValueSource: new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoveryValueSource.label" }),
         tempStamina:         new BooleanField({ initial: () => _flatDefault('flatDefaultHealTempStamina', false), label: "DSCT.FlatEffect.Heal.tempStamina.label",             hint: "DSCT.FlatEffect.Heal.tempStamina.hint" }),
         tempStack:           new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.tempStack.label",              hint: "DSCT.FlatEffect.Heal.tempStack.hint" }),
         repeatable:          new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.repeatable.label",              hint: "DSCT.FlatEffect.Heal.repeatable.hint" }),
         recipient:           new StringField({ required: false, blank: false, initial: "target", label: "DSCT.FlatEffect.Heal.recipient.label", hint: "DSCT.FlatEffect.Heal.recipient.hint" }),
+        others:              _othersField(),
         spend: new SchemaField({
           enabled: new BooleanField({ initial: () => _flatDefault('flatDefaultSpendEnabled', false), label: "DSCT.FlatEffect.spend.enabled.label", hint: "DSCT.FlatEffect.spend.enabled.hint" }),
           value:   new NumberField({ integer: true, initial: () => _flatDefault('flatDefaultSpendValue', 1), positive: true, nullable: false, required: true, label: "DSCT.FlatEffect.spend.value.label" }),
@@ -503,7 +566,8 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
       tempStack:           { field: this.schema.getField("flatHeal.tempStack"),           src: src.tempStack ?? false },
       repeatable:          { field: this.schema.getField("flatHeal.repeatable"),          src: src.repeatable },
       recipient:           { field: this.schema.getField("flatHeal.recipient"),           src: src.recipient ?? "target" },
-      recipientOptions:    ["target", "self"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Resource.Recipient.${value}`) })),
+      recipientOptions:    _recipientOptions(["target", "self", "others"]),
+      ..._othersContext(this, "flatHeal"),
       sourceOptions,
       amountTypeOptions,
       isCustomAmount:        src.amountType === "custom",
@@ -794,8 +858,22 @@ export async function askTriggerDamage(item) {
   _pendingTriggerDamage = Number.isFinite(amount) ? amount : 0;
 }
 
+const _staminaOf = (s) => Number(s?.value ?? 0) + Number(s?.temporary ?? 0);
+
+function _damageDealt(message) {
+  const apps = message?.getFlag?.('draw-steel-target-damage', 'state')?.applications ?? {};
+  let total = 0;
+  for (const app of Object.values(apps)) {
+    if (app?.kind !== 'damage' || app.status !== 'applied') continue;
+    for (const rec of Array.isArray(app.records) ? app.records : [app]) {
+      total += rec?.before && rec?.after ? Math.max(0, _staminaOf(rec.before) - _staminaOf(rec.after)) : Number(rec?.amount) || 0;
+    }
+  }
+  return total;
+}
+
 export function triggerRollData(message) {
-  const out = {};
+  const out = { dealt: _damageDealt(message) };
   const n = Number(message?.getFlag(MODULE_ID, 'triggerDamage'));
   if (Number.isFinite(n)) out.triggerDamage = n;
   const level = Number(message?.getFlag(MODULE_ID, 'triggerLevel'));
@@ -1082,6 +1160,10 @@ export function resourceIcon(type) {
 }
 
 export const resourceRecipient = (effect) => effect?.flatResource?.recipient ?? "self";
+
+const _flatData = (effect) => effect?.[String(effect?.type ?? "").slice(5)] ?? null;
+export const isOthersEffect = (effect) => _flatData(effect)?.recipient === "others";
+export const othersSpec = (effect) => _flatData(effect)?.others ?? null;
 
 export const resourceFlagKey = (effect, targetKey = null) =>
   (targetKey ? `fres_${effect.id}_${targetKey}` : `fres_${effect.id}`);
@@ -1975,6 +2057,13 @@ function _installCleanseTagPickers() {
 
 function _installSpendToggleListeners() {
   Hooks.on('renderApplicationV2', (_app, element) => {
+    element.querySelectorAll?.('select[name$=".recipient"]').forEach(select => {
+      const othersDiv = element.querySelector(`[data-dsct-flat-others="${select.name.slice(0, -'.recipient'.length)}"]`);
+      if (!othersDiv) return;
+      const sync = () => othersDiv.toggleAttribute('hidden', select.value !== 'others');
+      select.addEventListener('change', sync);
+      sync();
+    });
     element.querySelectorAll?.('input[name$=".spend.enabled"]').forEach(toggle => {
       const prefix = toggle.name.slice(0, -'.spend.enabled'.length);
       const costDiv = element.querySelector(`[data-dsct-flat-spend-cost="${prefix}"]`);

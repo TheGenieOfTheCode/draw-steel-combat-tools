@@ -2377,6 +2377,23 @@ details[open] > .dsct-search-section-hdr .dsct-search-chevron { transform: rotat
 .dsct-enh-bubble.is-enhanced { border-color: rgba(46, 204, 113, 0.7); background: rgba(46, 204, 113, 0.22); color: #2ecc71; }
 .dsct-enh-bubble.is-available { border-color: rgba(224, 168, 15, 0.7); background: rgba(224, 168, 15, 0.22); color: #e0a80f; }
 .dsct-enh-bubble.is-ignored { border-color: rgba(214, 88, 88, 0.7); background: rgba(214, 88, 88, 0.22); color: #d65858; }
+
+.dsct-manual {
+  --dsct-manual: light-dark(#a06b00, #e0a80f);
+  text-decoration: underline dotted var(--dsct-manual);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+.dsct-manual::after {
+  content: "\f256";
+  font: var(--fa-font-solid);
+  font-size: 0.7em;
+  margin-left: 0.25em;
+  color: var(--dsct-manual);
+  vertical-align: super;
+  text-decoration: none;
+  display: inline-block;
+}
 .dsct-enh-bubble.is-automated { border-color: rgba(90, 160, 220, 0.7); background: rgba(90, 160, 220, 0.22); color: #5aa0dc; }
 .dsct-enh-bubble.is-none { opacity: 0.4; }
 .dsct-enh-bubble:not(.is-static):hover { filter: brightness(1.25); }

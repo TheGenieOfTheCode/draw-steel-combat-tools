@@ -896,7 +896,13 @@
         "grab": "Grabbing",
         "forcedMovement": "Forced Movement",
         "lineOfEffect": "Line of Effect",
-        "recurring": "Recurring Damage"
+        "recurring": "Recurring Damage",
+        "duration": "Duration"
+      },
+      "consumeOn": {
+        "label": "Ends when used up",
+        "description": "The effect ends once the creature makes the roll it was for, so an edge \"on the next strike\" is used up by that strike. tempStamina ends it when their temporary Stamina runs out.",
+        "values": "powerRoll (any power roll, tests included), abilityRoll, strike, or tempStamina"
       },
       "recurring": {
         "type": {
@@ -1195,7 +1201,8 @@
           "label": "Amount"
         },
         "amountFormula": {
-          "label": "Formula"
+          "label": "Formula",
+          "hint": "Roll data of the user. @dealt is the damage this chat message has dealt so far, so floor(@dealt / 2) is half the damage dealt."
         },
         "recoveryValueSource": {
           "label": "Recovery Value Of"
@@ -1337,8 +1344,46 @@
         },
         "Recipient": {
           "self": "The User",
-          "target": "Each Target"
+          "target": "Each Target",
+          "others": "Other Creatures"
         }
+      },
+      "Forced": {
+        "origin": {
+          "label": "Away From",
+          "hint": "What the movement is measured from. The area's center is for lines like \"each target is pushed 2 squares away from the center of the area\".",
+          "source": "The User",
+          "area": "The Area's Center"
+        },
+        "requiresStatus": {
+          "label": "Only Targets That Are",
+          "hint": "Shows the movement only on targets with this condition, for lines like \"you can push each creature frightened this way\". The distance can read the target too, like @target.movement.value for their speed.",
+          "any": "Any Target"
+        }
+      },
+      "Damage": {
+        "recipient": {
+          "label": "Goes To",
+          "hint": "Who takes the damage. Each target is the default; Other Creatures is for lines like \"each enemy adjacent to the target takes 2 damage\"."
+        }
+      },
+      "Others": {
+        "mode": { "label": "Who", "hint": "Everyone who fits, or a number of creatures the user picks.", "all": "Everyone in Reach", "pick": "Picked by the User" },
+        "origin": { "label": "Measured From", "hint": "Where the range is counted from. The area means creatures inside the ability's area.", "target": "Each Target", "self": "The User", "area": "The Area" },
+        "range": { "label": "Within (Squares)", "hint": "1 means adjacent. Ignored when measured from the area." },
+        "disposition": { "label": "Creatures", "hint": "Allies and enemies are judged from the user's side.", "any": "Any", "ally": "Allies", "enemy": "Enemies" },
+        "count": { "label": "How Many", "hint": "How many creatures the user picks. Only for Picked by the User." },
+        "includeSelf": { "label": "Can Include the User", "hint": "For lines like \"you can target yourself instead of one ally\"." },
+        "pick": "Pick {count} {who}",
+        "repick": "Pick Again",
+        "allies": "Allies",
+        "ally": "Ally",
+        "enemies": "Enemies",
+        "enemy": "Enemy",
+        "creatures": "Creatures",
+        "creature": "Creature",
+        "pickHint": "Pick up to {count} within {range} squares, then press Enter",
+        "noneInReach": "No creature fits {name} right now."
       }
     },
     "picker": {
@@ -1691,6 +1736,7 @@
       "undoWholeSquad": "Damage was applied to all of {group} at once, so undo the squad rather than one of its members."
     },
     "tip": {
+      "manual": { "title": "Resolved by Hand", "category": "Not Automated", "body": "Combat Tools doesn't automate this part of the ability, so resolve it at the table." },
       "applied": "Already applied. The undo button next to it reverses it.",
       "applyAll": { "title": "Apply All", "category": "All Targets", "body": "Applies every effect on this chat message to every target, one effect at a time, in the order they're listed." },
       "undoAll": { "title": "Undo All", "category": "All Targets", "body": "Undoes the damage on every target. Conditions and other effects keep their own undo buttons." },
@@ -1731,6 +1777,7 @@
       "condition": { "category": "Effect", "body": "Applies this effect to the target." },
       "conditionUndo": { "category": "Effect", "body": "Removes the effect this row applied." },
       "heal": { "category": "Heal", "body": "Restores this Stamina to the target." },
+      "othersPick": { "category": "Recipients", "body": "Pick who {name} reaches besides its targets. Each one gets their own row below." },
       "healUndo": { "category": "Heal", "body": "Takes back the Stamina this row restored." },
       "teleport": { "category": "Teleport", "body": "Opens the teleport picker for this target." },
       "teleportRun": { "category": "Teleport", "body": "Runs the teleport with the settings above." },
@@ -2393,6 +2440,27 @@
             "hint": "Only trigger for tokens matching these dispositions. Leave empty to trigger for all."
           }
         }
+      },
+      "damageEvents": {
+        "untyped": "Untyped",
+        "FIELDS": {
+          "formula": {
+            "label": "Damage",
+            "hint": "A formula, read from the creature that placed the area, so @R is their Reason score."
+          },
+          "damageType": {
+            "label": "Damage Type",
+            "hint": "The type of the damage. Untyped when left empty."
+          },
+          "oncePerTurn": {
+            "label": "Once per Turn",
+            "hint": "A creature takes this damage at most once on each turn, for lines like \"enters the area for the first time on a turn or starts their turn there\"."
+          },
+          "dispositions": {
+            "label": "Filter by Disposition",
+            "hint": "Only trigger for tokens matching these dispositions. Leave empty to trigger for all."
+          }
+        }
       }
     },
     "compat": {
@@ -2443,6 +2511,24 @@
         "after": "of the following:"
       },
       "counts": "one, two, three, four, five, six, seven, eight, nine, ten",
+      "timing": {
+        "label": "When to Choose",
+        "hint": "Before the use asks when the ability is used. After the roll puts the options on the chat message once the result is in.",
+        "before": "Before the Use",
+        "after": "After the Roll"
+      },
+      "critical": {
+        "label": "On a Critical Hit",
+        "hint": "For lines like \"on a critical hit, all four effects are chosen\".",
+        "none": "Choose as Usual",
+        "all": "Every Option Applies"
+      },
+      "after": {
+        "heading": "Choose one:",
+        "chosen": "Chosen: {name}",
+        "critical": "Critical hit: every option applies",
+        "noArea": "The area for {name} isn't on the scene, so only the targets you had stay."
+      },
       "sameAsAbility": "Same as ability",
       "sameAsAbilityNamed": "Same as ability ({value})",
       "distance": "Distance",
@@ -2542,7 +2628,8 @@
       "draw-steel-combat-tools.statusEffect": "[DSCT] Status Effect",
       "draw-steel-combat-tools.statusEffectEvents": "[DSCT] Status Effect (Events)",
       "draw-steel-combat-tools.activeEffect": "[DSCT] Active Effect",
-      "draw-steel-combat-tools.activeEffectEvents": "[DSCT] Active Effect (Events)"
+      "draw-steel-combat-tools.activeEffectEvents": "[DSCT] Active Effect (Events)",
+      "draw-steel-combat-tools.damageEvents": "[DSCT] Damage (Events)"
     }
   }
 }

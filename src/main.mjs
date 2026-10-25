@@ -73,7 +73,9 @@ import { registerStealthTraits, stealthTraits } from './conditions/stealth-trait
 import { registerLineOfEffectFlags, registerCoverImmunity } from './conditions/line-of-effect.mjs';
 import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
 import { registerRecurringDamage } from './conditions/recurring-damage.mjs';
+import { registerConsumeEffects } from './conditions/consume-effects.mjs';
 import { registerEnhancedBadge } from './enhanced-badge.mjs';
+import { registerManualText } from './manual-text.mjs';
 import { registerEnhancedRedirects, enhancedRedirects } from './enhanced-redirects.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
 import { handleObservationRequest } from './conditions/observation-picker.mjs';
@@ -211,6 +213,7 @@ Hooks.once('init', () => {
   registerChatHooks();
   registerGrabHooks();
   registerRecurringDamage();
+  registerConsumeEffects();
   registerKnockbackGuard();
   registerGrabTierSync();
   registerConditionHooks();
@@ -236,6 +239,7 @@ Hooks.once('init', () => {
   registerCoverImmunity();
   registerEffectFlagPicker();
   registerEnhancedBadge();
+  registerManualText();
   registerEnhancedRedirects();
   if (STEALTH_WORKFLOW_READY) {
     registerStealthPath();

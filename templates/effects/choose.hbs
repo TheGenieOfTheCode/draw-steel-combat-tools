@@ -13,6 +13,16 @@
     <select name="choose.count">{{selectOptions ctx.countOptions selected=ctx.count valueAttr="value" labelAttr="label"}}</select>
     {{localize "DSCT.choose.count.after"}}
   </p>
+  <div class="form-group">
+    <label>{{localize "DSCT.choose.timing.label"}}</label>
+    <div class="form-fields"><select name="choose.timing">{{selectOptions ctx.timingOptions selected=ctx.timing valueAttr="value" labelAttr="label"}}</select></div>
+    <p class="hint">{{localize "DSCT.choose.timing.hint"}}</p>
+  </div>
+  <div class="form-group">
+    <label>{{localize "DSCT.choose.critical.label"}}</label>
+    <div class="form-fields"><select name="choose.critical">{{selectOptions ctx.criticalOptions selected=ctx.critical valueAttr="value" labelAttr="label"}}</select></div>
+    <p class="hint">{{localize "DSCT.choose.critical.hint"}}</p>
+  </div>
   {{/if}}
 
   {{#each ctx.choices as |choice|}}

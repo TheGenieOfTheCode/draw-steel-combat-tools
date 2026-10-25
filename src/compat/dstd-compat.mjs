@@ -1,7 +1,7 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor, effectStartFor } from '../helpers.mjs';
-import { triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks, modifyAttributeSafely } from '../ability-automation/flat-special-effects.mjs';
+import { isOthersEffect, othersSpec, triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks, modifyAttributeSafely } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
-import { runColoredTokenPicker, pickTargetsFor, setFoundryTargets } from '../ability-automation/target-picker.mjs';
+import { runColoredTokenPicker, runMultiTokenPicker, pickTargetsFor, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { pickAreaTargetsFor } from '../ability-automation/area-picker.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
 
@@ -17,7 +17,7 @@ import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANE
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
-import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords } from '../ability-automation/choose-effect.mjs';
+import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords, chooseAfterPending } from '../ability-automation/choose-effect.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
 const PANEL_ANCHOR = 'dsct-panel-anchor';
@@ -527,6 +527,17 @@ const HOLD_WAIT_MS = 600000;
 const _heldNow = (msgId) => !!game.modules.get(TRIGGERS_ID)?.api?.getQueueMirror?.()?.some(e => HELD_KINDS.has(e.kind))
   || Object.values(game.messages.get(msgId)?.flags?.[DSTD]?.state?.applications ?? {}).some(a => a?.dstHeld);
 
+const _waitForChoice = async (msgId) => {
+  const pending = () => { const m = game.messages.get(msgId); return !!m && chooseAfterPending(m); };
+  if (!pending()) return true;
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  const until = Date.now() + HOLD_WAIT_MS;
+  while (pending() && Date.now() < until) await wait(200);
+  if (pending()) return false;
+  await wait(AUTO_APPLY_SETTLE_MS);
+  return true;
+};
+
 const _waitForHolds = async (msgId) => {
   if (!game.modules.get(TRIGGERS_ID)?.active) return true;
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -593,7 +604,7 @@ const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => _withOneT
   const panelNow = () => msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`)?.querySelector(DSTD_PANEL);
   const rowOf = (key) => panelNow()?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(key)}"]`);
   const actionAt = (key, col) => (rowOf(key) ? _effectRows(rowOf(key))[col] : null);
-  const keys = [...(panelNow()?.querySelectorAll(DSTD_ROW) ?? [])].map(r => r.dataset.targetKey).filter(k => k && k !== 'selected-token');
+  let keys = [];
   const targetsBefore = [...game.user.targets].map(t => t.id);
   const runColumn = (col) => damageBatch(async () => {
     let anyRow = false;
@@ -630,6 +641,8 @@ const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => _withOneT
   });
   try {
     if (!(await _waitForHolds(msgId))) return;
+    if (!(await _waitForChoice(msgId))) return;
+    keys = [...(panelNow()?.querySelectorAll(DSTD_ROW) ?? [])].map(r => r.dataset.targetKey).filter(k => k && k !== 'selected-token');
     for (let col = 0; ; col++) {
       const { stop, anyRow, damaged } = await runColumn(col);
       if (stop || !anyRow) break;
@@ -1711,6 +1724,148 @@ function _squadFreeStrikePills(message, root) {
   if (Object.keys(update).length) message.update(update).catch(() => {});
 }
 
+function _syntheticTargetRow(token) {
+  const row = document.createElement('div');
+  row.className = `${DSTD}-target-row`;
+  row.dataset.targetKey = token.document.uuid.replace(/\./g, '__');
+  const head = document.createElement('div');
+  head.className = `${DSTD}-target-head`;
+  const img = document.createElement('img');
+  img.className = `${DSTD}-portrait`;
+  img.src = token.document.texture?.src ?? token.actor?.img ?? 'icons/svg/mystery-man.svg';
+  img.alt = token.name ?? '';
+  const nameDiv = document.createElement('div');
+  nameDiv.className = `${DSTD}-target-name`;
+  nameDiv.textContent = token.name ?? '';
+  head.append(img, nameDiv);
+  const body = document.createElement('div');
+  body.className = `${DSTD}-target-body`;
+  const acts = document.createElement('div');
+  acts.className = `${DSTD}-target-actions`;
+  body.append(acts);
+  row.append(head, body);
+  return row;
+}
+
+const OTHERS_FLAG = 'othersPicked';
+
+function _areaOrigin(ability) {
+  const region = canvas.scene?.regions.contents.findLast(r => r.getFlag('draw-steel', 'abilitySource') === ability?.uuid);
+  const shape = region?.shapes?.[0];
+  if (!shape) return null;
+  const G = canvas.grid.size;
+  const cx = shape.type === 'rectangle' ? shape.x + shape.width / 2 : shape.x;
+  const cy = shape.type === 'rectangle' ? shape.y + shape.height / 2 : shape.y;
+  const x = Math.floor(cx / G) * G;
+  const y = Math.floor(cy / G) * G;
+  const bottom = region.elevation?.bottom;
+  return { id: `area-${region.id}`, name: ability.name, x, y, center: { x: x + G / 2, y: y + G / 2 }, actor: null,
+    document: { x, y, width: 1, height: 1, elevation: Number.isFinite(bottom) ? bottom : 0, uuid: null, texture: { src: ability.img } } };
+}
+
+const _recipientTarget = (tokenUuid) => {
+  const doc = tokenUuid ? fromUuidSync(tokenUuid) : null;
+  return doc ? { tokenUuid: doc.uuid, tokenId: doc.id, sceneId: doc.parent?.id ?? null, actorUuid: doc.actor?.uuid ?? null,
+    actorId: doc.actor?.id ?? null, name: doc.name, img: doc.texture?.src ?? doc.actor?.img ?? null } : null;
+};
+
+const _sideOf = (token, source) => {
+  const a = token.document.disposition;
+  const b = source?.document.disposition;
+  if (b == null) return 'neutral';
+  if (a === b) return 'ally';
+  return a * b < 0 ? 'enemy' : 'neutral';
+};
+
+const _squaresApart = (a, b) => Math.round(tokFootprintDist(a, b) / (canvas.grid.distance || 1)) + 1;
+
+function _othersCandidates(spec, { sourceToken, targetTokens, ability }) {
+  const dead = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+  const living = canvas.tokens.placeables.filter(t => t.actor && !t.document.hidden && !t.actor.statuses?.has(dead));
+  let pool;
+  if (spec.origin === 'area') {
+    const region = canvas.scene?.regions.contents.findLast(r => r.getFlag('draw-steel', 'abilitySource') === ability?.uuid);
+    const inside = new Set([...(region?.tokens ?? [])].map(d => d.id));
+    pool = living.filter(t => inside.has(t.id));
+  } else {
+    const origins = spec.origin === 'self' ? [sourceToken].filter(Boolean) : targetTokens;
+    pool = living.filter(t => !origins.includes(t) && origins.some(o => _squaresApart(o, t) <= Math.max(1, spec.range)));
+  }
+  if (spec.includeSelf && sourceToken && !pool.includes(sourceToken)) pool.push(sourceToken);
+  return pool.filter(t => (t === sourceToken ? spec.includeSelf : spec.disposition === 'any' || _sideOf(t, sourceToken) === spec.disposition));
+}
+
+function _othersPickRow(message, effect, spec, ctx, picked) {
+  const noun = spec.count === 1 ? { ally: 'ally', enemy: 'enemy', any: 'creature' } : { ally: 'allies', enemy: 'enemies', any: 'creatures' };
+  const who = game.i18n.localize(`DSCT.FlatEffect.Others.${noun[spec.disposition] ?? noun.any}`);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
+  const label = picked ? game.i18n.localize('DSCT.FlatEffect.Others.repick') : game.i18n.format('DSCT.FlatEffect.Others.pick', { count: spec.count, who });
+  btn.append(_makeIcon('fa-solid fa-hand-pointer'), _makeSpan(label));
+  _tip(btn, 'othersPick', { title: label, data: { name: effect.name || effect.label || '' } });
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const candidates = _othersCandidates(spec, ctx);
+    if (!candidates.length) return void ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.Others.noneInReach', { name: ctx.ability?.name ?? '' }));
+    const chosen = await runMultiTokenPicker({ candidates, maxTargets: spec.count,
+      hint: game.i18n.format('DSCT.FlatEffect.Others.pickHint', { count: spec.count, range: spec.range }) });
+    if (!chosen?.length) return;
+    await safeSetFlag(message, M, `${OTHERS_FLAG}.${effect.id}`, { uuids: chosen.map(t => t.document.uuid) });
+  });
+  const row = document.createElement('div');
+  row.className = `${DSTD}-action-row dsct-dstd-others-pick`;
+  row.dataset.dsctOthersPick = effect.id;
+  row.append(btn);
+  return row;
+}
+
+async function _addOthersRows(message, panel, effects, { sourceToken, ability }) {
+  const list = panel.querySelector(`.${DSTD}-target-list`) ?? panel;
+  const mainRows = [...panel.querySelectorAll(DSTD_ROW)].filter(r => !r.dataset.dsctSelfOnly && !r.dataset.dsctOthersOnly
+    && r.dataset.targetKey && r.dataset.targetKey !== 'selected-token');
+  const targetTokens = mainRows.map(r => fromUuidSync(r.dataset.targetKey.replace(/__/g, '.'))?.object).filter(Boolean);
+  const targetsSig = mainRows.map(r => r.dataset.targetKey).sort().join('|');
+  const stored = message.getFlag(M, OTHERS_FLAG) ?? {};
+  const ctx = { sourceToken, targetTokens, ability };
+  const freeze = {};
+  for (const effect of effects) {
+    const spec = othersSpec(effect);
+    if (!spec) continue;
+    const saved = stored[effect.id];
+    let uuids;
+    if (spec.mode === 'pick') {
+      uuids = saved?.uuids ?? null;
+      if (!panel.querySelector(`[data-dsct-others-pick="${effect.id}"]`)) list.append(_othersPickRow(message, effect, spec, ctx, !!uuids));
+      if (!uuids) continue;
+    } else if (saved?.targets === targetsSig) {
+      uuids = saved.uuids;
+    } else {
+      uuids = _othersCandidates(spec, ctx).map(t => t.document.uuid);
+      freeze[effect.id] = { uuids, targets: targetsSig };
+    }
+    for (const uuid of uuids) {
+      const token = fromUuidSync(uuid)?.object;
+      if (!token) continue;
+      const key = uuid.replace(/\./g, '__');
+      let row = panel.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(key)}"]`);
+      if (!row) {
+        row = _syntheticTargetRow(token);
+        row.dataset.dsctOthersOnly = '1';
+        list.append(row);
+      }
+      const ids = new Set((row.dataset.dsctOthers ?? '').split(',').filter(Boolean));
+      ids.add(effect.id);
+      row.dataset.dsctOthers = [...ids].join(',');
+    }
+  }
+  const writer = message.author?.active ? message.author.isSelf : isPrimaryGM();
+  if (Object.keys(freeze).length && writer) {
+    await safeSetFlag(message, M, OTHERS_FLAG, { ...stored, ...freeze });
+  }
+}
+
 async function _injectFmButtons(message, root) {
   const panel = root?.querySelector(DSTD_PANEL);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons msgId=${message.id} hasPanel=${!!panel}`);
@@ -2046,32 +2201,14 @@ async function _injectFmButtons(message, root) {
     if (!activePanel.querySelector(`${DSTD_ROW}[data-target-key="${selfKey}"]`)
       && !activePanel.querySelector('[data-dsct-self-only]')) {
       const list = activePanel.querySelector(`.${DSTD}-target-list`) ?? activePanel;
-      const row = document.createElement('div');
-      row.className = `${DSTD}-target-row`;
-      row.dataset.targetKey = selfKey;
+      const row = _syntheticTargetRow(sourceToken);
       row.dataset.dsctSelfOnly = '1';
-
-      const head = document.createElement('div');
-      head.className = `${DSTD}-target-head`;
-      const img = document.createElement('img');
-      img.className = `${DSTD}-portrait`;
-      img.src = sourceToken.document.texture?.src ?? sourceToken.actor?.img ?? 'icons/svg/mystery-man.svg';
-      img.alt = sourceToken.name ?? '';
-      const nameDiv = document.createElement('div');
-      nameDiv.className = `${DSTD}-target-name`;
-      nameDiv.textContent = sourceToken.name ?? '';
-      head.append(img, nameDiv);
-
-      const body = document.createElement('div');
-      body.className = `${DSTD}-target-body`;
-      const acts = document.createElement('div');
-      acts.className = `${DSTD}-target-actions`;
-      body.append(acts);
-
-      row.append(head, body);
       list.append(row);
     }
   }
+
+  const othersEffects = [...flatDamageEffects, ...flatHealEffects, ...flatResourceEffects].filter(isOthersEffect);
+  if (othersEffects.length) await _addOthersRows(message, activePanel, othersEffects, { sourceToken, ability });
 
   const targetRows = activePanel.querySelectorAll(DSTD_ROW);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons found ${targetRows.length} target rows`);
@@ -2084,19 +2221,22 @@ async function _injectFmButtons(message, root) {
     const rowTier = _effectiveRowTier(message, targetKey, tokenUuid, tier);
     const rowTiered = _flatOn ? tieredAsFlat(ability, rowTier) : [];
     const selfOnlyRow = row.dataset.dsctSelfOnly === '1';
+    const othersOnlyRow = row.dataset.dsctOthersOnly === '1';
+    const othersHere = new Set((row.dataset.dsctOthers ?? '').split(',').filter(Boolean));
     const userRowKey = sourceToken ? sourceToken.document.uuid.replace(/\./g, '__') : null;
     const onUserRow = selfOnlyRow || (!!userRowKey && targetKey === userRowKey);
-    const fitsRow = (recipient) => (recipient === 'self' ? onUserRow : !selfOnlyRow);
-    const rowHealEffects    = [...flatHealEffects, ...rowTiered.filter(e => e.type === 'dsct.flatHeal')].filter(e => fitsRow(e.flatHeal?.recipient));
-    const rowCleanseEffects = flatCleanseEffects.filter(e => fitsRow(e.flatCleanse?.recipient));
-    const rowTeleportEffects = selfOnlyRow ? [] : [...flatTeleportEffects, ...rowTiered.filter(e => e.type === 'dsct.flatTeleport')];
+    const fitsRow = (recipient, effect) => (recipient === 'others' ? othersHere.has(effect.id)
+      : recipient === 'self' ? onUserRow : !selfOnlyRow && !othersOnlyRow);
+    const rowHealEffects    = [...flatHealEffects, ...rowTiered.filter(e => e.type === 'dsct.flatHeal')].filter(e => fitsRow(e.flatHeal?.recipient, e));
+    const rowCleanseEffects = flatCleanseEffects.filter(e => fitsRow(e.flatCleanse?.recipient, e));
+    const rowTeleportEffects = selfOnlyRow || othersOnlyRow ? [] : [...flatTeleportEffects, ...rowTiered.filter(e => e.type === 'dsct.flatTeleport')];
 
     const body = row.querySelector(`.${DSTD}-target-body`);
     if (!body) continue;
     const actions = body.querySelector(`.${DSTD}-target-actions`) ?? body;
 
     for (const effect of fmEffects) {
-      if (!doFm || selfOnlyRow) break;
+      if (!doFm || selfOnlyRow || othersOnlyRow) break;
       const tierData = effect.forced?.[`tier${rowTier}`];
       if (!tierData) continue;
       const movementSet = tierData.movement instanceof Set ? tierData.movement : new Set(tierData.movement ?? []);
@@ -2427,7 +2567,7 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    if (doConditions) {
+    if (doConditions && !othersOnlyRow) {
       for (const effect of appliedEffects) {
         const tierData = effect.applied?.[`tier${rowTier}`];
         if (!tierData?.effects) continue;
@@ -2578,7 +2718,7 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    if (doPf && tokenUuid) {
+    if (doPf && tokenUuid && !othersOnlyRow) {
       const pfTargetDoc   = await fromUuid(tokenUuid).catch(() => null);
       const pfTargetActor = pfTargetDoc?.actor ?? null;
       if (pfTargetActor?.effects.some(ef => ef.changes?.some(c => c.key === 'system.damage.weaknesses.fire'))) {
@@ -2605,7 +2745,7 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    if (doMark) {
+    if (doMark && !othersOnlyRow) {
       const markKey = `${targetKey}:dsct-mark`;
       if (!actions.querySelector(`[data-dsct-mark-key="${markKey}"]`)) {
         for (const nativeRow of actions.querySelectorAll(`.${DSTD}-status-row`)) {
@@ -2681,7 +2821,7 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    if (doJudgement) {
+    if (doJudgement && !othersOnlyRow) {
       const judgeKey = `${targetKey}:dsct-judgement`;
       if (!actions.querySelector(`[data-dsct-judge-key="${judgeKey}"]`)) {
         for (const nativeRow of actions.querySelectorAll(`.${DSTD}-status-row`)) {
@@ -2750,7 +2890,7 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    if (doConditions) {
+    if (doConditions && !othersOnlyRow) {
       for (const effect of appliedEffects) {
         if (!_tierHasPotency(effect, rowTier)) continue;
         for (const id of _tierEffectIds(effect, rowTier)) {
@@ -2760,6 +2900,7 @@ async function _injectFmButtons(message, root) {
     }
 
     for (const { statusId, endStr, label: enrichLabel, potency: enrichPotency } of descEnrichers) {
+      if (othersOnlyRow) break;
       const enrichKey = `${targetKey}:enrich:${statusId}`;
       if (actions.querySelector(`[data-dsct-enrich-key="${enrichKey}"]`)) continue;
       if (actions.querySelector(`[data-dsct-dstd-cond*=":cond:${statusId}"]`)) continue;
@@ -2841,6 +2982,7 @@ async function _injectFmButtons(message, root) {
 
     for (const { effect, amount } of flatDamageResolved) {
       if (!amount) continue;
+      if (isOthersEffect(effect) ? !othersHere.has(effect.id) : othersOnlyRow) continue;
 
       const chosenFlat = message.getFlag(M, 'flatDmgTypes')?.[effect.id] ?? null;
       const allTypes   = Array.from(effect.flatDamage.types);
@@ -2854,7 +2996,8 @@ async function _injectFmButtons(message, root) {
 
       const targetObj = targetKey === 'selected-token'
         ? { selectedToken: true, name: game.i18n.localize('DSTD.Chat.SelectedToken') || 'Apply to Selected Token', img: 'icons/svg/target.svg' }
-        : (dstdState?.targets ?? []).find(t => (t.tokenUuid?.replace(/\./g, '__') ?? '') === targetKey) ?? null;
+        : (dstdState?.targets ?? []).find(t => (t.tokenUuid?.replace(/\./g, '__') ?? '') === targetKey)
+          ?? (othersHere.has(effect.id) ? _recipientTarget(tokenUuid) : null);
       if (!targetObj) continue;
 
       const flatDmgAction = { partId: effect.id };
@@ -2959,7 +3102,16 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    for (const { effect, firstMov, dist, props } of flatForcedResolved) {
+    for (const { effect, firstMov, dist: baseDist, props } of flatForcedResolved) {
+      if (othersOnlyRow) break;
+      const rowActor = tokenUuid ? fromUuidSync(tokenUuid)?.actor : null;
+      const needs = effect.flatForced.requiresStatus;
+      if (needs && !rowActor?.statuses?.has(needs)) continue;
+      let dist = baseDist;
+      if (/@target\b/.test(effect.flatForced.distance) && rowActor) {
+        try { dist = ds.utils.evaluateFormula(effect.flatForced.distance, { ...(ability.actor?.getRollData?.() ?? {}), target: rowActor.getRollData() }, { contextName: ability.uuid }); }
+        catch { dist = baseDist; }
+      }
       const stateKey = `${message.id}:${targetKey}:flatFm:${effect.id}`;
       const subKey   = `${targetKey}:flatFm:${effect.id}`;
 
@@ -3093,7 +3245,8 @@ async function _injectFmButtons(message, root) {
             movement: clickState.movement, distance: String(clickState.distance),
             properties: clickProps, verticalDistance: vertDist, fallReduction: clickState.fallReduction,
             target: targetToken ?? undefined,
-            source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null) ?? sourceToken,
+            source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null)
+              ?? (effect.flatForced?.origin === 'area' ? _areaOrigin(ability) : null) ?? sourceToken,
             contextMessageId: message.id,
             origin: "powerRoll",
             fmKey: subKey,
@@ -3202,6 +3355,7 @@ async function _injectFmButtons(message, root) {
     const _condTargetActor = _condTargetDoc?.actor ?? null;
 
     for (const effect of flatAppliedEffects) {
+      if (othersOnlyRow) break;
       const { statusId, display, potency } = effect.flatApplied;
       if (!statusId) continue;
       const userKey = sourceToken ? sourceToken.document.uuid.replace(/\./g, '__') : null;
@@ -3572,15 +3726,14 @@ async function _injectFmButtons(message, root) {
     }
 
     for (const effect of flatResourceEffects) {
-      if (selfOnlyRow) break;
+      const resOthers = isOthersEffect(effect);
+      if (resOthers ? !othersHere.has(effect.id) : selfOnlyRow || othersOnlyRow) continue;
       const { amount, type, display } = effect.flatResource ?? {};
       if (!amount) continue;
 
-      
-      
-      const toTarget = resourceRecipient(effect) === 'target';
+      const toTarget = resOthers || resourceRecipient(effect) === 'target';
       const perRow = toTarget && targetKey !== 'selected-token';
-      if (!perRow && activePanel.querySelector('[data-dsct-flat-res-key]')) break;
+      if (!perRow && activePanel.querySelector(`[data-dsct-flat-res-key="${resourceFlagKey(effect, null)}"]`)) continue;
       const resKey = resourceFlagKey(effect, perRow ? targetKey : null);
       if (actions.querySelector(`[data-dsct-flat-res-key="${resKey}"]`)) continue;
 
