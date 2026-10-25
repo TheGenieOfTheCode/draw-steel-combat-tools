@@ -1587,6 +1587,7 @@
         "activeGrabs": "Active Grabs"
       },
       "modFm": {
+        "spent": "Spent",
         "logEntry": "Log Entry",
         "name": "Name",
         "source": "Source",

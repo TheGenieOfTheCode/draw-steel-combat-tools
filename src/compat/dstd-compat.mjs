@@ -2315,12 +2315,40 @@ async function _injectFmButtons(message, root) {
           srcTokenId: sourceToken.id,
         } : null;
 
+        const _spentRx = new RegExp(game.i18n.localize('DRAW_STEEL.Item.ability.ConfigureUse.SpentFlavor')
+          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{value\\}', '(\\d+)').replace('\\{name\\}', '.+'));
+        const _spentN = (Number(_spentRx.exec(message?.flavor ?? '')?.[1]) || 0) - (Number(ability.system?.resource) || 0);
+        const _spendFormula = ability.getFlag(M, 'fmSpendBonus');
+        let _spendBonus = 0;
+        if (_spentN > 0 && _spendFormula) {
+          try { _spendBonus = Number(ds.utils.evaluateFormula(String(_spendFormula).replace(/@spend\b/gi, String(_spentN)), ability.getRollData?.() ?? {})) || 0; }
+          catch { _spendBonus = 0; }
+        }
+        const _spendMod = _spendBonus > 0 ? {
+          modState: [{
+            distanceDelta:             _spendBonus,
+            movement:                  movementType,
+            vertical:                  baseState.vertical,
+            verticalDistance:          baseState.verticalDistance ?? '',
+            fallReduction:             baseState.fallReduction,
+            noFallDamage:              baseState.noFallDamage,
+            noCollisionDamage:         baseState.noCollisionDamage,
+            noMoverCollisionDamage:    baseState.noMoverCollisionDamage,
+            noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
+            ignoreStability:           baseState.ignoreStability,
+            fastMove:                  baseState.fastMove,
+          }],
+          noteName: game.i18n.localize('DSCT.panel.modFm.spent'),
+          dsctSeeded: true,
+          noteDesc: '',
+        } : null;
+
         let quickBtn = null;
 
         let saved = _fmState.get(stateKey);
         if (!saved) {
           const fromFlags = savedFlagState[subKey];
-          const seeds = [...(_bvlMod ? [_bvlMod] : []), ...(_flyingMod ? [_flyingMod] : [])];
+          const seeds = [...(_bvlMod ? [_bvlMod] : []), ...(_spendMod ? [_spendMod] : []), ...(_flyingMod ? [_flyingMod] : [])];
 
           
           
