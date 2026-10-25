@@ -1353,6 +1353,14 @@ const compactLink = (id, a) => {
 const untypedAutoDamage = (id, a, match) => id === 'ds.roll' && !match.groups?.label && a.dataset.type === 'damageHeal'
   && a.dataset.rollType === 'damage' && !(a.dataset.damageTypes ?? '').replace(/[&|]/g, '');
 
+const MARIP = /(\d+)\s*\*\s*@([MARIP])\b|@([MARIP])\b/g;
+const marip = (s) => s.replace(MARIP, (_, n, c1, c2) => (n ? `${n} × ${c1}` : c2));
+const placeholders = (a) => {
+  const walker = document.createTreeWalker(a, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.nodeValue.includes('@')) n.nodeValue = marip(n.nodeValue);
+  for (const k of ['dsctDetail', 'dsctTip']) if (a.dataset[k]?.includes('@')) a.dataset[k] = marip(a.dataset[k]);
+};
+
 const wrapEnricher = (id) => {
   const i = CONFIG.TextEditor.enrichers.findIndex((e) => e.id === id);
   if (i < 0) return;
@@ -1366,6 +1374,7 @@ const wrapEnricher = (id) => {
       const el = await innerEnrich.call(this, match, options);
       const a = el?.matches?.('a') ? el : el?.querySelector?.('a');
       if (a && match.groups?.config != null) a.dataset.dsctSource = match.groups.config.trim();
+      if (a && advancedEnrichersOn()) placeholders(a);
       if (a && advancedEnrichersOn() && untypedAutoDamage(id, a, match)) a.append(` ${L('flatDamage', { type: '' }).trim()}`);
       if (a && advancedEnrichersOn()) titleCaseText(a);
       if (a && compactOn()) compactLink(id, a);
