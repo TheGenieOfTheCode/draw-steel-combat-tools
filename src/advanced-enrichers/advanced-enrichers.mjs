@@ -3,13 +3,17 @@ import { DSTD, DSTD_PANEL, DSTD_ROW, isPrimaryGM, safeUpdate, dropKey, dropKeyOv
 import { damageSignature, healSignature, gainSignature, applySignature, derivedSignatures } from './mirror.mjs';
 import { richTip, setTip, tipFor } from '../chat-tips.mjs';
 import { _repickForMessage, _spendSourceResource, _areaOrigin } from '../compat/dstd-compat.mjs';
-import { potencyVerdict } from '../compat/dstd-potency.mjs';
-import { DsctDamageEditor, foldDamagePills, damagePillType, damagePillText } from '../compat/dstd-damage-pills.mjs';
+import { potencyVerdict, pillMods, applyEffectMods } from '../compat/dstd-potency.mjs';
+import { foldDamagePills, damagePillType, damagePillText } from '../compat/dstd-damage-pills.mjs';
+import { pillAmountLabel, pillCss as effectPillCss } from '../ability-automation/roll-dialog-hooks.mjs';
+import { replayModifiers, _modEffectSummary } from '../forced-movement/forced-movement-modify-panel.mjs';
+import { hasRecurring } from '../conditions/recurring-damage.mjs';
+import { TargetTabsDamageEditor, TargetTabsModEditor, KindPillDialog, EnricherEffectModDialog, EnricherFmPanel } from './mod-editors.mjs';
 import { runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { applyLinkTo } from '../conditions/apply-to-targets.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { triggerRollData, modifyAttributeSafely, grantTempStamina } from '../ability-automation/flat-special-effects.mjs';
-import { FORCED_ICONS, teleportOptions, teleportToken, cleanseSpec, cleanseActor, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
+import { FORCED_ICONS, teleportOptions, teleportToken, cleanseSpec, cleanseActor, cleanseMatches, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
 import { registerFlatEnrichers } from './flat-enrichers.mjs';
 import { resolveTokenRefs } from './refs.mjs';
 
@@ -293,9 +297,43 @@ const recoveriesOf = (actor) => actor?.system?.recoveries?.value ?? 0;
 const casterActor = (message, a) => (a && presetSource(a) ? sourceDoc(message, a)?.actor : null)
   ?? abilityOf(message)?.actor ?? ChatMessage.getSpeakerActor(message.speaker) ?? null;
 
+const pillsOf = (st, doc) => st.mods?.[tk(doc.uuid)] ?? [];
+const livePills = (st, doc) => pillsOf(st, doc).filter((p) => p.enabled !== false);
+
+const foldAmount = (base, pills) => {
+  let n = base;
+  for (const p of pills) if (p.kind === 'amount') n += Number(p.amount) || 0;
+  for (const p of pills) if (p.kind === 'mult') n *= Number(p.amount) || 1;
+  return Math.max(0, Math.floor(n));
+};
+
+const amountPillText = (unit) => (p) => (p.kind === 'mult'
+  ? L(Number(p.amount) < 1 ? 'mods.halved' : 'mods.doubled')
+  : `${signed(Number(p.amount) || 0)} ${unit}`);
+const amountPillCss = (p) => ((p.kind === 'mult' ? Number(p.amount) >= 1 : Number(p.amount) >= 0) ? 'edge' : 'bane');
+
+const amountMods = (unitOf) => (ctx, title) => ({
+  pillText: amountPillText(unitOf(ctx.a)),
+  pillCss: amountPillCss,
+  openAdd: (editor) => new KindPillDialog({
+    title,
+    buttons: [
+      { kind: 'amount', amount: 1, css: 'edge', label: L('mods.raise') },
+      { kind: 'amount', amount: -1, css: 'bane', label: L('mods.lower') },
+      { kind: 'mult', amount: 2, css: 'edge', label: L('mods.double') },
+      { kind: 'mult', amount: 0.5, css: 'bane', label: L('mods.halve') },
+    ],
+    valued: ['amount'],
+    pillText: amountPillText(unitOf(ctx.a)),
+    pillCss: amountPillCss,
+    onPill: (p) => editor.addPill(p),
+  }).render(true),
+});
+
 const HEAL = {
   id: 'heal',
-  modifiable: false,
+  modifiable: true,
+  mods: amountMods(() => L('mods.unitHeal')),
   recipient: 'targets',
   chipIcon: 'fa-dice-d10',
   test: (ec, a) => ec.getAttribute('enricher') === 'ds.roll' && a?.dataset.type === 'damageHeal' && a.dataset.rollType === 'healing',
@@ -315,10 +353,13 @@ const HEAL = {
     const temporary = (damagePrep(a)[0]?.types[0] ?? 'value') !== 'value';
     const actor = doc.actor;
     const spender = cfg.recovery === 'target' ? actor : (cfg.recovery === 'self' ? caster : null);
-    const out = { base, amount: base, temporary, spender: spender?.name ?? null, valueFrom: valueFrom?.name ?? null };
+    const pills = livePills(st, doc);
+    const amount = foldAmount(base, pills);
+    const out = { base, amount, temporary, spender: spender?.name ?? null, valueFrom: valueFrom?.name ?? null,
+      modLines: pills.map(amountPillText(L('mods.unitHeal'))) };
     if (isMinionInSquad(actor)) return { ...out, amount: 0, blocked: 'minion' };
     if (spender && recoveriesOf(spender) < 1) return { ...out, amount: 0, blocked: 'noRecoveries' };
-    if (temporary && base < (actor?.system?.stamina?.temporary ?? 0)) return { ...out, amount: 0, blocked: 'tempCapped' };
+    if (temporary && amount < (actor?.system?.stamina?.temporary ?? 0)) return { ...out, amount: 0, blocked: 'tempCapped' };
     return out;
   },
   lead: (r, applied) => L(r.temporary ? (applied ? 'healTempApplied' : 'healTemp') : (applied ? 'healApplied' : 'healAmount'), { n: applied?.amount ?? r.amount }),
@@ -373,9 +414,12 @@ const GAIN_LABELS = {
   victory: 'DRAW_STEEL.Actor.hero.FIELDS.hero.victories.label', wealth: 'DRAW_STEEL.Actor.hero.FIELDS.hero.wealth.label',
 };
 
+const gainLabel = (a) => game.i18n.localize(GAIN_LABELS[a.dataset.gainType] ?? a.dataset.gainType);
+
 const GAIN = {
   id: 'gain',
-  modifiable: false,
+  modifiable: true,
+  mods: amountMods(gainLabel),
   recipient: 'speaker',
   chipIcon: 'fa-bolt',
   test: (ec, a) => ec.getAttribute('enricher') === 'ds.roll' && a?.dataset.type === 'gain',
@@ -387,9 +431,11 @@ const GAIN = {
   result(st, a, doc) {
     const base = st.totals?.[0];
     if (base == null) return null;
-    const label = game.i18n.localize(GAIN_LABELS[a.dataset.gainType] ?? a.dataset.gainType);
-    if (doc.actor?.type !== 'hero') return { base, amount: 0, label, blocked: 'notHero' };
-    return { base, amount: base, label };
+    const label = gainLabel(a);
+    const pills = livePills(st, doc);
+    const modLines = pills.map(amountPillText(label));
+    if (doc.actor?.type !== 'hero') return { base, amount: 0, label, modLines, blocked: 'notHero' };
+    return { base, amount: foldAmount(base, pills), label, modLines };
   },
   lead: (r, applied) => L(applied ? 'gainApplied' : 'gainAmount', { n: applied?.amount ?? r.amount, type: r.label }),
   steps: (r) => (r.blocked ? [`<li>${esc(L('gainNotHero'))}</li>`] : []),
@@ -426,9 +472,26 @@ const potencyOf = (a, message) => {
   return Number.isFinite(Number(value)) ? { characteristic, value: Number(value) } : null;
 };
 
+const linkLabel = (a) => a.dataset.dsctLabel ?? a.textContent.trim();
+const appliedEffectDoc = (a) => (a.dataset.uuid ? fromUuidSync(a.dataset.uuid) : null);
+
 const APPLY = {
   id: 'apply',
-  modifiable: false,
+  modifiable: true,
+  mods: (ctx) => ({
+    pillText: pillAmountLabel,
+    pillCss: effectPillCss,
+    openAdd: (editor) => new EnricherEffectModDialog({
+      name: linkLabel(ctx.a), hasPotency: !!potencyOf(ctx.a, ctx.message), hasRecurring: hasRecurring(appliedEffectDoc(ctx.a)),
+      onPill: (p) => editor.addPill(p),
+    }).render(true),
+  }),
+  shown(r) {
+    if (r.blocked) return L('resisted');
+    const end = r.mods.end ? pillAmountLabel({ kind: 'effectEnd', end: r.mods.end }).replace(/^[^:]*:\s*/, '') : null;
+    const parts = [end, r.mods.saveMod ? pillAmountLabel({ kind: 'saveMod', amount: r.mods.saveMod }) : null].filter(Boolean);
+    return parts.length ? `${r.label} (${parts.join(', ')})` : r.label;
+  },
   recipient: 'targets',
   chipIcon: null,
   rolls: null,
@@ -436,11 +499,13 @@ const APPLY = {
   single: () => true,
   signature: (a) => (a.dataset.status ? applySignature(a.dataset.status) : null),
   typeChoices: () => [],
-  result(_st, a, doc, message) {
-    const out = { label: a.textContent.trim() };
+  result(st, a, doc, message) {
+    const pills = livePills(st, doc);
+    const mods = pillMods(pills.map((p) => ({ p })));
+    const out = { label: linkLabel(a), mods, modLines: pills.map(pillAmountLabel) };
     const p = message && doc?.actor ? potencyOf(a, message) : null;
-    const verdict = p ? potencyVerdict({ actor: doc.actor, characteristic: p.characteristic, value: p.value }) : null;
-    if (!verdict) return out;
+    const verdict = p ? potencyVerdict({ actor: doc.actor, characteristic: p.characteristic, value: p.value, shift: mods.shift, force: mods.force, resistWith: mods.resistWith }) : null;
+    if (!verdict) return mods.force != null && mods.force <= 0 ? { ...out, blocked: 'resisted' } : out;
     return { ...out, verdict, blocked: verdict.affected ? null : 'resisted' };
   },
   lead: (r, applied) => L(r.blocked ? 'applyResisted' : (applied ? 'applyApplied' : 'applyAmount'), { name: r.label }),
@@ -455,9 +520,16 @@ const APPLY = {
     const before = new Map(docs.map((d) => [d.uuid, new Set(d.actor.effects.map((e) => e.id))]));
     if (!docs.length || !(await applyLinkTo(ctx.a, docs.map((d) => d.object)))) return {};
     const out = {};
+    const sourceUuid = casterActor(ctx.message, ctx.a)?.uuid ?? null;
     for (const doc of docs) {
-      const created = doc.actor.effects.filter((e) => !before.get(doc.uuid).has(e.id)).map((e) => e.id);
-      out[doc.uuid] = { effectIds: created };
+      const created = doc.actor.effects.filter((e) => !before.get(doc.uuid).has(e.id));
+      const { mods } = this.result(ctx.st, ctx.a, doc, ctx.message);
+      const recur = mods.recurDelta || mods.recurMult !== 1 || mods.recurType || mods.recurIgnore
+        ? { delta: mods.recurDelta, mult: mods.recurMult, type: mods.recurType, ignore: mods.recurIgnore } : null;
+      if (mods.end || mods.saveMod || recur) {
+        for (const effect of created) await applyEffectMods(effect, { end: mods.end, saveMod: mods.saveMod, recur, sourceUuid });
+      }
+      out[doc.uuid] = { effectIds: created.map((e) => e.id) };
     }
     return out;
   },
@@ -484,16 +556,49 @@ const pressUndo = (messageId, selector) => {
 const PER_TARGET = /@target\b/;
 const statusName = (id) => game.i18n.localize(CONFIG.statusEffects.find((s) => s.id === id)?.name ?? id);
 
-const movementName = (a) => {
-  const cfg = ds.CONFIG.abilities.forcedMovement[a.dataset.movement];
-  const vertical = (a.dataset.properties ?? '').split(',').includes('vertical');
-  return cfg ? game.i18n.localize(vertical ? cfg.vertical : cfg.label) : a.dataset.movement;
+const fmBaseState = (a, distance) => {
+  const props = new Set((a.dataset.properties ?? '').split(',').filter(Boolean));
+  return {
+    distance, movement: a.dataset.movement, vertical: props.has('vertical'), verticalDistance: '',
+    fallReduction: Number(a.dataset.fallReduction) || 0, noFallDamage: false,
+    noCollisionDamage: props.has('no-collision-damage'), noMoverCollisionDamage: props.has('no-mover-collision-damage'),
+    noObstacleCollisionDamage: props.has('no-obstacle-collision-damage'), ignoreStability: props.has('ignore-stability'),
+    fastMove: props.has('fast-auto-path'), sourceTokenId: null,
+  };
+};
+
+const fmProps = (s) => new Set([
+  s.vertical && 'vertical', s.noCollisionDamage && 'no-collision-damage', s.noMoverCollisionDamage && 'no-mover-collision-damage',
+  s.noObstacleCollisionDamage && 'no-obstacle-collision-damage', s.ignoreStability && 'ignore-stability', s.fastMove && 'fast-auto-path',
+].filter(Boolean));
+
+const fmMovementName = (s) => {
+  const cfg = ds.CONFIG.abilities.forcedMovement[s.movement];
+  return cfg ? game.i18n.localize(s.vertical ? cfg.vertical : cfg.label) : s.movement;
+};
+
+const fmEntryText = (entry, base) => {
+  const summary = _modEffectSummary(entry, [base]);
+  return summary ? `${summary} · ${entry.noteName}` : entry.noteName;
 };
 
 const FORCED = {
   id: 'forced',
   valueAfter: true,
-  modifiable: false,
+  modifiable: true,
+  mods: (ctx, title) => ({
+    pillText: (e) => fmEntryText(e, fmBaseState(ctx.a, ctx.st.totals?.[0] ?? 0)),
+    pillCss: (e) => ((e.modState?.[0]?.distanceDelta ?? 0) < 0 ? 'bane' : 'edge'),
+    openAdd: (editor, tab) => {
+      const r = FORCED.result({ ...ctx.st, mods: { [tk(tab.uuid)]: editor._pills } }, ctx.a, tab.doc, ctx.message);
+      if (!r) return;
+      new EnricherFmPanel({
+        base: fmBaseState(ctx.a, r.base), current: r.state, stack: editor._pills, name: title,
+        makeLabel: (s) => `${fmMovementName(s)} ${s.distance}`, onDone: () => editor._refresh(),
+      }).render({ force: true });
+    },
+  }),
+  shown: (r) => `${r.movement} ${r.amount}`,
   recipient: 'targets',
   chipIcon: (a) => FORCED_ICONS[a.dataset.movement],
   test: (ec) => ec.getAttribute('enricher') === 'dsct.forced',
@@ -511,9 +616,13 @@ const FORCED = {
     }
     if (base == null || !Number.isFinite(base)) return null;
     const cfg = sourceConfig(a);
-    const props = new Set((a.dataset.properties ?? '').split(',').filter(Boolean));
-    const stability = props.has('ignore-stability') ? 0 : (doc.actor?.system?.combat?.stability ?? 0);
-    const out = { base, amount: Math.max(0, base - stability), stability, movement: movementName(a) };
+    const baseState = fmBaseState(a, base);
+    const state = { ...baseState };
+    const entries = pillsOf(st, doc);
+    if (entries.length) replayModifiers([baseState], entries, [state]);
+    const stability = state.ignoreStability ? 0 : (doc.actor?.system?.combat?.stability ?? 0);
+    const out = { base, amount: Math.max(0, state.distance - stability), stability, movement: fmMovementName(state), state,
+      modLines: entries.filter((e) => e.enabled !== false).map((e) => fmEntryText(e, baseState)) };
     if (cfg.requires && !doc.actor?.statuses?.has(cfg.requires)) return { ...out, amount: 0, blocked: 'needsStatus', requires: cfg.requires };
     return out;
   },
@@ -526,7 +635,6 @@ const FORCED = {
   notes: (r) => [...(r.stability ? [L('stability', { n: r.stability })] : []), ...(r.blocked ? [L('forcedNeedsStatus', { status: statusName(r.requires) })] : [])],
   async applyMany(ctx, docs) {
     const { a, st, message } = ctx;
-    const props = new Set((a.dataset.properties ?? '').split(',').filter(Boolean));
     const from = sourceDoc(message, a)?.object ?? null;
     const source = sourceConfig(a).origin === 'area' ? (_areaOrigin(abilityOf(message)) ?? from) : from;
     const out = {};
@@ -534,17 +642,18 @@ const FORCED = {
       if (!doc.object) continue;
       const r = this.result(st, a, doc, message);
       if (!r || r.blocked) continue;
-      const distance = r.base;
+      const s = r.state;
       const captured = captureMessage('isFmUndo');
       try {
         await runForcedMovement({
-          movement: a.dataset.movement, distance: String(distance), properties: props,
-          verticalDistance: props.has('vertical') ? distance : 0, fallReduction: Number(a.dataset.fallReduction) || 0,
-          target: doc.object, source, contextMessageId: message.id, origin: 'enricher',
+          movement: s.movement, distance: String(s.distance), properties: fmProps(s),
+          verticalDistance: s.vertical ? (s.verticalDistance !== '' ? Number(s.verticalDistance) : s.distance) : 0, fallReduction: s.fallReduction,
+          target: doc.object, source: (s.sourceTokenId ? canvas.tokens.get(s.sourceTokenId) : null) ?? source,
+          contextMessageId: message.id, origin: 'enricher',
         });
       } catch (err) { console.warn('DSCT | advanced enricher | forced movement:', err); }
       const undoMessageId = captured();
-      if (undoMessageId) out[doc.uuid] = { amount: r?.amount ?? distance, undoMessageId };
+      if (undoMessageId) out[doc.uuid] = { amount: r.amount, undoMessageId };
     }
     return out;
   },
@@ -554,7 +663,8 @@ const FORCED = {
 const TELEPORT = {
   id: 'teleport',
   valueAfter: true,
-  modifiable: false,
+  modifiable: true,
+  mods: amountMods(() => L('mods.unitDistance')),
   recipient: 'targets',
   chipIcon: (a) => (a.dataset.mode === 'swap' ? 'fa-people-arrows' : 'fa-person-through-window'),
   test: (ec) => ec.getAttribute('enricher') === 'dsct.teleport',
@@ -563,18 +673,24 @@ const TELEPORT = {
   rolls: (a, data) => [new ds.rolls.DSRoll(a.dataset.formula, data)],
   messageTitle: null,
   typeChoices: () => [],
-  result: (st) => (st.totals?.[0] == null ? null : { base: st.totals[0], amount: st.totals[0] }),
+  result(st, _a, doc) {
+    const base = st.totals?.[0];
+    if (base == null) return null;
+    const pills = livePills(st, doc);
+    return { base, amount: foldAmount(base, pills), modLines: pills.map(amountPillText(L('mods.unitDistance'))) };
+  },
   lead: (r, applied) => L(applied ? 'teleportApplied' : 'teleportAmount', { n: applied?.amount ?? r.amount }),
   steps: () => [],
   notes: () => [],
   async applyMany(ctx, docs) {
     const { a, st, message } = ctx;
-    const opts = { ...teleportOptions(a), distance: st.totals?.[0] ?? teleportOptions(a).distance };
-    const partner = opts.mode ? (sourceDoc(message, a)?.object ?? null) : null;
+    const base = teleportOptions(a);
+    const partner = base.mode ? (sourceDoc(message, a)?.object ?? null) : null;
     const out = {};
     for (const doc of docs) {
       const token = doc.object;
       if (!token || (partner && partner.id === token.id)) continue;
+      const opts = { ...base, distance: this.result(st, a, doc)?.amount ?? base.distance };
       const captured = captureMessage('isTpUndo');
       try { await teleportToken(token, opts, partner); }
       catch (err) { console.warn('DSCT | advanced enricher | teleport:', err); }
@@ -586,9 +702,31 @@ const TELEPORT = {
   undo: async (_doc, rec) => pressUndo(rec.undoMessageId, '.dsct-undo-tp'),
 };
 
+const statusChoices = () => CONFIG.statusEffects.filter((s) => s.name).map((s) => ({ value: s.id, label: game.i18n.localize(s.name) }));
+const cleansePillText = (p) => (p.kind === 'every' ? L('mods.endEveryPill')
+  : L(p.kind === 'keep' ? 'mods.keepPill' : 'mods.alsoEndPill', { status: statusName(p.status) }));
+const cleansePillCss = (p) => (p.kind === 'keep' ? 'bane' : (p.kind === 'every' ? 'bonus' : 'edge'));
+
 const CLEANSE = {
   id: 'cleanse',
-  modifiable: false,
+  modifiable: true,
+  mods: (_ctx, title) => ({
+    pillText: cleansePillText,
+    pillCss: cleansePillCss,
+    openAdd: (editor) => new KindPillDialog({
+      title,
+      buttons: [
+        { kind: 'also', amount: 1, css: 'edge', label: L('mods.alsoEnd') },
+        { kind: 'keep', amount: -1, css: 'bane', label: L('mods.keep') },
+        { kind: 'every', amount: 1, css: 'bonus dsct-amw-wide', label: L('mods.endEvery') },
+      ],
+      selects: ['also', 'keep'].map((kind) => ({ kind, field: 'status', label: L('mods.condition'), choices: statusChoices() })),
+      pillText: cleansePillText,
+      pillCss: cleansePillCss,
+      onPill: (p) => editor.addPill(p),
+    }).render(true),
+  }),
+  shown: (r) => (r.ends.length ? game.i18n.getListFormatter({ type: r.spec.all ? 'conjunction' : 'disjunction' }).format(r.ends) : L('mods.nothing')),
   recipient: 'targets',
   chipIcon: null,
   rolls: null,
@@ -596,15 +734,23 @@ const CLEANSE = {
   single: () => true,
   signature: () => null,
   typeChoices: () => [],
-  result: (_st, a) => ({ label: a.textContent.trim() }),
+  result(st, a, doc) {
+    const spec = { ...cleanseSpec(a), keep: new Set() };
+    const pills = livePills(st, doc);
+    for (const p of pills) {
+      if (p.kind === 'also' && p.status) spec.statuses.add(p.status);
+      else if (p.kind === 'keep' && p.status) spec.keep.add(p.status);
+      else if (p.kind === 'every') spec.all = true;
+    }
+    return { label: linkLabel(a), spec, ends: cleanseMatches(doc.actor, spec).map((e) => e.name), modLines: pills.map(cleansePillText) };
+  },
   lead: (r, applied) => (applied ? L('cleanseApplied', { names: applied.names ?? '' }) : r.label),
   steps: () => [],
   notes: () => [],
   async applyMany(ctx, docs) {
-    const spec = cleanseSpec(ctx.a);
     const out = {};
     for (const doc of docs) {
-      const removed = await cleanseActor(doc.actor, spec);
+      const removed = await cleanseActor(doc.actor, this.result(ctx.st, ctx.a, doc).spec);
       if (removed?.length) out[doc.uuid] = { removed, names: removed.map((e) => e.name).join(', ') };
     }
     return out;
@@ -759,59 +905,12 @@ const retarget = async (message, key) => {
   await write(message, key, { targets: uuids });
 };
 
-class TargetTabsDamageEditor extends DsctDamageEditor {
-  constructor(config, done, options) {
-    super({ ...config, base: config.tabs[0].base, pills: config.tabs[0].pills }, done, options);
-    this._tabs = config.tabs.map((t) => ({ ...t, pills: (t.pills ?? []).map((p) => ({ ...p })) }));
-    this._tab = Math.max(0, config.start ?? 0);
-    this._pills = this._tabs[this._tab].pills;
-    this._cfg = { ...this._cfg, base: this._tabs[this._tab].base };
-  }
+const shownOf = (kind, r) => (r ? String(kind.shown?.(r) ?? r.amount ?? r.label ?? '') : '?');
 
-  _onRender(context, options) {
-    super._onRender(context, options);
-    const root = this.element.querySelector('.dsct-re');
-    if (!root || root.querySelector('.dsct-adv-tabs')) return;
-    const bar = document.createElement('nav');
-    bar.className = 'dsct-adv-tabs';
-    this._tabs.forEach((t, i) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'dsct-adv-tab';
-      btn.dataset.tab = String(i);
-      btn.innerHTML = `<img src="${esc(t.img)}" alt=""><span>${esc(t.name)}</span>`;
-      btn.addEventListener('click', () => this._switch(i));
-      const token = () => fromUuidSync(t.uuid)?.object;
-      btn.addEventListener('pointerenter', (event) => token()?._onHoverIn?.(event, { hoverOutOthers: true }));
-      btn.addEventListener('pointerleave', () => token()?._onHoverOut?.({}));
-      bar.append(btn);
-    });
-    root.prepend(bar);
-    this._markTab();
-  }
-
-  _switch(i) {
-    this._tabs[this._tab].pills = this._pills;
-    this._tab = i;
-    this._pills = this._tabs[i].pills;
-    this._cfg = { ...this._cfg, base: this._tabs[i].base };
-    const baseEl = this.element.querySelector('.dsct-de-base');
-    if (baseEl) baseEl.textContent = String(this._tabs[i].base);
-    this._markTab();
-    this._refresh();
-  }
-
-  _markTab() {
-    this.element.querySelectorAll('.dsct-adv-tab').forEach((b) => b.classList.toggle('active', Number(b.dataset.tab) === this._tab));
-  }
-
-  _apply() {
-    this._tabs[this._tab].pills = this._pills;
-    this._done?.(this._tabs.map((t) => ({ uuid: t.uuid, pills: t.pills })));
-    this._done = null;
-    this.close();
-  }
-}
+const previewFor = (kind, ctx) => (tab, pills) => {
+  const at = (list) => kind.result({ ...ctx.st, mods: { ...(ctx.st.mods ?? {}), [tk(tab.uuid)]: list } }, ctx.a, tab.doc, ctx.message);
+  return { base: shownOf(kind, at([])), final: shownOf(kind, at(pills)) };
+};
 
 const editModifiers = async (kind, message, key, a, ec, title) => {
   if (!(await rollNow(kind, message, key, a))) return;
@@ -819,11 +918,15 @@ const editModifiers = async (kind, message, key, a, ec, title) => {
   const st = stateOf(message, key);
   const docs = targetsOf(message, st, ec, kind).map((u) => fromUuidSync(u)).filter(Boolean);
   if (!docs.length) return void ui.notifications.info(L('noTargets'));
-  const tabs = docs.map((d) => ({ uuid: d.uuid, name: d.name, img: d.texture?.src ?? d.actor?.img, base: st.totals[0], pills: st.mods?.[tk(d.uuid)] ?? [] }));
+  const editorTitle = titleCase(L('editorTitle', { name: title }));
+  const tabs = docs.map((d) => ({ uuid: d.uuid, doc: d, name: d.name, img: d.texture?.src ?? d.actor?.img, base: st.totals?.[0] ?? '', pills: st.mods?.[tk(d.uuid)] ?? [] }));
   const result = await new Promise((resolve) => {
     let settled = false;
     const done = (v) => { if (!settled) { settled = true; resolve(v); } };
-    new TargetTabsDamageEditor({ title: titleCase(L('editorTitle', { name: title })), tabs }, done).render({ force: true });
+    if (kind.id === 'damage') return void new TargetTabsDamageEditor({ title: editorTitle, tabs }, done).render({ force: true });
+    const ctx = { message, key, a, st };
+    const adapter = { ...kind.mods(ctx, editorTitle), preview: previewFor(kind, ctx) };
+    new TargetTabsModEditor({ title: editorTitle, tabs, adapter }, done).render({ force: true });
   });
   if (!result) return;
   await write(message, key, Object.fromEntries(result.map((r) => [`mods.${tk(r.uuid)}`, r.pills])));
@@ -846,7 +949,7 @@ const faceTip = (kind, row, canUse, breakdown) => {
   const lines = [];
   if (r) {
     lines.push(`<p><strong>${esc(kind.lead(r, row.applied))}</strong></p>`);
-    const steps = [...(breakdown ? [`<li>${breakdown}</li>`] : []), ...kind.steps(r)];
+    const steps = [...(breakdown ? [`<li>${breakdown}</li>`] : []), ...(r.modLines ?? []).map((m) => `<li>${esc(m)}</li>`), ...kind.steps(r)];
     if (steps.length) lines.push(`<ul class="dsct-adv-steps">${steps.join('')}</ul>`);
     const stamina = row.doc.actor?.system?.stamina;
     if (stamina && (kind.id === 'damage' || kind.id === 'heal')) lines.push(`<p>${esc(L('stepStamina', { value: stamina.value, max: stamina.max, temp: stamina.temporary || 0 }))}</p>`);
@@ -910,7 +1013,7 @@ const groupResults = (rows) => {
 const linkTip = (kind, title, rows, breakdown, detail) => {
   const lines = rows.map((row) => {
     const amount = row.applied?.amount ?? row.result?.amount;
-    const notes = row.result ? kind.notes(row.result) : [];
+    const notes = row.result ? [...(row.result.modLines ?? []), ...kind.notes(row.result)] : [];
     const state = row.applied ? ` <em>${esc(L('applied'))}</em>` : '';
     const value = amount != null ? `: ${amount}` : '';
     return `<p><strong>${esc(row.doc.name)}</strong>${value}${notes.length ? ` (${esc(notes.join(', '))})` : ''}${state}</p>`;

@@ -87,7 +87,7 @@ const _buildModTooltip = (entry, baseStates) => {
   return summary ? `${summary}\n${'_'.repeat(24)}\n${hint}` : hint;
 };
 
-const _modEffectSummary = (entry, baseStates) => {
+export const _modEffectSummary = (entry, baseStates) => {
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const m = entry.modState[0];
   const base = baseStates[0];

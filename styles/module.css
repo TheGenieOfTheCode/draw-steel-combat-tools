@@ -3320,4 +3320,9 @@ a.dsct-adv-compact {
   opacity: 1;
   border-color: var(--color-border-highlight, #ff6400);
 }
+.dsct-damage-editor .dsct-de-total.dsct-adv-wordy {
+  font-size: 14px;
+  text-align: center;
+  text-wrap: balance;
+}
 

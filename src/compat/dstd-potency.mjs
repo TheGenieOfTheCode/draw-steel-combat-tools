@@ -54,7 +54,7 @@ function effectPills(override, effectId) {
     .filter(({ p }) => EFFECT_PILL_KINDS.has(p.kind) && (!p.effectId || p.effectId === effectId));
 }
 
-function pillMods(pills) {
+export function pillMods(pills) {
   const mods = { shift: 0, force: null, resistWith: null, end: null, saveMod: 0, recurDelta: 0, recurMult: 1, recurType: null, recurIgnore: false };
   for (const { p } of pills) {
     if (p.enabled === false) continue;
@@ -253,7 +253,7 @@ const endChoices = () => [
   ...Object.entries(EFFECT_END_LABELS).map(([value, key]) => ({ value, label: game.i18n.localize(key) })),
 ];
 
-class EffectModDialog extends DSCTAddModifierDialog {
+export class EffectModDialog extends DSCTAddModifierDialog {
   constructor({ messageId, targetKey, effectId, name, hasPotency, hasRecurring }, options = {}) {
     super({ rendered: true, options: { context: { targets: {} } }, _dsctSources: [], _dsctOrigTargets: {} }, targetKey,
       foundry.utils.mergeObject({ window: { title: E('EditTitle', { name }) } }, options));
@@ -359,7 +359,7 @@ function recurringUpdate(effect, { delta = 0, mult = 1, type = null, ignore = fa
   return { 'system.changes': changes, ...(name !== effect.name ? { name } : {}) };
 }
 
-async function applyEffectMods(effect, { end, saveMod, recur, sourceUuid }) {
+export async function applyEffectMods(effect, { end, saveMod, recur, sourceUuid }) {
   const update = { [`flags.${M}.effectMods`]: { end: end ?? null, saveMod: saveMod || 0, recur: recur ?? null } };
   if (recur) Object.assign(update, recurringUpdate(effect, recur));
   const giver = sourceUuid ? fromUuidSync(sourceUuid, { strict: false }) : null;

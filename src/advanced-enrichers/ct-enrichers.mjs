@@ -227,9 +227,14 @@ export const cleanseSpec = (a) => ({
   all: a.dataset.all === 'true',
 });
 
-export const cleanseActor = async (actor, { expiry, statuses, all }) => {
-  const matches = (ae) => (expiry.size && expiry.has(ae.duration?.expiry)) || (statuses.size && [...(ae.statuses ?? [])].some((s) => statuses.has(s)));
-  const candidates = actor.effects.filter(matches);
+export const cleanseMatches = (actor, { expiry, statuses, keep = new Set() }) => {
+  const has = (ae, set) => [...(ae.statuses ?? [])].some((s) => set.has(s));
+  return actor?.effects.filter((ae) => !has(ae, keep) && ((expiry.size && expiry.has(ae.duration?.expiry)) || (statuses.size && has(ae, statuses)))) ?? [];
+};
+
+export const cleanseActor = async (actor, spec) => {
+  const { all } = spec;
+  const candidates = cleanseMatches(actor, spec);
   if (!candidates.length) {
     ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.Cleanse.noMatch', { name: actor.name }));
     return null;
