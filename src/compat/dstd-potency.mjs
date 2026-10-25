@@ -54,6 +54,14 @@ function effectPills(override, effectId) {
     .filter(({ p }) => EFFECT_PILL_KINDS.has(p.kind) && (!p.effectId || p.effectId === effectId));
 }
 
+const globalEffectPills = (message, override, effectId) => {
+  const off = new Set(Array.isArray(override?.dsctGlobalOff) ? override.dsctGlobalOff : []);
+  const list = message.getFlag(M, 'rollGlobalPills');
+  return (Array.isArray(list) ? list : [])
+    .filter((p) => EFFECT_PILL_KINDS.has(p.kind) && p.enabled !== false && !off.has(p.id) && (!p.effectId || p.effectId === effectId))
+    .map((p) => ({ p, idx: null }));
+};
+
 export function pillMods(pills) {
   const mods = { shift: 0, force: null, resistWith: null, end: null, saveMod: 0, recurDelta: 0, recurMult: 1, recurType: null, recurIgnore: false };
   for (const { p } of pills) {
@@ -197,12 +205,13 @@ function decorate(message, panel) {
       const found = rowEffect(row, ability, tier);
       if (!found) continue;
       const pills = effectPills(override, found.effectId);
-      const mods = pillMods(pills);
+      const allPills = [...pills, ...globalEffectPills(message, override, found.effectId)];
+      const mods = pillMods(allPills);
       const name = effectName(ability, found.statusId);
       stripStat(found.button);
       if (checks && found.potency) {
         const verdict = potencyVerdict({ actor, ...found.potency, shift: mods.shift, force: mods.force, resistWith: mods.resistWith });
-        if (verdict) verdictTag(row, found.button, verdict, { name, base: found.potency.value, pills });
+        if (verdict) verdictTag(row, found.button, verdict, { name, base: found.potency.value, pills: allPills });
       }
       const recur = found.recurring && (mods.recurDelta || mods.recurMult !== 1 || mods.recurType || mods.recurIgnore)
         ? { delta: mods.recurDelta, mult: mods.recurMult, type: mods.recurType, ignore: mods.recurIgnore } : null;

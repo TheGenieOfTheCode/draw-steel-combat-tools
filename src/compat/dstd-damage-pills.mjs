@@ -1035,8 +1035,22 @@ document.addEventListener('click', (ev) => {
   _openPillDamageEditor(message, btn, ev.shiftKey).catch((err) => console.error('DSCT | pill damage editor:', err));
 }, { capture: true });
 
+const GLOBAL_DAMAGE = 'damageGlobalPills';
+
+export async function addGlobalDamagePills(message, pills) {
+  const list = message.getFlag(M, GLOBAL_DAMAGE);
+  await safeUpdate(message, { [`flags.${M}.${GLOBAL_DAMAGE}`]: [...(Array.isArray(list) ? list : []), ...pills] });
+}
+
 export function registerDstdDamagePills() {
   if (!game.modules.get(DSTD)?.active) return;
+
+  registerDamagePillProvider((message) => {
+    const list = message.getFlag(M, GLOBAL_DAMAGE);
+    if (!Array.isArray(list) || !list.length) return [];
+    const targets = message.getFlag(DSTD, 'state')?.targets ?? [];
+    return targets.filter((t) => t.tokenUuid).flatMap((t) => list.map((pill) => ({ targetUuid: t.tokenUuid, pill: { ...pill, dstTarget: t.tokenUuid } })));
+  });
 
   registerPanelDecorator({
     id: 'combat-tools-damage-pills',

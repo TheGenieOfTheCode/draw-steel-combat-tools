@@ -51,7 +51,7 @@ import { registerSystemPatches } from './system-patches.mjs';
 import { registerRollDialogDodge } from './ability-automation/roll-dialog-dodge.mjs';
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, registerPowerRollDice, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
-import { registerDstdRollPills, addResultPill } from './compat/dstd-roll-pills.mjs';
+import { registerDstdRollPills, addResultPill, addGlobalRollPills } from './compat/dstd-roll-pills.mjs';
 import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
 import { registerDstdApplyWord } from './compat/dstd-apply-word.mjs';
 import { registerChatTips } from './chat-tips.mjs';
@@ -63,6 +63,7 @@ import {
   damagePillText, damagePillEffect, damagePillType, damageTypeLabel, styleTypePill,
   registerDamagePillProvider,
   setProviderPillEnabled,
+  addGlobalDamagePills,
 } from './compat/dstd-damage-pills.mjs';
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerResourcesUiCompat } from './compat/resources-ui-compat.mjs';
@@ -187,6 +188,10 @@ const api = {
   extraDamage: {
     add: addExtraDamage,
     setEnabled: setExtraDamageEnabled,
+  },
+  globalModifiers: {
+    addRoll: addGlobalRollPills,
+    addDamage: addGlobalDamagePills,
   },
   hasHighGround:    (attacker, target) => _hasHighGround(attacker, target),
   flankingAlly,

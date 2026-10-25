@@ -672,6 +672,11 @@ async function _writeOverride(message, targetKey, overrideData) {
   ui.notifications.warn(game.i18n.localize('DSCT.notice.rollPills.noPermission'));
 }
 
+export function addGlobalRollPills(message, pills) {
+  const added = pills.map((p) => ({ id: p.id ?? foundry.utils.randomID(), ...p }));
+  return _recomputeAllTargets(message, [..._globalPills(message), ...added], [..._msgGlobalBaseOff(message)]);
+}
+
 export function addResultPill(msgId, targetKey, pill) {
   return _mutateOverride(msgId, targetKey, ({ session }) => { session.push({ ...pill }); });
 }
