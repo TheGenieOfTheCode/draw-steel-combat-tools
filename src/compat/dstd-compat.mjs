@@ -18,7 +18,7 @@ import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mj
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { takesOver } from '../advanced-enrichers/flat-enrichers.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
-import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords, chooseAfterPending } from '../ability-automation/choose-effect.mjs';
+import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords, chooseAfterPending, settleCriticalChoice } from '../ability-automation/choose-effect.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
 const PANEL_ANCHOR = 'dsct-panel-anchor';
@@ -241,6 +241,7 @@ export function registerDstdCompat() {
   Hooks.on('createChatMessage', (message, _options, userId) => {
     if (userId === game.user.id && getSetting('autoApplyOwnAbilities')) _autoApplyEligible.add(message.id);
   });
+  services.provide('abilityResolving', _abilityResolving);
 
   
   
@@ -540,7 +541,7 @@ const _waitForChoice = async (msgId) => {
   return true;
 };
 
-const _waitForHolds = async (msgId) => {
+export const _waitForHolds = async (msgId) => {
   if (!game.modules.get(TRIGGERS_ID)?.active) return true;
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
   await wait(HOLD_GRACE_MS);
@@ -601,7 +602,19 @@ async function _applyDeferredPotency(message, panel) {
   if (!waiting) _potencyWatch.delete(message.id);
 }
 
-const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => _withOneToast(async () => {
+const _resolving = new Set();
+
+const _abilityResolving = (item) => {
+  const message = game.messages.contents.findLast(m => _getMessageParts(m).some(p => p.abilityUuid === item?.uuid));
+  return !!message && (_resolving.has(message.id) || !!services.get('areaEnrichersPending')?.(message));
+};
+
+const _applyEffectsInOrder = (msgId, msgDoc, opts) => {
+  _resolving.add(msgId);
+  return _applyInOrder(msgId, msgDoc, opts).finally(() => _resolving.delete(msgId));
+};
+
+const _applyInOrder = (msgId, msgDoc, { safe = false } = {}) => _withOneToast(async () => {
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
   const panelNow = () => msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`)?.querySelector(DSTD_PANEL);
   const rowOf = (key) => panelNow()?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(key)}"]`);
@@ -641,17 +654,24 @@ const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => _withOneT
     }
     return { anyRow, damaged };
   });
+  
   try {
     if (!(await _waitForHolds(msgId))) return;
+    if (await settleCriticalChoice(game.messages.get(msgId))) await wait(AUTO_APPLY_SETTLE_MS);
     if (!(await _waitForChoice(msgId))) return;
-    const enricherDamage = await damageBatch(() => services.get('applyAutoEnrichers')?.(game.messages.get(msgId), msgDoc));
-    if (enricherDamage) await services.get('settleDeaths')?.();
+    const apply = (phase) => services.get('applyAutoEnrichers')?.(game.messages.get(msgId), msgDoc, phase);
+    let damagedAny = !!(await damageBatch(() => apply('damage')));
+    if (damagedAny && !(await _waitForHolds(msgId))) return;
     keys = [...(panelNow()?.querySelectorAll(DSTD_ROW) ?? [])].map(r => r.dataset.targetKey).filter(k => k && k !== 'selected-token');
     for (let col = 0; ; col++) {
       const { stop, anyRow, damaged } = await runColumn(col);
-      if (stop || !anyRow) break;
+      if (stop) return;
+      if (!anyRow) break;
+      damagedAny ||= damaged;
       if (damaged && keys.some(key => actionAt(key, col + 1))) await services.get('settleDeaths')?.();
     }
+    if (damagedAny) await services.get('settleDeaths')?.();
+    await apply('rest');
   } finally {
     if (canvas.ready) {
       const keep = new Set(targetsBefore);
@@ -1758,8 +1778,8 @@ export function _areaOrigin(ability) {
   const shape = region?.shapes?.[0];
   if (!shape) return null;
   const G = canvas.grid.size;
-  const cx = shape.type === 'rectangle' ? shape.x + shape.width / 2 : shape.x;
-  const cy = shape.type === 'rectangle' ? shape.y + shape.height / 2 : shape.y;
+  const cx = shape.type === 'rectangle' ? shape.x + (0.5 - (shape.anchorX ?? 0)) * shape.width : shape.x;
+  const cy = shape.type === 'rectangle' ? shape.y + (0.5 - (shape.anchorY ?? 0)) * shape.height : shape.y;
   const x = Math.floor(cx / G) * G;
   const y = Math.floor(cy / G) * G;
   const bottom = region.elevation?.bottom;

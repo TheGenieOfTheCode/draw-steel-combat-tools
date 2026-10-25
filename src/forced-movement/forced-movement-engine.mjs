@@ -35,6 +35,16 @@ export function bypassNextFmGate() {
   _fmGateBypass = true;
 }
 
+let _gateProbe = null;
+
+export async function gateForcedMovement(opts) {
+  const probe = {};
+  _gateProbe = probe;
+  try { await runForcedMovement(opts); }
+  finally { _gateProbe = null; }
+  return probe.run ? probe : null;
+}
+
 const _runForcedMovement = async (...args) => {
   const doc = args[2]?.document;
   const from = doc ? { x: doc.x, y: doc.y, elevation: doc.elevation } : null;
@@ -79,6 +89,10 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       },
     };
     const gate = Hooks.call('dsct.preForcedMovement', ctx);
+    if (_gateProbe) {
+      Object.assign(_gateProbe, { held: gate === false, run: () => ctx.resume({}) });
+      return;
+    }
     if (gate === false) return;
     ({ type, distance, verticalHeight, bonusCreatureDmg, bonusObjectDmg } = ctx);
   }

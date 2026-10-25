@@ -2,7 +2,7 @@ import { getSetting, applyDamage, undoDamage, getSquadGroup, safeDelete, isOwnAb
 import { DSTD, DSTD_PANEL, DSTD_ROW, isPrimaryGM, safeUpdate, dropKey, dropKeyOverSocket, faceFromToken, faceChainHTML, activateFaces, services, registerPanelDecorator, damageTypeIconHTML, resourceTokenHTML } from '../ctlib.mjs';
 import { damageSignature, healSignature, gainSignature, applySignature, derivedSignatures } from './mirror.mjs';
 import { richTip, setTip, tipFor } from '../chat-tips.mjs';
-import { _repickForMessage, _spendSourceResource, _areaOrigin, _othersCandidates } from '../compat/dstd-compat.mjs';
+import { _repickForMessage, _spendSourceResource, _areaOrigin, _othersCandidates, _waitForHolds } from '../compat/dstd-compat.mjs';
 import { potencyVerdict, pillMods, applyEffectMods } from '../compat/dstd-potency.mjs';
 import { foldDamagePills, damagePillType, damagePillText } from '../compat/dstd-damage-pills.mjs';
 import { pillAmountLabel, pillCss as effectPillCss } from '../ability-automation/roll-dialog-hooks.mjs';
@@ -11,7 +11,7 @@ import { hasRecurring } from '../conditions/recurring-damage.mjs';
 import { TargetTabsDamageEditor, TargetTabsModEditor, KindPillDialog, EnricherEffectModDialog, EnricherFmPanel } from './mod-editors.mjs';
 import { runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { applyLinkTo } from '../conditions/apply-to-targets.mjs';
-import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
+import { gateForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { triggerRollData, modifyAttributeSafely, grantTempStamina, othersSpec, runTeleportEffect, partnerFilter } from '../ability-automation/flat-special-effects.mjs';
 import { FORCED_ICONS, teleportOptions, teleportToken, cleanseSpec, cleanseActor, cleanseMatches, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
 import { registerFlatEnrichers } from './flat-enrichers.mjs';
@@ -692,26 +692,43 @@ const FORCED = {
     const from = sourceDoc(message, a)?.object ?? null;
     const source = sourceConfig(a).origin === 'area' ? (_areaOrigin(abilityOf(message)) ?? from) : from;
     const out = {};
+    const gated = [];
+    
+    const landed = new Map();
+    const watch = Hooks.on('createChatMessage', (m) => { const id = m.getFlag(M, 'isFmUndo') && m.getFlag(M, 'targetTokenId'); if (id) landed.set(id, m.id); });
     for (const doc of docs) {
       if (!doc.object) continue;
       const r = this.result(st, a, doc, message);
       if (!r || r.blocked) continue;
       const s = r.state;
-      const captured = captureMessage('isFmUndo');
       try {
-        await runForcedMovement({
+        const gate = await gateForcedMovement({
           movement: s.movement, distance: String(s.distance), properties: fmProps(s),
           verticalDistance: s.vertical ? (s.verticalDistance !== '' ? Number(s.verticalDistance) : s.distance) : 0, fallReduction: s.fallReduction,
           target: doc.object, source: (s.sourceTokenId ? canvas.tokens.get(s.sourceTokenId) : null) ?? source,
           contextMessageId: message.id, origin: 'enricher',
         });
+        if (gate) gated.push({ doc, r, gate });
       } catch (err) { console.warn('DSCT | advanced enricher | forced movement:', err); }
+    }
+    
+    const settled = !gated.some((g) => g.gate.held) || await _waitForHolds(message.id);
+    Hooks.off('createChatMessage', watch);
+    for (const { doc, r, gate } of gated.filter((g) => g.gate.held)) {
+      if (settled) out[doc.uuid] = { amount: landed.has(doc.id) ? r.amount : 0, undoMessageId: landed.get(doc.id) ?? null };
+    }
+    if (!settled) return out;
+    for (const { doc, r, gate } of gated) {
+      if (gate.held) continue;
+      const captured = captureMessage('isFmUndo');
+      try { await gate.run(); }
+      catch (err) { console.warn('DSCT | advanced enricher | forced movement:', err); }
       const undoMessageId = captured();
       if (undoMessageId) out[doc.uuid] = { amount: r.amount, undoMessageId };
     }
     return out;
   },
-  undo: async (_doc, rec) => pressUndo(rec.undoMessageId, '.dsct-undo-fm'),
+  undo: async (_doc, rec) => { if (rec.undoMessageId) pressUndo(rec.undoMessageId, '.dsct-undo-fm'); },
 };
 
 const TELEPORT = {
@@ -1411,7 +1428,7 @@ const wrapEnricher = (id) => {
   };
 };
 
-const applyAutoEnrichers = async (message, doc = document) => {
+const applyAutoEnrichers = async (message, doc = document, phase = null) => {
   if (!message || !advancedEnrichersOn()) return false;
   const li = doc.querySelector(`li.chat-message[data-message-id="${message.id}"]`);
   let damaged = false;
@@ -1419,7 +1436,7 @@ const applyAutoEnrichers = async (message, doc = document) => {
     const key = ec.dataset.dsctAdv;
     const a = linkOf(ec);
     const kind = kindOf(ec, a);
-    if (!kind) continue;
+    if (!kind || (phase && (kind.id === 'damage') !== (phase === 'damage'))) continue;
     const live = game.messages.get(message.id);
     const st = stateOf(live, key);
     const targets = targetsOf(live, st, ec, kind).filter((u) => !st.applied?.[tk(u)]);
@@ -1427,6 +1444,18 @@ const applyAutoEnrichers = async (message, doc = document) => {
     if (await applyRows(kind, live, key, a, targets) && kind.id === 'damage') damaged = true;
   }
   return damaged;
+};
+
+const areaEnrichersPending = (message) => {
+  if (!advancedEnrichersOn()) return false;
+  const li = document.querySelector(`li.chat-message[data-message-id="${message.id}"]`);
+  return [...(li?.querySelectorAll('enriched-content.dsct-adv') ?? [])].some((ec) => {
+    const a = linkOf(ec);
+    const kind = kindOf(ec, a);
+    if (!kind || sourceConfig(a).origin !== 'area') return false;
+    const st = stateOf(message, ec.dataset.dsctAdv);
+    return targetsOf(message, st, ec, kind).some((u) => !st.applied?.[tk(u)]);
+  });
 };
 
 const refreshEnricher = (ec) => {
@@ -1465,6 +1494,7 @@ export function registerAdvancedEnrichers() {
   registerFlatEnrichers();
   for (const id of ENRICHER_IDS) wrapEnricher(id);
   services.provide('applyAutoEnrichers', applyAutoEnrichers);
+  services.provide('areaEnrichersPending', areaEnrichersPending);
   services.provide('syncEmptyPanel', (message, root) => hideEmptyPanel({ message, root, panel: root.querySelector(DSTD_PANEL) }));
   registerPanelDecorator({ id: 'advanced-enrichers-empty-panel', priority: 95, decorate: hideEmptyPanel });
   for (const hook of ['createActiveEffect', 'deleteActiveEffect']) {

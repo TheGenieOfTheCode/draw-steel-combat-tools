@@ -681,6 +681,11 @@ function _registerChooseMessageHooks() {
     }
   });
 
+  Hooks.on('createChatMessage', (message, _options, userId) => {
+    if (userId !== game.user.id) return;
+    settleCriticalChoice(message).catch(err => console.warn('DSCT | Choose | critical choice failed:', err));
+  });
+
   Hooks.on('renderChatMessageHTML', (message, html) => {
     try {
       _applyToCard(message, html);
@@ -775,8 +780,44 @@ async function _chooseAfter(message, item, effect, index) {
   await message.update(update);
 }
 
+const _critSettled = new Map();
+
+export function settleCriticalChoice(message) {
+  if (!message?.isOwner || !_isCritical(message)) return Promise.resolve(false);
+  if (_critSettled.has(message.id)) return _critSettled.get(message.id);
+  const run = (async () => {
+    const found = _abilityUsePart(message);
+    const item = found ? fromUuidSync(found.part.abilityUuid) : null;
+    if (!item) return false;
+    const stored = message.getFlag(M, FLAG) ?? {};
+    const update = {};
+    for (const effect of _afterEffects(item)) {
+      if (effect.id in stored || effect.choose.critical !== 'all') continue;
+      update[`flags.${M}.${FLAG}.${effect.id}`] = effect.choose.choices.map((_, i) => i);
+      for (const choice of effect.choose.choices) {
+        if (!choice?.distance?.type && !choice?.target?.type) continue;
+        const targets = await _reshapeArea(message, item, choice);
+        if (targets) update[`flags.${DSTD}.state.targets`] = targets;
+      }
+    }
+    if (!Object.keys(update).length) return false;
+    await message.update(update);
+    return true;
+  })();
+  _critSettled.set(message.id, run);
+  return run;
+}
+
 const CHOOSE_REF = /\[\[\/choose(?:\s+([^\]]*?))?\]\]/gi;
-const LABELLED = /\[\[\/[a-z]+(?:\s[^\]]*)?\]\](?:\{([^}]*)\})?/gi;
+const LABELLED = /\[\[\/([a-z]+)(?:\s([^\]]*))?\]\](?:\{([^}]*)\})?/gi;
+
+const _plainLabel = (item, type, config, label) => {
+  if (label != null) return label;
+  if (type.toLowerCase() !== 'flat') return '';
+  const ref = String(config ?? '').trim().split(/\s+/)[0]?.toLowerCase();
+  const effect = [...(item.system?.effects ?? [])].find(e => e.id.toLowerCase() === ref || (e.name ?? '').trim().toLowerCase() === ref);
+  return effect ? (effect[effect.type.slice(5)]?.display || effect.name || effect.label || '') : '';
+};
 
 const _findChoose = (item, ref) => {
   const all = _chooseEffects(item);
@@ -819,7 +860,7 @@ const chooseEnricher = {
       li.dataset.index = String(index);
       const line = document.createElement('span');
       line.className = 'dsct-choose-line';
-      line.innerHTML = await enrich(text.replace(LABELLED, (_, label) => label ?? ''));
+      line.innerHTML = await enrich(text.replace(LABELLED, (_, type, config, label) => _plainLabel(item, type, config, label)));
       
       const rich = document.createElement('template');
       rich.className = 'dsct-choose-rich';

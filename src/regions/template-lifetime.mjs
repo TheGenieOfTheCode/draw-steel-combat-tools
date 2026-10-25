@@ -1,5 +1,5 @@
 import { getSetting, safeDelete, safeCreateEmbedded, safeSetFlag, noLogFlag } from '../helpers.mjs';
-import { isPrimaryGM } from '../ctlib.mjs';
+import { isPrimaryGM, services } from '../ctlib.mjs';
 import { afterChoiceHoldsArea } from '../ability-automation/choose-effect.mjs';
 
 const M  = 'draw-steel-combat-tools';
@@ -69,7 +69,8 @@ function lifetimeMs() {
 const AREA_CHOICE_HOLD_MS = 600000;
 const _heldSince = new Map();
 
-async function _sweep(uuid) {
+
+async function _sweep(uuid, { force = false } = {}) {
   const timer = _pending.get(uuid);
   if (timer) clearTimeout(timer);
   _pending.delete(uuid);
@@ -78,7 +79,8 @@ async function _sweep(uuid) {
   if (!region) return;
   const item = fromUuidSync(abilityOf(region) ?? '');
   const since = _heldSince.get(uuid) ?? Date.now();
-  if (item && afterChoiceHoldsArea(item) && Date.now() - since < AREA_CHOICE_HOLD_MS) {
+  const held = item && (afterChoiceHoldsArea(item) || services.get('abilityResolving')?.(item));
+  if (!force && held && Date.now() - since < AREA_CHOICE_HOLD_MS) {
     _heldSince.set(uuid, since);
     _scheduleSweep(region);
     return;
@@ -221,7 +223,7 @@ export function registerTemplateLifetime() {
   
   Hooks.on('combatTurnChange', () => {
     for (const uuid of [..._pending.keys()]) {
-      _sweep(uuid).catch(err => console.warn('DSCT | template lifetime | turn sweep failed:', err));
+      _sweep(uuid, { force: true }).catch(err => console.warn('DSCT | template lifetime | turn sweep failed:', err));
     }
   });
 }
