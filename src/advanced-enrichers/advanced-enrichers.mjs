@@ -2,7 +2,7 @@ import { getSetting, applyDamage, undoDamage, getSquadGroup, safeDelete } from '
 import { DSTD, DSTD_PANEL, DSTD_ROW, isPrimaryGM, safeUpdate, dropKey, dropKeyOverSocket, faceFromToken, faceChainHTML, activateFaces, services, registerPanelDecorator, damageTypeIconHTML, resourceTokenHTML } from '../ctlib.mjs';
 import { damageSignature, healSignature, gainSignature, applySignature, derivedSignatures } from './mirror.mjs';
 import { richTip, setTip, tipFor } from '../chat-tips.mjs';
-import { _repickForMessage, _spendSourceResource, _areaOrigin } from '../compat/dstd-compat.mjs';
+import { _repickForMessage, _spendSourceResource, _areaOrigin, _othersCandidates } from '../compat/dstd-compat.mjs';
 import { potencyVerdict, pillMods, applyEffectMods } from '../compat/dstd-potency.mjs';
 import { foldDamagePills, damagePillType, damagePillText } from '../compat/dstd-damage-pills.mjs';
 import { pillAmountLabel, pillCss as effectPillCss } from '../ability-automation/roll-dialog-hooks.mjs';
@@ -12,7 +12,7 @@ import { TargetTabsDamageEditor, TargetTabsModEditor, KindPillDialog, EnricherEf
 import { runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { applyLinkTo } from '../conditions/apply-to-targets.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
-import { triggerRollData, modifyAttributeSafely, grantTempStamina } from '../ability-automation/flat-special-effects.mjs';
+import { triggerRollData, modifyAttributeSafely, grantTempStamina, othersSpec, runTeleportEffect, partnerFilter } from '../ability-automation/flat-special-effects.mjs';
 import { FORCED_ICONS, teleportOptions, teleportToken, cleanseSpec, cleanseActor, cleanseMatches, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
 import { registerFlatEnrichers } from './flat-enrichers.mjs';
 import { resolveTokenRefs } from './refs.mjs';
@@ -104,6 +104,24 @@ const sourceDoc = (message, a) => {
   return (raw && resolveTokenRefs(raw, { message, relative: relativeRefs(message, null) })[0]) || speakerDoc(message);
 };
 
+const flatEffectOf = (message, a) => {
+  const id = sourceConfig(a).flat;
+  return id ? (abilityOf(message)?.system?.effects?.get?.(String(id)) ?? null) : null;
+};
+
+const othersOf = (message, a) => {
+  const effect = flatEffectOf(message, a);
+  const spec = effect ? othersSpec(effect) : null;
+  if (!spec) return null;
+  const ctx = {
+    sourceToken: sourceDoc(message, a)?.object ?? null,
+    targetTokens: flatTargets(message).map((u) => fromUuidSync(u)?.object).filter(Boolean),
+    ability: abilityOf(message),
+  };
+  const candidates = () => _othersCandidates(spec, ctx);
+  return { spec, effect, candidates, live: () => (spec.mode === 'pick' ? [] : candidates().map((t) => t.document.uuid)) };
+};
+
 const speakerTargets = (message, a) => {
   const doc = sourceDoc(message, a);
   return doc ? [doc.uuid] : [];
@@ -118,6 +136,7 @@ const targetsOf = (message, st, ec, kind) => {
   }
   if (cfg.recipient === 'self') return speakerTargets(message, a);
   if (cfg.recipient === 'target') return flatTargets(message);
+  if (cfg.recipient === 'others') return othersOf(message, a)?.live() ?? [];
   if (kind.recipient === 'speaker' ? !OTHERS.test(sentenceBefore(ec)) : meansSpeaker(ec)) return speakerTargets(message, a);
   return flatTargets(message);
 };
@@ -330,6 +349,8 @@ const amountMods = (unitOf) => (ctx, title) => ({
   }).render(true),
 });
 
+const tempStackKey = (message, a) => (sourceConfig(a).tempStack === true ? (abilityOf(message)?.name ?? null) : null);
+
 const HEAL = {
   id: 'heal',
   modifiable: true,
@@ -359,8 +380,12 @@ const HEAL = {
       modLines: pills.map(amountPillText(L('mods.unitHeal'))) };
     if (isMinionInSquad(actor)) return { ...out, amount: 0, blocked: 'minion' };
     if (spender && recoveriesOf(spender) < 1) return { ...out, amount: 0, blocked: 'noRecoveries' };
-    if (temporary && amount < (actor?.system?.stamina?.temporary ?? 0)) return { ...out, amount: 0, blocked: 'tempCapped' };
-    return out;
+    const temp = actor?.system?.stamina?.temporary ?? 0;
+    const key = temporary && message ? tempStackKey(message, a) : null;
+    const held = actor?.getFlag?.(M, 'tempFrom');
+    const stacks = !!key && held?.key === key && held.total === temp;
+    if (temporary && !stacks && amount < temp) return { ...out, amount: 0, blocked: 'tempCapped' };
+    return stacks ? { ...out, stacks: true } : out;
   },
   lead: (r, applied) => L(r.temporary ? (applied ? 'healTempApplied' : 'healTemp') : (applied ? 'healApplied' : 'healAmount'), { n: applied?.amount ?? r.amount }),
   
@@ -382,6 +407,7 @@ const HEAL = {
       if (!r || r.blocked) continue;
       const actor = doc.actor;
       const prev = { prevValue: actor.system.stamina.value, prevTemp: actor.system.stamina.temporary };
+      const tempFrom = r.temporary ? (actor.getFlag(M, 'tempFrom') ?? null) : undefined;
       let recovery = null;
       if (cfg.recovery === 'target' || cfg.recovery === 'self') {
         const spender = cfg.recovery === 'target' ? actor : caster;
@@ -389,14 +415,15 @@ const HEAL = {
         await safeUpdate(spender, { 'system.recoveries.value': recoveriesOf(spender) - 1 });
         recovery = spender.uuid;
       }
-      if (r.temporary) await grantTempStamina(actor, r.amount);
+      if (r.temporary) await grantTempStamina(actor, r.amount, tempStackKey(ctx.message, ctx.a));
       else await modifyAttributeSafely(actor, 'stamina', r.amount, true);
-      out[doc.uuid] = { amount: r.amount, ...staminaRecord(prev), recovery };
+      out[doc.uuid] = { amount: r.amount, ...staminaRecord(prev), recovery, ...(tempFrom !== undefined ? { tempFrom } : {}) };
     }
     return out;
   },
   async undo(doc, rec) {
     await undoStamina(doc, rec);
+    if ('tempFrom' in rec) await safeUpdate(doc.actor, { [`flags.${M}.tempFrom`]: rec.tempFrom });
     const spender = rec.recovery ? await fromUuid(rec.recovery).catch(() => null) : null;
     if (spender) await safeUpdate(spender, { 'system.recoveries.value': recoveriesOf(spender) + 1 });
   },
@@ -673,17 +700,22 @@ const TELEPORT = {
   rolls: (a, data) => [new ds.rolls.DSRoll(a.dataset.formula, data)],
   messageTitle: null,
   typeChoices: () => [],
-  result(st, _a, doc) {
+  result(st, a, doc, message) {
     const base = st.totals?.[0];
     if (base == null) return null;
     const pills = livePills(st, doc);
-    return { base, amount: foldAmount(base, pills), modLines: pills.map(amountPillText(L('mods.unitDistance'))) };
+    const out = { base, amount: foldAmount(base, pills), modLines: pills.map(amountPillText(L('mods.unitDistance'))) };
+    const tv = message ? flatEffectOf(message, a)?.flatTeleport : null;
+    if ((tv?.mode === 'swap' || tv?.mode === 'adjacent') && doc.object && !partnerFilter(tv)(doc.object)) return { ...out, blocked: 'partner' };
+    return out;
   },
   lead: (r, applied) => L(applied ? 'teleportApplied' : 'teleportAmount', { n: applied?.amount ?? r.amount }),
-  steps: () => [],
-  notes: () => [],
+  steps: (r) => (r.blocked ? [`<li>${esc(L('teleportPartner'))}</li>`] : []),
+  notes: (r) => (r.blocked ? [L('teleportPartner')] : []),
   async applyMany(ctx, docs) {
     const { a, st, message } = ctx;
+    const effect = flatEffectOf(message, a);
+    if (effect?.type === 'dsct.flatTeleport') return this.applyFlat(ctx, docs, effect);
     const base = teleportOptions(a);
     const partner = base.mode ? (sourceDoc(message, a)?.object ?? null) : null;
     const out = {};
@@ -696,6 +728,21 @@ const TELEPORT = {
       catch (err) { console.warn('DSCT | advanced enricher | teleport:', err); }
       const undoMessageId = captured();
       if (undoMessageId) out[doc.uuid] = { amount: opts.distance, undoMessageId };
+    }
+    return out;
+  },
+  async applyFlat({ a, st, message }, docs, effect) {
+    const ability = abilityOf(message);
+    const sourceActor = casterActor(message, a);
+    const out = {};
+    for (const doc of docs) {
+      const r = this.result(st, a, doc, message);
+      if (!r || r.blocked) continue;
+      const captured = captureMessage('isTpUndo');
+      try { await runTeleportEffect({ ...effect.flatTeleport, distance: String(r.amount) }, ability, { sourceActor, partnerToken: doc.object ?? null }); }
+      catch (err) { console.warn('DSCT | advanced enricher | flat teleport:', err); }
+      const undoMessageId = captured();
+      if (undoMessageId) out[doc.uuid] = { amount: r.amount, undoMessageId };
     }
     return out;
   },
@@ -839,6 +886,8 @@ const chooseType = async (kind, message, key, a) => {
   return true;
 };
 
+const isRepeatable = (a) => sourceConfig(a).repeatable === true;
+
 const DEFEATED = () => CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
 const isDefeated = (doc) => !!doc.actor?.statuses?.has(DEFEATED());
 
@@ -847,12 +896,18 @@ const applyRows = async (kind, message, key, a, uuids) => {
   if (!(await chooseType(kind, message, key, a))) return false;
   message = game.messages.get(message.id) ?? message;
   const st = stateOf(message, key);
-  const docs = uuids.filter((u) => !st.applied?.[tk(u)]).map((u) => fromUuidSync(u)).filter((d) => d?.actor);
+  const repeat = isRepeatable(a);
+  const docs = uuids.filter((u) => repeat || !st.applied?.[tk(u)]).map((u) => fromUuidSync(u)).filter((d) => d?.actor);
   if (!docs.length) return false;
   const cost = Number(sourceConfig(a).spend) || 0;
   if (cost > 0 && !st.spent && !(await payCost(message, key, cost, a))) return false;
   const records = await kind.applyMany({ message, key, a, st }, docs);
-  const updates = Object.fromEntries(Object.entries(records).map(([uuid, rec]) => [`applied.${tk(uuid)}`, rec]));
+  const stack = (uuid, rec) => {
+    if (!repeat) return rec;
+    const old = st.applied?.[tk(uuid)];
+    return { ...rec, uses: [...(old?.uses ?? (old ? [old] : [])), rec] };
+  };
+  const updates = Object.fromEntries(Object.entries(records).map(([uuid, rec]) => [`applied.${tk(uuid)}`, stack(uuid, rec)]));
   if (Object.keys(updates).length) await write(message, key, updates);
   else if (cost > 0 && !st.spent) await refundCost(message, key);
   return Object.keys(updates).length > 0;
@@ -867,8 +922,10 @@ const undoRow = async (kind, message, key, uuid) => {
     if (!services.get('canUndoCausedDeath')?.()) return void ui.notifications.warn(L('cannotRevive'));
     services.get('undoCausedDeath')(uuid);
   }
-  await kind.undo(doc, rec);
-  await write(message, key, { [`applied.${tk(uuid)}`]: drop(message) });
+  const uses = rec.uses ?? [];
+  await kind.undo(doc, uses.at(-1) ?? rec);
+  const rest = uses.slice(0, -1);
+  await write(message, key, { [`applied.${tk(uuid)}`]: rest.length ? { ...rest.at(-1), uses: rest } : drop(message) });
   const left = Object.keys(stateOf(game.messages.get(message.id) ?? message, key).applied ?? {}).length;
   if (!left && st.spent) await refundCost(message, key);
 };
@@ -895,7 +952,17 @@ const refundCost = async (message, key) => {
   await write(message, key, { spent: drop(message) });
 };
 
-const retarget = async (message, key) => {
+const retarget = async (message, key, a) => {
+  const others = sourceConfig(a).recipient === 'others' ? othersOf(message, a) : null;
+  if (others) {
+    const candidates = others.candidates();
+    if (!candidates.length) return void ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.Others.noneInReach', { name: abilityOf(message)?.name ?? '' }));
+    const count = others.spec.mode === 'pick' ? others.spec.count : candidates.length;
+    const chosen = await runMultiTokenPicker({ candidates, maxTargets: count,
+      hint: game.i18n.format('DSCT.FlatEffect.Others.pickHint', { count, range: others.spec.range }) });
+    if (!chosen?.length) return;
+    return void await write(message, key, { targets: chosen.map((t) => t.document.uuid), othersSig: null });
+  }
   let picked;
   if (abilityOf(message) && getSetting('abilityTargetingEnabled')) picked = await _repickForMessage(message);
   if (picked === null) return;
@@ -903,6 +970,18 @@ const retarget = async (message, key) => {
   if (!picked?.length) return;
   const uuids = [...new Set(picked.map((t) => t.document?.uuid ?? t.uuid).filter(Boolean))];
   await write(message, key, { targets: uuids });
+};
+
+const freezeOthers = async (message, key, a) => {
+  if (sourceConfig(a).recipient !== 'others') return;
+  const st = stateOf(message, key);
+  if (Array.isArray(st.targets) && st.othersSig == null) return;
+  const others = othersOf(message, a);
+  const writer = message.author?.active ? message.author.isSelf : isPrimaryGM();
+  if (!others || others.spec.mode === 'pick' || !writer) return;
+  const sig = [...flatTargets(message)].sort().join('|');
+  if (st.othersSig === sig) return;
+  await write(message, key, { targets: others.live(), othersSig: sig });
 };
 
 const shownOf = (kind, r) => (r ? String(kind.shown?.(r) ?? r.amount ?? r.label ?? '') : '?');
@@ -956,7 +1035,9 @@ const faceTip = (kind, row, canUse, breakdown) => {
   } else {
     lines.push(`<p>${esc(L('notRolled'))}</p>`);
   }
-  if (canUse) lines.push(`<p><em>${esc(L(row.applied ? 'faceUndoHint' : 'faceApplyHint'))}</em></p>`);
+  const uses = row.applied?.uses?.length ?? 0;
+  if (uses > 1) lines.push(`<p>${esc(L('repeatUses', { n: uses }))}</p>`);
+  if (canUse) lines.push(`<p><em>${esc(L(row.applied ? (uses > 1 ? 'faceUndoLastHint' : 'faceUndoHint') : 'faceApplyHint'))}</em></p>`);
   return richTip({ title: row.doc.name, category: L(row.applied ? 'categoryApplied' : 'categoryTarget'), html: lines.join('') });
 };
 
@@ -1086,7 +1167,7 @@ const build = (ec, a, message, key, kind) => {
     ec.prepend(facesFor(kind, rows, canUse, breakdown));
   }
 
-  ec.classList.toggle('dsct-adv-done', rows.length > 0 && rows.every((r) => r.applied || r.result?.blocked));
+  ec.classList.toggle('dsct-adv-done', !isRepeatable(a) && rows.length > 0 && rows.every((r) => r.applied || r.result?.blocked));
   if (canUse) {
     ec.append(toolButton('retarget', 'fa-solid fa-crosshairs', 'advRetarget'));
     if (kind.modifiable) ec.append(toolButton('modify', 'fa-solid fa-gear', 'advModify'));
@@ -1112,7 +1193,7 @@ const onClick = (ec, a, message, key, kind) => async (event) => {
   ec.dataset.advBusy = '1';
   try {
     const st = stateOf(message, key);
-    if (tool?.dataset.advTool === 'retarget') return void await retarget(message, key);
+    if (tool?.dataset.advTool === 'retarget') return void await retarget(message, key, a);
     if (tool?.dataset.advTool === 'modify') return void await editModifiers(kind, message, key, a, ec, ec._advTitle ?? a.textContent.trim());
     if (face) {
       const uuid = face.getAttribute('data-ctlib-face');
@@ -1121,7 +1202,7 @@ const onClick = (ec, a, message, key, kind) => async (event) => {
     }
     if (chip) return void await applyRows(kind, message, key, a, chip.dataset.advUuids.split(' '));
     const targets = targetsOf(message, st, ec, kind);
-    if (!targets.length) return void await retarget(message, key);
+    if (!targets.length) return void await retarget(message, key, a);
     await applyRows(kind, message, key, a, targets);
   } finally {
     delete ec.dataset.advBusy;
@@ -1161,6 +1242,7 @@ const decorate = (ec) => {
   build(ec, a, message, key, kind);
   ec.addEventListener('click', onClick(ec, a, message, key, kind), { capture: true });
   ensureRoll(kind, message, key, a).catch((err) => console.warn('DSCT | advanced enricher | roll failed:', err));
+  freezeOthers(message, key, a).catch((err) => console.warn('DSCT | advanced enricher | others:', err));
 };
 
 const compactOn = () => getSetting('compactEnrichers') === true;

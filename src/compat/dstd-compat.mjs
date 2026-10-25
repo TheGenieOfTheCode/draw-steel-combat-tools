@@ -1783,7 +1783,7 @@ const _sideOf = (token, source) => {
 
 const _squaresApart = (a, b) => Math.round(tokFootprintDist(a, b) / (canvas.grid.distance || 1)) + 1;
 
-function _othersCandidates(spec, { sourceToken, targetTokens, ability }) {
+export function _othersCandidates(spec, { sourceToken, targetTokens, ability }) {
   const dead = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
   const living = canvas.tokens.placeables.filter(t => t.actor && !t.document.hidden && !t.actor.statuses?.has(dead));
   let pool;

@@ -5,7 +5,7 @@ import { levelAllows, expendAllows } from '../ability-automation/flat-special-ef
 import { enricherSignatures, effectSignature } from './mirror.mjs';
 
 const DERIVED = 'dsctDrv';
-const FLAT_TYPES = new Set(['dsct.flatDamage', 'dsct.flatHeal', 'dsct.flatResource', 'dsct.flatApplied', 'dsct.flatForced', 'dsct.flatCleanse']);
+const FLAT_TYPES = new Set(['dsct.flatDamage', 'dsct.flatHeal', 'dsct.flatResource', 'dsct.flatApplied', 'dsct.flatForced', 'dsct.flatCleanse', 'dsct.flatTeleport']);
 const GAIN_TYPES = new Set(['epic', 'heroic', 'renown', 'surge', 'victory', 'wealth']);
 const FORCED_WORDS = {
   vertical: 'vertical', 'ignore-stability': 'ignoreStability', 'no-collision-damage': 'nocollision', 'fast-auto-path': 'fast',
@@ -17,6 +17,8 @@ const setOf = (v) => (v instanceof Set ? v : new Set(v ?? []));
 const label = (text) => (text ? `{${String(text).replace(/[{}]/g, '')}}` : '');
 const recipient = (r, fallback) => (r && r !== fallback ? ` recipient=${r}` : '');
 const twoWay = (r) => r === 'target' || r === 'self';
+const reachable = (r, data) => twoWay(r) || (r === 'others' && !!data?.others);
+const flag = (on, key) => (on ? ` ${key}=true` : '');
 const spendPart = (data) => (data?.spend?.enabled ? ` spend=${data.spend.value ?? 1}` : '');
 
 const PER_TARGET = /@target\b/;
@@ -28,7 +30,7 @@ export const flatEnricherText = (effect, ability) => {
   switch (effect.type) {
     case 'dsct.flatDamage': {
       const f = effect.flatDamage;
-      if (!twoWay(f.recipient ?? 'target') || !String(f.value ?? '').trim() || !plainFormula(f.value)) return null;
+      if (!reachable(f.recipient ?? 'target', f) || !String(f.value ?? '').trim() || !plainFormula(f.value)) return null;
       const types = [...setOf(f.types)];
       const ignored = [...setOf(f.ignoredImmunities)];
       const typePart = types.length > 1 ? ` type=${types.join('/')}` : (types[0] ? ` ${types[0]}` : '');
@@ -39,7 +41,7 @@ export const flatEnricherText = (effect, ability) => {
     }
     case 'dsct.flatHeal': {
       const h = effect.flatHeal;
-      if (h.tempStack || h.repeatable || !twoWay(h.recipient ?? 'target')) return null;
+      if (!reachable(h.recipient ?? 'target', h)) return null;
       let formula;
       let value = '';
       if (h.amountType === 'recoveryValue') {
@@ -48,23 +50,24 @@ export const flatEnricherText = (effect, ability) => {
       } else formula = String(h.amountFormula ?? '').trim();
       if (!formula || formula === '0' || !plainFormula(formula)) return null;
       const recovery = h.spendRecovery ? ` recovery=${h.recoverySource === 'target' ? 'target' : 'self'}` : '';
-      return `[[/heal ${formula}${h.tempStamina ? ' temp' : ''}${value}${recovery}${recipient(h.recipient, 'target')}${spendPart(h)}${tag}]]${label(h.display)}`;
+      const extras = `${flag(h.tempStamina && h.tempStack, 'tempStack')}${flag(h.repeatable, 'repeatable')}`;
+      return `[[/heal ${formula}${h.tempStamina ? ' temp' : ''}${value}${recovery}${extras}${recipient(h.recipient, 'target')}${spendPart(h)}${tag}]]${label(h.display)}`;
     }
     case 'dsct.flatResource': {
       const r = effect.flatResource;
-      if (r.preApplied || !twoWay(r.recipient ?? 'self') || !GAIN_TYPES.has(r.type) || !r.amount) return null;
+      if (r.preApplied || !reachable(r.recipient ?? 'self', r) || !GAIN_TYPES.has(r.type) || !r.amount) return null;
       return `[[/gain ${r.amount} ${r.type} recipient=${r.recipient ?? 'self'}${spendPart(r)}${tag}]]${label(r.display)}`;
     }
     case 'dsct.flatApplied': {
       const a = effect.flatApplied;
-      if (a.exclusiveSelf || !a.statusId) return null;
+      if (!a.statusId) return null;
       const known = CONFIG.statusEffects.some((s) => s.id === a.statusId) || !!ability?.effects?.get?.(a.statusId);
       if (!known) return null;
       const end = a.end && ds.CONFIG.effectEnds?.[a.end] ? ` ${a.end}` : '';
       const chr = a.potency?.characteristic;
       const strength = a.potency?.strength === 'custom' ? (a.potency.custom || 'average') : (a.potency?.strength || 'average');
       const potency = chr && chr !== 'none' && ds.CONFIG.characteristics?.[chr] ? ` potency=${quoted(`${chr}:${strength}`)}` : '';
-      return `[[/apply ${a.statusId}${end}${potency}${spendPart(a)}${tag}]]${label(a.display)}`;
+      return `[[/apply ${a.statusId}${end}${potency}${a.exclusiveSelf ? ' recipient=self' : ''}${spendPart(a)}${tag}]]${label(a.display)}`;
     }
     case 'dsct.flatForced': {
       const f = effect.flatForced;
@@ -78,11 +81,21 @@ export const flatEnricherText = (effect, ability) => {
     }
     case 'dsct.flatCleanse': {
       const c = effect.flatCleanse;
-      if (c.repeatable || !twoWay(c.recipient ?? 'target')) return null;
+      if (!twoWay(c.recipient ?? 'target')) return null;
       const expiry = [...setOf(c.expiryFilter)].map((e) => (e === 'turnEnd' ? 'turn' : e === 'save' ? 'save' : null));
       if (expiry.includes(null)) return null;
       const parts = [c.all ? 'all' : '', ...expiry, ...setOf(c.statusFilter)].filter(Boolean).join(' ');
-      return `[[/cleanse ${parts}${recipient(c.recipient, 'target')}${spendPart(c)}${tag}]]${label(c.display)}`;
+      return `[[/cleanse ${parts}${flag(c.repeatable, 'repeatable')}${recipient(c.recipient, 'target')}${spendPart(c)}${tag}]]${label(c.display)}`;
+    }
+    case 'dsct.flatTeleport': {
+      const t = effect.flatTeleport;
+      const distance = String(t.distance ?? '5').trim() || '5';
+      if (!plainFormula(distance)) return null;
+      const mode = t.mode ?? 'normal';
+      const self = mode === 'normal' && (t.mover ?? 'self') === 'self';
+      const modePart = mode === 'adjacent' || mode === 'intoSpace' ? ` mode=${mode}` : '';
+      const fallback = mode === 'intoSpace' ? game.i18n.localize('DSCT.FlatEffect.Teleport.intoSpaceLabel') : '';
+      return `[[/${mode === 'swap' ? 'teleswap' : 'teleport'} ${quoted(distance)}${modePart} recipient=${self ? 'self' : 'target'}${spendPart(t)}${tag}]]${label(t.display || fallback)}`;
     }
     default:
       return null;
