@@ -764,6 +764,12 @@ export const registerSettings = () => {
     name: L('noMultiplierStacking.name'), hint: L('noMultiplierStacking.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'extraDamageTypes', {
+    name: L('extraDamageTypes.name'), hint: L('extraDamageTypes.hint'),
+    scope: 'world', config: false, type: String, default: 'separate',
+    choices: { separate: L('extraDamageTypes.choice.separate'), convert: L('extraDamageTypes.choice.convert') },
+    onChange: () => ui.chat?.render?.(),
+  });
   game.settings.register(M, 'highGroundEnabled', {
     name: L('highGroundEnabled.name'), hint: L('highGroundEnabled.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

@@ -608,6 +608,14 @@
         "name": "No Multiplier Stacking",
         "hint": "A second Half, or a second Double, has no effect and shows dimmed."
       },
+      "extraDamageTypes": {
+        "name": "Extra Damage of Another Type",
+        "hint": "When a surge or a trigger adds damage of a different type, it can land as its own hit with that type's immunity and weakness, or turn the whole damage into that type. The rules don't settle this yet.",
+        "choice": {
+          "separate": "Its Own Hit",
+          "convert": "Converts the Damage"
+        }
+      },
       "highGroundEnabled": {
         "name": "High Ground Edge",
         "hint": "Offer the High Ground edge when the attacker is standing higher than the target."

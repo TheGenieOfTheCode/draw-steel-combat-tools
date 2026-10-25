@@ -339,6 +339,7 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       'skipPillEditor',
       'multiplierOverride',
       'noMultiplierStacking',
+      'extraDamageTypes',
       header('Enrichers'),
       'advancedEnrichers',
       'advancedEnricherMessages',

@@ -37,6 +37,9 @@ export function damagePillDisplayList(pills) {
   return list;
 }
 
+export const extraTypesConvert = () => getSetting('extraDamageTypes') === 'convert';
+const ownHit = (p) => p.kind === 'surge' && !!p.damageType && !extraTypesConvert();
+
 export function foldDamagePills(base, pills) {
   let v = Number(base) || 0;
   for (const x of damagePillDisplayList(pills)) {
@@ -44,7 +47,7 @@ export function foldDamagePills(base, pills) {
     const p = x.pill;
     if (p.kind === 'half') v = Math.floor(v / 2);
     else if (p.kind === 'double') v = v * 2;
-    else if (p.kind === 'delta' || (p.kind === 'surge' && !p.damageType)) v = Math.max(0, v + (Number(p.value) || 0));
+    else if (p.kind === 'delta' || (p.kind === 'surge' && !ownHit(p))) v = Math.max(0, v + (Number(p.value) || 0));
   }
   return Math.max(0, v);
 }
@@ -64,9 +67,11 @@ export function damageTypeColor(value) {
 
 export function damagePillType(pills) {
   let found = null;
+  const converts = extraTypesConvert();
   for (const x of damagePillDisplayList(pills)) {
     if (x.inert || x.pill.enabled === false) continue;
     if (x.pill.kind === 'type') found = x.pill.value ?? '';
+    else if (converts && x.pill.damageType && (x.pill.kind === 'surge' || x.pill.kind === 'delta')) found = x.pill.damageType;
   }
   return found;
 }
@@ -89,7 +94,7 @@ export function damagePillAmtStr(p) {
     : L('surgeAmt', { n: Math.abs(Number(p.value) || 0) });
   if (p.kind === 'type') return damageTypeLabel(p.value);
   const v = Number(p.value) || 0;
-  const amt = v >= 0 ? `+${v}` : String(v);
+  const amt = `${v >= 0 ? `+${v}` : String(v)}${p.damageType ? ` ${damageTypeLabel(p.damageType)}` : ''}`;
   return p.formula ? `${amt} (${p.formula})` : amt;
 }
 
@@ -454,7 +459,7 @@ function _pillOpData(ov, pills) {
   const base = Number(ov.baseAmount ?? 0);
   const orig = _origDamageType(ov);
   const typePill = damagePillType(pills);
-  const surges = pills.filter((p) => p.kind === 'surge' && p.enabled !== false && !p.damageType).length;
+  const surges = pills.filter((p) => p.kind === 'surge' && p.enabled !== false && !ownHit(p)).length;
   const surgeDamage = Number(ov.surgeDamage ?? 0) || 0;
   return {
     ...ov,
@@ -743,7 +748,7 @@ async function _syncTypedSurges(message, opId, pills) {
   if (!target || !ov?.dstFam) return;
   const typed = new Map();
   for (const p of pills) {
-    if (p.kind === 'surge' && p.damageType && p.enabled !== false) typed.set(p.damageType, (typed.get(p.damageType) ?? 0) + 1);
+    if (ownHit(p) && p.enabled !== false) typed.set(p.damageType, (typed.get(p.damageType) ?? 0) + 1);
   }
   await syncSurgeRows(message, { targetUuid: target.tokenUuid, key: ov.dstFam, surgeDamage: Number(ov.surgeDamage) || 0,
     label: L('surge'), wanted: [...typed].map(([type, count]) => ({ type, count })) });
