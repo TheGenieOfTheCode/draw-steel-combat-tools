@@ -673,6 +673,18 @@ export const registerSettings = () => {
     name: L('applyToTargets.name'), hint: L('applyToTargets.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'advancedEnrichers', {
+    name: L('advancedEnrichers.name'), hint: L('advancedEnrichers.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'advancedEnricherMessages', {
+    name: L('advancedEnricherMessages.name'), hint: L('advancedEnricherMessages.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'compactEnrichers', {
+    name: L('compactEnrichers.name'), hint: L('compactEnrichers.hint'),
+    scope: 'client', config: false, type: Boolean, default: false, requiresReload: true,
+  });
   game.settings.register(M, 'neutralizeEnrichers', {
     name: L('neutralizeEnrichers.name'), hint: L('neutralizeEnrichers.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

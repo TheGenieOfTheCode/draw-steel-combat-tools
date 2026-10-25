@@ -59,6 +59,12 @@ const originActor = (d) => {
 async function applyToTargets(link) {
   const tokens = [...game.user.targets].filter((t) => t.actor);
   if (!tokens.length) return void ui.notifications.warn(game.i18n.localize('DSCT.applyToTargets.noTargets'));
+  await applyLinkTo(link, tokens);
+}
+
+export async function applyLinkTo(link, tokens) {
+  tokens = tokens.filter((t) => t?.actor);
+  if (!tokens.length) return false;
   const d = link.dataset;
   const payload = {
     type: d.type, uuid: d.uuid, status: d.status, origin: d.origin, end: d.end,
@@ -73,7 +79,8 @@ async function applyToTargets(link) {
     const source = await resolveStatusSource(sourced, { known, victims });
     if (!source) {
       const condition = game.i18n.localize(CONFIG.statusEffects.find(st => st.id === sourced)?.name ?? sourced);
-      return void ui.notifications.info(game.i18n.format('DSCT.notice.status.cancelled', { condition }));
+      ui.notifications.info(game.i18n.format('DSCT.notice.status.cancelled', { condition }));
+      return false;
     }
     payload.source = source.uuid;
   }
@@ -87,6 +94,7 @@ async function applyToTargets(link) {
         { fill: 'white', fontSize: 32, stroke: 0x000000, strokeThickness: 4 });
     }
   }
+  return true;
 }
 
 function addTooltipLine() {

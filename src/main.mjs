@@ -24,6 +24,7 @@ import { applyStatus, removeStatus, statusSourceUuids, migrateLegacyStatuses, cr
 import { registerJudgedMarked } from './conditions/judged-marked.mjs';
 import { registerTriggersDerived } from './compat/triggers-derived.mjs';
 import { registerApplyToTargets, applyEnricherPayload } from './conditions/apply-to-targets.mjs';
+import { registerAdvancedEnrichers } from './advanced-enrichers/advanced-enrichers.mjs';
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { registerAreaLineRendering } from './ability-automation/area-picker.mjs';
@@ -367,6 +368,7 @@ Hooks.once('setup', () => {
 
   ['ds.roll', 'ds.apply'].forEach(patchDsEnricher);
   registerApplyToTargets();
+  registerAdvancedEnrichers();
 
   const lookupIdx = CONFIG.TextEditor.enrichers.findIndex(e => e.id === 'ds.lookup');
   if (lookupIdx !== -1) {

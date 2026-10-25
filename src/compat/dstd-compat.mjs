@@ -16,6 +16,7 @@ import { applyStatus, SOURCED_STATUSES } from '../conditions/statuses.mjs';
 import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW, DAMAGE_TYPES, isPrimaryGM, safeUpdate, safeCreateEmbedded, safeSetFlag, executeAsDirector } from '../ctlib.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
+import { takesOver } from '../advanced-enrichers/flat-enrichers.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
 import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords, chooseAfterPending } from '../ability-automation/choose-effect.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
@@ -36,7 +37,7 @@ function _dmgIcon(type) { return (DAMAGE_TYPES[type] ?? DAMAGE_TYPES.untyped).ic
 
 const SPEND_HANDLER = 'dsct.dstdSpendResource';
 
-async function _spendSourceResource(actor, cost) {
+export async function _spendSourceResource(actor, cost) {
   const local = actor.system.coreResource?.target === actor ? actor.isOwner : game.user.isGM;
   if (local) return await actor.system.updateResource(-cost);
   return await executeAsDirector(getModuleApi(false)?.socket, SPEND_HANDLER, actor.uuid, cost);
@@ -436,7 +437,8 @@ async function _autoApplyOwn(message, panel) {
   if (!panel || !_autoApplyEligible.has(message.id)) return;
   if (!getSetting('autoApplyOwnAbilities') || message.getFlag(M, 'autoApplied')) return void _autoApplyEligible.delete(message.id);
   const rows = [...panel.querySelectorAll(DSTD_ROW)].filter(r => r.dataset.targetKey && r.dataset.targetKey !== 'selected-token');
-  if (!rows.some(r => _effectRows(r).some(_autoButton))) return;
+  const autoEnrichers = !!panel.closest('li.chat-message')?.querySelector('enriched-content.dsct-adv[data-adv-auto]');
+  if (!autoEnrichers && !rows.some(r => _effectRows(r).some(_autoButton))) return;
   const abilityUuid = _getMessageParts(message).find(p => p.abilityUuid)?.abilityUuid ?? message.flags?.[DSTD]?.state?.abilityUuid;
   const ability = abilityUuid ? fromUuidSync(abilityUuid) : null;
   _autoApplyEligible.delete(message.id);
@@ -642,6 +644,8 @@ const _applyEffectsInOrder = (msgId, msgDoc, { safe = false } = {}) => _withOneT
   try {
     if (!(await _waitForHolds(msgId))) return;
     if (!(await _waitForChoice(msgId))) return;
+    const enricherDamage = await damageBatch(() => services.get('applyAutoEnrichers')?.(game.messages.get(msgId), msgDoc));
+    if (enricherDamage) await services.get('settleDeaths')?.();
     keys = [...(panelNow()?.querySelectorAll(DSTD_ROW) ?? [])].map(r => r.dataset.targetKey).filter(k => k && k !== 'selected-token');
     for (let col = 0; ; col++) {
       const { stop, anyRow, damaged } = await runColumn(col);
@@ -1457,7 +1461,7 @@ const _dstdLoc = (key, data) => {
 
 const UPDATE_TARGETS = '[data-dstd-action="updateTargets"], [data-dsct-update-targets]';
 
-async function _repickForMessage(message) {
+export async function _repickForMessage(message) {
   const abilityUuid = _getMessageParts(message).find(p => p.abilityUuid)?.abilityUuid ?? message.flags?.[DSTD]?.state?.abilityUuid;
   const ability = abilityUuid ? await fromUuid(abilityUuid).catch(() => null) : null;
   if (!ability) return undefined;
@@ -1749,7 +1753,7 @@ function _syntheticTargetRow(token) {
 
 const OTHERS_FLAG = 'othersPicked';
 
-function _areaOrigin(ability) {
+export function _areaOrigin(ability) {
   const region = canvas.scene?.regions.contents.findLast(r => r.getFlag('draw-steel', 'abilitySource') === ability?.uuid);
   const shape = region?.shapes?.[0];
   if (!shape) return null;
@@ -1885,6 +1889,7 @@ async function _injectFmButtons(message, root) {
     ? Array.from(ability.system?.effects?.contents ?? [])
       .filter(e => e.type === type)
       .filter(e => !_chooseKeeps || _chooseKeeps(e))
+      .filter(e => !takesOver(ability, e))
     : [];
   const flatDamageEffects   = _flatOfType('dsct.flatDamage').filter(e => expendAllows(e, ability, message));
   const flatForcedEffects   = _flatOfType('dsct.flatForced');

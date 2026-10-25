@@ -1,6 +1,6 @@
 import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed, effectStartFor } from '../helpers.mjs';
 import { applyStatus } from '../conditions/statuses.mjs';
-import { DAMAGE_TYPES, isPrimaryGM, safeCreateEmbedded, safeDelete, safeSetFlag, safeToggleStatusEffect, safeUpdate } from '../ctlib.mjs';
+import { DAMAGE_TYPES, isPrimaryGM, safeCreateEmbedded, safeDelete, safeSetFlag, safeToggleStatusEffect, safeUpdate, services } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 import { executeTeleport, executeTeleswap } from '../teleport.mjs';
@@ -1865,7 +1865,8 @@ function _installFlatEffectChatHook() {
     const chooseKeeps = chooseMessageFilter(message, item);
     const flatEffects = item.system.effects.contents
       .filter(e => FLAT_TYPES.has(e.type))
-      .filter(e => !chooseKeeps || chooseKeeps(e));
+      .filter(e => !chooseKeeps || chooseKeeps(e))
+      .filter(e => !services.get('flatTakesOver')?.(item, e));
     if (!flatEffects.length) return;
 
     const partSection = html.querySelector(`section[data-message-part="${ABILITY_PART_ID}"]`);

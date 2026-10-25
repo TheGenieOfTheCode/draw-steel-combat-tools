@@ -48,6 +48,7 @@ export const registerAbilityInjectors = () => {
           const endStr   = link?.dataset?.end ?? null;
           const label    = link?.textContent?.trim() ?? wrapper.textContent?.trim() ?? '';
 
+          if (statusId && getSetting('advancedEnrichers') !== false) continue;
           if (!statusId) {
             const dsctOwnsAbility =
               (getSetting('judgementAutomation') && dsid === 'judgement') ||

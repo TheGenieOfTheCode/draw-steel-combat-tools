@@ -118,7 +118,7 @@ export function styleTypePill(el, p) {
   el.style.background = `color-mix(in srgb, ${col} 12%, transparent)`;
 }
 
-class DsctDamageEditor extends ds.applications.api.DSApplication {
+export class DsctDamageEditor extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     id: 'dsct-damage-editor',
     classes: ['draw-steel', 'dsct-roll-editor', 'dsct-damage-editor'],
