@@ -2419,6 +2419,7 @@
       "resisted": "Resisted",
       "forcedNeedsStatus": "Only moves a creature that is {status}.",
       "costLine": "Costs {n} {resource}.",
+      "sourceLine": "Acts for {name}.",
       "applyAmount": "Gets {name}",
       "applyApplied": "Got {name}",
       "forcedAmount": "{movement} {n}",

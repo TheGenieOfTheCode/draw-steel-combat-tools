@@ -110,11 +110,18 @@ const findFlat = (ability, ref) => {
     ?? flats.find((e) => [e.name, e.label, e[e.type.slice(5)]?.display].some((n) => n && String(n).toLowerCase() === wanted)) ?? null;
 };
 
+const PRESETS = /\s+(?:targets|source)=(?:"[^"]*"|\S+)/gi;
+
+const splitFlatConfig = (config) => ({
+  name: String(config ?? '').replace(PRESETS, '').trim(),
+  presets: [...String(config ?? '').matchAll(PRESETS)].map((m) => m[0]).join(''),
+});
+
 const placedIds = (ability) => {
   const ids = new Set();
   for (const text of textsOf(ability)) {
-    for (const m of text.matchAll(/\[\[\/flat\s+([^\]]+?)\]\]/gi)) {
-      const found = findFlat(ability, m[1]);
+    for (const m of text.matchAll(/\[\[\/flat\s+(.*?)\]\](?!\])/gi)) {
+      const found = findFlat(ability, splitFlatConfig(` ${m[1]}`).name);
       if (found) ids.add(found.id);
     }
   }
@@ -132,12 +139,14 @@ const enrich = (text, ability) => foundry.applications.ux.TextEditor.implementat
 
 const flat = {
   id: 'dsct.flat',
-  pattern: /\[\[\/flat\s+(?<config>[^\]]+?)]](?:{(?<label>[^}]+)})?/gi,
+  pattern: /\[\[\/flat\s+(?<config>.*?)]](?!])(?:{(?<label>[^}]+)})?/gi,
   async enricher(match, options) {
     const ability = options.relativeTo;
-    const effect = ability?.documentName === 'Item' ? findFlat(ability, match.groups.config) : null;
+    const { name, presets } = splitFlatConfig(` ${match.groups.config}`);
+    const effect = ability?.documentName === 'Item' ? findFlat(ability, name) : null;
     if (!effect) return null;
     let text = flatEnricherText(effect, ability);
+    if (text && presets) text = text.replace(/]](?=(?:{[^}]*})?$)/, `${presets}]]`);
     if (!text || getSetting('advancedEnrichers') === false) {
       const span = document.createElement('span');
       span.textContent = match.groups.label ?? effect[effect.type.slice(5)]?.display ?? effect.label ?? effect.name;

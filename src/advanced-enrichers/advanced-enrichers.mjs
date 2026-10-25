@@ -9,8 +9,9 @@ import { runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { applyLinkTo } from '../conditions/apply-to-targets.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { triggerRollData, modifyAttributeSafely, grantTempStamina } from '../ability-automation/flat-special-effects.mjs';
-import { FORCED_ICONS, teleportOptions, fixedSource, teleportToken, cleanseSpec, cleanseActor, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
+import { FORCED_ICONS, teleportOptions, teleportToken, cleanseSpec, cleanseActor, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
 import { registerFlatEnrichers } from './flat-enrichers.mjs';
+import { resolveTokenRefs } from './refs.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG = 'adv';
@@ -51,8 +52,6 @@ const speakerDoc = (message) => {
     ?? ChatMessage.getSpeakerActor(s)?.getActiveTokens?.(false, true)?.[0] ?? null;
 };
 
-const speakerToken = (message) => speakerDoc(message)?.object ?? null;
-
 const abilityOf = (message) => {
   const parts = message.system?.parts;
   const list = parts?.contents ?? (parts ? [...parts] : []);
@@ -76,11 +75,6 @@ const meansSpeaker = (ec) => {
   return /\b(you|yourself)\b/i.test(before) && !OTHERS.test(before);
 };
 
-const speakerTargets = (message) => {
-  const doc = speakerDoc(message);
-  return doc ? [doc.uuid] : [];
-};
-
 const sourceConfig = (a) => {
   const parse = ds.applications?.ux?.helpers?.parseConfig;
   if (!parse || a?.dataset.dsctSource == null) return {};
@@ -89,12 +83,38 @@ const sourceConfig = (a) => {
 
 const flatTargets = (message) => (message.flags?.[DSTD]?.state?.targets ?? []).map((t) => t.tokenUuid).filter(Boolean);
 
+const presetSource = (a) => {
+  const raw = sourceConfig(a).source ?? a?.dataset.source;
+  return raw == null || raw === '' ? null : String(raw);
+};
+
+const relativeRefs = (message, a) => ({
+  owner: () => [speakerDoc(message)],
+  self: () => [speakerDoc(message)],
+  targets: () => flatTargets(message).map((u) => fromUuidSync(u)),
+  ...(a ? { source: () => [sourceDoc(message, a)] } : {}),
+});
+
+const sourceDoc = (message, a) => {
+  const raw = presetSource(a);
+  return (raw && resolveTokenRefs(raw, { message, relative: relativeRefs(message, null) })[0]) || speakerDoc(message);
+};
+
+const speakerTargets = (message, a) => {
+  const doc = sourceDoc(message, a);
+  return doc ? [doc.uuid] : [];
+};
+
 const targetsOf = (message, st, ec, kind) => {
   if (Array.isArray(st.targets)) return st.targets;
-  const forced = sourceConfig(linkOf(ec)).recipient;
-  if (forced === 'self') return speakerTargets(message);
-  if (forced === 'target') return flatTargets(message);
-  if (kind.recipient === 'speaker' ? !OTHERS.test(sentenceBefore(ec)) : meansSpeaker(ec)) return speakerTargets(message);
+  const a = linkOf(ec);
+  const cfg = sourceConfig(a);
+  if (cfg.targets != null && cfg.targets !== '') {
+    return resolveTokenRefs(cfg.targets, { message, relative: relativeRefs(message, a) }).map((d) => d.uuid);
+  }
+  if (cfg.recipient === 'self') return speakerTargets(message, a);
+  if (cfg.recipient === 'target') return flatTargets(message);
+  if (kind.recipient === 'speaker' ? !OTHERS.test(sentenceBefore(ec)) : meansSpeaker(ec)) return speakerTargets(message, a);
   return flatTargets(message);
 };
 
@@ -148,8 +168,9 @@ const refLabel = (ref) => {
   return titleCase(last.replace(/([a-z])([A-Z])/g, '$1 $2'));
 };
 
-const rollDataFor = (message) => {
-  const base = abilityOf(message)?.getRollData?.() ?? ChatMessage.getSpeakerActor(message.speaker)?.getRollData?.() ?? {};
+const rollDataFor = (message, a) => {
+  const preset = a && presetSource(a) ? sourceDoc(message, a)?.actor?.getRollData?.() : null;
+  const base = preset ?? abilityOf(message)?.getRollData?.() ?? ChatMessage.getSpeakerActor(message.speaker)?.getRollData?.() ?? {};
   const spent = Number(String(message.flavor ?? '').match(/^Spent (\d+)/i)?.[1]);
   return { ...base, ...triggerRollData(message), ...(Number.isFinite(spent) ? { spend: spent } : {}) };
 };
@@ -163,7 +184,7 @@ const breakdownHTML = (a, st, message) => {
   const raw = (sourceFormula(a) ?? json?.formula ?? String(total)).trim();
   let dice = [];
   try { dice = json ? Roll.fromData(json).dice : []; } catch { dice = []; }
-  const rollData = rollDataFor(message);
+  const rollData = rollDataFor(message, a);
   const out = [];
   let last = 0;
   let di = 0;
@@ -269,7 +290,8 @@ const DAMAGE = {
 
 const isMinionInSquad = (actor) => !!actor?.isMinion && !!actor.system?.combatGroup && !(actor.system.combatGroups?.size > 1);
 const recoveriesOf = (actor) => actor?.system?.recoveries?.value ?? 0;
-const casterActor = (message) => abilityOf(message)?.actor ?? ChatMessage.getSpeakerActor(message.speaker) ?? null;
+const casterActor = (message, a) => (a && presetSource(a) ? sourceDoc(message, a)?.actor : null)
+  ?? abilityOf(message)?.actor ?? ChatMessage.getSpeakerActor(message.speaker) ?? null;
 
 const HEAL = {
   id: 'heal',
@@ -286,7 +308,7 @@ const HEAL = {
   
   result(st, a, doc, message) {
     const cfg = sourceConfig(a);
-    const caster = message ? casterActor(message) : null;
+    const caster = message ? casterActor(message, a) : null;
     const valueFrom = cfg.value === 'target' ? doc.actor : (cfg.value === 'self' ? caster : null);
     const base = valueFrom ? (valueFrom.system?.recoveries?.recoveryValue ?? 0) : st.totals?.[0];
     if (base == null) return null;
@@ -312,7 +334,7 @@ const HEAL = {
   notes: (r) => (r.blocked ? [L(HEAL_BLOCKS[r.blocked], { name: r.spender ?? '' })] : (r.spender ? [L('noteRecovery', { name: r.spender })] : [])),
   async applyMany(ctx, docs) {
     const cfg = sourceConfig(ctx.a);
-    const caster = casterActor(ctx.message);
+    const caster = casterActor(ctx.message, ctx.a);
     const out = {};
     for (const doc of docs) {
       const r = this.result(ctx.st, ctx.a, doc, ctx.message);
@@ -396,10 +418,10 @@ const potencyOf = (a, message) => {
   const characteristic = ds.CONFIG.characteristics[chr?.toLowerCase()] ? chr.toLowerCase()
     : Object.entries(ds.CONFIG.characteristics).find(([, c]) => c.rollKey === chr?.toUpperCase())?.[0];
   if (!characteristic) return null;
-  const caster = casterActor(message);
+  const caster = casterActor(message, a);
   let value = caster?.system?.potency?.[strength];
   if (value == null) {
-    try { value = Number(ds.utils.evaluateFormula(String(strength), rollDataFor(message))); } catch { value = NaN; }
+    try { value = Number(ds.utils.evaluateFormula(String(strength), rollDataFor(message, a))); } catch { value = NaN; }
   }
   return Number.isFinite(Number(value)) ? { characteristic, value: Number(value) } : null;
 };
@@ -484,7 +506,7 @@ const FORCED = {
   result(st, a, doc, message) {
     let base = st.totals?.[0];
     if (PER_TARGET.test(a.dataset.formula) && message) {
-      try { base = Number(ds.utils.evaluateFormula(a.dataset.formula, { ...rollDataFor(message), target: doc.actor?.getRollData?.() ?? {} })); }
+      try { base = Number(ds.utils.evaluateFormula(a.dataset.formula, { ...rollDataFor(message, a), target: doc.actor?.getRollData?.() ?? {} })); }
       catch { base = null; }
     }
     if (base == null || !Number.isFinite(base)) return null;
@@ -505,7 +527,8 @@ const FORCED = {
   async applyMany(ctx, docs) {
     const { a, st, message } = ctx;
     const props = new Set((a.dataset.properties ?? '').split(',').filter(Boolean));
-    const source = sourceConfig(a).origin === 'area' ? (_areaOrigin(abilityOf(message)) ?? speakerToken(message)) : speakerToken(message);
+    const from = sourceDoc(message, a)?.object ?? null;
+    const source = sourceConfig(a).origin === 'area' ? (_areaOrigin(abilityOf(message)) ?? from) : from;
     const out = {};
     for (const doc of docs) {
       if (!doc.object) continue;
@@ -547,7 +570,7 @@ const TELEPORT = {
   async applyMany(ctx, docs) {
     const { a, st, message } = ctx;
     const opts = { ...teleportOptions(a), distance: st.totals?.[0] ?? teleportOptions(a).distance };
-    const partner = opts.mode ? (fixedSource(a) ?? speakerToken(message)) : null;
+    const partner = opts.mode ? (sourceDoc(message, a)?.object ?? null) : null;
     const out = {};
     for (const doc of docs) {
       const token = doc.object;
@@ -595,7 +618,7 @@ const kindOf = (ec, a) => KINDS.find((k) => k.test(ec, a)) ?? null;
 const _rolling = new Map();
 
 const evaluateRolls = async (kind, a, message, { scaling } = {}) => {
-  const rolls = kind.rolls(a, { ...rollDataFor(message), ...(scaling != null ? { scaling } : {}) });
+  const rolls = kind.rolls(a, { ...rollDataFor(message, a), ...(scaling != null ? { scaling } : {}) });
   for (const roll of rolls) {
     await roll.evaluate();
     if (!roll.isDeterministic) game.dice3d?.showForRoll(roll, game.user, true);
@@ -681,7 +704,7 @@ const applyRows = async (kind, message, key, a, uuids) => {
   const docs = uuids.filter((u) => !st.applied?.[tk(u)]).map((u) => fromUuidSync(u)).filter((d) => d?.actor);
   if (!docs.length) return false;
   const cost = Number(sourceConfig(a).spend) || 0;
-  if (cost > 0 && !st.spent && !(await payCost(message, key, cost))) return false;
+  if (cost > 0 && !st.spent && !(await payCost(message, key, cost, a))) return false;
   const records = await kind.applyMany({ message, key, a, st }, docs);
   const updates = Object.fromEntries(Object.entries(records).map(([uuid, rec]) => [`applied.${tk(uuid)}`, rec]));
   if (Object.keys(updates).length) await write(message, key, updates);
@@ -704,8 +727,8 @@ const undoRow = async (kind, message, key, uuid) => {
   if (!left && st.spent) await refundCost(message, key);
 };
 
-const payCost = async (message, key, cost) => {
-  const actor = casterActor(message);
+const payCost = async (message, key, cost, a) => {
+  const actor = casterActor(message, a);
   const core = actor?.system?.coreResource;
   const have = core ? (foundry.utils.getProperty(core.target, core.path) ?? 0) : 0;
   if (!actor || have < cost) {
@@ -967,8 +990,9 @@ const build = (ec, a, message, key, kind) => {
   }
   ec._advTitle = titleCase(title);
   const cost = Number(sourceConfig(a).spend) || 0;
-  const costLine = cost ? L('costLine', { n: cost, resource: casterActor(message)?.system?.coreResource?.name ?? '' }) : '';
-  setTip(a, linkTip(kind, ec._advTitle, rows, breakdown, [a.dataset.dsctDetail, costLine].filter(Boolean).join(' ')));
+  const costLine = cost ? L('costLine', { n: cost, resource: casterActor(message, a)?.system?.coreResource?.name ?? '' }) : '';
+  const sourceLine = presetSource(a) ? L('sourceLine', { name: sourceDoc(message, a)?.name ?? '?' }) : '';
+  setTip(a, linkTip(kind, ec._advTitle, rows, breakdown, [a.dataset.dsctDetail, sourceLine, costLine].filter(Boolean).join(' ')));
   activateFaces(ec);
 };
 

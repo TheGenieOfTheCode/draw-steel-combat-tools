@@ -4,6 +4,7 @@ import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs
 import { executeTeleport, executeTeleswap } from '../teleport.mjs';
 import { runSourcePicker } from '../ability-automation/target-picker.mjs';
 import { richTip, setTip } from '../chat-tips.mjs';
+import { resolveTokenRefs, refList } from './refs.mjs';
 
 const L = (k, data) => data ? game.i18n.format(`DSCT.ctEnricher.${k}`, data) : game.i18n.localize(`DSCT.ctEnricher.${k}`);
 const H = () => ds.applications.ux.helpers;
@@ -169,8 +170,7 @@ export const teleportOptions = (a) => {
 export const fixedSource = (a) => {
   const id = a.dataset.source;
   if (!id) return null;
-  if (id.startsWith('Actor.')) return game.actors.get(id.slice(6))?.getActiveTokens()?.[0] ?? null;
-  return fromUuidSync(id)?.object ?? getTokenById(id) ?? null;
+  return resolveTokenRefs(id)[0]?.object ?? getTokenById(refList(id)[0]) ?? null;
 };
 
 export const teleportToken = async (token, opts, partner = null) => {
