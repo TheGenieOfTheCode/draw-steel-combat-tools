@@ -96,6 +96,15 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     if (gate === false) return;
     ({ type, distance, verticalHeight, bonusCreatureDmg, bonusObjectDmg } = ctx);
   }
+  const fmFrom = { x: targetToken.document.x, y: targetToken.document.y, elevation: targetToken.document.elevation ?? 0 };
+  
+  const fmLog = (final) => ({
+    movement: String(type).toLowerCase(), vertical: !!isVertical,
+    moved: Math.round(Math.max(Math.abs(final.x - fmFrom.x), Math.abs(final.y - fmFrom.y)) / canvas.grid.size)
+      || Math.abs(Math.round((final.elevation ?? 0) - fmFrom.elevation)),
+    source: sourceToken ? { name: sourceToken.name ?? '', src: sourceToken.document?.texture?.src ?? null,
+      tokenId: sourceToken.document?.uuid ? sourceToken.id : null, sceneId: canvas.scene?.id ?? null } : null,
+  });
   const noMoverDmgBase = noCollisionDamage || noMoverCollisionDamage;
   const moverSkipsObjects = !!targetToken.actor?.getFlag('draw-steel-combat-tools', 'noObjectCollisionDamage');
   let noMoverDmg = noMoverDmgBase;
@@ -1741,6 +1750,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         finalPos:      { x: targetToken.document.x, y: targetToken.document.y, elevation: vertTargetElev },
         hadDamage:     collisionMsgs.length > 0,
       };
+      vertResultData.fmLog = fmLog(vertResultData.finalPos);
       if (suppressMessage) return vertResultData;
       await ChatMessage.create({
         content: vertResultData.content,
@@ -2610,6 +2620,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       hadDamage:      collisionMsgs.length > 0,
       grabsToRestore: grabsEnded,
     };
+    mainResultData.fmLog = fmLog(mainResultData.finalPos);
     if (suppressMessage) { window._dsctFMActive = false; await markRevealed(targetToken, 'forced'); return mainResultData; }
     await ChatMessage.create({
       content: mainResultData.content,
@@ -2771,8 +2782,8 @@ export async function runForcedMovement(macroArgs = []) {
           'draw-steel-combat-tools': {
             isFmUndo:   true,
             isCombined: true,
-            entries:    results.map(({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage, grabsToRestore }) =>
-                          ({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage, grabsToRestore: grabsToRestore ?? [] })),
+            entries:    results.map(({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage, grabsToRestore, fmLog }) =>
+                          ({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage, grabsToRestore: grabsToRestore ?? [], fmLog: fmLog ?? null })),
             isUndone:   false,
             hadDamage:  results.some(r => r.hadDamage),
           }
@@ -2845,8 +2856,8 @@ export async function runForcedMovement(macroArgs = []) {
           'draw-steel-combat-tools': {
             isFmUndo:   true,
             isCombined: true,
-            entries:    results.map(({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage, grabsToRestore }) =>
-                          ({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage, grabsToRestore: grabsToRestore ?? [] })),
+            entries:    results.map(({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage, grabsToRestore, fmLog }) =>
+                          ({ content, undoLog, moveId, targetTokenId, targetSceneId, finalPos, hadDamage, grabsToRestore: grabsToRestore ?? [], fmLog: fmLog ?? null })),
             isUndone:   false,
             hadDamage:  results.some(r => r.hadDamage),
           }
