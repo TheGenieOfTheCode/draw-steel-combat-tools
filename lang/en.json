@@ -2714,7 +2714,9 @@
         "heading": "Choose one:",
         "chosen": "Chosen: {name}",
         "critical": "Critical hit: every option applies",
-        "noArea": "The area for {name} isn't on the scene, so only the targets you had stay."
+        "noArea": "The area for {name} isn't on the scene, so only the targets you had stay.",
+        "pickTip": "Choose {name}",
+        "notYours": "Only the chat message's owner can choose."
       },
       "sameAsAbility": "Same as ability",
       "sameAsAbilityNamed": "Same as ability ({value})",

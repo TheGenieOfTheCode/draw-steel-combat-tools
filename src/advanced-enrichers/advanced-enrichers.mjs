@@ -1,4 +1,4 @@
-import { getSetting, applyDamage, undoDamage, getSquadGroup, safeDelete } from '../helpers.mjs';
+import { getSetting, applyDamage, undoDamage, getSquadGroup, safeDelete, isOwnAbilityActor } from '../helpers.mjs';
 import { DSTD, DSTD_PANEL, DSTD_ROW, isPrimaryGM, safeUpdate, dropKey, dropKeyOverSocket, faceFromToken, faceChainHTML, activateFaces, services, registerPanelDecorator, damageTypeIconHTML, resourceTokenHTML } from '../ctlib.mjs';
 import { damageSignature, healSignature, gainSignature, applySignature, derivedSignatures } from './mirror.mjs';
 import { richTip, setTip, tipFor } from '../chat-tips.mjs';
@@ -617,6 +617,9 @@ const fmBaseState = (a, distance) => {
   };
 };
 
+const autoPathsFm = (message, a) => !!message && getSetting('fmAutoForOwnAbilities') && /^(push|pull)$/i.test(a.dataset.movement ?? '')
+  && isOwnAbilityActor(casterActor(message, a));
+
 const fmProps = (s) => new Set([
   s.vertical && 'vertical', s.noCollisionDamage && 'no-collision-damage', s.noMoverCollisionDamage && 'no-mover-collision-damage',
   s.noObstacleCollisionDamage && 'no-obstacle-collision-damage', s.ignoreStability && 'ignore-stability', s.fastMove && 'fast-auto-path',
@@ -667,6 +670,7 @@ const FORCED = {
     if (base == null || !Number.isFinite(base)) return null;
     const cfg = sourceConfig(a);
     const baseState = fmBaseState(a, base);
+    if (autoPathsFm(message, a)) baseState.fastMove = true;
     const state = { ...baseState };
     const entries = pillsOf(st, doc);
     if (entries.length) replayModifiers([baseState], entries, [state]);
@@ -1264,7 +1268,7 @@ const autoApplies = (kind, a, message) => {
   if (!ability) return false;
   
   if (sourceConfig(a).flat) {
-    if (kind.id === 'forced') return (a.dataset.properties ?? '').split(',').includes('fast-auto-path');
+    if (kind.id === 'forced') return (a.dataset.properties ?? '').split(',').includes('fast-auto-path') || autoPathsFm(message, a);
     if (kind.id === 'cleanse') return a.dataset.all === 'true';
     return kind.id !== 'teleport';
   }

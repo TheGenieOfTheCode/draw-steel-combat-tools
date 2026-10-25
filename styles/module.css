@@ -2083,6 +2083,25 @@ body.detached .chat-form {
 .dsct-choose-preview { margin: 0.25em 0 0; padding-left: 1.4em; }
 .dsct-choose-preview li { margin: 0.15em 0; }
 
+enriched-content[enricher="dsct.choose"], .dsct-choose-text { display: inline; }
+.dsct-choose-list { margin: 0.25em 0 0; padding-left: 1.4em; }
+.dsct-choose-list li { margin: 0.2em 0; }
+.dsct-choose-pending .dsct-choose-line {
+  cursor: pointer;
+  padding: 0 4px;
+  border: 1px solid var(--color-border, #7a7971);
+  border-radius: 3px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.dsct-choose-pending .dsct-choose-line:hover,
+.dsct-choose-pending .dsct-choose-line:focus-visible {
+  border-color: var(--color-border-highlight, #ff6400);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  outline: none;
+}
+
 .dsct-choose-hidden { display: none !important; }
 
 .draw-steel-target-damage-roll-formula.dsct-dice-formula {

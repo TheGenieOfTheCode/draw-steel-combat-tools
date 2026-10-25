@@ -1,5 +1,6 @@
 import { getSetting } from '../helpers.mjs';
-import { services } from '../ctlib.mjs';
+import { services, DSTD } from '../ctlib.mjs';
+import { registerDamagePillProvider } from '../compat/dstd-damage-pills.mjs';
 import { chooseMessageFilter, addPreviewRewrite, chooseClaimed } from '../ability-automation/choose-effect.mjs';
 import { levelAllows, expendAllows } from '../ability-automation/flat-special-effects.mjs';
 import { enricherSignatures, effectSignature } from './mirror.mjs';
@@ -25,11 +26,37 @@ const PER_TARGET = /@target\b/;
 const plainFormula = (formula) => !PER_TARGET.test(String(formula ?? ''));
 const quoted = (value) => (/\s/.test(value) ? `"${value}"` : value);
 
+const baseDamageTypes = (ability) => new Set([...(ability?.system?.power?.effects ?? [])].filter((e) => e.type === 'damage')
+  .flatMap((e) => [1, 2, 3].flatMap((t) => [...setOf(e.damage?.[`tier${t}`]?.types)])));
+
+export const bonusDamage = (ability, effect) => {
+  if (effect?.type !== 'dsct.flatDamage' || !ability) return false;
+  const f = effect.flatDamage;
+  const types = [...setOf(f.types)];
+  return (f.recipient ?? 'target') === 'target' && plainFormula(f.value) && types.length === 1 && baseDamageTypes(ability).has(types[0]);
+};
+
+const bonusPills = (message) => {
+  if (!on()) return [];
+  const uuid = (message.system?.parts?.contents ?? []).find((p) => p?.abilityUuid)?.abilityUuid;
+  const ability = uuid ? fromUuidSync(uuid) : null;
+  if (!ability) return [];
+  const pills = visibleFlatEffects(message, ability).filter((e) => bonusDamage(ability, e)).map((e) => {
+    let value = 0;
+    try { value = Number(ds.utils.evaluateFormula(String(e.flatDamage.value), ability.getRollData?.() ?? {})) || 0; } catch { value = 0; }
+    return { kind: 'delta', value, label: e.name || e.flatDamage.display || e.label, source: 'flat', dsctFlat: e.id };
+  }).filter((p) => p.value);
+  if (!pills.length) return [];
+  const targets = message.getFlag?.(DSTD, 'state')?.targets ?? [];
+  return targets.filter((t) => t.tokenUuid).flatMap((t) => pills.map((pill) => ({ targetUuid: t.tokenUuid, pill: { ...pill, dstTarget: t.tokenUuid } })));
+};
+
 export const flatEnricherText = (effect, ability) => {
   const tag = ` flat=${effect.id}`;
   switch (effect.type) {
     case 'dsct.flatDamage': {
       const f = effect.flatDamage;
+      if (bonusDamage(ability, effect)) return null;
       if (!reachable(f.recipient ?? 'target', f) || !String(f.value ?? '').trim() || !plainFormula(f.value)) return null;
       const types = [...setOf(f.types)];
       const ignored = [...setOf(f.ignoredImmunities)];
@@ -110,10 +137,14 @@ export const takesOver = (ability, effect) => {
     const sig = effectSignature(ability, effect);
     if (sig && enricherSignatures(ability).has(sig)) return true;
   }
-  return flatEnricherText(effect, ability) != null;
+  return flatEnricherText(effect, ability) != null || bonusDamage(ability, effect);
 };
 
-const textsOf = (ability) => Object.values(foundry.utils.flattenObject(ability.system?.toObject?.() ?? {})).filter((v) => typeof v === 'string');
+const textsOf = (ability) => [
+  ...Object.values(foundry.utils.flattenObject(ability.system?.toObject?.() ?? {})).filter((v) => typeof v === 'string'),
+  
+  ...Array.from(ability.system?.effects ?? []).flatMap((e) => (e.choose?.choices ?? []).map((c) => c.preview ?? '')),
+];
 
 const findFlat = (ability, ref) => {
   const wanted = String(ref ?? '').trim().toLowerCase();
@@ -243,6 +274,7 @@ async function previewEnrichers(context) {
 export function registerFlatEnrichers() {
   CONFIG.TextEditor.enrichers.push(flat);
   addPreviewRewrite(previewEnrichers);
+  registerDamagePillProvider(bonusPills);
   services.provide('flatTakesOver', takesOver);
   Hooks.on('renderChatMessageHTML', (message, html) => {
     injectFallback(message, html).catch((err) => console.warn('DSCT | flat enrichers | fallback:', err));

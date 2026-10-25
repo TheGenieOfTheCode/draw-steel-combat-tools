@@ -315,6 +315,7 @@ export function registerChooseEffect() {
   _registerRollSuppression();
   _registerPreviewOverride();
   _registerTemplateOverride();
+  CONFIG.TextEditor.enrichers.push(chooseEnricher);
 }
 
 const _chosen = new Map();
@@ -739,8 +740,6 @@ function _targetTypeFits(type, token, source) {
   }
 }
 
-const _overlaps = (b, r) => b.x < r.x + r.w && b.x + b.width > r.x && b.y < r.y + r.h && b.y + b.height > r.y;
-
 async function _reshapeArea(message, item, choice) {
   const region = canvas.scene?.regions.contents.findLast(r => r.getFlag('draw-steel', 'abilitySource') === item.uuid);
   const raw = region?.shapes?.[0];
@@ -749,18 +748,19 @@ async function _reshapeArea(message, item, choice) {
     ui.notifications.warn(game.i18n.format('DSCT.choose.after.noArea', { name: item.name }));
     return null;
   }
-  let rect = { x: shape.x, y: shape.y, w: shape.width, h: shape.height };
   const size = Number(choice.distance?.primary) || 0;
   if (choice.distance?.type === 'cube' && size) {
-    const w = size * canvas.grid.size;
-    rect = { x: rect.x + rect.w / 2 - w / 2, y: rect.y + rect.h / 2 - w / 2, w, h: w };
-    await region.update({ shapes: [{ ...shape, x: rect.x, y: rect.y, width: w, height: w }] });
+    
+    const w = size * canvas.dimensions.distancePixels;
+    const ax = shape.anchorX ?? 0, ay = shape.anchorY ?? 0;
+    const cx = shape.x + (0.5 - ax) * shape.width, cy = shape.y + (0.5 - ay) * shape.height;
+    await region.update({ shapes: [{ ...shape, x: cx - (0.5 - ax) * w, y: cy - (0.5 - ay) * w, width: w, height: w }] });
   }
   const type = choice.target?.type || item.system.target?.type;
   const source = fromUuidSync(message.flags?.[DSTD]?.state?.sourceTokenUuid ?? '')?.object ?? null;
   const dead = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
   const inside = canvas.tokens.placeables.filter(t => t.actor && !t.document.hidden && !t.actor.statuses?.has(dead)
-    && _overlaps(t.bounds, rect) && _targetTypeFits(type, t, source));
+    && t.document.testInsideRegion(region) && _targetTypeFits(type, t, source));
   const { normalizeTargetToken } = await import('/modules/draw-steel-target-damage/src/target-utils.mjs');
   return inside.map(t => normalizeTargetToken(t)).filter(Boolean);
 }
@@ -775,11 +775,110 @@ async function _chooseAfter(message, item, effect, index) {
   await message.update(update);
 }
 
+const CHOOSE_REF = /\[\[\/choose(?:\s+([^\]]*?))?\]\]/gi;
+const LABELLED = /\[\[\/[a-z]+(?:\s[^\]]*)?\]\](?:\{([^}]*)\})?/gi;
+
+const _findChoose = (item, ref) => {
+  const all = _chooseEffects(item);
+  const wanted = String(ref ?? '').trim().toLowerCase();
+  if (!wanted) return all[0] ?? null;
+  return all.find(e => e.id.toLowerCase() === wanted || (e.name ?? '').trim().toLowerCase() === wanted) ?? null;
+};
+
+export const placedChooseIds = (item) => {
+  const ids = new Set();
+  for (const s of item?.system?.effects ?? []) {
+    for (const m of String(s.description ?? '').matchAll(CHOOSE_REF)) {
+      const found = _findChoose(item, m[1]);
+      if (found) ids.add(found.id);
+    }
+  }
+  return ids;
+};
+
+const chooseEnricher = {
+  id: 'dsct.choose',
+  pattern: /\[\[\/choose(?:\s+(?<config>[^\]]*?))?]](?!])(?:{(?<label>[^}]+)})?/gi,
+  async enricher(match, options) {
+    const item = options.relativeTo?.documentName === 'Item' ? options.relativeTo : null;
+    const effect = item ? _findChoose(item, match.groups.config) : null;
+    if (!effect) return null;
+    const enrich = (text) => foundry.applications.ux.TextEditor.implementation.enrichHTML(text, options);
+    const wrap = document.createElement('span');
+    wrap.className = 'dsct-choose-text';
+    wrap.dataset.chooseEffect = effect.id;
+    wrap.dataset.itemUuid = item.uuid;
+    const lead = document.createElement('span');
+    lead.className = 'dsct-choose-lead';
+    lead.textContent = match.groups.label ?? game.i18n.localize('DSCT.choose.preview.heading');
+    const list = document.createElement('ul');
+    list.className = 'dsct-choose-list';
+    for (const [index, choice] of effect.choose.choices.entries()) {
+      const text = choice.preview?.trim() || choice.name || _defaultPreview(index);
+      const li = document.createElement('li');
+      li.dataset.index = String(index);
+      const line = document.createElement('span');
+      line.className = 'dsct-choose-line';
+      line.innerHTML = await enrich(text.replace(LABELLED, (_, label) => label ?? ''));
+      
+      const rich = document.createElement('template');
+      rich.className = 'dsct-choose-rich';
+      rich.innerHTML = await enrich(text);
+      li.append(line, rich);
+      list.append(li);
+    }
+    wrap.append(lead, list);
+    return wrap;
+  },
+  onRender(element) {
+    const wrap = element.querySelector('.dsct-choose-text');
+    const item = wrap ? fromUuidSync(wrap.dataset.itemUuid) : null;
+    const effect = item?.system?.effects?.get?.(wrap.dataset.chooseEffect);
+    if (!effect) return;
+    const live = (li) => {
+      const line = li.querySelector('.dsct-choose-line');
+      line.replaceChildren(li.querySelector('template.dsct-choose-rich').content.cloneNode(true));
+      line.classList.add('dsct-choose-live');
+    };
+    const row = element.closest('[data-message-id]');
+    const message = row ? game.messages.get(row.dataset.messageId) : null;
+    const lines = [...wrap.querySelectorAll('.dsct-choose-list > li')];
+    if (!message) return void lines.forEach(live);
+    const picked = _pickedIndexes(_effectivePicks(message, item), effect.id);
+    if (picked.length) {
+      for (const li of lines) (picked.includes(Number(li.dataset.index)) ? live(li) : li.remove());
+      if (picked.length === 1) wrap.replaceChildren(...wrap.querySelector('.dsct-choose-live').childNodes);
+      else wrap.querySelector('.dsct-choose-lead')?.remove();
+      return;
+    }
+    wrap.classList.add('dsct-choose-pending');
+    for (const li of lines) {
+      const line = li.querySelector('.dsct-choose-line');
+      line.setAttribute('role', 'button');
+      line.tabIndex = 0;
+      line.dataset.tooltip = game.i18n.format('DSCT.choose.after.pickTip', { name: effect.choose.choices[Number(li.dataset.index)]?.name ?? '' });
+      const pick = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!message.isOwner) return void ui.notifications.warn(game.i18n.localize('DSCT.choose.after.notYours'));
+        if (wrap.dataset.picking) return;
+        wrap.dataset.picking = '1';
+        try { await _chooseAfter(message, item, effect, Number(li.dataset.index)); }
+        finally { delete wrap.dataset.picking; }
+      };
+      line.addEventListener('click', pick);
+      line.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') pick(event); });
+    }
+  },
+};
+
 function _installAfterChoice(message, panel) {
   const found = _abilityUsePart(message);
   const item = found ? fromUuidSync(found.part.abilityUuid) : null;
-  const effects = item ? _afterEffects(item) : [];
-  if (!effects.length) return;
+  
+  const placed = item ? placedChooseIds(item) : new Set();
+  const effects = item ? _afterEffects(item).filter(e => !placed.has(e.id)) : [];
+  if (!effects.length) return void panel.querySelector(`.${AFTER_ROW}`)?.remove();
   const stored = message.getFlag(M, FLAG) ?? {};
   const critical = _isCritical(message);
   const sig = effects.map(e => `${e.id}:${JSON.stringify(stored[e.id] ?? null)}`).join('|') + (critical ? '|crit' : '');
@@ -1077,6 +1176,7 @@ function _registerPreviewOverride() {
     const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
     const heading = game.i18n.localize('DSCT.choose.preview.heading');
     const claimed = chooseClaimed(this.parent);
+    const placed = placedChooseIds(this.parent);
     const isClaimed = (effect) => claimed.has((effect?.name ?? '').trim());
 
     const systemBefore = [...(context.beforeEffects ?? [])];
@@ -1087,7 +1187,7 @@ function _registerPreviewOverride() {
       const own = effect.before ? systemBefore.shift() : systemAfter.shift();
       const into = effect.before ? before : after;
       
-      if (chosen.includes(effect) && !effect.choose.choices.some(c => c.preview?.trim())) continue;
+      if (chosen.includes(effect) && (placed.has(effect.id) || !effect.choose.choices.some(c => c.preview?.trim()))) continue;
       if (chosen.includes(effect)) {
         const bullets = [];
         for (const [index, choice] of effect.choose.choices.entries()) {
