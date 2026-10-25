@@ -1201,6 +1201,12 @@ const onClick = (ec, a, message, key, kind) => async (event) => {
       return void await applyRows(kind, message, key, a, [uuid]);
     }
     if (chip) return void await applyRows(kind, message, key, a, chip.dataset.advUuids.split(' '));
+    if (event.shiftKey && link) {
+      const mine = [...game.user.targets].map((t) => t.document.uuid);
+      if (!mine.length) return void ui.notifications.warn(L('shiftNoTargets'));
+      await write(message, key, { targets: mine, othersSig: null });
+      return void await applyRows(kind, game.messages.get(message.id) ?? message, key, a, mine);
+    }
     const targets = targetsOf(message, st, ec, kind);
     if (!targets.length) return void await retarget(message, key, a);
     await applyRows(kind, message, key, a, targets);
