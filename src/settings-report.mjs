@@ -7,6 +7,7 @@ export const DEFAULT_CHANGES = {
   '1.1.0':   ['fmModifyGmOnly'],
   '1.1.9.2': ['fallConfirmation', 'squadHudEnabled', 'autoConfirmSelection', 'rollDialogPillUI', 'revealCombatantPositions', 'enforceAbilityRange', 'gmBypassRangeEnforcement'],
   '1.1.9.3': ['minionHealthEstimate'],
+  '1.2.7':   ['neutralizeEnrichers'],
 };
 
 const REPORTED_TYPES = new Set([Boolean, Number, String]);

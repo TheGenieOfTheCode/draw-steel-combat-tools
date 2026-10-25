@@ -534,7 +534,7 @@
       },
       "neutralizeEnrichers": {
         "name": "Replace Apply Enrichers in Ability Text",
-        "hint": "Turn the apply enrichers written into an ability’s description into plain text, and offer this module’s own buttons instead."
+        "hint": "Turn the apply enrichers written into an ability’s description into plain text, and offer this module’s own buttons instead. Advanced Enrichers already handle these, so this is only useful with them off."
       },
       "alwaysRepickTargets": {
         "name": "Always Re-Pick Targets",

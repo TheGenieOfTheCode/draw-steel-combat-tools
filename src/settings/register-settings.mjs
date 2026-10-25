@@ -687,7 +687,7 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'neutralizeEnrichers', {
     name: L('neutralizeEnrichers.name'), hint: L('neutralizeEnrichers.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'alwaysRepickTargets', {
     name: L('alwaysRepickTargets.name'), hint: L('alwaysRepickTargets.hint'),

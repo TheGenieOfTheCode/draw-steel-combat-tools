@@ -33,7 +33,10 @@ export const registerAbilityInjectors = () => {
     const dsid = msg.getFlag(M, 'abilityDsid');
 
     const hasDstd = !!game.modules.get('draw-steel-target-damage')?.active;
-    if (getSetting('neutralizeEnrichers') && (dsid || !hasDstd)) {
+    const replace = getSetting('neutralizeEnrichers');
+    const dsctOwnsAbility = (getSetting('judgementAutomation') && dsid === 'judgement')
+      || (getSetting('markAutomation') && dsid in MARK_ABILITY_CONFIG);
+    if ((replace && (dsid || !hasDstd)) || dsctOwnsAbility) {
       const srcTknId = msg.speaker?.token ?? null;
       const actor    = msg.speaker?.actor ? game.actors.get(msg.speaker.actor) : null;
       const seen     = new Set();
@@ -48,13 +51,8 @@ export const registerAbilityInjectors = () => {
           const endStr   = link?.dataset?.end ?? null;
           const label    = link?.textContent?.trim() ?? wrapper.textContent?.trim() ?? '';
 
-          if (statusId && getSetting('advancedEnrichers') !== false) continue;
-          if (!statusId) {
-            const dsctOwnsAbility =
-              (getSetting('judgementAutomation') && dsid === 'judgement') ||
-              (getSetting('markAutomation') && dsid in MARK_ABILITY_CONFIG);
-            if (!dsctOwnsAbility) continue;
-          }
+          if (statusId && (!replace || getSetting('advancedEnrichers') !== false)) continue;
+          if (!statusId && !dsctOwnsAbility) continue;
 
           if (statusId && !cached.some(e => e.statusId === statusId)) {
             cached.push({ statusId, endStr, label });
