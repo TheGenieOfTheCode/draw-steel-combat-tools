@@ -905,7 +905,7 @@ function _injectDamagePills(message, root) {
     const seen = new Set();
     for (const btn of row.querySelectorAll('button[data-dstd-action="applyDamage"][data-operation-id]')) {
       const id = btn.dataset.operationId;
-      if (seen.has(id)) continue;
+      if (seen.has(id) || btn.closest('.dsct-extra-dmg-row')) continue;
       seen.add(id);
       const ov = overrides[id];
       const have = Array.isArray(ov?.dstPills) ? ov.dstPills : [];
