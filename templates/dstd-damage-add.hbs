@@ -27,6 +27,18 @@
     </div>
   </div>
 
+  {{#if surgeTypeOptions.length}}
+  <div class="form-group dsct-amw-surge-type-group" style="display:none">
+    <label>{{localize "DSCT.panel.damagePills.surgeType"}}</label>
+    <div class="form-fields">
+      <select class="dsct-amw-surge-type-select">
+        <option value="">{{localize "DSCT.panel.damagePills.surgeTypeSame"}}</option>
+        {{#each surgeTypeOptions}}<option value="{{value}}">{{label}}</option>{{/each}}
+      </select>
+    </div>
+  </div>
+  {{/if}}
+
   <div class="form-group dsct-dmw-type-group" style="display:none">
     <label>{{localize "DSCT.panel.damagePills.damageType"}}</label>
     <div class="form-fields">

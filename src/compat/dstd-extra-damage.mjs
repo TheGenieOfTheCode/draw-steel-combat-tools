@@ -1,5 +1,6 @@
 import { DSTD, DSTD_ROW, DAMAGE_TYPES, registerPanelDecorator, safeUpdate } from '../ctlib.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
+import { dropKeyOverSocket } from '../helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG = 'extraDamage';
@@ -47,6 +48,32 @@ export async function setExtraDamageEnabled(message, { targetUuid = null, id, en
 }
 
 const typeLabelOf = (type) => type ? (ds.CONFIG.damageTypes?.[type]?.label ?? type) : '';
+
+export async function syncSurgeRows(message, { targetUuid, key, wanted, surgeDamage, label }) {
+  const state = message.getFlag(DSTD, 'state') ?? {};
+  const prefix = `surge-${key}-`;
+  const ours = (r) => r.targetUuid === targetUuid && r.id.startsWith(prefix);
+  const applied = (r) => state.applications?.[opIdOf(targetUuid, r.id)]?.status === 'applied';
+  const rows = rowsOf(message);
+  if (!wanted.length && !rows.some(ours)) return;
+  const next = rows.filter((r) => !ours(r) || applied(r));
+  const direct = game.user.isGM || message.isOwner;
+  const FD = foundry.data?.operators?.ForcedDeletion;
+  const FR = foundry.data?.operators?.ForcedReplacement;
+  const payload = { [`flags.${M}.${FLAG}`]: next, [`flags.${DSTD}.state.updatedAt`]: Date.now() };
+  for (const r of rows.filter((r) => ours(r) && !applied(r))) {
+    payload[`flags.${DSTD}.state.damageOverrides.${opIdOf(targetUuid, r.id)}`] = direct && FD ? new FD() : dropKeyOverSocket();
+  }
+  for (const { type, count } of wanted) {
+    const id = `${prefix}${type}`;
+    if (next.some((r) => r.targetUuid === targetUuid && r.id === id)) continue;
+    const amount = count * surgeDamage;
+    next.push({ targetUuid, id, amount, type, label });
+    const data = { baseAmount: amount, amount, bonus: 0, additional: '', surges: count, surgeDamage, damageType: type, typeLabel: game.i18n.localize(typeLabelOf(type)) };
+    payload[`flags.${DSTD}.state.damageOverrides.${opIdOf(targetUuid, id)}`] = direct && FR ? new FR(data) : data;
+  }
+  await safeUpdate(message, payload);
+}
 
 function _icon(cls) {
   const i = document.createElement('i');

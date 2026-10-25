@@ -1674,6 +1674,10 @@
         "effectType": "Damage becomes {type}",
         "surgeTooltip": "Spend a surge: +{damage} damage. {available} available. Spent when the damage is applied.",
         "surgeCapWarn": "Surge limit reached for this damage roll.",
+        "surgeTyped": "{type} Surge",
+        "surgeAmtTyped": "+{n} {type} Surge",
+        "surgeType": "Damage Type",
+        "surgeTypeSame": "The ability's damage",
         "noRoll": "No damage roll found for this button."
       },
       "rollEditor": {
