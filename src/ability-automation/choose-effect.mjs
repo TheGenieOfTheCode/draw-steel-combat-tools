@@ -409,6 +409,34 @@ export function checkAndRunChoose(dialog) {
   return 'block';
 }
 
+export function presetChoose(abilityOrUuid, picks) {
+  const ability = typeof abilityOrUuid === 'string' ? fromUuidSync(abilityOrUuid) : abilityOrUuid;
+  const effects = ability ? _chooseEffects(ability) : [];
+  if (!effects.length) return false;
+  const toIndex = (effect, value) => {
+    if (Number.isInteger(value)) return value;
+    const wanted = String(value ?? '').trim().toLowerCase();
+    return (effect.choose?.choices ?? []).findIndex((c) => String(c.name ?? '').trim().toLowerCase() === wanted);
+  };
+  const resolve = (effect, value) => {
+    const list = (Array.isArray(value) ? value : [value]).map((v) => toIndex(effect, v));
+    if (list.some((i) => i < 0 || i >= (effect.choose?.choices?.length ?? 0))) return null;
+    return Array.isArray(value) ? list : list[0];
+  };
+  const out = {};
+  const keyed = picks && typeof picks === 'object' && !Array.isArray(picks);
+  for (const effect of keyed ? effects : effects.slice(0, 1)) {
+    const value = keyed ? (picks[effect.id] ?? picks[effect.name]) : picks;
+    if (value === undefined) continue;
+    const index = resolve(effect, value);
+    if (index === null) return false;
+    out[effect.id] = index;
+  }
+  if (!Object.keys(out).length) return false;
+  _chosen.set(ability.uuid, { at: Date.now(), picks: out });
+  return true;
+}
+
 export function clearChoicePicks(abilityUuid) {
   const entry = _chosen.get(abilityUuid);
   if (entry) _recent.set(abilityUuid, { ...entry, at: Date.now() });
