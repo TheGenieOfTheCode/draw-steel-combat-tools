@@ -915,7 +915,7 @@ function _injectDamagePills(message, root) {
   }
 
   for (const btn of root.querySelectorAll('button[data-dstd-action="editDamage"][data-operation-id]')) {
-    btn.disabled = apps[btn.dataset.operationId]?.status === 'applied';
+    btn.disabled = apps[btn.dataset.operationId]?.status === 'applied' || btn.dataset.dstResLock === '1';
   }
 
   for (const [opId, items] of byOp) {
