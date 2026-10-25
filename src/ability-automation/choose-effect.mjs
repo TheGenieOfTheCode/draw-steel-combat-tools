@@ -1053,11 +1053,22 @@ function _defaultPreview(index) {
   return game.i18n.format('DSCT.choose.preview.fallback', { ordinal });
 }
 
+const _previewRewrites = [];
+
+export const addPreviewRewrite = (fn) => { _previewRewrites.push(fn); };
+
+export const chooseClaimed = (item) => new Set(_chooseEffects(item).flatMap(e => e.choose.choices.flatMap(c => [...(c.effects ?? [])])));
+
 function _registerPreviewOverride() {
   const path = 'CONFIG.Item.dataModels.ability.prototype.getSheetContext';
 
   const rewrite = async function (context) {
-    
+    await chooseRewrite.call(this, context);
+    for (const fn of _previewRewrites) await fn.call(this, context);
+  };
+
+  const chooseRewrite = async function (context) {
+
     if ('limitEffects' in context) return;
 
     const chosen = _chooseEffects(this.parent);
@@ -1065,7 +1076,7 @@ function _registerPreviewOverride() {
 
     const enrich = foundry.applications.ux.TextEditor.implementation.enrichHTML;
     const heading = game.i18n.localize('DSCT.choose.preview.heading');
-    const claimed = new Set(chosen.flatMap(e => e.choose.choices.flatMap(c => [...(c.effects ?? [])])));
+    const claimed = chooseClaimed(this.parent);
     const isClaimed = (effect) => claimed.has((effect?.name ?? '').trim());
 
     const systemBefore = [...(context.beforeEffects ?? [])];
@@ -1075,6 +1086,8 @@ function _registerPreviewOverride() {
     for (const effect of this.effects.sortedContents) {
       const own = effect.before ? systemBefore.shift() : systemAfter.shift();
       const into = effect.before ? before : after;
+      
+      if (chosen.includes(effect) && !effect.choose.choices.some(c => c.preview?.trim())) continue;
       if (chosen.includes(effect)) {
         const bullets = [];
         for (const [index, choice] of effect.choose.choices.entries()) {

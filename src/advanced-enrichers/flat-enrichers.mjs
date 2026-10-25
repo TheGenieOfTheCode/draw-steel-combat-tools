@@ -1,6 +1,6 @@
 import { getSetting } from '../helpers.mjs';
 import { services } from '../ctlib.mjs';
-import { chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
+import { chooseMessageFilter, addPreviewRewrite, chooseClaimed } from '../ability-automation/choose-effect.mjs';
 import { levelAllows, expendAllows } from '../ability-automation/flat-special-effects.mjs';
 import { enricherSignatures, effectSignature } from './mirror.mjs';
 
@@ -172,18 +172,22 @@ const flat = {
   },
 };
 
+const fallbackTexts = (ability, effects) => {
+  const placed = placedIds(ability);
+  const signatures = enricherSignatures(ability);
+  return effects
+    .filter((e) => !placed.has(e.id))
+    .filter((e) => !(e.id.startsWith(DERIVED) && signatures.has(effectSignature(ability, e))))
+    .map((e) => flatEnricherText(e, ability))
+    .filter(Boolean);
+};
+
 const injectFallback = async (message, html) => {
   if (!on() || html.querySelector('.dsct-adv-fallback')) return;
   const uuid = (message.system?.parts?.contents ?? []).find((p) => p?.abilityUuid)?.abilityUuid;
   const ability = uuid ? await fromUuid(uuid).catch(() => null) : null;
   if (!ability) return;
-  const placed = placedIds(ability);
-  const signatures = enricherSignatures(ability);
-  const texts = visibleFlatEffects(message, ability)
-    .filter((e) => !placed.has(e.id))
-    .filter((e) => !(e.id.startsWith(DERIVED) && signatures.has(effectSignature(ability, e))))
-    .map((e) => flatEnricherText(e, ability))
-    .filter(Boolean);
+  const texts = fallbackTexts(ability, visibleFlatEffects(message, ability));
   if (!texts.length) return;
   const embed = html.querySelector('document-embed.ability, .message-part-html document-embed');
   if (!embed || html.querySelector('.dsct-adv-fallback')) return;
@@ -203,8 +207,42 @@ const injectFallback = async (message, html) => {
   services.get('syncEmptyPanel')?.(message, html);
 };
 
+const blank = (html) => !String(html ?? '').replace(/<[^>]*>/g, '').trim();
+
+const appendInline = (html, extra) => {
+  const at = html.lastIndexOf('</p>');
+  if (at < 0) return `${html}<p>${extra}</p>`;
+  const before = html.slice(0, at);
+  const joint = before.replace(/<[^>]*>/g, '').trim().match(/[.!?]$/) ? ' ' : '; ';
+  return `${before}${joint}${extra}${html.slice(at)}`;
+};
+
+async function previewEnrichers(context) {
+  if (!on() || 'limitEffects' in context) return;
+  const ability = this.parent;
+  const taken = flatEffectsOf(ability).filter((e) => takesOver(ability, e));
+  if (!taken.length) return;
+  const labels = taken.map((e) => e.label);
+  const strip = (list) => (list ?? []).filter((d) => {
+    const i = labels.indexOf(d.label);
+    if (i < 0 || !blank(d.text)) return true;
+    labels.splice(i, 1);
+    return false;
+  });
+  context.beforeEffects = strip(context.beforeEffects);
+  context.afterEffects = strip(context.afterEffects);
+  const claimed = chooseClaimed(ability);
+  const texts = fallbackTexts(ability, taken.filter((e) => !claimed.has((e.name ?? '').trim())));
+  if (!texts.length) return;
+  const extra = `<span class="dsct-adv-fallback">${await enrich(texts.join('; '), ability)}</span>`;
+  const host = context.afterEffects.at(-1) ?? context.beforeEffects.at(-1);
+  if (host) host.text = appendInline(host.text, extra);
+  else context.afterEffects.push({ label: game.i18n.localize('TYPES.SpecialEffect.base'), text: `<p>${extra}</p>` });
+}
+
 export function registerFlatEnrichers() {
   CONFIG.TextEditor.enrichers.push(flat);
+  addPreviewRewrite(previewEnrichers);
   services.provide('flatTakesOver', takesOver);
   Hooks.on('renderChatMessageHTML', (message, html) => {
     injectFallback(message, html).catch((err) => console.warn('DSCT | flat enrichers | fallback:', err));

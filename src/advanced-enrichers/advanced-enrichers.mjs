@@ -1282,12 +1282,17 @@ const typeIcon = (id, a) => {
 };
 
 const compactLink = (id, a) => {
-  const formula = a.querySelector(':scope > span');
+  let formula = a.querySelector(':scope > span');
   a.dataset.dsctLabel = a.textContent.trim();
   a.dataset.dsctWords = [...a.childNodes].filter((n) => n !== formula).map((n) => n.textContent).join('').trim();
   if (formula) a.dataset.dsctFormulaText = formula.textContent.trim();
   const icon = typeIcon(id, a);
   for (const n of [...a.childNodes]) if (n.nodeType === Node.TEXT_NODE) n.remove();
+  
+  if (!formula && id === 'ds.roll' && a.dataset.formulas) {
+    formula = Object.assign(document.createElement('span'), { textContent: a.dataset.formulas.split('&')[0] });
+    a.append(formula);
+  }
   if (icon) {
     for (const old of a.querySelectorAll('i.fa-dice-d10, i.fa-bolt, :scope > i.fa-person-rays')) old.remove();
     icon.classList.add('dsct-adv-icon');
