@@ -3246,6 +3246,10 @@ img.dsct-adv-icon,
   object-fit: contain;
 }
 
+.theme-light img.dsct-adv-icon {
+  filter: drop-shadow(0 0 0.6px #000) drop-shadow(0 0 0.6px #000);
+}
+
 a.dsct-adv-compact {
   display: inline-flex;
   align-items: center;

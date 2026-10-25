@@ -1297,6 +1297,9 @@ const compactLink = (id, a) => {
   if (!a.dataset.dsctTip) setTip(a, richTip({ title: a.dataset.dsctLabel, body: a.dataset.dsctDetail ?? '' }));
 };
 
+const untypedAutoDamage = (id, a, match) => id === 'ds.roll' && !match.groups?.label && a.dataset.type === 'damageHeal'
+  && a.dataset.rollType === 'damage' && !(a.dataset.damageTypes ?? '').replace(/[&|]/g, '');
+
 const wrapEnricher = (id) => {
   const i = CONFIG.TextEditor.enrichers.findIndex((e) => e.id === id);
   if (i < 0) return;
@@ -1310,6 +1313,7 @@ const wrapEnricher = (id) => {
       const el = await innerEnrich.call(this, match, options);
       const a = el?.matches?.('a') ? el : el?.querySelector?.('a');
       if (a && match.groups?.config != null) a.dataset.dsctSource = match.groups.config.trim();
+      if (a && advancedEnrichersOn() && untypedAutoDamage(id, a, match)) a.append(` ${L('flatDamage', { type: '' }).trim()}`);
       if (a && advancedEnrichersOn()) titleCaseText(a);
       if (a && compactOn()) compactLink(id, a);
       return el;
