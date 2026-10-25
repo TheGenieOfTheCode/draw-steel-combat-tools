@@ -182,7 +182,7 @@ function rowEffect(row, ability, tier) {
 function decorate(message, panel) {
   const state = message.getFlag(DSTD, 'state');
   const ability = abilityOf(message);
-  if (!state || !ability) return;
+  if (!state || !ability || !panel) return;
   const checks = getSetting('potencyChecks') !== 'off';
   const sourceUuid = state.sourceActorUuid ?? ability.actor?.uuid ?? null;
   for (const targetRow of panel.querySelectorAll(DSTD_ROW)) {
