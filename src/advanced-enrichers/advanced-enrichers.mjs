@@ -1103,13 +1103,14 @@ const valueChip = (value, uuids, icon) => {
   return chip;
 };
 
-const groupResults = (rows) => {
+const groupResults = (rows, typed = false) => {
   const groups = [];
   for (const row of rows) {
     const value = row.result?.amount ?? null;
-    const group = groups.find((g) => g.value === value);
+    const type = typed ? (row.result?.type ?? '') : null;
+    const group = groups.find((g) => g.value === value && g.type === type);
     if (group) group.rows.push(row);
-    else groups.push({ value, rows: [row] });
+    else groups.push({ value, type, rows: [row] });
   }
   return groups;
 };
@@ -1145,13 +1146,23 @@ const build = (ec, a, message, key, kind) => {
     const after = typeof kind.valueAfter === 'function' ? kind.valueAfter(a) : kind.valueAfter;
     return (after ? `${words} ${shown}` : `${shown} ${words}`).trim();
   };
-  const groups = groupResults(rows);
+  
+  const typed = compact && kind.id === 'damage';
+  const groups = groupResults(rows, typed);
+  const typeIconOf = (type) => {
+    const icon = htmlIcon(damageTypeIconHTML(type || 'untyped'));
+    icon?.classList.add('dsct-adv-icon');
+    return icon;
+  };
 
   if (kind.rolls && kind.single(a) && st.totals) {
     if (groups.length > 1) {
       const rest = compact ? (a.dataset.dsctWords ?? '') : [...a.childNodes].filter((n) => !formulaSpans.includes(n)).map((n) => n.textContent).join('').trim();
       title = `${groups.map((g) => g.value ?? '?').join(' / ')} ${rest}`.trim();
       for (const s of formulaSpans) s.remove();
+      
+      const typeIcon = a.querySelector(':scope > .dsct-adv-icon');
+      typeIcon?.remove();
       a.querySelector(':scope > i')?.remove();
       const segs = document.createElement('span');
       segs.className = 'dsct-adv-segs';
@@ -1159,13 +1170,17 @@ const build = (ec, a, message, key, kind) => {
         if (i) segs.append(Object.assign(document.createElement('span'), { className: 'dsct-adv-div' }));
         const seg = document.createElement('span');
         seg.className = 'dsct-adv-seg';
-        const icon = typeof kind.chipIcon === 'function' ? kind.chipIcon(a) : kind.chipIcon;
-        seg.append(facesFor(kind, g.rows, canUse, breakdown), valueChip(g.value ?? '?', g.rows.map((r) => r.doc.uuid), i === 0 ? icon : null));
+        const icon = typeIcon ? null : (typeof kind.chipIcon === 'function' ? kind.chipIcon(a) : kind.chipIcon);
+        const chip = valueChip(g.value ?? '?', g.rows.map((r) => r.doc.uuid), i === 0 ? icon : null);
+        const own = typed ? typeIconOf(g.type) : (i === 0 ? typeIcon : null);
+        if (own) chip.prepend(own);
+        seg.append(facesFor(kind, g.rows, canUse, breakdown), chip);
         segs.append(seg);
       });
       ec.prepend(segs);
       a.textContent = a.textContent.trim();
     } else {
+      if (typed && groups[0]) a.querySelector(':scope > .dsct-adv-icon')?.replaceWith(typeIconOf(groups[0].type));
       const shown = groups[0]?.value ?? st.totals[0];
       if (formulaSpans[0]) {
         const icon = formulaSpans[0].querySelector('i');
@@ -1318,7 +1333,11 @@ const compactLink = (id, a) => {
   const icon = typeIcon(id, a);
   for (const n of [...a.childNodes]) if (n.nodeType === Node.TEXT_NODE) n.remove();
   
-  if (!formula && id === 'ds.roll' && a.dataset.formulas) {
+  const short = sourceConfig(a).short;
+  if (short != null && short !== '') {
+    formula = Object.assign(document.createElement('span'), { className: 'dsct-adv-short', textContent: String(short) });
+    a.append(formula);
+  } else if (!formula && id === 'ds.roll' && a.dataset.formulas) {
     formula = Object.assign(document.createElement('span'), { textContent: a.dataset.formulas.split('&')[0] });
     a.append(formula);
   }
