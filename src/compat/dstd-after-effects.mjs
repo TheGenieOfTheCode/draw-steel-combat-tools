@@ -4,8 +4,12 @@ const WRAP = 'dsct-after-effects';
 
 export function registerDstdAfterEffects() {
   registerPanelDecorator({ id: 'combat-tools-after-effects', priority: 950, ignore: [`.${WRAP}`], decorate: ({ root, panel }) => {
-    const after = panel ? root?.querySelector('section.effect.after') : null;
-    if (!after?.textContent.trim() || after.closest(`.${WRAP}`)) return;
+    if (!panel) return;
+    
+    const moved = root?.querySelector(`.${WRAP}`);
+    if (moved) { if (panel.nextElementSibling !== moved) panel.after(moved); return; }
+    const after = root?.querySelector('section.effect.after');
+    if (!after?.textContent.trim()) return;
     const embed = after.closest('[data-subtype]') ?? after.parentElement;
     const wrap = document.createElement(embed.tagName);
     wrap.className = `${embed.className} ${WRAP}`;
