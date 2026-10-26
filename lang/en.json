@@ -1307,6 +1307,12 @@
           "label": "Status Filter",
           "hint": "Remove effects associated with any of these status conditions. Leave empty to ignore status when filtering."
         },
+        "keywordFilter": {
+          "label": "Imposed By",
+          "hint": "Only effects imposed by an ability with one of these keywords, such as Magic or Psionic for supernatural effects. Alone, it matches every such effect."
+        },
+        "keywordLabel": "End one {sources} effect",
+        "keywordSuffix": "imposed by {sources}",
         "repeatable": {
           "label": "Repeatable",
           "hint": "When enabled, the cleanse button stays active after use."

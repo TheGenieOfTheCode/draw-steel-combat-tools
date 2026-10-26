@@ -18,6 +18,7 @@ import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANE
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { takesOver } from '../advanced-enrichers/flat-enrichers.mjs';
+import { cleanseMatches } from '../advanced-enrichers/ct-enrichers.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
 import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords, chooseAfterPending, settleCriticalChoice } from '../ability-automation/choose-effect.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
@@ -3862,7 +3863,7 @@ async function _injectFmButtons(message, root) {
     }
 
     for (const effect of rowCleanseEffects) {
-      const { display, expiryFilter, statusFilter, repeatable } = effect.flatCleanse;
+      const { display, expiryFilter, statusFilter, keywordFilter, repeatable } = effect.flatCleanse;
       const cleanseFlagKey = `fclns_${effect.id}_${targetKey}`;
       if (actions.querySelector(`[data-dsct-flat-cleanse-key="${cleanseFlagKey}"]`)) continue;
 
@@ -3903,13 +3904,7 @@ async function _injectFmButtons(message, root) {
       cleanseRow.append(cleanseBtn, undoCleanseBtn);
       if (isApplied) cleanseRow.classList.add('is-applied');
 
-      const expiryFilterSet = new Set(Array.isArray(expiryFilter) ? expiryFilter : [...(expiryFilter ?? [])]);
-      const statusFilterSet = new Set(Array.isArray(statusFilter) ? statusFilter : [...(statusFilter ?? [])]);
-      const clsMatchesFilter = (ae) => {
-        if (expiryFilterSet.size > 0 && expiryFilterSet.has(ae.duration?.expiry)) return true;
-        if (statusFilterSet.size > 0 && [...(ae.statuses ?? [])].some(s => statusFilterSet.has(s))) return true;
-        return false;
-      };
+      const clsSpec = { expiry: new Set(expiryFilter ?? []), statuses: new Set(statusFilter ?? []), keywords: new Set(keywordFilter ?? []) };
 
       cleanseBtn.addEventListener('click', async (e) => {
         e.stopPropagation(); e.preventDefault();
@@ -3942,7 +3937,7 @@ async function _injectFmButtons(message, root) {
         }
         if (!targetActor) return;
 
-        const cleansable = targetActor.effects.filter(clsMatchesFilter);
+        const cleansable = cleanseMatches(targetActor, clsSpec);
         if (!cleansable.length) {
           ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.Cleanse.noMatch', { name: targetActor.name }));
           return;

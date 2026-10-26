@@ -7,6 +7,7 @@ import { executeTeleport, executeTeleswap } from '../teleport.mjs';
 import { runSourcePicker } from './target-picker.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
 import { takeRecovery } from '../bonds.mjs';
+import { cleanseMatches } from '../advanced-enrichers/ct-enrichers.mjs';
 
 const { SchemaField, SetField, StringField, NumberField, BooleanField } = foundry.data.fields;
 const MODULE_ID = "draw-steel-combat-tools";
@@ -168,6 +169,24 @@ function _registerPartials() {
         </div>
       </div>
       <p class="hint">{{localize "DSCT.FlatEffect.Cleanse.statusFilter.hint"}}</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">{{localize "DSCT.FlatEffect.Cleanse.keywordFilter.label"}}</label>
+      <div class="form-fields">
+        <div class="dsct-tag-picker" data-dsct-tag-field="flatCleanse.keywordFilter">
+          <div class="dsct-tag-list">
+            {{#each ctx.keywordSelected}}<span class="dsct-tag" data-value="{{value}}">{{label}}<button type="button" class="dsct-tag-remove"><i class="fa-solid fa-xmark"></i></button></span>{{/each}}
+          </div>
+          <select class="dsct-tag-add-select">
+            <option value="">{{localize "DSCT.FlatEffect.Cleanse.addFilter"}}</option>
+            {{#each ctx.keywordOptions}}<option value="{{value}}">{{label}}</option>{{/each}}
+          </select>
+          <select name="flatCleanse.keywordFilter" multiple style="display:none">
+            {{#each ctx.allKeywordOptions}}<option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option>{{/each}}
+          </select>
+        </div>
+      </div>
+      <p class="hint">{{localize "DSCT.FlatEffect.Cleanse.keywordFilter.hint"}}</p>
     </div>
     {{formGroup ctx.repeatable.field value=ctx.repeatable.src name="flatCleanse.repeatable" localize=true}}
     {{formGroup ctx.all.field value=ctx.all.src name="flatCleanse.all" localize=true}}
@@ -591,6 +610,7 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
         display:      new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",             hint: "DSCT.FlatEffect.display.hint" }),
         expiryFilter: new SetField(_setField(), { initial: ["turnEnd", "save"], label: "DSCT.FlatEffect.Cleanse.expiryFilter.label" }),
         statusFilter: new SetField(_setField(), { initial: [],                  label: "DSCT.FlatEffect.Cleanse.statusFilter.label" }),
+        keywordFilter: new SetField(_setField(), { initial: [],                 label: "DSCT.FlatEffect.Cleanse.keywordFilter.label" }),
         repeatable:   new BooleanField({ initial: () => _flatDefault('flatDefaultCleanseRepeatable', false), label: "DSCT.FlatEffect.Cleanse.repeatable.label", hint: "DSCT.FlatEffect.Cleanse.repeatable.hint" }),
         all:          new BooleanField({ initial: false, label: "DSCT.FlatEffect.Cleanse.all.label", hint: "DSCT.FlatEffect.Cleanse.all.hint" }),
         recipient:    new StringField({ required: false, blank: false, initial: "target", label: "DSCT.FlatEffect.Cleanse.recipient.label", hint: "DSCT.FlatEffect.Cleanse.recipient.hint" }),
@@ -626,7 +646,16 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
     const statusOptions    = statusEntries.filter(o => !this.flatCleanse.statusFilter.has(o.value));
     const allStatusOptions = statusEntries.map(o => ({ ...o, selected: this.flatCleanse.statusFilter.has(o.value) }));
 
+    const keywordSet     = this.flatCleanse.keywordFilter ?? new Set();
+    const keywordEntries = Object.entries(ds.CONFIG.abilities.keywords ?? {}).map(([value, k]) => ({ value, label: k.label ?? value }));
+    const keywordSelected   = keywordEntries.filter(o => keywordSet.has(o.value));
+    const keywordOptions    = keywordEntries.filter(o => !keywordSet.has(o.value));
+    const allKeywordOptions = keywordEntries.map(o => ({ ...o, selected: keywordSet.has(o.value) }));
+
     return {
+      keywordSelected,
+      keywordOptions,
+      allKeywordOptions,
       displayText:    { field: this.schema.getField("flatCleanse.displayText"), src: src.displayText },
       display:        { field: this.schema.getField("flatCleanse.display"),     src: src.display },
       repeatable:     { field: this.schema.getField("flatCleanse.repeatable"),  src: src.repeatable },
@@ -1122,7 +1151,8 @@ const CLEANSE_RULE = "Compendium.draw-steel-combat-tools.rules.JournalEntry.DSCT
 export function isStandardCleanse(flatCleanse) {
   const ef = flatCleanse?.expiryFilter instanceof Set ? flatCleanse.expiryFilter : new Set(flatCleanse?.expiryFilter ?? []);
   const sf = flatCleanse?.statusFilter instanceof Set ? flatCleanse.statusFilter : new Set(flatCleanse?.statusFilter ?? []);
-  return sf.size === 0 && ef.size === 2 && ef.has("turnEnd") && ef.has("save");
+  const kf = new Set(flatCleanse?.keywordFilter ?? []);
+  return sf.size === 0 && kf.size === 0 && ef.size === 2 && ef.has("turnEnd") && ef.has("save");
 }
 
 export function cleansePreviewLabel(flatCleanse) {
@@ -1148,10 +1178,16 @@ export function cleanseAutoLabel(flatCleanse) {
     const name = CONFIG.statusEffects.find(s => s.id === id)?.name;
     if (name) parts.push(name);
   }
-  if (!parts.length) return game.i18n.localize('DSCT.FlatEffect.Cleanse.defaultLabel');
-  return game.i18n.format('DSCT.FlatEffect.Cleanse.autoLabel', {
+  const keywords = [...new Set(flatCleanse.keywordFilter ?? [])].map(k => ds.CONFIG.abilities.keywords[k]?.label ?? k);
+  const sources = game.i18n.getListFormatter({ type: 'disjunction' }).format(keywords);
+  if (!parts.length) {
+    return keywords.length ? game.i18n.format('DSCT.FlatEffect.Cleanse.keywordLabel', { sources })
+      : game.i18n.localize('DSCT.FlatEffect.Cleanse.defaultLabel');
+  }
+  const label = game.i18n.format('DSCT.FlatEffect.Cleanse.autoLabel', {
     effects: game.i18n.getListFormatter({ type: 'disjunction' }).format(parts),
   });
+  return keywords.length ? `${label} ${game.i18n.format('DSCT.FlatEffect.Cleanse.keywordSuffix', { sources })}` : label;
 }
 
 const RESOURCE_PATHS = { surge: "hero.surges", heroic: "hero.primary.value", epic: "hero.epic.value" };
@@ -1371,6 +1407,7 @@ function _buildCleanseButton(effect, item) {
   btn.dataset.effectId     = effect.id;
   btn.dataset.expiryFilter = [...expiryFilter].join(",");
   btn.dataset.statusFilter = [...statusFilter].join(",");
+  btn.dataset.keywordFilter = [...(effect.flatCleanse.keywordFilter ?? [])].join(",");
   btn.dataset.repeatable   = String(repeatable);
   btn.dataset.recipient    = effect.flatCleanse.recipient ?? "target";
   btn.dataset.all          = String(!!effect.flatCleanse.all);
@@ -1770,18 +1807,14 @@ export function addFlatEffectListeners(section, item, message) {
         if (!ok) return;
       }
 
-      const matchesFilter = (effect) => {
-        if (expiryFilter.size > 0 && expiryFilter.has(effect.duration?.expiry)) return true;
-        if (statusFilter.size > 0 && [...(effect.statuses ?? [])].some(s => statusFilter.has(s))) return true;
-        return false;
-      };
+      const keywords = new Set(btn.dataset.keywordFilter ? btn.dataset.keywordFilter.split(",").filter(Boolean) : []);
 
       let anyApplied = false;
       for (const target of targets) {
         const actor = target.actor;
         if (!actor) continue;
 
-        const cleansable = actor.effects.filter(matchesFilter);
+        const cleansable = cleanseMatches(actor, { expiry: expiryFilter, statuses: statusFilter, keywords });
         if (!cleansable.length) {
           ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Cleanse.noMatch", { name: actor.name }));
           continue;

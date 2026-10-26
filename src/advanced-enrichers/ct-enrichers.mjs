@@ -186,6 +186,7 @@ const cleanse = {
     const c = H().parseConfig(match.groups.config ?? '');
     const expiry = new Set();
     const statuses = new Set();
+    const keywords = new Set();
     let all = c.all === true;
     for (const value of c.values) {
       const lower = value.toLowerCase();
@@ -193,14 +194,16 @@ const cleanse = {
       else if (lower === 'save') expiry.add('save');
       else if (lower === 'turn' || lower === 'eot') expiry.add('turnEnd');
       else if (CONFIG.statusEffects.some((s) => s.id === lower)) statuses.add(lower);
+      else if (ds.CONFIG.abilities.keywords[lower]) keywords.add(lower);
       else return null;
     }
-    if (!expiry.size && !statuses.size) { expiry.add('turnEnd'); expiry.add('save'); }
+    if (!expiry.size && !statuses.size && !keywords.size) { expiry.add('turnEnd'); expiry.add('save'); }
     const spec = { expiryFilter: [...expiry], statusFilter: [...statuses], all };
-    const dataset = { type: 'cleanse', expiry: spec.expiryFilter.join(','), statuses: spec.statusFilter.join(','), all: all ? 'true' : '' };
+    const dataset = { type: 'cleanse', expiry: spec.expiryFilter.join(','), statuses: spec.statusFilter.join(','), keywords: [...keywords].join(','), all: all ? 'true' : '' };
     const statusNames = [...statuses].map((s) => game.i18n.localize(CONFIG.statusEffects.find((e) => e.id === s)?.name ?? s));
     const endNames = [...expiry].map((ev) => Object.values(ds.CONFIG.effectEnds ?? {}).find((c) => c.expiryEvent === ev)?.label).filter(Boolean);
-    const list = game.i18n.getListFormatter({ type: 'disjunction' }).format([...statusNames, ...endNames.map((n) => game.i18n.localize(n))]);
+    const keywordNames = [...keywords].map((k) => ds.CONFIG.abilities.keywords[k]?.label ?? k);
+    const list = game.i18n.getListFormatter({ type: 'disjunction' }).format([...statusNames, ...endNames.map((n) => game.i18n.localize(n)), ...keywordNames]);
     let key = all ? 'cleanseAll' : 'cleanse';
     if (statusNames.length === 1) key = all ? 'cleanseAllStatus' : 'cleanseStatus';
     else if (statusNames.length > 1) key = all ? 'cleanseAllStatuses' : 'cleanseStatuses';
@@ -224,12 +227,23 @@ const cleanse = {
 export const cleanseSpec = (a) => ({
   expiry: new Set((a.dataset.expiry ?? '').split(',').filter(Boolean)),
   statuses: new Set((a.dataset.statuses ?? '').split(',').filter(Boolean)),
+  keywords: new Set((a.dataset.keywords ?? '').split(',').filter(Boolean)),
   all: a.dataset.all === 'true',
 });
 
-export const cleanseMatches = (actor, { expiry, statuses, keep = new Set() }) => {
+const imposedBy = (ae, actor) => {
+  const src = ae.origin ? fromUuidSync(ae.origin, { strict: false }) : null;
+  if (!src?.system?.keywords || (src.parent === actor && src.type !== 'ability')) return new Set();
+  return new Set(src.system.keywords);
+};
+
+export const cleanseMatches = (actor, { expiry, statuses, keywords = new Set(), keep = new Set() }) => {
   const has = (ae, set) => [...(ae.statuses ?? [])].some((s) => set.has(s));
-  return actor?.effects.filter((ae) => !has(ae, keep) && ((expiry.size && expiry.has(ae.duration?.expiry)) || (statuses.size && has(ae, statuses)))) ?? [];
+  const ofKind = (ae) => (expiry.size || statuses.size
+    ? (expiry.size && expiry.has(ae.duration?.expiry)) || (statuses.size && has(ae, statuses))
+    : keywords.size > 0);
+  const fromKeyword = (ae) => !keywords.size || [...imposedBy(ae, actor)].some((k) => keywords.has(k));
+  return actor?.effects.filter((ae) => !has(ae, keep) && ofKind(ae) && fromKeyword(ae)) ?? [];
 };
 
 export const cleanseActor = async (actor, spec) => {

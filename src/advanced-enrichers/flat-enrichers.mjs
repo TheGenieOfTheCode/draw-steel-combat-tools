@@ -111,7 +111,7 @@ export const flatEnricherText = (effect, ability) => {
       if (!twoWay(c.recipient ?? 'target')) return null;
       const expiry = [...setOf(c.expiryFilter)].map((e) => (e === 'turnEnd' ? 'turn' : e === 'save' ? 'save' : null));
       if (expiry.includes(null)) return null;
-      const parts = [c.all ? 'all' : '', ...expiry, ...setOf(c.statusFilter)].filter(Boolean).join(' ');
+      const parts = [c.all ? 'all' : '', ...expiry, ...setOf(c.statusFilter), ...setOf(c.keywordFilter)].filter(Boolean).join(' ');
       return `[[/cleanse ${parts}${flag(c.repeatable, 'repeatable')}${recipient(c.recipient, 'target')}${spendPart(c)}${tag}]]${label(c.display)}`;
     }
     case 'dsct.flatTeleport': {
