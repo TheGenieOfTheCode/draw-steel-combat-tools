@@ -2517,6 +2517,9 @@ async function _injectFmButtons(message, root) {
               source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null) ?? fmSource,
               contextMessageId: message.id,
               origin: "powerRoll",
+              modifierNotes: (cur.modStack ?? []).filter(e => e.enabled !== false && e.noteName)
+                .map(e => [Number(e.modState?.[0]?.distanceDelta) || 0, e.noteName]).filter(([n]) => n)
+                .map(([n, name]) => `${n > 0 ? '+' : ''}${n} ${name}`),
             });
           } catch {  }
 

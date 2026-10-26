@@ -108,7 +108,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           return _runForcedMovement(mods.type ?? ctx.type, mods.distance ?? ctx.distance, mods.target ?? targetToken, mods.source ?? sourceToken,
             mods.bonusCreatureDmg ?? ctx.bonusCreatureDmg, mods.bonusObjectDmg ?? ctx.bonusObjectDmg, mods.verticalHeight ?? ctx.verticalHeight,
             fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove,
-            false, juggernaut, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin);
+            false, juggernaut, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, [...modifierNotes, ...(mods.modifierNotes ?? [])]);
         } finally {
           _fmGateBypass = false;
         }
@@ -224,6 +224,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       : [`${type} ${reduced}`];
     if (!flyingConversion && isVertical) parts.push(`vertical ${reducedVert}`);
     if (taken)              parts.push(`+${taken} moved farther`);
+    for (const note of modifierNotes) parts.push(foundry.utils.escapeHTML(String(note)));
     if (bonusCreatureDmg)  parts.push(`+${bonusCreatureDmg} creature collision`);
     if (bonusObjectDmg)     parts.push(`+${bonusObjectDmg} object collision`);
     if (fallReduction)      parts.push(`+${fallReduction} fall reduction`);
@@ -2821,7 +2822,7 @@ export async function runForcedMovement(macroArgs = []) {
   } 
   else if (typeof macroArgs === 'object' && !Array.isArray(macroArgs) && 'movement' in macroArgs) {
     
-    const { movement, distance: distRaw, properties, verticalDistance = 0, fallReduction = 0, target: explicitTarget, source: explicitSource, contextMessageId = null, keywords: rawKeywords = [], origin = null, fmKey = null } = macroArgs;
+    const { movement, distance: distRaw, properties, verticalDistance = 0, fallReduction = 0, target: explicitTarget, source: explicitSource, contextMessageId = null, keywords: rawKeywords = [], origin = null, fmKey = null, modifierNotes = [] } = macroArgs;
     const kwList = [...(rawKeywords ?? [])].map(k => String(k).toLowerCase());
     const type     = parseType(movement);
     const distance = parseInt(distRaw) || 0;
@@ -2859,12 +2860,12 @@ export async function runForcedMovement(macroArgs = []) {
 
     if (targetsToProcess.length === 1) {
       _fmContextKey = fmKey;
-      await _runForcedMovement(type, distance, targetsToProcess[0], source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, false, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin);
+      await _runForcedMovement(type, distance, targetsToProcess[0], source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, false, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, modifierNotes);
     } else {
       const results = [];
       if (fastMove) {
         for (const t of targetsToProcess) {
-          const result = await _runForcedMovement(type, distance, t, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin);
+          const result = await _runForcedMovement(type, distance, t, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, modifierNotes);
           if (result) results.push(result);
         }
       } else {
@@ -2873,7 +2874,7 @@ export async function runForcedMovement(macroArgs = []) {
           const picked = await pickTarget(remaining);
           if (!picked) break;
           remaining = remaining.filter(t => t.id !== picked.id);
-          const result = await _runForcedMovement(type, distance, picked, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin);
+          const result = await _runForcedMovement(type, distance, picked, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, modifierNotes);
           if (result) results.push(result);
         }
       }
