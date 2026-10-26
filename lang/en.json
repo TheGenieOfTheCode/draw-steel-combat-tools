@@ -926,6 +926,11 @@
         "bond": "Bonds",
         "rolls": "Rolls"
       },
+      "turnGainBonus": {
+        "label": "Extra Heroic Resource at turn start",
+        "description": "Heroic Resource a hero gains at the start of their turn, on top of what their class gains.",
+        "values": "An amount"
+      },
       "reactiveTests": {
         "edges": {
           "label": "Edges on reactive tests",
@@ -1145,6 +1150,9 @@
     },
     "consent": {
       "awaiting": "(Waiting for an answer...)"
+    },
+    "turnGain": {
+      "notice": "{name}'s effects add {n} {resource} at the start of their turn."
     },
     "reactiveTests": {
       "notice": "{name}'s effects add {edges} edge(s) and {banes} bane(s) to this reactive test."
