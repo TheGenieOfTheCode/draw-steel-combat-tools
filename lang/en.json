@@ -957,7 +957,7 @@
       },
       "consumeOn": {
         "label": "Ends when used up",
-        "description": "The effect ends once the creature makes the roll it was for, so an edge \"on the next strike\" is used up by that strike. tempStamina ends it when their temporary Stamina runs out.",
+        "description": "The effect ends once the creature makes the roll it was for, so an edge \"on the next strike\" is used up by that strike. tempStamina ends it when their temporary Stamina runs out or is replaced by a new grant.",
         "values": "powerRoll (any power roll, tests included), abilityRoll, strike, or tempStamina"
       },
       "recurring": {

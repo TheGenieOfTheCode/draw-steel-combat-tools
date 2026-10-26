@@ -30,18 +30,28 @@ async function _consume(message) {
   }
 }
 
-async function _tempStaminaGone(actor, changes) {
+const OWN_GRANT_MS = 4000;
+
+async function _tempStaminaEnded(actor, changes, before) {
   if (!isPrimaryGM()) return;
   const temp = foundry.utils.getProperty(changes, 'system.stamina.temporary');
-  if (temp === undefined || Number(temp) > 0) return;
+  if (temp === undefined) return;
+  const gone = Number(temp) <= 0;
+  const replaced = !gone && before != null && Number(temp) > before;
+  if (!gone && !replaced) return;
   for (const effect of actor.allApplicableEffects?.() ?? actor.effects) {
-    if (consumeOn(effect) === 'tempStamina') await safeDelete(effect);
+    if (consumeOn(effect) !== 'tempStamina') continue;
+    if (replaced && Date.now() - (effect._stats?.createdTime ?? 0) < OWN_GRANT_MS) continue;
+    await safeDelete(effect);
   }
 }
 
 export function registerConsumeEffects() {
-  Hooks.on('updateActor', (actor, changes) => {
-    _tempStaminaGone(actor, changes).catch(err => console.warn('DSCT | consume effects |', err));
+  Hooks.on('preUpdateActor', (actor, changes, options) => {
+    if (foundry.utils.hasProperty(changes, 'system.stamina.temporary')) options.dsctTempBefore = actor.system?.stamina?.temporary ?? 0;
+  });
+  Hooks.on('updateActor', (actor, changes, options) => {
+    _tempStaminaEnded(actor, changes, options?.dsctTempBefore).catch(err => console.warn('DSCT | consume effects |', err));
   });
   for (const group of ['actor', 'ability']) {
     registerEffectFlag(group, {

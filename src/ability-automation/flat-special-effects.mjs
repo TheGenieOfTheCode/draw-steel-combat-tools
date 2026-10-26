@@ -1579,8 +1579,12 @@ export function registerExpiryReminders() {
     const expired = foundry.utils.getProperty(changed, 'duration.expired') === true;
     const disabled = foundry.utils.getProperty(changed, 'disabled');
     if (!expired && disabled === undefined) return;
-    fromUuid(linked).then(e => {
+    fromUuid(linked).then(async e => {
       if (!e) return;
+      
+      if (expired && e.getFlag(MODULE_ID, 'expiryClearsTempStamina') && e.parent?.system?.stamina?.temporary > 0) {
+        await e.parent.update({ 'system.stamina.temporary': 0 });
+      }
       if (expired) return e.delete();
       if (e.disabled !== disabled) return e.update({ disabled });
     }).catch(() => {});
