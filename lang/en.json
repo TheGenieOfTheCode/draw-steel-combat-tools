@@ -1016,6 +1016,16 @@
           "description": "The creature that applied this effect is always observing the bearer, so the bearer cannot hide from that one creature. Everyone else is unaffected. Only works on an effect applied by an ability, which is what records who applied it (e.g. Apex Predator).",
           "values": "true"
         },
+        "exposed": {
+          "label": "Exposed near whoever applied this",
+          "description": "While the creature that applied this effect is within Exposed Range, the bearer can't benefit from concealment, being hidden, or being invisible, against anyone (e.g. Mind Rend).",
+          "values": "true"
+        },
+        "exposedRange": {
+          "label": "Exposed range",
+          "description": "How close, in squares, the creature that applied the effect must be for Exposed to work. 0 means at any distance.",
+          "values": "A number of squares"
+        },
         "concealmentBaneDoubled": {
           "label": "Doubles the cover and concealment bane",
           "description": "Any bane an ability takes from this creature’s cover or concealment is doubled (e.g. Masking Glamor).",
