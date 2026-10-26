@@ -169,8 +169,17 @@ const targetsOf = (message, st, ec, kind) => {
 const titleCase = (text) => text.replace(/(^|[\s(/-])(\p{Ll})/gu, (_, pre, ch) => pre + ch.toUpperCase());
 const signed = (n) => (n > 0 ? `+${n}` : String(n));
 
-const titleCaseText = (root) => {
-  for (const n of root.childNodes) if (n.nodeType === Node.TEXT_NODE) n.nodeValue = titleCase(n.nodeValue);
+let _gameTerms = null;
+const gameTerms = () => _gameTerms ??= new Set([
+  ...L('gameTerms').split(','),
+  ...Object.keys(ds.CONFIG.damageTypes ?? {}),
+  ...Object.values(ds.CONFIG.conditions ?? {}).map((c) => game.i18n.localize(c.name ?? c.label ?? '')),
+  ...Object.values(ds.CONFIG.characteristics ?? {}).map((c) => game.i18n.localize(c.label ?? '')),
+].flatMap((w) => String(w).trim().toLowerCase().split(/\s+/)).filter(Boolean));
+const termCaseText = (root) => {
+  for (const n of root.childNodes) {
+    if (n.nodeType === Node.TEXT_NODE) n.nodeValue = n.nodeValue.replace(/\p{L}+/gu, (w) => (gameTerms().has(w.toLowerCase()) ? w[0].toUpperCase() + w.slice(1) : w));
+  }
 };
 const damageTypeName = (type) => type ? game.i18n.localize(ds.CONFIG.damageTypes[type]?.label ?? type) : L('untyped');
 
@@ -1434,7 +1443,7 @@ const wrapEnricher = (id) => {
       if (a && match.groups?.config != null) a.dataset.dsctSource = match.groups.config.trim();
       if (a && advancedEnrichersOn()) placeholders(a);
       if (a && advancedEnrichersOn() && untypedAutoDamage(id, a, match)) a.append(` ${L('flatDamage', { type: '' }).trim()}`);
-      if (a && advancedEnrichersOn()) titleCaseText(a);
+      if (a && advancedEnrichersOn()) termCaseText(a);
       if (a && advancedEnrichersOn() && match.groups?.label) amountSlot(a);
       if (a && compactOn()) compactLink(id, a);
       return el;
