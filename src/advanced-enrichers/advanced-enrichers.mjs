@@ -533,7 +533,15 @@ const potencyOf = (a, message) => {
 };
 
 const linkLabel = (a) => a.dataset.dsctLabel ?? a.textContent.trim();
-const appliedEffectDoc = (a) => (a.dataset.uuid ? fromUuidSync(a.dataset.uuid) : null);
+
+const effectDocSync = (uuid) => {
+  if (!uuid) return null;
+  const doc = fromUuidSync(uuid, { strict: false });
+  if (doc) return doc;
+  const { collection, primaryId, embedded } = foundry.utils.parseUuid(uuid) ?? {};
+  return embedded?.length === 2 ? (collection?.get?.(primaryId)?.getEmbeddedDocument?.(...embedded) ?? null) : null;
+};
+const appliedEffectDoc = (a) => effectDocSync(a.dataset.uuid);
 
 const APPLY = {
   id: 'apply',
@@ -1431,7 +1439,7 @@ const typeIcon = (id, a) => {
     return GAIN_TOKENS[d.gainType] ? htmlIcon(resourceTokenHTML(GAIN_TOKENS[d.gainType])) : foundry.applications.fields.createFontAwesomeIcon('fa-bolt');
   }
   if (id === 'ds.apply') {
-    const img = d.type === 'status' ? CONFIG.statusEffects.find((s) => s.id === d.status)?.img : fromUuidSync(d.uuid)?.img;
+    const img = d.type === 'status' ? CONFIG.statusEffects.find((s) => s.id === d.status)?.img : effectDocSync(d.uuid)?.img;
     return img ? imgIcon(img) : null;
   }
   return null;
