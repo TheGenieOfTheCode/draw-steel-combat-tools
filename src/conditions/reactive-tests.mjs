@@ -15,6 +15,9 @@ export function registerReactiveTests() {
     });
   }
   libWrapper.register(M, 'ds.data.Actor.CreatureModel.prototype.rollCharacteristic', function (wrapped, characteristic, config = {}, ...rest) {
+    
+    config = { ...config };
+    for (const k of ['edges', 'banes']) if (typeof config[k] === 'string') config[k] = Number(config[k]) || 0;
     const mods = this.parent?.flags?.[M]?.[KEY];
     const edges = Number(mods?.edges) || 0;
     const banes = Number(mods?.banes) || 0;
