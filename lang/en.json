@@ -2046,8 +2046,7 @@
         "noTokenToMove": "Target or select the creature to move.",
         "invalidMovementType": "Invalid movement type.",
         "notInRange": "{name} is not within range.",
-        "targetNotFound": "DSCT | Target token not found on canvas.",
-        "selfPushPull": "DSCT | {name} cannot {type} themselves, since there is no distance between a creature and itself. Use a slide or a teleport instead."
+        "targetNotFound": "DSCT | Target token not found on canvas."
       },
       "grab": {
         "noGrabber": "No grabber token specified.",

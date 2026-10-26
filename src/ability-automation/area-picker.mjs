@@ -548,7 +548,7 @@ async function runAreaPicker(ability, area, caster) {
         preSkip: () => false,
         preCommit: (documents) => {
           for (const doc of documents) {
-            const changes = { [`flags.${DS}.-=abilitySource`]: null };
+            const changes = { [`flags.${DS}.abilitySource`]: new foundry.data.operators.ForcedDeletion() };
             const line = doc.shapes.at(-1);
             if (area.shape === 'line' && isDiagonal(line?.rotation ?? 0)) {
               const shapes = coveredShapes(doc);

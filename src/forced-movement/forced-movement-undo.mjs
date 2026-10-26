@@ -109,7 +109,7 @@ const handleStaminaRevival = async (undoLog) => {
             const sg = await fromUuid(squadOp.squadGroupUuid);
             if (getSetting('debugMode')) console.log(`DSCT | FM UNDO | handleStaminaRevival sg found=${!!sg} currentStaminaValue=${sg?.system?.staminaValue} prevSquadHP=${squadOp.prevSquadHP}`);
             if (sg && sg.system.staminaValue < squadOp.prevSquadHP) {
-              await safeUpdate(sg, { 'system.staminaValue': squadOp.prevSquadHP });
+              await safeUpdate(sg, { 'system.staminaValue': squadOp.prevSquadHP }, { dsblUndo: true });
             }
           }
         }
@@ -217,7 +217,7 @@ const addFmUndoPreview = (btn, previews) => {
 
 export const registerForcedMovementHooks = () => {
   Hooks.on('renderChatMessageHTML', (msg, el) => {
-    if (!msg.getFlag('draw-steel-combat-tools', 'isFmUndo')) return;
+    if (!msg.getFlag('draw-steel-combat-tools', 'isFmUndo') || msg.getFlag('draw-steel-combat-tools', 'noMove')) return;
 
     const isUndone   = msg.getFlag('draw-steel-combat-tools', 'isUndone');
     const isCombined = msg.getFlag('draw-steel-combat-tools', 'isCombined');

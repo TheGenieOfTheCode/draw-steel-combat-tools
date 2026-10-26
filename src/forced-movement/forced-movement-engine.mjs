@@ -47,6 +47,21 @@ export async function gateForcedMovement(opts) {
   return probe.run ? probe : null;
 }
 
+const _postNoMove = async (targetToken, sourceToken, type, why, suppressMessage = false) => {
+  const doc = targetToken.document;
+  const data = {
+    content: `<strong>${foundry.utils.escapeHTML(targetToken.name)}</strong> forced: ${type} 0. ${why}`,
+    undoLog: [], moveId: null, targetTokenId: targetToken.id, targetSceneId: canvas.scene.id,
+    finalPos: { x: doc.x, y: doc.y, elevation: doc.elevation ?? 0 }, hadDamage: false, grabsToRestore: [], noMove: true,
+    fmLog: { movement: String(type).toLowerCase(), vertical: false, moved: 0,
+      source: sourceToken ? { name: sourceToken.name ?? '', src: sourceToken.document?.texture?.src ?? null,
+        tokenId: sourceToken.document?.uuid ? sourceToken.id : null, sceneId: canvas.scene?.id ?? null } : null },
+  };
+  if (suppressMessage) return data;
+  await ChatMessage.create({ content: data.content, flags: { 'draw-steel-combat-tools': { isFmUndo: true, isUndone: false, ...data } } });
+  return data;
+};
+
 const _runForcedMovement = async (...args) => {
   const doc = args[2]?.document;
   const from = doc ? { x: doc.x, y: doc.y, elevation: doc.elevation } : null;
@@ -62,7 +77,16 @@ const _runForcedMovement = async (...args) => {
   return result;
 };
 
-const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false, juggernaut = false, noMoverCollisionDamage = false, noObstacleCollisionDamage = false, contextMessageId = null, origin = null) => {
+const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false, juggernaut = false, noMoverCollisionDamage = false, noObstacleCollisionDamage = false, contextMessageId = null, origin = null, modifierNotes = []) => {
+  if (sourceToken && sourceToken.id === targetToken?.id && /^(?:push|pull)$/i.test(String(type))) {
+    const kind = String(type).toLowerCase();
+    const post = () => _postNoMove(targetToken, sourceToken, type,
+      `${foundry.utils.escapeHTML(targetToken.name)} is the source of the ${kind}, and nothing can be ${kind === 'push' ? 'pushed away from' : 'pulled toward'} itself.`, suppressMessage);
+    if (_gateProbe) { Object.assign(_gateProbe, { held: false, run: post }); return; }
+    _fmGateBypass = false;
+    _fmContextKey = null;
+    return post();
+  }
   if (_fmGateBypass) {
     _fmGateBypass = false;
     _fmContextKey = null;
@@ -130,10 +154,6 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
 
   
   
-  if (sourceToken && sourceToken.id === targetToken.id && (type === 'push' || type === 'pull')) {
-    ui.notifications.warn(game.i18n.format('DSCT.notice.fm.selfPushPull', { name: targetToken.name, type }));
-    return;
-  }
 
   const GRID      = getGRID();
   const stability = ignoreStability ? 0 : (targetToken.actor?.system?.combat?.stability ?? 0);
@@ -166,7 +186,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
   if (reduced === 0 && reducedVert === 0) {
     ui.notifications.info(game.i18n.format('DSCT.notice.fm.stabilityFullyResists', { name: targetToken.name }));
     Hooks.callAll('dsct.forcedMovement', { type, distance, target: targetToken, source: sourceToken ?? null, keywords, moved: 0, resisted: true });
-    return;
+    return _postNoMove(targetToken, sourceToken, type, `Stability reduced ${String(type).toLowerCase()} ${effectiveDistance} to 0.`, suppressMessage);
   }
 
   if (stability > 0) {
@@ -2549,9 +2569,8 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     
     
     
-    const landingWorld = stepsToAnimate.length > 0
-      ? { x: targetToken.document.x, y: targetToken.document.y }
-      : startPos;
+    
+    const landingWorld = stepsToAnimate.length > 0 ? toWorld(landingGrid) : startPos;
 
     {
       const destX = landingWorld.x;
