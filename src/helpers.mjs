@@ -296,30 +296,32 @@ export const stepOffCatcher = async (token) => {
 };
 
 export const fallGate = async (token, height) => {
-  const ctx = { token, height, reduction: 0, cancel: false, safe: false, holds: [] };
+  const ctx = { token, height, reduction: 0, reasons: [], cancel: false, safe: false, holds: [] };
   if (!(height > 0)) return ctx;
   Hooks.callAll('dsct.preFall', ctx);
   for (const mods of await Promise.all(ctx.holds)) {
     if (!mods) continue;
     ctx.reduction += Number(mods.reduction) || 0;
+    ctx.reasons.push(...(mods.reasons ?? []));
     if (mods.cancel) ctx.cancel = true;
     if (mods.safe) ctx.safe = true;
   }
   return ctx;
 };
 
-export const applyFall = async (token, targetElev = 0, { silent = true, skipConfirm = false } = {}) => {
+export const applyFall = async (token, targetElev = 0, { silent = false, skipConfirm = false } = {}) => {
   const currentElev = token.document?.elevation ?? 0;
   if (currentElev <= targetElev) return { dmg: 0, fallDist: 0, effectiveFall: 0 };
 
   const canFly = canCurrentlyFly(token.actor);
-  let dmg = 0, fallDist = 0, effectiveFall = 0, caught = false;
+  let dmg = 0, fallDist = 0, effectiveFall = 0, caught = false, agility = 0, reasons = [];
   if (!canFly) {
     const gate = await fallGate(token, currentElev - targetElev);
     if (gate.cancel) return { dmg: 0, fallDist: 0, effectiveFall: 0, cancelled: true };
     caught = gate.safe;
+    reasons = gate.reasons;
     fallDist      = currentElev - targetElev;
-    const agility = token.actor?.system?.characteristics?.agility?.value ?? 0;
+    agility       = token.actor?.system?.characteristics?.agility?.value ?? 0;
     effectiveFall = Math.max(0, fallDist - agility - gate.reduction);
     const cap     = getSetting('fallDamageCap');
     dmg = caught || effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, cap);
@@ -328,6 +330,15 @@ export const applyFall = async (token, targetElev = 0, { silent = true, skipConf
   if (!canFly && fallDist > 0 && !skipConfirm && getSetting('fallConfirmation')) {
     const confirmed = await confirmFall(token, fallDist, effectiveFall, dmg);
     if (!confirmed) return { dmg: 0, fallDist: 0, effectiveFall: 0 };
+  }
+
+  
+  if (!silent && fallDist > 0) {
+    await ChatMessage.create({
+      content: fallLines(token.name, { fallDist, effectiveFall, dmg, agility, reasons, caught }).join('<br>'),
+      speaker: ChatMessage.getSpeaker({ token: token.document }),
+      flags: { [M]: { fallLog: { fell: fallDist, effective: effectiveFall, dmg, targetTokenId: token.id, targetSceneId: token.document.parent?.id ?? canvas.scene?.id } } },
+    });
   }
 
   const tokenIsDead = token.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead') ?? false;
@@ -353,23 +364,18 @@ export const applyFall = async (token, targetElev = 0, { silent = true, skipConf
     }
   }
 
-  if (!silent) {
-    await ChatMessage.create({ content: buildFallMessage(token.name, fallDist, effectiveFall, dmg) });
-  }
   return { dmg, fallDist, effectiveFall };
 };
 
-const buildFallMessage = (name, fallDist, effectiveFall, dmg) => {
-  const distPart = game.i18n.format('DSCT.fall.fallsSquares', { name, dist: fallDist, s: fallDist !== 1 ? 's' : '' });
-  if (effectiveFall === fallDist) {
-    return dmg > 0
-      ? distPart + game.i18n.format('DSCT.fall.noAgility', { dmg, effective: effectiveFall * 2 })
-      : distPart + game.i18n.localize('DSCT.fall.tooShort');
-  }
-  const agilityNote = game.i18n.format('DSCT.fall.agilityNote', { effective: effectiveFall });
-  return dmg > 0
-    ? distPart + agilityNote + game.i18n.format('DSCT.fall.withAgility', { dmg })
-    : distPart + agilityNote + game.i18n.localize('DSCT.fall.agilityNotEnough');
+const fallLines = (name, { fallDist, effectiveFall, dmg, agility, reasons, caught }) => {
+  const L = (key, data) => game.i18n.format(`DSCT.fall.${key}`, data);
+  const lines = [L('fell', { name, dist: fallDist, s: fallDist !== 1 ? 's' : '' })];
+  if (agility > 0) lines.push(L('agility', { n: agility }));
+  for (const r of reasons) lines.push(L(r.n > 0 ? 'reducedBy' : 'increasedBy', { source: r.name || L('unknownSource', {}), n: Math.abs(r.n) }));
+  if (caught) lines.push(L('caught', {}));
+  else if (dmg > 0) lines.push(L('damage', { dmg, effective: effectiveFall }));
+  else lines.push(L('tooShort', { effective: effectiveFall }));
+  return lines;
 };
 
 export const getModuleApi = (warn = true) => {

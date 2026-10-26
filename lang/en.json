@@ -2626,12 +2626,14 @@
       "confirmed": "(Fall Confirmed)",
       "cancelled": "(Fall Cancelled)",
       "awaitingConfirm": "(Awaiting confirmation...)",
-      "fallsSquares": "<strong>{name}</strong> falls <strong>{dist}</strong> square{s}",
-      "noAgility": ", dealing <strong>{dmg}</strong> fall damage ({effective} effective).",
-      "tooShort": " but the fall is too short to deal damage.",
-      "withAgility": ", dealing <strong>{dmg}</strong> fall damage.",
-      "agilityNote": " (<strong>{effective}</strong> effective after Agility reduction)",
-      "agilityNotEnough": " - not enough to deal damage."
+      "fell": "<strong>{name}</strong> falls <strong>{dist}</strong> square{s}.",
+      "agility": "Agility reduces the fall by {n}.",
+      "reducedBy": "{source} reduces the fall by {n}.",
+      "increasedBy": "{source} increases the fall by {n}.",
+      "unknownSource": "A trigger",
+      "caught": "Caught: no fall damage.",
+      "damage": "{effective} squares after reductions: <strong>{dmg}</strong> fall damage.",
+      "tooShort": "{effective} squares after reductions: too short to deal damage."
     },
     "region": {
       "disposition": {
