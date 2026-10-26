@@ -7,7 +7,7 @@ import { setTip, tipFor } from '../chat-tips.mjs';
 
 const _tip = (el, key, opts = {}) => setTip(el, tipFor(key, opts));
 const _appliedTip = (el, key, title) => setTip(el, tipFor(key, { title, body: game.i18n.localize('DSCT.tip.applied') }));
-import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
+import { runForcedMovement, forcedMovementTaken } from '../forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { applyGrab, runGrab, endGrab, grabChat } from '../conditions/grab.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
@@ -1254,14 +1254,15 @@ function _syncQuickBtn(btn, state, movementType, distance) {
 }
 
 function _stabInfo(tokenUuid, effState) {
-  const stab = tokenUuid ? (fromUuidSync(tokenUuid)?.actor?.system?.combat?.stability ?? 0) : 0;
-  return { stab, ignores: !!effState?.ignoreStability };
+  const actor = tokenUuid ? fromUuidSync(tokenUuid)?.actor : null;
+  return { stab: actor?.system?.combat?.stability ?? 0, ignores: !!effState?.ignoreStability, taken: forcedMovementTaken(actor) };
 }
 
 function _stabSuffix(stabInfo, applied) {
-  if (!(stabInfo?.stab > 0)) return '';
-  if (stabInfo.ignores) return ' (Ignores Stability)';
-  return applied ? ` (Stability ${stabInfo.stab})` : ` (vs Stability ${stabInfo.stab})`;
+  const taken = stabInfo?.taken ? ` (+${stabInfo.taken} Moved Farther)` : '';
+  if (!(stabInfo?.stab > 0)) return taken;
+  if (stabInfo.ignores) return `${taken} (Ignores Stability)`;
+  return taken + (applied ? ` (Stability ${stabInfo.stab})` : ` (vs Stability ${stabInfo.stab})`);
 }
 
 function _setRowExecuting(fmRow, applyBtn, undoBtn, modBtn, quickBtn) {

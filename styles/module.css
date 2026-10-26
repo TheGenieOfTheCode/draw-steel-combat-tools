@@ -3255,6 +3255,12 @@ enriched-content.dsct-adv-done > a {
   text-decoration-color: light-dark(#2a1a2e, #f2ecf8);
 }
 
+enriched-content.dsct-adv-replaced > a {
+  text-decoration: line-through;
+  opacity: 0.55;
+  cursor: default;
+}
+
 img.dsct-adv-icon,
 .dsct-adv-compact img.ctlib-res-token {
   display: inline-block;

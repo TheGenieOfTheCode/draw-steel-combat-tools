@@ -1,0 +1,191 @@
+{
+ "name": "Unmooring",
+ "type": "ability",
+ "img": "icons/skills/melee/sword-engraved-glow-purple.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "219",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "unmooring",
+  "story": "Your weapon unleashes psionic energy that reduces your target’s weight.",
+  "keywords": [
+   "melee",
+   "psionic",
+   "strike",
+   "weapon"
+  ],
+  "type": "main",
+  "category": "signature",
+  "resource": null,
+  "trigger": "",
+  "distance": {
+   "type": "melee",
+   "primary": "1",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "creature",
+   "value": 1,
+   "custom": ""
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [
+     "might",
+     "reason",
+     "intuition",
+     "presence"
+    ],
+    "reactive": false
+   },
+   "effects": {
+    "R9zctOREjtLxuFoJ": {
+     "name": "",
+     "img": null,
+     "type": "damage",
+     "_id": "R9zctOREjtLxuFoJ",
+     "damage": {
+      "tier1": {
+       "value": "3 + @chr",
+       "types": [],
+       "potency": {
+        "value": "@potency.weak",
+        "characteristic": "none"
+       },
+       "ignoredImmunities": []
+      },
+      "tier2": {
+       "value": "6 + @chr",
+       "types": [],
+       "potency": {
+        "value": "@potency.average",
+        "characteristic": ""
+       },
+       "ignoredImmunities": []
+      },
+      "tier3": {
+       "value": "9 + @chr",
+       "types": [],
+       "potency": {
+        "value": "@potency.strong",
+        "characteristic": ""
+       },
+       "ignoredImmunities": []
+      }
+     },
+     "sort": 0
+    }
+   }
+  },
+  "effects": {
+   "after00000000000": {
+    "_id": "after00000000000",
+    "type": "base",
+    "description": "<p>Until the end of the target’s next turn, any forced movement that affects the target has its distance [[/flat dsctApplied00001]]{increased by 2}.</p>",
+    "name": "",
+    "img": null,
+    "sort": 0,
+    "before": false
+   },
+   "dsctApplied00001": {
+    "_id": "dsctApplied00001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "Forced movement against them +2 (EoT)",
+     "display": "Unmoored (EoT)",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "dsctUnmooring001",
+     "exclusiveSelf": false,
+     "end": "turn",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
+   }
+  },
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [
+  {
+   "name": "Unmooring",
+   "img": "icons/skills/melee/sword-engraved-glow-purple.webp",
+   "type": "base",
+   "_id": "dsctUnmooring001",
+   "system": {
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.forcedMovementTaken",
+      "value": "2",
+      "priority": null,
+      "type": "add",
+      "phase": "initial"
+     }
+    ]
+   },
+   "changes": [],
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "description": "<p>Until the end of your next turn, any forced movement that affects you has its distance increased by 2.</p><p><em>Draw Steel: Heroes p. 219.</em></p>",
+   "origin": null,
+   "tint": "#ffffff",
+   "transfer": false,
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_key": "!items.effects!DSCTenhUnmoor001.dsctUnmooring001"
+  }
+ ],
+ "folder": "DSCTfldKits00001",
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14",
+  "systemId": "draw-steel",
+  "systemVersion": "1.2.0",
+  "createdTime": null,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_id": "DSCTenhUnmoor001",
+ "sort": 100000,
+ "_key": "!items!DSCTenhUnmoor001"
+}

@@ -209,6 +209,15 @@ export const registerGrabHooks = () => {
     type: 'override',
     value: 'true',
   });
+  registerEffectFlag('actor', {
+    key: 'flags.draw-steel-combat-tools.forcedMovementTaken',
+    category: 'forcedMovement',
+    label: 'DSCT.effectFlags.forcedMovement.forcedMovementTaken.label',
+    description: 'DSCT.effectFlags.forcedMovement.forcedMovementTaken.description',
+    values: 'DSCT.effectFlags.forcedMovement.forcedMovementTaken.values',
+    type: 'add',
+    value: '2',
+  });
 
   if (!getSetting('conditionsEnabled')) return;
   Hooks.on('canvasReady', rehydrateGrabs);

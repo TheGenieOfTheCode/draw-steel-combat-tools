@@ -946,6 +946,11 @@
           "label": "No damage from objects",
           "description": "The bearer takes no damage when force moved into objects, walls or terrain. Creature collisions still hurt (e.g. Corruptive Phasing).",
           "values": "true"
+        },
+        "forcedMovementTaken": {
+          "label": "Moved farther by forced movement",
+          "description": "Any forced movement that affects the bearer has its distance increased by this much, before stability (e.g. Unmooring).",
+          "values": "A number of squares"
         }
       },
       "grab": {
@@ -1986,6 +1991,7 @@
         "grabbed": "A grabbed creature can't be force moved except by a creature, object, or effect that has them grabbed.",
         "restrained": "{name} is restrained and cannot be force moved.",
         "largerBonus": "+1 {type} {source} is larger than {target}.",
+        "takenBonus": "+{n} {type}: an effect on {target} increases forced movement against them.",
         "stabilityFullyResists": "{name}'s stability fully resists the forced movement.",
         "stabilityReduces": "{name}'s stability reduces forced movement by {amount} ({parts}).",
         "autoPathFailed": "DSCT | Auto-Path failed: Source and Target are in the exact same spot.",
@@ -2439,6 +2445,8 @@
       "forcedAmount": "{movement} {n}",
       "forcedApplied": "Moved by {movement} {n}",
       "stepStability": "{n} from stability",
+      "stepTaken": "{n} from effects on them",
+      "replacedBySpend": "The Spend was paid, so its effect replaces this one.",
       "stability": "Stability {n}",
       "teleportAmount": "Teleports up to {n} squares",
       "teleportApplied": "Teleported up to {n} squares",

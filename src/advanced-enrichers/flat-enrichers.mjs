@@ -154,7 +154,7 @@ const findFlat = (ability, ref) => {
     ?? flats.find((e) => [e.name, e.label, e[e.type.slice(5)]?.display].some((n) => n && String(n).toLowerCase() === wanted)) ?? null;
 };
 
-const PRESETS = /\s+(?:targets|source|distance|targetType|count|from|short)=(?:"[^"]*"|\S+)/gi;
+const PRESETS = /\s+(?:targets|source|distance|targetType|count|from|short|unless)=(?:"[^"]*"|\S+)/gi;
 
 const splitFlatConfig = (config) => ({
   name: String(config ?? '').replace(PRESETS, '').trim(),

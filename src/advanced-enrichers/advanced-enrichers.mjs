@@ -11,7 +11,7 @@ import { hasRecurring } from '../conditions/recurring-damage.mjs';
 import { TargetTabsDamageEditor, TargetTabsModEditor, KindPillDialog, EnricherEffectModDialog, EnricherFmPanel } from './mod-editors.mjs';
 import { runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { applyLinkTo } from '../conditions/apply-to-targets.mjs';
-import { gateForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
+import { gateForcedMovement, forcedMovementTaken } from '../forced-movement/forced-movement-engine.mjs';
 import { triggerRollData, modifyAttributeSafely, grantTempStamina, othersSpec, runTeleportEffect, partnerFilter } from '../ability-automation/flat-special-effects.mjs';
 import { FORCED_ICONS, teleportOptions, teleportToken, cleanseSpec, cleanseActor, cleanseMatches, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
 import { registerFlatEnrichers } from './flat-enrichers.mjs';
@@ -675,14 +675,16 @@ const FORCED = {
     const entries = pillsOf(st, doc);
     if (entries.length) replayModifiers([baseState], entries, [state]);
     const stability = state.ignoreStability ? 0 : (doc.actor?.system?.combat?.stability ?? 0);
-    const out = { base, amount: Math.max(0, state.distance - stability), stability, movement: fmMovementName(state), state,
+    const taken = state.distance > 0 ? forcedMovementTaken(doc.actor) : 0;
+    const out = { base, amount: Math.max(0, state.distance + taken - stability), stability, taken, movement: fmMovementName(state), state,
       modLines: entries.filter((e) => e.enabled !== false).map((e) => fmEntryText(e, baseState)) };
     if (cfg.requires && !doc.actor?.statuses?.has(cfg.requires)) return { ...out, amount: 0, blocked: 'needsStatus', requires: cfg.requires };
     return out;
   },
   lead: (r, applied) => L(applied ? 'forcedApplied' : 'forcedAmount', { movement: r.movement, n: applied?.amount ?? r.amount }),
   steps(r) {
-    const steps = r.stability ? [`<li>${esc(L('stepStability', { n: signed(-r.stability) }))}</li>`] : [];
+    const steps = r.taken ? [`<li>${esc(L('stepTaken', { n: signed(r.taken) }))}</li>`] : [];
+    if (r.stability) steps.push(`<li>${esc(L('stepStability', { n: signed(-r.stability) }))}</li>`);
     if (r.blocked) steps.push(`<li>${esc(L('forcedNeedsStatus', { status: statusName(r.requires) }))}</li>`);
     return steps;
   },
@@ -1283,7 +1285,7 @@ const onClick = (ec, a, message, key, kind) => async (event) => {
 const autoApplies = (kind, a, message) => {
   const ability = abilityOf(message);
   if (!ability) return false;
-  
+  if (Number(sourceConfig(a).spend) > 0) return false;
   if (sourceConfig(a).flat) {
     if (kind.id === 'forced') return (a.dataset.properties ?? '').split(',').includes('fast-auto-path') || autoPathsFm(message, a);
     if (kind.id === 'cleanse') return a.dataset.all === 'true';
@@ -1295,6 +1297,20 @@ const autoApplies = (kind, a, message) => {
   return kind.id === 'apply' && !!a.dataset.status && !!message.getFlag(M, 'abilityDsid');
 };
 
+const spentOn = (message) => {
+  const part = (message.system?.parts?.contents ?? []).find((p) => p?.abilityUuid);
+  const effects = abilityOf(message)?.system?.effects;
+  if (part?.effects && effects) for (const id of part.effects) if (effects.get?.(id)?.type === 'spend') return true;
+  return /^Spent \d+/i.test(String(message.flavor ?? ''));
+};
+
+const markReplaced = (ec, a) => {
+  ec.dataset.dsctAdv = 'replaced';
+  ec.classList.add('dsct-adv-replaced');
+  setTip(a, richTip({ title: titleCase(a.textContent.trim()), body: L('replacedBySpend') }));
+  ec.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); }, { capture: true });
+};
+
 const decorate = (ec) => {
   if (!advancedEnrichersOn() || ec.dataset.dsctAdv || ec.closest(DSTD_PANEL)) return;
   const a = linkOf(ec);
@@ -1303,6 +1319,7 @@ const decorate = (ec) => {
   const li = ec.closest('[data-message-id]');
   const message = li ? game.messages.get(li.dataset.messageId) : null;
   if (!message) return;
+  if (sourceConfig(a).unless === 'spent' && spentOn(message)) return void markReplaced(ec, a);
   const root = ec.closest('.message-content') ?? li;
   const key = keyFor(root, ec);
   ec.dataset.dsctAdv = key;

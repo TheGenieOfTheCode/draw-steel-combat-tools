@@ -37,6 +37,8 @@ export function bypassNextFmGate() {
 
 let _gateProbe = null;
 
+export const forcedMovementTaken = (actor) => Number(actor?.getFlag?.('draw-steel-combat-tools', 'forcedMovementTaken')) || 0;
+
 export async function gateForcedMovement(opts) {
   const probe = {};
   _gateProbe = probe;
@@ -149,6 +151,12 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       ui.notifications.info(game.i18n.format('DSCT.notice.fm.largerBonus', { type, source: sourceToken.name, target: targetToken.name }));
     }
   }
+  const taken = forcedMovementTaken(targetToken.actor);
+  if (taken) {
+    if (effectiveDistance > 0) effectiveDistance += taken;
+    if (effectiveVertical !== 0) effectiveVertical += effectiveVertical > 0 ? taken : -taken;
+    ui.notifications.info(game.i18n.format('DSCT.notice.fm.takenBonus', { n: taken, type, target: targetToken.name }));
+  }
 
   let reduced       = Math.max(0, effectiveDistance - stability);
   const vertSign    = effectiveVertical >= 0 ? 1 : -1;
@@ -163,7 +171,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
 
   if (stability > 0) {
     const parts = [];
-    if (distance > 0)                    parts.push(`push ${distance} to ${reduced}`);
+    if (distance > 0)                    parts.push(`push ${effectiveDistance} to ${reduced}`);
     if (Math.abs(effectiveVertical) > 0) parts.push(`vertical ${Math.abs(effectiveVertical)} to ${Math.abs(reducedVert)}`);
     ui.notifications.info(game.i18n.format('DSCT.notice.fm.stabilityReduces', { name: targetToken.name, amount: stability, parts: parts.join(', ') }));
   }
@@ -195,7 +203,8 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       ? [`${type} ${Math.abs(reducedVert)} (vertical)`]
       : [`${type} ${reduced}`];
     if (!flyingConversion && isVertical) parts.push(`vertical ${reducedVert}`);
-    if (bonusCreatureDmg)   parts.push(`+${bonusCreatureDmg} creature collision`);
+    if (taken)              parts.push(`+${taken} moved farther`);
+    if (bonusCreatureDmg)  parts.push(`+${bonusCreatureDmg} creature collision`);
     if (bonusObjectDmg)     parts.push(`+${bonusObjectDmg} object collision`);
     if (fallReduction)      parts.push(`+${fallReduction} fall reduction`);
     if (noFallDamage)       parts.push('no fall damage');
@@ -208,8 +217,8 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     let summary = `${summaryPrefix}<strong>${targetToken.name}</strong> forced: ${parts.join(', ')}.`;
     if (stability > 0 && !ignoreStability) {
       const stabParts = [];
-      if (distance !== origReduced && origReduced > 0)                                        stabParts.push(`push ${distance} to ${origReduced}`);
-      if (Math.abs(verticalHeight) !== Math.abs(reducedVert) && Math.abs(verticalHeight) > 0) stabParts.push(`vertical ${Math.abs(verticalHeight)} to ${Math.abs(reducedVert)}`);
+      if (effectiveDistance !== origReduced && origReduced > 0)                                        stabParts.push(`push ${effectiveDistance} to ${origReduced}`);
+      if (Math.abs(effectiveVertical) !== Math.abs(reducedVert) && Math.abs(effectiveVertical) > 0) stabParts.push(`vertical ${Math.abs(effectiveVertical)} to ${Math.abs(reducedVert)}`);
       if (stabParts.length) summary += ` Stability reduced ${stabParts.join(', ')}.`;
     }
     if (friendlyFireNote) summary += ` ${friendlyFireNote}`;
