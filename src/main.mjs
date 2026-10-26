@@ -71,6 +71,7 @@ import { registerAbilityHudCompat } from './compat/ability-hud-compat.mjs';
 import { registerFlatEffects, setPendingTriggerDamage, registerExpiryReminders } from './ability-automation/flat-special-effects.mjs';
 import { registerTieredEffects } from './ability-automation/tiered-effects.mjs';
 import { registerChooseEffect, presetChoose } from './ability-automation/choose-effect.mjs';
+import { registerChainTargets } from './ability-automation/chain-targets.mjs';
 import { registerHideEffect, runHideFor } from './ability-automation/hide-effect.mjs';
 import { registerStealthTraits, stealthTraits } from './conditions/stealth-traits.mjs';
 import { registerLineOfEffectFlags, registerCoverImmunity } from './conditions/line-of-effect.mjs';
@@ -284,6 +285,7 @@ Hooks.once('init', () => {
   registerExpiryReminders();
   registerTieredEffects();
   registerChooseEffect();
+  registerChainTargets();
   registerHideEffect();
   registerDstdCompat();
   registerDstdRollPills();

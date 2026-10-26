@@ -659,7 +659,8 @@ const _applyInOrder = (msgId, msgDoc, { safe = false } = {}) => _withOneToast(as
     if (!(await _waitForHolds(msgId))) return;
     if (await settleCriticalChoice(game.messages.get(msgId))) await wait(AUTO_APPLY_SETTLE_MS);
     if (!(await _waitForChoice(msgId))) return;
-    const apply = (phase) => services.get('applyAutoEnrichers')?.(game.messages.get(msgId), msgDoc, phase);
+    if (await services.get('settleChainTargets')?.(game.messages.get(msgId))) await wait(AUTO_APPLY_SETTLE_MS);
+    const apply =(phase) => services.get('applyAutoEnrichers')?.(game.messages.get(msgId), msgDoc, phase);
     let damagedAny = !!(await damageBatch(() => apply('damage')));
     if (damagedAny && !(await _waitForHolds(msgId))) return;
     keys = [...(panelNow()?.querySelectorAll(DSTD_ROW) ?? [])].map(r => r.dataset.targetKey).filter(k => k && k !== 'selected-token');

@@ -1416,6 +1416,11 @@
         "noneInReach": "No creature fits {name} right now."
       }
     },
+    "chain": {
+      "pick": "Pick Chain Target ({n} of {total})",
+      "hint": "Chain target {n} of {total}: within {range} squares of {name}",
+      "none": "Nothing within {range} squares of {name} for the ability to leap to."
+    },
     "picker": {
       "titleSource": "Pick a Token",
       "titleTargets": "Pick Targets",
@@ -1820,6 +1825,7 @@
       "conditionUndo": { "category": "Effect", "body": "Removes the effect this row applied." },
       "heal": { "category": "Heal", "body": "Restores this Stamina to the target." },
       "othersPick": { "category": "Recipients", "body": "Pick who {name} reaches besides its targets. Each one gets their own row below." },
+      "chainPick": { "category": "Chain", "body": "Pick the next creature or object the ability leaps to, within {range} squares of the last one. It uses the same power roll." },
       "healUndo": { "category": "Heal", "body": "Takes back the Stamina this row restored." },
       "teleport": { "category": "Teleport", "body": "Opens the teleport picker for this target." },
       "teleportRun": { "category": "Teleport", "body": "Runs the teleport with the settings above." },
