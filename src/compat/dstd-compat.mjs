@@ -245,6 +245,8 @@ export function registerDstdCompat() {
     if (userId === game.user.id && getSetting('autoApplyOwnAbilities')) _autoApplyEligible.add(message.id);
   });
   services.provide('abilityResolving', _abilityResolving);
+  services.provide('reapplyDamageRow', _reapplyDamageRow);
+  services.provide('redealDamageRow', _redealDamageRow);
 
   
   
@@ -436,6 +438,32 @@ const _withOneToast = async (fn) => {
 };
 
 const _autoApplyEligible = new Set();
+
+async function _reapplyDamageRow(message, targetKey) {
+  if (!message?.getFlag(M, 'autoApplied')) return false;
+  for (let i = 0; i < 20; i++) {
+    const row = document.querySelector(`#chat li.chat-message[data-message-id="${message.id}"]`)
+      ?.querySelector(DSTD_PANEL)?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(targetKey)}"]`);
+    const btn = row ? [...row.querySelectorAll('button[data-dstd-action="applyDamage"]')].find(b => !b.disabled && !b.closest('.is-applied')) : null;
+    if (btn) { btn.click(); return true; }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  return false;
+}
+
+async function _redealDamageRow(message, targetKey) {
+  const row = () => document.querySelector(`#chat li.chat-message[data-message-id="${message?.id}"]`)
+    ?.querySelector(DSTD_PANEL)?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(targetKey)}"]`);
+  const undo = row() ? [...row().querySelectorAll('button[data-dstd-action="undoDamage"]')].find(b => !b.disabled) : null;
+  if (!undo) return false;
+  undo.click();
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 150));
+    const btn = row() ? [...row().querySelectorAll('button[data-dstd-action="applyDamage"]')].find(b => !b.disabled && !b.closest('.is-applied')) : null;
+    if (btn) { btn.click(); return true; }
+  }
+  return false;
+}
 
 async function _autoApplyOwn(message, panel) {
   if (!panel || !_autoApplyEligible.has(message.id)) return;
