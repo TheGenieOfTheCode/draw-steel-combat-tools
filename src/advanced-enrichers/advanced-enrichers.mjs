@@ -1462,6 +1462,21 @@ const applyAutoEnrichers = async (message, doc = document, phase = null) => {
   return damaged;
 };
 
+const settleOthersEnrichers = async (message, doc = document) => {
+  if (!message || !advancedEnrichersOn()) return false;
+  const li = doc.querySelector(`li.chat-message[data-message-id="${message.id}"]`);
+  let picked = false;
+  for (const ec of li?.querySelectorAll('enriched-content.dsct-adv[data-adv-auto]') ?? []) {
+    const a = linkOf(ec);
+    if (!isOthers(a)) continue;
+    const live = game.messages.get(message.id);
+    if (othersOf(live, a)?.spec.mode !== 'pick' || Array.isArray(stateOf(live, ec.dataset.dsctAdv).targets)) continue;
+    await retarget(live, ec.dataset.dsctAdv, a);
+    if (Array.isArray(stateOf(game.messages.get(message.id), ec.dataset.dsctAdv).targets)) picked = true;
+  }
+  return picked;
+};
+
 const areaEnrichersPending = (message) => {
   if (!advancedEnrichersOn()) return false;
   const li = document.querySelector(`li.chat-message[data-message-id="${message.id}"]`);
@@ -1510,6 +1525,7 @@ export function registerAdvancedEnrichers() {
   registerFlatEnrichers();
   for (const id of ENRICHER_IDS) wrapEnricher(id);
   services.provide('applyAutoEnrichers', applyAutoEnrichers);
+  services.provide('settleOthersEnrichers', settleOthersEnrichers);
   services.provide('areaEnrichersPending', areaEnrichersPending);
   services.provide('syncEmptyPanel', (message, root) => hideEmptyPanel({ message, root, panel: root.querySelector(DSTD_PANEL) }));
   registerPanelDecorator({ id: 'advanced-enrichers-empty-panel', priority: 95, decorate: hideEmptyPanel });

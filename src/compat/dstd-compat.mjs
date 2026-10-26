@@ -661,6 +661,7 @@ const _applyInOrder = (msgId, msgDoc, { safe = false } = {}) => _withOneToast(as
     if (await settleCriticalChoice(game.messages.get(msgId))) await wait(AUTO_APPLY_SETTLE_MS);
     if (!(await _waitForChoice(msgId))) return;
     if (await services.get('settleChainTargets')?.(game.messages.get(msgId))) await wait(AUTO_APPLY_SETTLE_MS);
+    if (await _settleOthersPicks(msgId, msgDoc)) await wait(AUTO_APPLY_SETTLE_MS);
     const apply =(phase) => services.get('applyAutoEnrichers')?.(game.messages.get(msgId), msgDoc, phase);
     let damagedAny = !!(await damageBatch(() => apply('damage')));
     if (damagedAny && !(await _waitForHolds(msgId))) return;
@@ -1831,21 +1832,36 @@ function _othersPickRow(message, effect, spec, ctx, picked) {
   const label = picked ? game.i18n.localize('DSCT.FlatEffect.Others.repick') : game.i18n.format('DSCT.FlatEffect.Others.pick', { count: spec.count, who });
   btn.append(_makeIcon('fa-solid fa-hand-pointer'), _makeSpan(label));
   _tip(btn, 'othersPick', { title: label, data: { name: effect.name || effect.label || '' } });
-  btn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const pick = async () => {
     const candidates = _othersCandidates(spec, ctx);
     if (!candidates.length) return void ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.Others.noneInReach', { name: ctx.ability?.name ?? '' }));
     const chosen = await runMultiTokenPicker({ candidates, maxTargets: spec.count,
       hint: game.i18n.format('DSCT.FlatEffect.Others.pickHint', { count: spec.count, range: spec.range }) });
-    if (!chosen?.length) return;
+    if (!chosen?.length) return false;
     await safeSetFlag(message, M, `${OTHERS_FLAG}.${effect.id}`, { uuids: chosen.map(t => t.document.uuid) });
+    return true;
+  };
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await pick();
   });
   const row = document.createElement('div');
   row.className = `${DSTD}-action-row dsct-dstd-others-pick`;
   row.dataset.dsctOthersPick = effect.id;
+  if (picked) row.dataset.dsctPicked = '1';
+  row._dsctPick = pick;
   row.append(btn);
   return row;
+}
+
+async function _settleOthersPicks(msgId, msgDoc) {
+  let picked = !!(await services.get('settleOthersEnrichers')?.(game.messages.get(msgId), msgDoc));
+  const panel = msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`)?.querySelector(DSTD_PANEL);
+  for (const row of panel?.querySelectorAll('.dsct-dstd-others-pick:not([data-dsct-picked])') ?? []) {
+    if (await row._dsctPick?.()) picked = true;
+  }
+  return picked;
 }
 
 async function _addOthersRows(message, panel, effects, { sourceToken, ability }) {
