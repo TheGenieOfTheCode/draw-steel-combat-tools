@@ -2321,6 +2321,7 @@
     },
     "templateLifetime": {
       "effectName": "{name} (Area)",
+      "noObject": "{ability} lays {name} over its area, but this world has no {name} object. The Director can add one, or place it by hand.",
       "ongoing": {
         "label": "Ongoing",
         "hint": "Keeps this ability’s area on the map until the moment below, rather than clearing it shortly after it is placed. Auras start out ongoing, until the end of the encounter."

@@ -8,6 +8,8 @@ const DS = 'draw-steel';
 export const ONGOING = 'templateOngoing';
 export const ENDS    = 'templateEnd';
 
+export const SPAWN = 'templateSpawn';
+const SPAWNED = 'spawnedBy';
 const EFFECT_REGION = 'ongoingRegionUuid';
 const REGION_EFFECT = 'ongoingEffectUuid';
 
@@ -147,8 +149,30 @@ async function _startLifetime(region) {
   const item = await fromUuid(abilityOf(region)).catch(() => null);
   if (!item) return;
 
+  await _spawnObject(region, item).catch(err => console.warn('DSCT | template lifetime | object not placed:', err));
   if (isOngoing(item, region)) await _trackOngoing(region, item);
   else _scheduleSweep(region);
+}
+
+
+async function _spawnObject(region, item) {
+  const spec = item.getFlag(M, SPAWN);
+  if (!spec?.name) return;
+  let actor = game.actors.find(a => a.type === 'object' && a.name === spec.name) ?? null;
+  if (!actor && spec.uuid && game.user.isGM) {
+    const source = await fromUuid(spec.uuid).catch(() => null);
+    if (source) actor = await Actor.implementation.create(source.toObject());
+  }
+  if (!actor) return void ui.notifications.warn(game.i18n.format('DSCT.templateLifetime.noObject', { name: spec.name, ability: item.name }));
+  const g = canvas.grid.size;
+  const b = region.object?.bounds ?? region.bounds;
+  if (!b?.width) return;
+  const size = Math.max(1, Math.round(b.width / g));
+  const data = foundry.utils.mergeObject(actor.prototypeToken.toObject(), {
+    actorId: actor.id, x: Math.round(b.x / g) * g, y: Math.round(b.y / g) * g, width: size, height: size,
+    hidden: true, flags: { 'draw-steel-ctlib': { notObstacle: true }, [M]: { [SPAWNED]: region.uuid } },
+  });
+  await safeCreateEmbedded(region.parent, 'Token', [data]);
 }
 
 export const releaseAreaHold = (region) => _startLifetime(region)
@@ -159,6 +183,11 @@ async function _onDeleteRegion(region) {
   const timer = _pending.get(uuid);
   if (timer) clearTimeout(timer);
   _pending.delete(uuid);
+
+  if (isPrimaryGM()) {
+    const spawned = (region.parent?.tokens ?? []).filter(t => t.getFlag(M, SPAWNED) === uuid).map(t => t.id);
+    if (spawned.length) await region.parent.deleteEmbeddedDocuments('Token', spawned).catch(() => {});
+  }
 
   const effectUuid = region.getFlag?.(M, REGION_EFFECT);
   if (!effectUuid || _tearing.has(effectUuid)) return;
