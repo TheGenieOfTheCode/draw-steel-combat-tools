@@ -3133,30 +3133,48 @@ enriched-content[enricher^="dsct."] .roll-link i {
 
 enriched-content.dsct-adv:not(#_) {
   display: inline;
-  text-wrap-mode: wrap;
+  text-wrap-mode: nowrap;
   word-break: normal;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
+  padding: 0.1em 0.35em;
+  margin: 0 0.1em;
+  line-height: 1.85;
+}
+
+enriched-content.dsct-adv > a:not(#_) {
+  text-wrap-mode: wrap;
 }
 
 enriched-content.dsct-adv > * + * {
   margin-left: 0.25em;
 }
 
-enriched-content.dsct-adv > .ctlib-faces,
-enriched-content.dsct-adv > .dsct-adv-tool:not(#_) {
+enriched-content.dsct-adv > .ctlib-faces {
   display: inline-flex;
+  align-items: center;
+  vertical-align: -0.2em;
+}
+
+enriched-content.dsct-adv > .dsct-adv-tool:not(#_) {
+  display: inline-block;
+  line-height: 1;
   vertical-align: middle;
 }
 
+enriched-content.dsct-adv > .dsct-adv-tool:not(#_):first-of-type {
+  margin-left: 0.35em;
+  padding-left: 0.3em;
+}
+
 enriched-content.dsct-adv .ctlib-face {
-  width: 1.3em;
-  height: 1.3em;
+  width: 1.1em;
+  height: 1.1em;
 }
 
 enriched-content.dsct-adv .ctlib-face-minion {
-  width: 1.1em;
-  height: 1.1em;
+  width: 0.95em;
+  height: 0.95em;
 }
 
 enriched-content.dsct-adv .ctlib-faces .ctlib-face-wrap:not(:first-child) {
@@ -3275,11 +3293,11 @@ enriched-content.dsct-adv-replaced > a {
 img.dsct-adv-icon,
 .dsct-adv-compact img.ctlib-res-token {
   display: inline-block;
-  width: 1.15em;
-  height: 1.15em;
+  width: 1em;
+  height: 1em;
   margin: 0 0.2em 0 0;
   border: none;
-  vertical-align: middle;
+  vertical-align: -0.15em;
   object-fit: contain;
 }
 
