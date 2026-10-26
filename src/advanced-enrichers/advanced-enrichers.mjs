@@ -12,7 +12,7 @@ import { TargetTabsDamageEditor, TargetTabsModEditor, KindPillDialog, EnricherEf
 import { runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { applyLinkTo } from '../conditions/apply-to-targets.mjs';
 import { gateForcedMovement, forcedMovementTaken } from '../forced-movement/forced-movement-engine.mjs';
-import { triggerRollData, modifyAttributeSafely, grantTempStamina, othersSpec, runTeleportEffect, partnerFilter } from '../ability-automation/flat-special-effects.mjs';
+import { triggerRollData, modifyAttributeSafely, grantTempStamina, othersSpec, runTeleportEffect, partnerFilter, teleportModeOptions, teleportMoverOptions } from '../ability-automation/flat-special-effects.mjs';
 import { FORCED_ICONS, teleportOptions, teleportToken, cleanseSpec, cleanseActor, cleanseMatches, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
 import { registerFlatEnrichers } from './flat-enrichers.mjs';
 import { resolveTokenRefs } from './refs.mjs';
@@ -756,11 +756,48 @@ const FORCED = {
   undo: async (_doc, rec) => { if (rec.undoMessageId) pressUndo(rec.undoMessageId, '.dsct-undo-fm'); },
 };
 
+const optionLabel = (options, value) => options.find((o) => o.value === value)?.label ?? value;
+const tpPillText = (p) => (p.kind === 'tpMode' ? L('mods.tpModePill', { mode: optionLabel(teleportModeOptions(), p.mode) })
+  : p.kind === 'tpMover' ? L('mods.tpMoverPill', { mover: optionLabel(teleportMoverOptions(), p.mover) })
+  : amountPillText(L('mods.unitDistance'))(p));
+const tpPillCss = (p) => (p.kind === 'amount' ? amountPillCss(p) : 'bonus');
+
+const tpSettings = (tv, pills) => {
+  const out = { ...(tv ?? {}) };
+  for (const p of pills) {
+    if (p.kind === 'tpMode') out.mode = p.mode;
+    if (p.kind === 'tpMover') out.mover = p.mover;
+  }
+  return out;
+};
+
 const TELEPORT = {
   id: 'teleport',
   valueAfter: true,
   modifiable: true,
-  mods: amountMods(() => L('mods.unitDistance')),
+  
+  mods: (ctx, title) => {
+    const flat = !!(ctx.message && flatEffectOf(ctx.message, ctx.a)?.flatTeleport);
+    return {
+      pillText: tpPillText,
+      pillCss: tpPillCss,
+      openAdd: (editor) => new KindPillDialog({
+        title,
+        buttons: [
+          { kind: 'amount', amount: 1, css: 'edge', label: L('mods.raise') },
+          { kind: 'amount', amount: -1, css: 'bane', label: L('mods.lower') },
+          { kind: 'tpMode', amount: 0, css: 'bonus', label: L('mods.tpMode') },
+          ...(flat ? [{ kind: 'tpMover', amount: 0, css: 'bonus', label: L('mods.tpMover') }] : []),
+        ],
+        valued: ['amount'],
+        selects: [{ kind: 'tpMode', field: 'mode', label: L('mods.tpMode'), choices: teleportModeOptions() },
+          { kind: 'tpMover', field: 'mover', label: L('mods.tpMover'), choices: teleportMoverOptions() }],
+        pillText: tpPillText,
+        pillCss: tpPillCss,
+        onPill: (p) => editor.addPill(p),
+      }).render(true),
+    };
+  },
   recipient: 'targets',
   chipIcon: (a) => (a.dataset.mode === 'swap' ? 'fa-people-arrows' : 'fa-person-through-window'),
   test: (ec) => ec.getAttribute('enricher') === 'dsct.teleport',
@@ -773,8 +810,9 @@ const TELEPORT = {
     const base = st.totals?.[0];
     if (base == null) return null;
     const pills = livePills(st, doc);
-    const out = { base, amount: foldAmount(base, pills), modLines: pills.map(amountPillText(L('mods.unitDistance'))) };
-    const tv = message ? flatEffectOf(message, a)?.flatTeleport : null;
+    const out = { base, amount: foldAmount(base, pills), modLines: pills.map(tpPillText) };
+    const flat = message ? flatEffectOf(message, a)?.flatTeleport : null;
+    const tv = flat ? tpSettings(flat, pills) : null;
     if ((tv?.mode === 'swap' || tv?.mode === 'adjacent') && doc.object && !partnerFilter(tv)(doc.object)) return { ...out, blocked: 'partner' };
     return out;
   },
@@ -789,8 +827,10 @@ const TELEPORT = {
     const out = {};
     for (const doc of docs) {
       const token = doc.object;
+      const mode = tpSettings({ mode: base.mode }, livePills(st, doc)).mode;
+      const partner = mode ? (sourceDoc(message, a)?.object ?? null) : null;
       if (!token || (partner && partner.id === token.id)) continue;
-      const opts = { ...base, distance: this.result(st, a, doc)?.amount ?? base.distance };
+      const opts = { ...base, mode, distance: this.result(st, a, doc)?.amount ?? base.distance };
       const captured = captureMessage('isTpUndo');
       try { await teleportToken(token, opts, partner); }
       catch (err) { console.warn('DSCT | advanced enricher | teleport:', err); }
@@ -807,7 +847,7 @@ const TELEPORT = {
       const r = this.result(st, a, doc, message);
       if (!r || r.blocked) continue;
       const captured = captureMessage('isTpUndo');
-      try { await runTeleportEffect({ ...effect.flatTeleport, distance: String(r.amount) }, ability, { sourceActor, partnerToken: doc.object ?? null }); }
+      try { await runTeleportEffect({ ...tpSettings(effect.flatTeleport, livePills(st, doc)), distance: String(r.amount) }, ability, { sourceActor, partnerToken: doc.object ?? null }); }
       catch (err) { console.warn('DSCT | advanced enricher | flat teleport:', err); }
       const undoMessageId = captured();
       if (undoMessageId) out[doc.uuid] = { amount: r.amount, undoMessageId };
