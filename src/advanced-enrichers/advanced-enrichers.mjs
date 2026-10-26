@@ -1,4 +1,4 @@
-import { getSetting, applyDamage, undoDamage, getSquadGroup, safeDelete, isOwnAbilityActor } from '../helpers.mjs';
+import { getSetting, applyDamage, undoDamage, getSquadGroup, safeDelete, isOwnAbilityActor, messageDamageSource } from '../helpers.mjs';
 import { DSTD, DSTD_PANEL, DSTD_ROW, isPrimaryGM, safeUpdate, dropKey, dropKeyOverSocket, faceFromToken, faceChainHTML, activateFaces, services, registerPanelDecorator, damageTypeIconHTML, resourceTokenHTML } from '../ctlib.mjs';
 import { damageSignature, healSignature, gainSignature, applySignature, derivedSignatures } from './mirror.mjs';
 import { richTip, setTip, tipFor } from '../chat-tips.mjs';
@@ -16,6 +16,7 @@ import { triggerRollData, modifyAttributeSafely, grantTempStamina, othersSpec, r
 import { FORCED_ICONS, teleportOptions, teleportToken, cleanseSpec, cleanseActor, cleanseMatches, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
 import { registerFlatEnrichers } from './flat-enrichers.mjs';
 import { resolveTokenRefs } from './refs.mjs';
+import { recoveriesAvailable, takeRecovery } from '../bonds.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG = 'adv';
@@ -260,8 +261,6 @@ const damagePrep = (a) => {
   return formulas.map((formula, i) => ({ formula, types: types[i]?.split('|').filter(Boolean) ?? [], ignored, aoe: !!a.dataset.aoe }));
 };
 
-const sourceLabel = (message) => abilityOf(message)?.name ?? message.speaker?.alias ?? null;
-
 const staminaRecord = (prev) => ({
   prevValue: prev.prevValue, prevTemp: prev.prevTemp,
   prevSquadHP: prev.prevSquadHP ?? null, squadGroupUuid: prev.squadGroup?.uuid ?? prev.squadGroupUuid ?? null,
@@ -322,10 +321,10 @@ const DAMAGE = {
       if (!r) continue;
       const ignoreImmunity = r.pills.length === 0 && (prep[0].ignored.includes('all') || prep[0].ignored.includes(r.type));
       const prev = await applyDamage(doc.actor, r.raw, undefined,
-        { damageType: r.type || 'untyped', ignoreImmunity, isArea: prep[0].aoe, source: sourceLabel(ctx.message) });
+        { damageType: r.type || 'untyped', ignoreImmunity, isArea: prep[0].aoe, source: messageDamageSource(ctx.message) });
       for (let i = 1; i < prep.length; i++) {
         const extra = ctx.st.totals?.[i];
-        if (extra) await applyDamage(doc.actor, extra, undefined, { damageType: prep[i].types[0] || 'untyped', isArea: prep[i].aoe, source: sourceLabel(ctx.message) });
+        if (extra) await applyDamage(doc.actor, extra, undefined, { damageType: prep[i].types[0] || 'untyped', isArea: prep[i].aoe, source: messageDamageSource(ctx.message) });
       }
       out[doc.uuid] = { amount: r.amount, ...staminaRecord(prev) };
     }
@@ -402,7 +401,7 @@ const HEAL = {
     const out = { base, amount, temporary, spender: spender?.name ?? null, valueFrom: valueFrom?.name ?? null,
       modLines: pills.map(amountPillText(L('mods.unitHeal'))) };
     if (isMinionInSquad(actor)) return { ...out, amount: 0, blocked: 'minion' };
-    if (spender && recoveriesOf(spender) < 1) return { ...out, amount: 0, blocked: 'noRecoveries' };
+    if (spender && recoveriesAvailable(spender) < 1) return { ...out, amount: 0, blocked: 'noRecoveries' };
     const temp = actor?.system?.stamina?.temporary ?? 0;
     const key = temporary && message ? tempStackKey(message, a) : null;
     const held = actor?.getFlag?.(M, 'tempFrom');
@@ -434,9 +433,9 @@ const HEAL = {
       let recovery = null;
       if (cfg.recovery === 'target' || cfg.recovery === 'self') {
         const spender = cfg.recovery === 'target' ? actor : caster;
-        if (!spender || recoveriesOf(spender) < 1) continue;
-        await safeUpdate(spender, { 'system.recoveries.value': recoveriesOf(spender) - 1 });
-        recovery = spender.uuid;
+        const paid = spender ? await takeRecovery(spender) : null;
+        if (!paid) continue;
+        recovery = paid.uuid;
       }
       if (r.temporary) await grantTempStamina(actor, r.amount, tempStackKey(ctx.message, ctx.a));
       else await modifyAttributeSafely(actor, 'stamina', r.amount, true);

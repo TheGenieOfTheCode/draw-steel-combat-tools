@@ -8,6 +8,7 @@ import { setTip, tipFor } from '../chat-tips.mjs';
 const _tip = (el, key, opts = {}) => setTip(el, tipFor(key, opts));
 const _appliedTip = (el, key, title) => setTip(el, tipFor(key, { title, body: game.i18n.localize('DSCT.tip.applied') }));
 import { runForcedMovement, forcedMovementTaken } from '../forced-movement/forced-movement-engine.mjs';
+import { takeRecovery } from '../bonds.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { applyGrab, runGrab, endGrab, grabChat } from '../conditions/grab.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
@@ -3615,14 +3616,13 @@ async function _injectFmButtons(message, root) {
         if (spendRecovery) {
           const recovActor = recoverySource === "target" ? targetActor : sourceActor;
           if (!recovActor) { healBtn.disabled = false; return; }
-          const available = recovActor.system.recoveries?.value ?? 0;
-          if (available <= 0) {
+          const paid = await takeRecovery(recovActor);
+          if (!paid) {
             ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Heal.noRecoveries", { name: recovActor.name }));
             healBtn.disabled = false;
             return;
           }
-          await safeUpdate(recovActor, { "system.recoveries.value": available - 1 });
-          recoveryActorUuid = recovActor.uuid;
+          recoveryActorUuid = paid.uuid;
         }
 
         let amount;

@@ -1,5 +1,5 @@
-2026/10/26-11:10:50.382 3888 Delete type=3 #1
-2026/10/26-11:10:50.386 e40 Level-0 table #5: started
-2026/10/26-11:10:50.388 e40 Level-0 table #5: 145154 bytes OK
-2026/10/26-11:10:50.389 e40 Delete type=0 #3
-2026/10/26-11:10:50.389 e40 Manual compaction at level-0 from '!folders!DSCTfldBasic0001' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhWodeSick1.dsctWodeBleed001' @ 0 : 0; will stop at (end)
+2026/10/26-13:00:57.361 5118 Delete type=3 #1
+2026/10/26-13:00:57.371 63fc Level-0 table #5: started
+2026/10/26-13:00:57.380 63fc Level-0 table #5: 145310 bytes OK
+2026/10/26-13:00:57.386 63fc Delete type=0 #3
+2026/10/26-13:00:57.386 63fc Manual compaction at level-0 from '!folders!DSCTfldBasic0001' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhWodeSick1.dsctWodeBleed001' @ 0 : 0; will stop at (end)

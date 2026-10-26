@@ -6,6 +6,7 @@ import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 import { executeTeleport, executeTeleswap } from '../teleport.mjs';
 import { runSourcePicker } from './target-picker.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
+import { takeRecovery } from '../bonds.mjs';
 
 const { SchemaField, SetField, StringField, NumberField, BooleanField } = foundry.data.fields;
 const MODULE_ID = "draw-steel-combat-tools";
@@ -1691,13 +1692,11 @@ export function addFlatEffectListeners(section, item, message) {
         if (spendRecovery) {
           const recovActor = recoverySource === "target" ? targetActor : sourceActor;
           if (!recovActor) continue;
-          const available = recovActor.system.recoveries?.value ?? 0;
-          if (available <= 0) {
+          const paid = await takeRecovery(recovActor, recovActor !== sourceActor && sourceActor ? { dsctRecoveryBy: sourceActor.uuid } : {});
+          if (!paid) {
             ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Heal.noRecoveries", { name: recovActor.name }));
             continue;
           }
-          await safeUpdate(recovActor, { "system.recoveries.value": available - 1 },
-            recovActor !== sourceActor && sourceActor ? { dsctRecoveryBy: sourceActor.uuid } : {});
         }
 
         let amount;

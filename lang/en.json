@@ -922,7 +922,25 @@
         "forcedMovement": "Forced Movement",
         "lineOfEffect": "Line of Effect",
         "recurring": "Recurring Damage",
-        "duration": "Duration"
+        "duration": "Duration",
+        "bond": "Bonds"
+      },
+      "bond": {
+        "group": {
+          "label": "Bonded with",
+          "description": "Creatures whose effects name the same bond are bonded to each other (e.g. Bloodbound Band). The other bond flags only work among them.",
+          "values": "Any name; the same name joins the same bond"
+        },
+        "shareRecoveryValue": {
+          "label": "Use the bond's best recovery value",
+          "description": "The bearer's recovery value is the highest of anyone in their bond, wherever a recovery value is used.",
+          "values": "true"
+        },
+        "shareRecoveries": {
+          "label": "Spend bond-mates' Recoveries",
+          "description": "When the bearer spends a Recovery, they can spend one belonging to anyone in their bond instead, and are asked whose.",
+          "values": "true"
+        }
       },
       "consumeOn": {
         "label": "Ends when used up",
@@ -1425,6 +1443,12 @@
         "pickHint": "Pick up to {count} within {range} squares, then press Enter",
         "noneInReach": "No creature fits {name} right now."
       }
+    },
+    "bond": {
+      "pickTitle": "{name}: Whose Recovery?",
+      "pickBody": "{name} is bonded and can spend a Recovery belonging to anyone in the bond.",
+      "pickOption": "{name} ({n} left)",
+      "spentFrom": "{name} spent one of {donor}'s Recoveries."
     },
     "chain": {
       "pick": "Pick Chain Target ({n} of {total})",

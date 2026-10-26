@@ -115,6 +115,7 @@ export const messageDamageSource = (message) => {
     tokenUuid: sp.scene && sp.token ? `Scene.${sp.scene}.Token.${sp.token}` : null,
     actorUuid: sp.actor ? `Actor.${sp.actor}` : null,
     ability: use?.abilityUuid ? (fromUuidSync(use.abilityUuid, { strict: false })?.name ?? null) : null,
+    abilityUuid: use?.abilityUuid ?? null,
   };
 };
 
