@@ -692,6 +692,18 @@ const FORCED = {
     if (cfg.requires && !doc.actor?.statuses?.has(cfg.requires)) return { ...out, amount: 0, blocked: 'needsStatus', requires: cfg.requires };
     return out;
   },
+  
+  relabel(a, rows) {
+    const kinds = new Set(rows.map((r) => r.result?.state?.movement).filter(Boolean));
+    const now = kinds.size === 1 ? [...kinds][0] : null;
+    const was = a.dataset.movement;
+    if (!now || !was || now === was) return;
+    const rx = new RegExp(`\\b${was}`, 'i');
+    const swap = (s) => s.replace(rx, (w) => (w[0] === w[0].toUpperCase() ? now[0].toUpperCase() + now.slice(1) : now));
+    for (const k of ['dsctLabel', 'dsctWords']) if (a.dataset[k]) a.dataset[k] = swap(a.dataset[k]);
+    const word = [...a.childNodes].find((n) => n.nodeType === Node.TEXT_NODE && rx.test(n.nodeValue));
+    if (word) word.nodeValue = swap(word.nodeValue);
+  },
   lead: (r, applied) => L(applied ? 'forcedApplied' : 'forcedAmount', { movement: r.movement, n: applied?.amount ?? r.amount }),
   steps(r) {
     const steps = r.taken ? [`<li>${esc(L('stepTaken', { n: signed(r.taken) }))}</li>`] : [];
@@ -774,7 +786,6 @@ const TELEPORT = {
     const effect = flatEffectOf(message, a);
     if (effect?.type === 'dsct.flatTeleport') return this.applyFlat(ctx, docs, effect);
     const base = teleportOptions(a);
-    const partner = base.mode ? (sourceDoc(message, a)?.object ?? null) : null;
     const out = {};
     for (const doc of docs) {
       const token = doc.object;
@@ -1149,7 +1160,7 @@ const groupResults = (rows, typed = false) => {
   return groups;
 };
 
-const linkTip = (kind, title, rows, breakdown, detail) => {
+const linkTip = (kind, title, rows, breakdown, detail, from = '') => {
   const lines = rows.map((row) => {
     const amount = row.applied?.amount ?? row.result?.amount;
     const notes = row.result ? [...(row.result.modLines ?? []), ...kind.notes(row.result)] : [];
@@ -1157,10 +1168,11 @@ const linkTip = (kind, title, rows, breakdown, detail) => {
     const value = amount != null ? `: ${amount}` : '';
     return `<p><strong>${esc(row.doc.name)}</strong>${value}${notes.length ? ` (${esc(notes.join(', '))})` : ''}${state}</p>`;
   });
+  const source = from ? `<p><em>${esc(from)}</em></p>` : '';
   const about = detail ? `<p>${esc(detail)}</p>` : '';
   const rolled = breakdown ? `<p>${breakdown}</p>` : '';
   const how = `<p>${esc(L(rows.length ? 'howTo' : 'howToEmpty'))}</p>`;
-  return richTip({ title, category: L(`category.${kind.id}`), html: about + rolled + lines.join('') + how });
+  return richTip({ title, category: L(`category.${kind.id}`), html: source + about + rolled + lines.join('') + how });
 };
 
 const build = (ec, a, message, key, kind) => {
@@ -1169,6 +1181,7 @@ const build = (ec, a, message, key, kind) => {
     doc, result: kind.result(st, a, doc, message), applied: st.applied?.[tk(doc.uuid)] ?? null,
   }));
   const canUse = canAct(message);
+  kind.relabel?.(a, rows);
   const breakdown = kind.rolls ? breakdownHTML(a, st, message) : '';
   const formulaSpans = [...a.querySelectorAll(':scope > span')];
   const compact = a.classList.contains('dsct-adv-compact');
@@ -1181,7 +1194,8 @@ const build = (ec, a, message, key, kind) => {
     return (after ? `${words} ${shown}` : `${shown} ${words}`).trim();
   };
   
-  const typed = compact && kind.id === 'damage';
+  
+  const typed = kind.id === 'damage';
   const groups = groupResults(rows, typed);
   const typeIconOf = (type) => {
     const icon = htmlIcon(damageTypeIconHTML(type || 'untyped'));
@@ -1215,6 +1229,11 @@ const build = (ec, a, message, key, kind) => {
       a.textContent = a.textContent.trim();
     } else {
       if (typed && groups[0]) a.querySelector(':scope > .dsct-adv-icon')?.replaceWith(typeIconOf(groups[0].type));
+      if (typed && groups[0]?.type && !compact && a.dataset.dsctUntyped) {
+        const bare = L('flatDamage', { type: '' }).trim().toLowerCase();
+        const word = [...a.childNodes].find((n) => n.nodeType === Node.TEXT_NODE && n.nodeValue.toLowerCase().includes(bare));
+        if (word) word.nodeValue = word.nodeValue.replace(new RegExp(bare, 'i'), L('flatDamage', { type: damageTypeName(groups[0].type) }).trim());
+      }
       const shown = groups[0]?.value ?? st.totals[0];
       if (formulaSpans[0]) {
         const icon = formulaSpans[0].querySelector('i');
@@ -1244,11 +1263,15 @@ const build = (ec, a, message, key, kind) => {
     ec.append(toolButton('retarget', 'fa-solid fa-crosshairs', 'advRetarget'));
     if (kind.modifiable) ec.append(toolButton('modify', 'fa-solid fa-gear', 'advModify'));
   }
+  glue(ec);
   ec._advTitle = titleCase(title);
   const cost = Number(sourceConfig(a).spend) || 0;
   const costLine = cost ? L('costLine', { n: cost, resource: casterActor(message, a)?.system?.coreResource?.name ?? '' }) : '';
   const sourceLine = presetSource(a) ? L('sourceLine', { name: sourceDoc(message, a)?.name ?? '?' }) : '';
-  setTip(a, linkTip(kind, ec._advTitle, rows, breakdown, [a.dataset.dsctDetail, sourceLine, costLine].filter(Boolean).join(' ')));
+  const ability = abilityOf(message)?.name;
+  const who = casterActor(message, a)?.name ?? message.speaker?.alias;
+  const from = ability ? L('fromAbility', { ability, name: who ?? '?' }) : who ? L('fromName', { name: who }) : '';
+  setTip(a, linkTip(kind, ec._advTitle, rows, breakdown, [a.dataset.dsctDetail, sourceLine, costLine].filter(Boolean).join(' '), from));
   activateFaces(ec);
 };
 
@@ -1374,6 +1397,28 @@ const typeIcon = (id, a) => {
   return null;
 };
 
+const typedIcon = (id, a) => {
+  const icon = typeIcon(id, a);
+  if (!icon) return;
+  for (const old of a.querySelectorAll('i.fa-dice-d10, i.fa-bolt, :scope > i.fa-person-rays')) old.remove();
+  icon.classList.add('dsct-adv-icon');
+  a.prepend(icon);
+  icon.after(JOINER);
+};
+
+const JOINER = '⁠';
+
+const glue = (ec) => {
+  for (const el of [...ec.children].slice(1)) if (el.previousSibling?.nodeValue !== JOINER) el.before(JOINER);
+};
+
+const singleGain = (a) => {
+  const key = `DSCT.advEnricher.gainOne.${a.dataset.gainType}`;
+  if (a.dataset.type !== 'gain' || String(a.dataset.formula).trim() !== '1' || !game.i18n.has(key)) return;
+  const text = [...a.childNodes].reverse().find((n) => n.nodeType === Node.TEXT_NODE && n.nodeValue.trim());
+  if (text) text.nodeValue = text.nodeValue.replace(/\S+\s*$/, game.i18n.localize(key));
+};
+
 const compactLink = (id, a) => {
   let formula = a.querySelector(':scope > span');
   a.dataset.dsctLabel = a.textContent.trim();
@@ -1442,10 +1487,15 @@ const wrapEnricher = (id) => {
       const a = el?.matches?.('a') ? el : el?.querySelector?.('a');
       if (a && match.groups?.config != null) a.dataset.dsctSource = match.groups.config.trim();
       if (a && advancedEnrichersOn()) placeholders(a);
-      if (a && advancedEnrichersOn() && untypedAutoDamage(id, a, match)) a.append(` ${L('flatDamage', { type: '' }).trim()}`);
+      if (a && advancedEnrichersOn() && untypedAutoDamage(id, a, match)) {
+        a.append(` ${L('flatDamage', { type: '' }).trim()}`);
+        a.dataset.dsctUntyped = '1';
+      }
+      if (a && advancedEnrichersOn() && !match.groups?.label) singleGain(a);
       if (a && advancedEnrichersOn()) termCaseText(a);
       if (a && advancedEnrichersOn() && match.groups?.label) amountSlot(a);
       if (a && compactOn()) compactLink(id, a);
+      else if (a && advancedEnrichersOn()) typedIcon(id, a);
       return el;
     },
     onRender: async function (element) {

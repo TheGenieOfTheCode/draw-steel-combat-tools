@@ -2562,6 +2562,12 @@
       "faceAmount": "Takes {n} {type} damage",
       "faceApplied": "Took {n} {type} damage",
       "untyped": "untyped",
+      "gainOne": {
+        "surge": "Surge",
+        "victory": "Victory"
+      },
+      "fromAbility": "From: {ability} ({name})",
+      "fromName": "From: {name}",
       "gameTerms": "edge, edges, bane, banes, double, reactive, test, tests, start, end, next, turn, turns, round, rounds, encounter, save, ends, damage, stamina, temporary, recovery, recoveries, surge, surges, heroic, resource, focus, potency, potencies, strike, strikes, push, pull, slide, teleport, shift, speed, stability, cover, concealment, fly, burrow, climb, swim",
       "stepFrom": "from {src}",
       "stepWeakness": "{n} from {type} weakness",
