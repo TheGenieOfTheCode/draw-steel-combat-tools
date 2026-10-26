@@ -679,6 +679,9 @@ function _checkAbilityRange(dialog, { warnOnly = false } = {}) {
   if (keywords?.has('area')) return null;
   if (isTriggeredAbility(ability)) return null;
   
+  if (ability.getFlag?.('draw-steel-combat-tools', 'areaFilter')?.carriers) return null;
+  if ((view?.distance ?? ability.system?.distance)?.type === 'special') return null;
+  
   if (isSelfAndSelf(ability, view)) return null;
 
   const _actor = ability.actor ?? ability.parent;
