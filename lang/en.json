@@ -1143,6 +1143,9 @@
       "ignoreDeadName": "Ignore Dead Languages",
       "ignoreDeadHint": "Dead languages start marked as ignored on the party Overview, since they're more niche. The Director can still right click to un-ignore them, or left click to make them preferred."
     },
+    "consent": {
+      "awaiting": "(Waiting for an answer...)"
+    },
     "reactiveTests": {
       "notice": "{name}'s effects add {edges} edge(s) and {banes} bane(s) to this reactive test."
     },
@@ -1286,6 +1289,10 @@
         "recoverySource": {
           "label": "Recovery Spent By"
         },
+        "allyRange": {
+          "label": "Ally Range",
+          "hint": "For \"An ally who agrees\": how many squares from the target the ally can be."
+        },
         "amountType": {
           "label": "Amount"
         },
@@ -1306,7 +1313,18 @@
         },
         "Source": {
           "self": "Self",
-          "target": "Target"
+          "target": "Target",
+          "ally": "An ally who agrees"
+        },
+        "ally": {
+          "none": "No ally within {range} squares of {target} has a Recovery to spend.",
+          "pick": "Pick the ally within {range} squares of {target} who spends a Recovery. Escape to cancel.",
+          "ask": "<strong>{name}</strong>, will you lose a Recovery so that <strong>{target}</strong> regains Stamina ({ability})?",
+          "yes": "Lose a Recovery",
+          "no": "Decline",
+          "yesDone": "{name} lost a Recovery.",
+          "noDone": "{name} declined.",
+          "declined": "{name} declined to spend a Recovery."
         },
         "AmountType": {
           "recoveryValue": "Recovery Value",

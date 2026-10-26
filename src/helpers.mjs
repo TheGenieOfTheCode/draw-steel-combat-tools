@@ -222,6 +222,29 @@ export const confirmRangeOverride = async (sourceToken, targetToken, squares, ac
   });
 };
 
+export const askConsent = async (actor, { content, yes, no, yesDone = yes, noDone = no }) => {
+  const whisper = game.users.filter(u => u.isGM || (u.active && actor?.testUserPermission(u, 3))).map(u => u.id);
+  const msg = await ChatMessage.create({
+    content, whisper,
+    speaker: ChatMessage.getSpeaker({ actor }),
+    flags: { [M]: { consent: { actorUuid: actor.uuid, yes, no, yesDone, noDone, answer: null } } },
+  });
+  return new Promise((resolve) => {
+    let hookId, deleteHookId;
+    const finish = (val) => {
+      Hooks.off('updateChatMessage', hookId);
+      Hooks.off('deleteChatMessage', deleteHookId);
+      resolve(val);
+    };
+    hookId = Hooks.on('updateChatMessage', (updated) => {
+      if (updated.id !== msg.id) return;
+      const answer = updated.getFlag(M, 'consent')?.answer;
+      if (answer) finish(answer === 'yes');
+    });
+    deleteHookId = Hooks.on('deleteChatMessage', (deleted) => { if (deleted.id === msg.id) finish(false); });
+  });
+};
+
 export const confirmFriendlyFireCase1 = async (sourceToken, targetToken) => {
   const whisper = game.users
     .filter(u => u.isGM || sourceToken.actor?.testUserPermission(u, 3))

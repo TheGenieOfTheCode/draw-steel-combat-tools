@@ -77,7 +77,8 @@ export const flatEnricherText = (effect, ability) => {
         value = ` value=${h.recoveryValueSource === 'target' ? 'target' : 'self'}`;
       } else formula = String(h.amountFormula ?? '').trim();
       if (!formula || formula === '0' || !plainFormula(formula)) return null;
-      const recovery = h.spendRecovery ? ` recovery=${h.recoverySource === 'target' ? 'target' : 'self'}` : '';
+      const source = ['target', 'ally'].includes(h.recoverySource) ? h.recoverySource : 'self';
+      const recovery = h.spendRecovery ? ` recovery=${source}${source === 'ally' ? ` allyRange=${h.allyRange ?? 10}` : ''}` : '';
       const extras = `${flag(h.tempStamina && h.tempStack, 'tempStack')}${flag(h.repeatable, 'repeatable')}`;
       return `[[/heal ${formula}${h.tempStamina ? ' temp' : ''}${value}${recovery}${extras}${recipient(h.recipient, 'target')}${spendPart(h)}${tag}]]${label(h.display)}`;
     }

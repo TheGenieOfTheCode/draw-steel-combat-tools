@@ -395,6 +395,36 @@ export function registerChatHooks() {
       }
     }
 
+    const consent = msg.getFlag('draw-steel-combat-tools', 'consent');
+    if (consent) {
+      const asked = fromUuidSync(consent.actorUuid);
+      if (consent.answer) {
+        const status = document.createElement('div');
+        status.className = 'dsct-undo-status';
+        status.textContent = consent.answer === 'yes' ? consent.yesDone ?? consent.yes : consent.noDone ?? consent.no;
+        btnArea().appendChild(status);
+      } else if (game.user.isGM || asked?.isOwner) {
+        const answer = (value, icon, label) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.innerHTML = `<i class="fa-solid ${icon}"></i> ${foundry.utils.escapeHTML(label)}`;
+          btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            for (const b of btnArea().querySelectorAll('button')) b.disabled = true;
+            await safeUpdate(msg, { 'flags.draw-steel-combat-tools.consent.answer': value });
+          });
+          btnArea().appendChild(btn);
+        };
+        answer('yes', 'fa-check', consent.yes);
+        answer('no', 'fa-xmark', consent.no);
+      } else {
+        const status = document.createElement('div');
+        status.className = 'dsct-undo-status';
+        status.textContent = game.i18n.localize('DSCT.consent.awaiting');
+        btnArea().appendChild(status);
+      }
+    }
+
     if (msg.getFlag('draw-steel-combat-tools', 'isRangeConfirm')) {
       const res = msg.getFlag('draw-steel-combat-tools', 'rangeConfirmResolved');
       if (res != null) {

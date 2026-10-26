@@ -17,6 +17,7 @@ import { FORCED_ICONS, teleportOptions, teleportToken, cleanseSpec, cleanseActor
 import { registerFlatEnrichers } from './flat-enrichers.mjs';
 import { resolveTokenRefs } from './refs.mjs';
 import { recoveriesAvailable, takeRecovery } from '../bonds.mjs';
+import { recoverySpender } from '../ability-automation/recovery-spender.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG = 'adv';
@@ -431,8 +432,9 @@ const HEAL = {
       const prev = { prevValue: actor.system.stamina.value, prevTemp: actor.system.stamina.temporary };
       const tempFrom = r.temporary ? (actor.getFlag(M, 'tempFrom') ?? null) : undefined;
       let recovery = null;
-      if (cfg.recovery === 'target' || cfg.recovery === 'self') {
-        const spender = cfg.recovery === 'target' ? actor : caster;
+      if (['target', 'self', 'ally'].includes(cfg.recovery)) {
+        const spender = await recoverySpender(cfg.recovery, { targetActor: actor, casterActor: caster, ability: abilityOf(ctx.message),
+          range: Number(cfg.allyRange) || 10 });
         const paid = spender ? await takeRecovery(spender) : null;
         if (!paid) continue;
         recovery = paid.uuid;

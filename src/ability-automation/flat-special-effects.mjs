@@ -8,6 +8,7 @@ import { runSourcePicker } from './target-picker.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
 import { takeRecovery } from '../bonds.mjs';
 import { cleanseMatches } from '../advanced-enrichers/ct-enrichers.mjs';
+import { recoverySpender } from './recovery-spender.mjs';
 
 const { SchemaField, SetField, StringField, NumberField, BooleanField } = foundry.data.fields;
 const MODULE_ID = "draw-steel-combat-tools";
@@ -203,7 +204,8 @@ function _registerPartials() {
     {{> "dsct.flat-others" ctx=ctx prefix="flatHeal"}}
     {{formGroup ctx.spendRecovery.field value=ctx.spendRecovery.src name="flatHeal.spendRecovery" localize=true}}
     <div data-dsct-heal-recovery-source="flatHeal" {{#unless ctx.spendRecovery.src}}hidden{{/unless}}>
-      {{formGroup ctx.recoverySource.field value=ctx.recoverySource.src name="flatHeal.recoverySource" options=ctx.sourceOptions localize=true}}
+      {{formGroup ctx.recoverySource.field value=ctx.recoverySource.src name="flatHeal.recoverySource" options=ctx.recoverySourceOptions localize=true}}
+      {{formGroup ctx.allyRange.field value=ctx.allyRange.src name="flatHeal.allyRange" localize=true}}
     </div>
     {{formGroup ctx.amountType.field value=ctx.amountType.src name="flatHeal.amountType" options=ctx.amountTypeOptions localize=true}}
     <div data-dsct-heal-custom="flatHeal" {{#unless ctx.isCustomAmount}}hidden{{/unless}}>
@@ -538,6 +540,7 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
         display:             new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",                       hint: "DSCT.FlatEffect.display.hint" }),
         spendRecovery:       new BooleanField({ initial: false,              label: "DSCT.FlatEffect.Heal.spendRecovery.label",            hint: "DSCT.FlatEffect.Heal.spendRecovery.hint" }),
         recoverySource:      new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoverySource.label" }),
+        allyRange:           new NumberField({ integer: true, min: 1, initial: 10, nullable: false, label: "DSCT.FlatEffect.Heal.allyRange.label", hint: "DSCT.FlatEffect.Heal.allyRange.hint" }),
         amountType:          new StringField({ required: false, blank: false, initial: () => _flatDefault('flatDefaultHealAmountType', 'recoveryValue'), label: "DSCT.FlatEffect.Heal.amountType.label" }),
         amountFormula:       new ds.data.fields.FormulaField({ initial: "0",                           label: "DSCT.FlatEffect.Heal.amountFormula.label", hint: "DSCT.FlatEffect.Heal.amountFormula.hint" }),
         recoveryValueSource: new StringField({ required: false, blank: false, initial: "self",         label: "DSCT.FlatEffect.Heal.recoveryValueSource.label" }),
@@ -570,6 +573,7 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
       { value: "self",   label: game.i18n.localize("DSCT.FlatEffect.Heal.Source.self")   },
       { value: "target", label: game.i18n.localize("DSCT.FlatEffect.Heal.Source.target") },
     ];
+    const recoverySourceOptions = [...sourceOptions, { value: "ally", label: game.i18n.localize("DSCT.FlatEffect.Heal.Source.ally") }];
     const amountTypeOptions = [
       { value: "recoveryValue", label: game.i18n.localize("DSCT.FlatEffect.Heal.AmountType.recoveryValue") },
       { value: "custom",        label: game.i18n.localize("DSCT.FlatEffect.Heal.AmountType.custom") },
@@ -579,6 +583,7 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
       display:             { field: this.schema.getField("flatHeal.display"),             src: src.display },
       spendRecovery:       { field: this.schema.getField("flatHeal.spendRecovery"),       src: src.spendRecovery },
       recoverySource:      { field: this.schema.getField("flatHeal.recoverySource"),      src: src.recoverySource },
+      allyRange:           { field: this.schema.getField("flatHeal.allyRange"),           src: src.allyRange ?? 10 },
       amountType:          { field: this.schema.getField("flatHeal.amountType"),          src: src.amountType },
       amountFormula:       { field: this.schema.getField("flatHeal.amountFormula"),       src: src.amountFormula },
       recoveryValueSource: { field: this.schema.getField("flatHeal.recoveryValueSource"), src: src.recoveryValueSource },
@@ -589,6 +594,7 @@ class FlatHealSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseS
       recipientOptions:    _recipientOptions(["target", "self", "others"]),
       ..._othersContext(this, "flatHeal"),
       sourceOptions,
+      recoverySourceOptions,
       amountTypeOptions,
       isCustomAmount:        src.amountType === "custom",
       isRecoveryValueAmount: src.amountType === "recoveryValue",
@@ -1123,6 +1129,7 @@ function _buildHealButton(effect, item) {
   btn.dataset.effectId            = effect.id;
   btn.dataset.spendRecovery       = String(spendRecovery);
   btn.dataset.recoverySource      = recoverySource;
+  btn.dataset.recoveryRange       = String(effect.flatHeal.allyRange ?? 10);
   btn.dataset.amountType          = amountType;
   btn.dataset.amountFormula       = amountFormula;
   btn.dataset.recoveryValueSource = recoveryValueSource;
@@ -1731,7 +1738,8 @@ export function addFlatEffectListeners(section, item, message) {
         }
 
         if (spendRecovery) {
-          const recovActor = recoverySource === "target" ? targetActor : sourceActor;
+          const recovActor = await recoverySpender(recoverySource, { targetActor, casterActor: sourceActor, ability: item,
+            range: Number(btn.dataset.recoveryRange) || 10 });
           if (!recovActor) continue;
           const paid = await takeRecovery(recovActor, recovActor !== sourceActor && sourceActor ? { dsctRecoveryBy: sourceActor.uuid } : {});
           if (!paid) {

@@ -19,6 +19,7 @@ import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mj
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
 import { takesOver } from '../advanced-enrichers/flat-enrichers.mjs';
 import { cleanseMatches } from '../advanced-enrichers/ct-enrichers.mjs';
+import { recoverySpender } from '../ability-automation/recovery-spender.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
 import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords, chooseAfterPending, settleCriticalChoice } from '../ability-automation/choose-effect.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
@@ -3633,7 +3634,8 @@ async function _injectFmButtons(message, root) {
 
         let recoveryActorUuid = null;
         if (spendRecovery) {
-          const recovActor = recoverySource === "target" ? targetActor : sourceActor;
+          const recovActor = await recoverySpender(recoverySource, { targetActor, casterActor: sourceActor, ability,
+            range: Number(effect.flatHeal.allyRange) || 10 });
           if (!recovActor) { healBtn.disabled = false; return; }
           const paid = await takeRecovery(recovActor);
           if (!paid) {
