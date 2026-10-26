@@ -16,7 +16,8 @@ const FORCED_WORDS = {
 const on = () => getSetting('advancedEnrichers') !== false && getSetting('flatEffectsEnabled') !== false;
 const setOf = (v) => (v instanceof Set ? v : new Set(v ?? []));
 const label = (text) => (text ? `{${String(text).replace(/[{}]/g, '')}}` : '');
-const recipient = (r, fallback) => (r && r !== fallback ? ` recipient=${r}` : '');
+
+const recipient = (r, fallback) => ` recipient=${r || fallback}`;
 const twoWay = (r) => r === 'target' || r === 'self';
 const reachable = (r, data) => twoWay(r) || (r === 'others' && !!data?.others);
 const flag = (on, key) => (on ? ` ${key}=true` : '');
