@@ -3131,10 +3131,21 @@ enriched-content[enricher^="dsct."] .roll-link i {
   margin-right: 0.4em;
 }
 
-enriched-content.dsct-adv {
+enriched-content.dsct-adv:not(#_) {
+  display: inline;
+  text-wrap-mode: wrap;
+  word-break: normal;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+enriched-content.dsct-adv > * + * {
+  margin-left: 0.25em;
+}
+
+enriched-content.dsct-adv > .ctlib-faces,
+enriched-content.dsct-adv > .dsct-adv-tool:not(#_) {
   display: inline-flex;
-  align-items: center;
-  gap: 0.25em;
   vertical-align: middle;
 }
 

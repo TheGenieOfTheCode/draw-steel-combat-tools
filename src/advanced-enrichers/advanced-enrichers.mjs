@@ -553,7 +553,8 @@ const APPLY = {
   result(st, a, doc, message) {
     const pills = livePills(st, doc);
     const mods = pillMods(pills.map((p) => ({ p })));
-    const out = { label: linkLabel(a), mods, modLines: pills.map(pillAmountLabel) };
+    
+    const out = { label: appliedEffectDoc(a)?.name ?? linkLabel(a), mods, modLines: pills.map(pillAmountLabel) };
     const p = message && doc?.actor ? potencyOf(a, message) : null;
     const verdict = p ? potencyVerdict({ actor: doc.actor, characteristic: p.characteristic, value: p.value, shift: mods.shift, force: mods.force, resistWith: mods.resistWith }) : null;
     if (!verdict) return mods.force != null && mods.force <= 0 ? { ...out, blocked: 'resisted' } : out;
