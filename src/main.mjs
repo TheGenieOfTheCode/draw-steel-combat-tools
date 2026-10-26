@@ -79,6 +79,7 @@ import { registerLineOfEffectFlags, registerCoverImmunity } from './conditions/l
 import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
 import { registerRecurringDamage } from './conditions/recurring-damage.mjs';
 import { registerConsumeEffects } from './conditions/consume-effects.mjs';
+import { registerReactiveTests } from './conditions/reactive-tests.mjs';
 import { registerEnhancedBadge } from './enhanced-badge.mjs';
 import { registerManualText } from './manual-text.mjs';
 import { registerEnhancedRedirects, enhancedRedirects } from './enhanced-redirects.mjs';
@@ -226,6 +227,7 @@ Hooks.once('init', () => {
   registerGrabHooks();
   registerRecurringDamage();
   registerConsumeEffects();
+  registerReactiveTests();
   registerKnockbackGuard();
   registerGrabTierSync();
   registerConditionHooks();

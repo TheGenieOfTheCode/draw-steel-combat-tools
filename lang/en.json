@@ -923,7 +923,20 @@
         "lineOfEffect": "Line of Effect",
         "recurring": "Recurring Damage",
         "duration": "Duration",
-        "bond": "Bonds"
+        "bond": "Bonds",
+        "rolls": "Rolls"
+      },
+      "reactiveTests": {
+        "edges": {
+          "label": "Edges on reactive tests",
+          "description": "Edges the bearer has on tests an ability calls for from its targets.",
+          "values": "A number of edges"
+        },
+        "banes": {
+          "label": "Banes on reactive tests",
+          "description": "Banes the bearer takes on tests an ability calls for from its targets.",
+          "values": "A number of banes"
+        }
       },
       "bond": {
         "group": {
@@ -1029,6 +1042,11 @@
           "description": "Strikes by this creature take no bane against a concealed target, so the Concealment pill never appears in its roll window (e.g. Foresight, a target of Fire Up the Night).",
           "values": "true"
         },
+        "ignoresCoverBane": {
+          "label": "Ignores the cover bane",
+          "description": "Damaging abilities used by this creature take no bane against a target in cover, so the Cover pill never appears in its roll window. Pair it with an effect that ends on the next strike for a one-strike benefit.",
+          "values": "true"
+        },
         "observedBy": {
           "label": "Always observed by whoever applied this",
           "description": "The creature that applied this effect is always observing the bearer, so the bearer cannot hide from that one creature. Everyone else is unaffected. Only works on an effect applied by an ability, which is what records who applied it (e.g. Apex Predator).",
@@ -1036,8 +1054,18 @@
         },
         "exposed": {
           "label": "Exposed near whoever applied this",
-          "description": "While the creature that applied this effect is within Exposed Range, the bearer can't benefit from concealment, being hidden, or being invisible, against anyone (e.g. Mind Rend).",
+          "description": "While the creature that applied this effect is within Exposed Range, the bearer can't benefit from concealment, being hidden, or being invisible, against anyone.",
           "values": "true"
+        },
+        "searchBanes": {
+          "label": "Banes on searching",
+          "description": "Banes the bearer takes on the Search for Hidden Creatures test.",
+          "values": "A number of banes"
+        },
+        "searchEdges": {
+          "label": "Edges on searching",
+          "description": "Edges the bearer has on the Search for Hidden Creatures test.",
+          "values": "A number of edges"
         },
         "exposedRange": {
           "label": "Exposed range",
@@ -1114,6 +1142,9 @@
       "setupNoHeroes": "No player has a character assigned in their User Config, so there is nobody to add.",
       "ignoreDeadName": "Ignore Dead Languages",
       "ignoreDeadHint": "Dead languages start marked as ignored on the party Overview, since they're more niche. The Director can still right click to un-ignore them, or left click to make them preferred."
+    },
+    "reactiveTests": {
+      "notice": "{name}'s effects add {edges} edge(s) and {banes} bane(s) to this reactive test."
     },
     "search": {
       "title": "Search",

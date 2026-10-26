@@ -60,6 +60,11 @@ async function _rollTest(actor, characteristic, skill) {
     banes: (config.banes ?? 0) + (chr.banes ?? 0),
     bonuses: config.bonuses ?? 0,
   };
+  if (skill === 'search') {
+    const stealth = actor.flags?.[M]?.stealth ?? {};
+    modifiers.edges += Number(stealth.searchEdges) || 0;
+    modifiers.banes += Number(stealth.searchBanes) || 0;
+  }
   if (actor.statuses.has('weakened')) modifiers.banes += 1;
   if (actor.statuses.has('restrained') && ['might', 'agility'].includes(characteristic)) modifiers.banes += 1;
 
