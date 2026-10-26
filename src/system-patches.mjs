@@ -189,6 +189,7 @@ function _patchFMConstructButtons() {
         btn.dataset.dsctAction       = 'dsct-fm';
         btn.dataset.movement         = movementType;
         btn.dataset.distance         = String(distance);
+        if (/@spend\b/i.test(distanceRaw)) btn.dataset.distanceFormula = distanceRaw;
         btn.dataset.properties       = JSON.stringify([...properties]);
         btn.dataset.verticalDistance = String(verticalDistance);
         btn.dataset.fallReduction    = String(fallReduction);
@@ -463,6 +464,12 @@ function _registerButtonHooks() {
       const fmUuid   = normalizeCollection(_msg.system?.parts).find(p => p.type === 'abilityUse')?.abilityUuid;
       const fmItem   = fmUuid ? fromUuidSync(fmUuid) : null;
       const fmChosen = fmItem ? [...chooseKeywords(fmItem, _msg)] : null;
+      const fmSpent  = (Number(_msg.flavor?.match(/^Spent (\d+)/i)?.[1]) || 0) - (Number(fmItem?.system?.resource) || 0);
+      for (const btn of fmBtns) {
+        if (!btn.dataset.distanceFormula || fmSpent <= 0) continue;
+        btn.dataset.distance = String(ds.utils.evaluateFormula(btn.dataset.distanceFormula,
+          { ...(fmItem?.getRollData?.() ?? {}), spend: fmSpent }) || btn.dataset.distance);
+      }
 
       const savedMods  = _msg.getFlag(M, 'fmModifiers') ?? [];
       const modStack   = savedMods.map(s => ({

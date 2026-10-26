@@ -2357,10 +2357,9 @@ async function _injectFmButtons(message, root) {
         const _spentRx = new RegExp(game.i18n.localize('DRAW_STEEL.Item.ability.ConfigureUse.SpentFlavor')
           .replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{value\\}', '(\\d+)').replace('\\{name\\}', '.+'));
         const _spentN = (Number(_spentRx.exec(message?.flavor ?? '')?.[1]) || 0) - (Number(ability.system?.resource) || 0);
-        const _spendFormula = ability.getFlag(M, 'fmSpendBonus');
         let _spendBonus = 0;
-        if (_spentN > 0 && _spendFormula) {
-          try { _spendBonus = Number(ds.utils.evaluateFormula(String(_spendFormula).replace(/@spend\b/gi, String(_spentN)), ability.getRollData?.() ?? {})) || 0; }
+        if (_spentN > 0 && /@spend\b/i.test(distanceRaw)) {
+          try { _spendBonus = (Number(ds.utils.evaluateFormula(distanceRaw, { ...rollData, spend: _spentN })) || 0) - baseDistance; }
           catch { _spendBonus = 0; }
         }
         const _spendMod = _spendBonus > 0 ? {
