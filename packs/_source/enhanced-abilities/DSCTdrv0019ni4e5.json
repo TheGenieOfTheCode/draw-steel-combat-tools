@@ -40,7 +40,7 @@
         "img": null,
         "sort": 0,
         "before": true,
-        "description": "<p>each bonded creature takes 1 damage that can’t be reduced in any way. Your bond ends if you remove the ring, use it to bond with one or more other creatures, or die, but other rings continue to be bonded to each other.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds this damage to the derived triggered ability Triggers builds from this line and deals it to every creature carrying the Bonded effect from a Bloodbound Band, you included. That damage doesn't set the ring off again.</em></p></section>"
+        "description": "<p>each bonded creature takes 1 damage that can’t be reduced in any way. Your bond ends if you remove the ring, use it to bond with one or more other creatures, or die, but other rings continue to be bonded to each other.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools adds this damage to the derived triggered ability Triggers builds from this line and deals it to every creature carrying the Bonded effect from a Bloodbound Band, you included, except the creature whose damage set it off. That damage doesn't set the ring off again.</em></p></section>"
       },
       "dsctDrvDamage001": {
         "_id": "dsctDrvDamage001",
@@ -78,7 +78,8 @@
       "derivedLine": "treasure-bloodbound-band-any-other-bonded-creature-takes-damage",
       "areaFilter": {
         "carriers": "Bonded",
-        "includeSelf": true
+        "includeSelf": true,
+        "excludeTrigger": true
       }
     }
   },

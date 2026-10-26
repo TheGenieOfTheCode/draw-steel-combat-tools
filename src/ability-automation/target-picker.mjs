@@ -764,6 +764,18 @@ export function burstTargetsAround(ability, originToken) {
     .filter(t => _inAreaFilter(ability, t) && !_isDefeated(t));
 }
 
+let _triggerSubject = null;
+
+export const setTriggerSubject = (tokenUuid) => {
+  _triggerSubject = tokenUuid ? { uuid: tokenUuid, at: Date.now() } : null;
+};
+
+const takeTriggerSubject = () => {
+  const held = _triggerSubject && Date.now() - _triggerSubject.at < 30000 ? _triggerSubject.uuid : null;
+  _triggerSubject = null;
+  return held;
+};
+
 export function checkAndRunBurstTargeting(dialog) {
   const ability = dialog.options?.ability;
   if (!ability || !getSetting('abilityTargetingEnabled')) return null;
@@ -775,8 +787,10 @@ export function checkAndRunBurstTargeting(dialog) {
   if (!casterToken) return null;
   let tokens;
   let label;
+  let skip = null;
   if (filter.carriers) {
-    tokens = canvas.tokens.placeables.filter(t => t.id !== casterToken.id && !t.document.hidden && _carries(t.actor, filter.carriers));
+    skip = filter.excludeTrigger ? takeTriggerSubject() : null;
+    tokens = canvas.tokens.placeables.filter(t => t.id !== casterToken.id && !t.document.hidden && t.document.uuid !== skip && _carries(t.actor, filter.carriers));
     label = `every creature carrying ${filter.carriers}`;
   } else {
     if (distance?.type !== 'burst' || target?.value != null || !EACH_TYPES.has(target?.type)) return null;
@@ -786,7 +800,7 @@ export function checkAndRunBurstTargeting(dialog) {
       .filter(t => _inAreaFilter(ability, t) && !_isDefeated(t));
     label = `${radius} burst, ${target.type}`;
   }
-  if (filter.includeSelf && !tokens.some(t => t.id === casterToken.id)) tokens.unshift(casterToken);
+  if (filter.includeSelf && casterToken.document.uuid !== skip && !tokens.some(t => t.id === casterToken.id)) tokens.unshift(casterToken);
   const previous = [...game.user.targets];
   setFoundryTargets(tokens);
   if (dialog.options?.context && ability.system?.power?.roll?.enabled) {
