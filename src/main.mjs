@@ -55,6 +55,7 @@ import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compa
 import { registerDstdRollPills, addResultPill, addGlobalRollPills } from './compat/dstd-roll-pills.mjs';
 import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
 import { registerDstdApplyWord } from './compat/dstd-apply-word.mjs';
+import { registerDstdAfterEffects } from './compat/dstd-after-effects.mjs';
 import { registerChatTips } from './chat-tips.mjs';
 import { registerDstdPotency, potencyVerdict, potencyEffectsOf } from './compat/dstd-potency.mjs';
 import { registerStatusSuppression } from './conditions/suppress-status.mjs';
@@ -299,6 +300,7 @@ Hooks.once('init', () => {
   registerDstdDamagePills();
   registerDstdExtraDamage();
   registerDstdApplyWord();
+  registerDstdAfterEffects();
   registerChatTips();
   registerDstdPotency();
   registerStatusSuppression();
