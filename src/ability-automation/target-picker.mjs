@@ -9,9 +9,13 @@ import {
   getValidTargets,
   hitToken as _hitToken,
   runColoredTokenPicker,
+  openingPath,
+  setPickerPath,
+  lightPickerPath,
 } from '../ctlib.mjs';
 import { peekSpaces, wallAdjacent, peekTo, peekEffect, isPeeking, unpeek } from '../conditions/peek.mjs';
 import { beginPickerOverlay, setPickerArrow, setPickerTarget, removePickerArrow, removePickerTarget, clearPickerArrows } from './picker-overlay.mjs';
+import { chainSpec, chainColors, chainCell } from './chain-targets.mjs';
 
 
 
@@ -21,6 +25,30 @@ const _dsctPreTargeted = new Set();
 const _repicked = new Set();
 
 export const clearRepickStamp = (uuid) => { if (uuid) _repicked.delete(uuid); };
+
+
+export const spendTargets = (ability) => ability?.getFlag?.('draw-steel-combat-tools', 'spendTargets') ?? null;
+const _extraTargets = (ability) => Math.max(0, Number(spendTargets(ability)?.max) || 0);
+
+
+const _reachesThroughOpening = (ability) => !!ability?.getFlag?.('draw-steel-combat-tools', 'openingReach') && !!openingPath;
+
+Hooks.on('renderAbilityConfigurationDialog', (app) => {
+  const ability = app.options?.ability;
+  const spec = spendTargets(ability);
+  const picker = spec ? app.element?.querySelector('range-picker[name^="spend."]') : null;
+  if (!picker) return;
+  const per = Math.max(1, Number(spec.per) || 1);
+  const most = Math.min(per * _extraTargets(ability), Number(picker.getAttribute('max')) || Infinity);
+  
+  picker.setAttribute('max', String(most));
+  for (const input of picker.querySelectorAll('input')) input.max = String(most);
+  if (app._dsctSpendTargets) return;
+  app._dsctSpendTargets = true;
+  const extra = Math.max(0, game.user.targets.size - (Number(ability.system.target?.value) || 1));
+  picker.value = Math.min(most, per * extra);
+  picker.dispatchEvent(new Event('change', { bubbles: true }));
+});
 
 
 export const isTriggeredAbility = (ability) =>
@@ -58,9 +86,9 @@ function _runTriggeredPicker(ability, view) {
   const casterToken = _getCasterToken(ability);
   if (!casterToken) return null;
   const target = view?.target ?? ability.system.target;
-  const count  = Math.max(1, Number(target?.value) || 1);
+  const count  = Math.max(1, Number(target?.value) || 1) + _extraTargets(ability);
   const range  = getItemRange(ability, view?.distance);
-  const valid  = _getValidTargets(casterToken, target?.type ?? 'creature', range, { checkLOS: true });
+  const valid  = _getValidTargets(casterToken, target?.type ?? 'creature', range, { checkLOS: true, opening: _reachesThroughOpening(ability) });
   const validIds = new Set(valid.map(t => t.id));
   const chosen = [...game.user.targets];
   const exact = chosen.length === count && chosen.every(t => validIds.has(t.id));
@@ -311,7 +339,7 @@ async function _runTargetPicker(ability, casterToken, { maxTargets: maxOverride 
   const target      = view?.target ?? ability.system.target;
   const keywords    = view?.keywords ?? ability.system?.keywords;
   
-  const maxTargets  = Number(target.value) || maxOverride || 1;
+  const maxTargets  = (Number(target.value) || maxOverride || 1) + _extraTargets(ability);
   const targetType  = target.type;
   const range       = getItemRange(ability, view?.distance);
   const isRangeEnforced = rangeEnforced();
@@ -334,7 +362,21 @@ async function _runTargetPicker(ability, casterToken, { maxTargets: maxOverride 
   }
 
   const respectHidden = !(keywords?.has('area') ?? false);
-  const validTokens = _getValidTargets(casterToken, targetType, isRangeEnforced ? range : 0, { excludeSelf, checkLOS: true, respectHidden });
+  const opening = _reachesThroughOpening(ability);
+  const validTokens = _getValidTargets(casterToken, targetType, isRangeEnforced ? range : 0, { excludeSelf, checkLOS: true, respectHidden, opening });
+  
+  if (opening && setPickerPath) {
+    for (const t of validTokens) {
+      if (t === casterToken || hasSightToToken(casterToken, t)) continue;
+      const path = openingPath(casterToken, t, range);
+      if (path) setPickerPath(t, path);
+    }
+  }
+  
+  if (chainSpec(ability) && setPickerPath) {
+    const colors = chainColors(ability);
+    for (const t of validTokens) if (t !== casterToken) setPickerPath(t, [chainCell(casterToken), chainCell(t)], colors[0], { style: 'helix', colors });
+  }
   const inRangeIds  = (!isRangeEnforced && range > 0)
     ? new Set(_getValidTargets(casterToken, targetType, range, { excludeSelf }).map(t => t.id))
     : null;
@@ -379,6 +421,7 @@ async function _runTargetPicker(ability, casterToken, { maxTargets: maxOverride 
       const ally    = isAllyToken(t);
       const hover   = t.id === hoveredId && !sel;
       const inRange = !inRangeIds || inRangeIds.has(t.id);
+      lightPickerPath?.(t, sel || hover);
 
       const color  = sel   ? (ally ? 0xFF4400 : (inRange ? 0x44CC44 : 0xCC9900))
                    : hover ? (ally ? 0xFFAA44 : (inRange ? 0x66AAFF : 0xBBAA00))
@@ -859,6 +902,7 @@ export function checkAndRunTargetPicker(dialog) {
   const range    = getItemRange(ability, view?.distance);
   const isStrike    = keywords?.has('strike') ?? false;
   const excludeSelf = isStrike || (keywords?.has('weapon') ?? false);
+  const opening     = _reachesThroughOpening(ability);
 
   
   
@@ -871,7 +915,7 @@ export function checkAndRunTargetPicker(dialog) {
   if (game.user.targets.size > 0) {
     if (game.user.targets.size < target.value) {
       const alreadyTargetedIds = new Set([...game.user.targets].map(t => t.id));
-      const remaining = _getValidTargets(casterToken, target.type, range, { excludeSelf, checkLOS: true })
+      const remaining = _getValidTargets(casterToken, target.type, range, { excludeSelf, checkLOS: true, opening })
         .filter(t => !alreadyTargetedIds.has(t.id));
       if (remaining.length) {
         const rs = remaining.length !== 1 ? 's' : '';
@@ -884,12 +928,12 @@ export function checkAndRunTargetPicker(dialog) {
   }
 
   const respectHidden = !(keywords?.has('area') ?? false);
-  const validTokens = _getValidTargets(casterToken, target.type, range, { excludeSelf, checkLOS: true, respectHidden });
+  const validTokens = _getValidTargets(casterToken, target.type, range, { excludeSelf, checkLOS: true, respectHidden, opening });
 
   const peekRescue = getSetting('peekHouseRule') && !isPeeking(casterToken.actor) && wallAdjacent(casterToken) && _peekOptions(casterToken, { targetType: target.type, range, filter: { excludeSelf, checkLOS: true, respectHidden } }).length > 0;
 
   if (!validTokens.length && !peekRescue) {
-    if (rangeEnforced() || !_getValidTargets(casterToken, target.type, 0, { excludeSelf, checkLOS: true }).length) {
+    if (rangeEnforced() || !_getValidTargets(casterToken, target.type, 0, { excludeSelf, checkLOS: true, opening }).length) {
       ui.notifications.warn(game.i18n.localize('DSCT.notice.targetPicker.noValidTargets'));
       return null;
     }

@@ -16,7 +16,7 @@ export const {
   damageBatch, describePanelDecorators, disarmCoverImmunity, dropKey, dropKeyOverSocket, endPickerOverlay,
   footprintCoverCells, footprintDistFromBounds, fullCoverBlockersFor, getActingActor, getAllMaterials, getByTag,
   getCustomMaterials, getItemDsid, getItemRange, getMaterial, getMaterialAlpha, getMaterialIcon, getSquadGroup,
-  getTags, getTokenById, getValidTargets, hitToken, getWallBlockBottom, getWallBlockTileAt, getWallBlockTop, getWallBlockWalls,
+  getTags, getTokenById, getValidTargets, openingPath, setPickerPath, lightPickerPath, hitToken, getWallBlockBottom, getWallBlockTileAt, getWallBlockTop, getWallBlockWalls,
   getWindowById, grantsCoverBehind, grantsCoverImmunity, gridDist, gridEq, groundElevation, hasCover, hasFly,
   hasSightToSquare, hasSightToToken, hasTags, highestCharacteristic, initPalette, isBurrowing, isCompletelyBeneath,
   isOnGround, isOpenDoorWall, isPreviewToken, isRaisedDeadVisible, isSelfAndSelf, loeBlockersFor, loeRangeBlocked,

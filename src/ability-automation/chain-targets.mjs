@@ -1,7 +1,8 @@
-import { services, registerPanelDecorator, DSTD, DSTD_PANEL } from '../ctlib.mjs';
+import { services, registerPanelDecorator, DSTD, DSTD_PANEL, setPickerPath } from '../ctlib.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
 import { runMultiTokenPicker } from './target-picker.mjs';
 import { _othersCandidates } from '../compat/dstd-compat.mjs';
+import { damageTypeColor } from '../compat/dstd-damage-pills.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG = 'chain';
@@ -11,6 +12,18 @@ export const chainSpec = (ability) => {
   const c = ability?.getFlag?.(M, 'chainTargets');
   if (!c) return null;
   return { links: Math.max(1, Number(c.links) || 1), range: Math.max(1, Number(c.range) || 1) };
+};
+
+export const chainCell = (t) => ({ i: Math.round(t.document.y / canvas.grid.size), j: Math.round(t.document.x / canvas.grid.size) });
+
+export const chainColors = (ability) => {
+  const types = new Set();
+  for (const e of ability?.system?.power?.effects ?? []) {
+    if (e.type !== 'damage') continue;
+    for (const tier of Object.values(e.damage ?? {})) for (const type of tier?.types ?? []) types.add(type);
+  }
+  const colors = [...types].map(damageTypeColor).filter(Boolean).map((c) => Number(foundry.utils.Color.from(c)));
+  return colors.length ? colors : [0xa060ff];
 };
 
 const abilityOf = (message) => {
@@ -74,6 +87,13 @@ export async function pickNextLink(message) {
     await stop(message);
     return false;
   }
+  
+  
+  const colors = chainColors(abilityOf(message));
+  const made = [speakerToken(message), ...[targetUuids(message).find((u) => !st.picked.includes(u)), ...st.picked]
+    .map((u) => fromUuidSync(u ?? '')?.object)].filter(Boolean);
+  made.slice(1).forEach((t, i) => setPickerPath?.(t, [chainCell(made[i]), chainCell(t)], colors[0], { style: 'helix', colors, key: `dsct-chain-${i}`, lit: true }));
+  for (const t of tokens) setPickerPath?.(t, [chainCell(origin), chainCell(t)], colors[0], { style: 'helix', colors });
   const chosen = await runMultiTokenPicker({ candidates: tokens, maxTargets: 1,
     hint: L('hint', { n: st.picked.length + 1, total: spec.links, range: spec.range, name: origin.name }) });
   if (!chosen?.length) return false;
