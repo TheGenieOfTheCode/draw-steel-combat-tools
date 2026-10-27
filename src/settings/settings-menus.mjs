@@ -204,7 +204,7 @@ export class ClassFeaturesSettingsMenu extends SettingsSubmenu {
       grp.querySelectorAll('input, select').forEach(i => { i.disabled = true; });
       if (grp.querySelector('.dsct-handed-note')) continue;
       const note = document.createElement('p');
-      note.className = 'hint dsct-handed-note';
+      note.className = 'hint dsct-sub-note dsct-handed-note';
       note.textContent = game.i18n.localize('DSCT.setting.handedToTriggers');
       grp.append(note);
     }
