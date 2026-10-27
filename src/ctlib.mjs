@@ -33,6 +33,7 @@ export const {
 } = lib;
 
 export const SettingsSubmenu = lib.settingsSubmenu?.() ?? lib.SettingsSubmenu;
+export const registerSettingsLayout = lib.registerSettingsLayout ?? (() => {});
 
 export const primaryGM = lib.primaryGM ?? (() => game.users.activeGM ?? null);
 export const isPrimaryGM = lib.isPrimaryGM ?? (() => !!game.users.activeGM?.isSelf);

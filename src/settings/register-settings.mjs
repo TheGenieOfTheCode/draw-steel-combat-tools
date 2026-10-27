@@ -10,6 +10,7 @@ import { applyCompactPills } from '../compat/pill-compact.mjs';
 import { applyHideApplyWord } from '../compat/dstd-apply-word.mjs';
 import { InstallMacrosMenu, EnhancedAbilitiesMenu } from '../setup-macros.mjs';
 import { SettingsReportMenu } from '../settings-report.mjs';
+import { registerSettingsLayout } from '../ctlib.mjs';
 import {
   ForcedMovementSettingsMenu,
   ConditionsSettingsMenu,
@@ -962,4 +963,12 @@ export const registerSettings = () => {
     icon: 'fas fa-list-check', type: SettingsReportMenu, restricted: false,
   });
   game.settings.register(M, 'settingsReportSeen', { scope: 'client', config: false, type: String, default: '' });
+
+  const H = (key) => `DSCT.setting.tabHeaders.${key}`;
+  registerSettingsLayout(M, [
+    { label: H('abilities'), items: ['abilityAutomationSettings', 'flatEffectsSettings', 'triggeredActionsSettings', 'distributeEnhanced', 'enhancedPromptMode', 'enhancedAutoAdd', 'enhancedSwapMode'] },
+    { label: H('combat'), items: ['conditionsSettings', 'forcedMovementSettings', 'teleportEnabled', 'stealthSettings', 'homeRulesSettings', 'squadToolsSettings', 'completeEncounterMode'] },
+    { label: H('table'), items: ['partyToolsSettings', 'moduleButtonsSettings', 'compatibilitySettings'] },
+    { label: H('module'), items: ['installMacros', 'macroPromptMode', 'onlineNoticeCheck', 'settingsReport', 'debugMode', 'testFeaturesSettings'] },
+  ]);
 };

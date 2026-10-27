@@ -5,6 +5,12 @@
       "noTargets": "Target the tokens to apply this to."
     },
     "setting": {
+      "tabHeaders": {
+        "abilities": "Abilities",
+        "combat": "Combat",
+        "table": "Table and Interface",
+        "module": "Module"
+      },
       "testFeaturesSettings": {
         "name": "Test Features",
         "label": "Configure Test Features",
