@@ -905,6 +905,11 @@ function _damageDealt(message) {
       total += rec?.before && rec?.after ? Math.max(0, _staminaOf(rec.before) - _staminaOf(rec.after)) : Number(rec?.amount) || 0;
     }
   }
+  
+  for (const st of Object.values(message?.getFlag?.(MODULE_ID, 'adv') ?? {})) {
+    if (st?.rolls?.[0]?.class !== 'DamageRoll' || st.rolls[0].options?.isHeal) continue;
+    for (const rec of Object.values(st.applied ?? {})) total += Number(rec?.amount) || 0;
+  }
   return total;
 }
 

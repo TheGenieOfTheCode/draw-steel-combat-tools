@@ -953,10 +953,12 @@ const storeRolls = async (kind, message, key, rolls) => {
   if (getSetting('advancedEnricherMessages')) await postRollMessage(kind, message, rolls);
 };
 
+const readsDealt = (a) => /@dealt\b/.test(`${a.dataset.formulas ?? ''} ${a.dataset.formula ?? ''}`);
+
 const ensureRoll = async (kind, message, key, a) => {
   if (!kind.rolls) return;
   const st = stateOf(message, key);
-  if (st.totals || a.dataset.scaling) return;
+  if (st.totals || a.dataset.scaling || readsDealt(a)) return;
   const roller = message.author?.active ? message.author.isSelf : isPrimaryGM();
   const id = `${message.id}.${key}`;
   if (!roller || _rolling.has(id)) return;
