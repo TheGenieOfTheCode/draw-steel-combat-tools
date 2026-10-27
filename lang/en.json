@@ -1222,6 +1222,10 @@
       "Damage": {
         "defaultLabel": "Apply {value} {types}",
         "typeSelect": "{name} Type",
+        "recipient": {
+          "label": "Goes To",
+          "hint": "Who takes the damage. Each target is the default; Other Creatures is for lines like \"each enemy adjacent to the target takes 2 damage\"."
+        },
         "triggerDamage": {
           "title": "Triggering Damage",
           "label": "Damage that triggered this",
@@ -1480,12 +1484,6 @@
           "label": "Only Targets That Are",
           "hint": "Shows the movement only on targets with this condition, for lines like \"you can push each creature frightened this way\". The distance can read the target too, like @target.movement.value for their speed.",
           "any": "Any Target"
-        }
-      },
-      "Damage": {
-        "recipient": {
-          "label": "Goes To",
-          "hint": "Who takes the damage. Each target is the default; Other Creatures is for lines like \"each enemy adjacent to the target takes 2 damage\"."
         }
       },
       "Others": {

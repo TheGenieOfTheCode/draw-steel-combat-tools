@@ -162,7 +162,8 @@ const targetsOf = (message, st, ec, kind) => {
   if (cfg.recipient === 'self') return speakerTargets(message, a);
   if (cfg.recipient === 'target') return flatTargets(message);
   if (isOthers(a)) return othersOf(message, a)?.live() ?? [];
-  if (kind.recipient === 'speaker' ? !OTHERS.test(sentenceBefore(ec)) : meansSpeaker(ec)) return speakerTargets(message, a);
+  const speaker = kind.recipient === 'speaker' ? !OTHERS.test(sentenceBefore(ec)) : (kind.meansSpeaker ?? meansSpeaker)(ec);
+  if (speaker) return speakerTargets(message, a);
   return flatTargets(message);
 };
 
@@ -672,6 +673,8 @@ const FORCED = {
   }),
   shown: (r) => `${r.movement} ${r.amount}`,
   recipient: 'targets',
+  
+  meansSpeaker: (ec) => /\byourself\b/i.test(sentenceBefore(ec)),
   chipIcon: (a) => FORCED_ICONS[a.dataset.movement],
   test: (ec) => ec.getAttribute('enricher') === 'dsct.forced',
   single: () => true,
@@ -992,6 +995,12 @@ const rollNow = async (kind, message, key, a) => {
 const chooseType = async (kind, message, key, a) => {
   const types = kind.typeChoices(a);
   if (types.length <= 1 || stateOf(message, key).typeChoice) return true;
+  
+  const asked = message.getFlag(M, 'flatDmgTypes')?.[sourceConfig(a).flat];
+  if (types.includes(asked)) {
+    await write(message, key, { typeChoice: asked });
+    return true;
+  }
   const options = types.map((t) => `<option value="${esc(t)}">${esc(damageTypeName(t))}</option>`).join('');
   const picked = await foundry.applications.api.DialogV2.prompt({
     window: { title: game.i18n.localize('DRAW_STEEL.EDITOR.Enrichers.DamageHeal.RollInput.DialogTitle') },
