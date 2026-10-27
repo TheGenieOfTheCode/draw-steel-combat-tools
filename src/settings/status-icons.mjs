@@ -62,7 +62,7 @@ const _relabelExisting = async (changes) => {
 export class StatusIconsMenu extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     id:       'dsct-status-icons',
-    classes:  ['draw-steel', 'dsct-status-icons-app'],
+    classes:  ['draw-steel', 'dsct-status-icons-app', 'ctlib-scroll-window'],
     window:   { title: 'DSCT.statusIcons.title', resizable: true },
     position: { width: 560, height: 'auto' },
   };

@@ -1106,7 +1106,7 @@ const buildRow = (idx, origName, isBase, iconSrc, r, rs) => {
 export class WallBuilderSettingsMenu extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     id:       'dsct-wall-builder-settings',
-    classes:  ['draw-steel'],
+    classes:  ['draw-steel', 'ctlib-scroll-window'],
     window:   { title: 'Wall Builder Settings', minimizable: false, resizable: true },
     position: { width: 950, height: 'auto' },
   };

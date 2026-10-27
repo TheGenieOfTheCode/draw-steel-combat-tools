@@ -565,7 +565,7 @@ const buildRow = (idx, animal) => `
 export class ImNoThreatSettingsMenu extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     id:       'dsct-int-settings',
-    classes:  ['draw-steel'],
+    classes:  ['draw-steel', 'ctlib-scroll-window'],
     window:   { title: 'DSCT.panel.title.ImNoThreatSettings', minimizable: false, resizable: true },
     position: { width: 480, height: 'auto' },
   };
