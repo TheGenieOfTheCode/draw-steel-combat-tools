@@ -6,6 +6,7 @@ import { SettingsSubmenu as LibSettingsSubmenu } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const ENRICHER_WIKI = 'https://github.com/MetaMorphic-Digital/draw-steel/wiki/Enrichers';
+const FILE_PICKER_KEYS = new Set(['judgedEffectIcon', 'markedEffectIcon', 'aidAttackEffectIcon', 'imNoThreatEffectIcon', 'squadTargetingIcon']);
 
 const linkEnrichers = (root) => {
   const word = /\benrichers?\b/gi;
@@ -36,6 +37,12 @@ export class SettingsSubmenu extends LibSettingsSubmenu {
   static get moduleId()         { return M; }
   static get choiceHintPrefix() { return 'DSCT.setting'; }
 
+  _buildEntry(key) {
+    const entry = super._buildEntry(key);
+    if (entry && FILE_PICKER_KEYS.has(key)) entry.isFilePicker = true;
+    return entry;
+  }
+
   _onRender(context, options) {
     super._onRender(context, options);
     linkEnrichers(this.element);
@@ -44,6 +51,17 @@ export class SettingsSubmenu extends LibSettingsSubmenu {
 
 const header = (label) => ({ isSectionHeader: true, label });
 
+const nested = (id, icon, lang, opens, extra = {}) => {
+  const keys = typeof lang === 'string' ? { name: `${lang}.name`, label: `${lang}.label`, hint: `${lang}.hint` } : lang;
+  return {
+    isNestedMenu: true, id, icon, opens,
+    name:  game.i18n.localize(keys.name),
+    label: game.i18n.localize(keys.label),
+    hint:  game.i18n.localize(keys.hint),
+    ...extra,
+  };
+};
+
 const compatInfo = (moduleId, nameKey, hintKey) => ({
   isInfo: true,
   name:     game.i18n.localize(nameKey),
@@ -51,51 +69,196 @@ const compatInfo = (moduleId, nameKey, hintKey) => ({
   isActive: game.modules.get(moduleId)?.active ?? false,
 });
 
-export class ForcedMovementSettingsMenu extends SettingsSubmenu {
+const homebrew = (...keys) => (game.settings.get(M, 'homebrewOptions') ? keys : []);
+
+export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
   static DEFAULT_OPTIONS = {
-    id:     'dsct-fm-settings',
-    window: { title: 'DSCT.panel.title.ForcedMovementSettings' },
+    id:     'dsct-ability-automation-settings',
+    window: { title: 'DSCT.panel.title.AbilityAutomationSettings' },
   };
 
-  static get enableKey()   { return 'forcedMovementEnabled'; }
+  static get enableKey() { return 'abilityAutomationEnabled'; }
+
+  static get requires() {
+    return { areaPicker: 'abilityTargetingEnabled' };
+  }
+
+  static get dependencies() {
+    return {
+      alwaysRepickTargets: 'abilityTargetingEnabled',
+      autoConfirmSelection: 'abilityTargetingEnabled',
+      gmBypassRangeEnforcement: 'enforceAbilityRange',
+      areaPickerTurnStep: 'areaPicker',
+      areaPickerPlayerExclude: 'areaPicker',
+      abilityTemplateSeconds: 'abilityTemplateCleanup',
+      compactChatPills: 'dstdRollPills',
+      skipPillEditor: 'modifierEditors',
+      advancedEnricherMessages: 'advancedEnrichers',
+      compactEnrichers: 'advancedEnrichers',
+    };
+  }
 
   static get regularKeys() {
-    return ['forcedMovementEnabled', 'animationStepDelay', 'fallConfirmation', 'friendlyFireConfirmation', 'fmModifyGmOnly', 'dstdQuickFmButton', 'fmAutoForOwnAbilities'];
+    return [
+      'abilityAutomationEnabled',
+      header('Targeting'),
+      'abilityTargetingEnabled',
+      'alwaysRepickTargets',
+      'autoConfirmSelection',
+      'enforceAbilityRange',
+      'gmBypassRangeEnforcement',
+      'cancelOnRightClick',
+      'targetDistanceLines',
+      header('Areas'),
+      'areaPicker',
+      'areaPickerTurnStep',
+      'areaPickerPlayerExclude',
+      'abilityTemplateConfigEnabled',
+      'abilityTemplateCleanup',
+      'abilityTemplateSeconds',
+      header('Applying Results'),
+      'autoApplyOwnAbilities',
+      'potencyChecks',
+      'sortTargetsNearest',
+      'hideApplyWord',
+      header('Roll Window'),
+      'rollDialogPillUI',
+      'rollDialogDodge',
+      header('Modifiers in Chat'),
+      'dstdRollPills',
+      'compactChatPills',
+      'modifierEditors',
+      'skipPillEditor',
+      header('Damage Rules'),
+      'multiplierOverride',
+      'noMultiplierStacking',
+      'extraDamageTypes',
+      header('Enrichers'),
+      'advancedEnrichers',
+      'advancedEnricherMessages',
+      'compactEnrichers',
+      'neutralizeEnrichers',
+      header('Class Features'),
+      nested('dsct-sub-class-btn', 'fas fa-users-gear', 'DSCT.setting.classFeaturesMenu', ClassFeaturesSettingsMenu),
+    ];
+  }
+}
+
+export class ClassFeaturesSettingsMenu extends SettingsSubmenu {
+  static DEFAULT_OPTIONS = {
+    id:     'dsct-class-features-settings',
+    window: { title: 'DSCT.panel.title.ClassFeaturesSettings' },
+  };
+
+  static get enableKey() { return 'abilityAutomationEnabled'; }
+
+  static get dependencies() {
+    return {
+      aidAttackEffectIcon: 'aidAttackAutomation',
+      judgedEffectIcon: 'judgementAutomation',
+      judgementHoldSeconds: 'judgementAutomation',
+      markedEffectIcon: 'markAutomation',
+      'dsct-sub-animals-btn': 'imNoThreatEnabled',
+      imNoThreatEffectIcon: 'imNoThreatEnabled',
+      psionicMartialArts: 'nullGrabIntuition',
+    };
   }
 
-  static get debugKeys() {
-    return ['undoExpirationCheck', 'experimentalObstacleArrow'];
-  }
-
-  _regularItems() {
-    const items = super._regularItems();
-    if (!game.user.isGM) return items;
-    items.push({
-      isNestedMenu: true,
-      id:    'dsct-sub-wb-btn',
-      icon:  'fas fa-dungeon',
-      name:  game.i18n.localize('DSCT.setting.wallBuilderSettings.name'),
-      label: game.i18n.localize('DSCT.setting.wallBuilderSettings.label'),
-      hint:  game.i18n.localize('DSCT.setting.wallBuilderSettings.hint'),
-    });
-    return items;
+  static get regularKeys() {
+    return [
+      header('Maneuvers'),
+      'aidAttackAutomation',
+      'aidAttackEffectIcon',
+      header('Censor'),
+      'judgementAutomation',
+      'judgedEffectIcon',
+      'judgementHoldSeconds',
+      'purifyingFireEnabled',
+      header('Tactician'),
+      'markAutomation',
+      'markedEffectIcon',
+      header('Shadow'),
+      'hiwEnabled',
+      'imNoThreatEnabled',
+      nested('dsct-sub-animals-btn', 'fas fa-paw', 'DSCT.setting.intAnimalsMenu', ImNoThreatSettingsMenu),
+      'imNoThreatEffectIcon',
+      ...homebrew('crossfadeEnabled'),
+      header('Null'),
+      'nullGrabIntuition',
+      ...homebrew('psionicMartialArts'),
+      header('Malice'),
+      'abyssalEvolutionEnabled',
+    ];
   }
 
   _onRender(context, options) {
     super._onRender(context, options);
-    const el         = this.element;
-    const wbBtn      = el.querySelector('#dsct-sub-wb-btn');
-    const enableInput = el.querySelector(`[name="${this.constructor.enableKey}"]`);
+    if (!triggersHandlesClassTriggers()) return;
+    for (const name of HANDED_TO_TRIGGERS) {
+      const input = this.element.querySelector(`[name="${name}"]`);
+      const grp = input?.closest('.form-group');
+      if (!grp) continue;
+      input.checked = false;
+      input.dispatchEvent(new Event('change'));
+      grp.classList.add('dsct-sub-disabled');
+      grp.querySelectorAll('input, select').forEach(i => { i.disabled = true; });
+      if (grp.querySelector('.dsct-handed-note')) continue;
+      const note = document.createElement('p');
+      note.className = 'hint dsct-handed-note';
+      note.textContent = game.i18n.localize('DSCT.setting.handedToTriggers');
+      grp.append(note);
+    }
+  }
+}
 
-    const syncWbBtn = () => {
-      const on = enableInput?.checked ?? true;
-      if (wbBtn) wbBtn.disabled = !on;
-      wbBtn?.closest('.form-group')?.classList.toggle('dsct-sub-disabled', !on);
-    };
-    enableInput?.addEventListener('change', syncWbBtn);
-    syncWbBtn();
+export class FlatEffectsSettingsMenu extends SettingsSubmenu {
+  static DEFAULT_OPTIONS = {
+    id:     'dsct-flat-effects-settings',
+    window: { title: 'DSCT.panel.title.FlatEffectsSettings' },
+  };
 
-    wbBtn?.addEventListener('click', () => new WallBuilderSettingsMenu().render(true));
+  static get enableKey() { return 'flatEffectsEnabled'; }
+  static get intro()     { return game.i18n.localize('DSCT.panel.intro.FlatEffectsSettings'); }
+
+  static get regularKeys() {
+    return [
+      'flatEffectsEnabled',
+      header('Cost'),
+      'flatDefaultSpendEnabled',
+      'flatDefaultSpendValue',
+      header('Damage and Movement'),
+      'flatDefaultDamageFormula',
+      'flatDefaultDamageType',
+      'flatDefaultMovement',
+      'flatDefaultForcedDistance',
+      header('Conditions'),
+      'flatDefaultPotencyStrength',
+      'flatDefaultAppliedEnd',
+      header('Resources and Healing'),
+      'flatDefaultResourceType',
+      'flatDefaultResourceAmount',
+      'flatDefaultHealAmountType',
+      'flatDefaultHealTempStamina',
+      header('Cleanse'),
+      'flatDefaultCleanseRepeatable',
+    ];
+  }
+}
+
+export class TriggeredActionsSettingsMenu extends SettingsSubmenu {
+  static DEFAULT_OPTIONS = {
+    id:     'dsct-triggered-actions-settings',
+    window: { title: 'DSCT.panel.title.TriggeredActionsSettings' },
+  };
+
+  static get enableKey() { return 'autoTriggeredActionsEnabled'; }
+
+  static get dependencies() {
+    return { autoTriggeredActionsTarget: 'autoTriggeredActionsEnabled', triggeredActionsRequireAbility: 'autoTriggeredActionsEnabled' };
+  }
+
+  static get regularKeys() {
+    return ['autoTriggeredActionsEnabled', 'autoTriggeredActionsTarget', 'triggeredActionsRequireAbility'];
   }
 }
 
@@ -105,23 +268,33 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
     window: { title: 'DSCT.panel.title.ConditionsSettings' },
   };
 
-  static get enableKey()   { return 'conditionsEnabled'; }
+  static get enableKey() { return 'conditionsEnabled'; }
+
+  static get dependencies() {
+    return {
+      areaDamageEnabled: 'applyDamageEnabled',
+      bleedingMode: 'bleedingEnabled',
+      gmBypassesSizeCheck: 'grabEnabled',
+      restrictGrabButtons: 'grabEnabled',
+    };
+  }
 
   static get regularKeys() {
     return [
       'conditionsEnabled',
+      nested('dsct-sub-status-icons-btn', 'fas fa-icons',
+        { name: 'DSCT.statusIcons.menuName', label: 'DSCT.statusIcons.menuLabel', hint: 'DSCT.statusIcons.menuHint' }, StatusIconsMenu, { free: true }),
+      header('Chat Buttons'),
       'appliedEffectEnabled',
       'applyDamageEnabled',
-      'neutralizeEnrichers',
+      'areaDamageEnabled',
       'applyToTargets',
-      header('Frightened'),
+      header('Conditions'),
       'frightenedEnabled',
-      'allowIllegalMovement',
-      header('Taunted'),
       'tauntedEnabled',
-      header('Judged and Marked'),
       'judgedMarkedLifetimes',
-      header('Bleeding'),
+      'allowIllegalMovement',
+      header('Bleeding and Recurring Damage'),
       'bleedingEnabled',
       'bleedingMode',
       'recurringDamage',
@@ -129,76 +302,64 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
       'grabEnabled',
       'gmBypassesSizeCheck',
       'restrictGrabButtons',
-      'allowIllegalMovement',
-      header('Area Damage'),
-      'areaDamageEnabled',
     ];
-  }
-
-  _regularItems() {
-    const items = super._regularItems();
-    items.splice(1, 0, {
-      isNestedMenu: true,
-      id:    'dsct-sub-status-icons-btn',
-      icon:  'fas fa-icons',
-      name:  game.i18n.localize('DSCT.statusIcons.menuName'),
-      label: game.i18n.localize('DSCT.statusIcons.menuLabel'),
-      hint:  game.i18n.localize('DSCT.statusIcons.menuHint'),
-    });
-    return items;
   }
 
   _onRender(context, options) {
     super._onRender(context, options);
-
-    const illegalToggles = [...this.element.querySelectorAll('[name="allowIllegalMovement"]')];
-    for (const toggle of illegalToggles) {
-      toggle.addEventListener('change', () => {
-        for (const other of illegalToggles) {
-          if (other !== toggle) other.checked = toggle.checked;
-        }
-      });
-    }
-
-    const enableInput = this.element.querySelector(`[name="${this.constructor.enableKey}"]`);
-    this.element.querySelector('#dsct-sub-status-icons-btn')?.addEventListener('click', () => new StatusIconsMenu().render(true));
-
-    const bleedToggle = this.element.querySelector('[name="bleedingEnabled"]');
-    const modeGroup   = this.element.querySelector('[name="bleedingMode"]')?.closest('.form-group');
-    if (bleedToggle && modeGroup) {
-      const sync = () => {
-        const on = (enableInput?.checked ?? true) && bleedToggle.checked;
-        modeGroup.classList.toggle('dsct-sub-disabled', !on);
-        const sel = modeGroup.querySelector('select');
-        if (sel) sel.disabled = !on;
-      };
-      bleedToggle.addEventListener('change', sync);
-      enableInput?.addEventListener('change', sync);
-      sync();
-    }
-
-    const applyDmgToggle  = this.element.querySelector('[name="applyDamageEnabled"]');
-    const areaDmgGroup    = this.element.querySelector('[name="areaDamageEnabled"]')?.closest('.form-group');
-    if (applyDmgToggle && areaDmgGroup) {
-      const sync = () => {
-        const on = (enableInput?.checked ?? true) && applyDmgToggle.checked;
-        areaDmgGroup.classList.toggle('dsct-sub-disabled', !on);
-        const cb = areaDmgGroup.querySelector('input');
-        if (cb) cb.disabled = !on;
-      };
-      applyDmgToggle.addEventListener('change', sync);
-      enableInput?.addEventListener('change', sync);
-      sync();
-    }
-
-    if (game.modules.get('draw-steel-target-damage')?.active) {
+    if (!game.modules.get('draw-steel-target-damage')?.active) return;
+    const lock = () => {
       for (const name of ['applyDamageEnabled', 'areaDamageEnabled']) {
         const grp = this.element.querySelector(`[name="${name}"]`)?.closest('.form-group');
         if (!grp) continue;
         grp.classList.add('dsct-sub-disabled');
         grp.querySelectorAll('input, select').forEach(i => { i.disabled = true; });
       }
-    }
+    };
+    this.element.addEventListener('change', lock);
+    lock();
+  }
+}
+
+export class ForcedMovementSettingsMenu extends SettingsSubmenu {
+  static DEFAULT_OPTIONS = {
+    id:     'dsct-fm-settings',
+    window: { title: 'DSCT.panel.title.ForcedMovementSettings' },
+  };
+
+  static get enableKey() { return 'forcedMovementEnabled'; }
+
+  static get dependencies() {
+    return { ignoreAllyEnabled: 'friendlyFireConfirmation' };
+  }
+
+  static get regularKeys() {
+    return [
+      'forcedMovementEnabled',
+      header('Moving'),
+      'animationStepDelay',
+      'fmAutoForOwnAbilities',
+      header('Confirmations'),
+      'fallConfirmation',
+      'friendlyFireConfirmation',
+      'ignoreAllyEnabled',
+      header('Rules'),
+      'fallDamageCap',
+      'cornerCutMode',
+      'allowCrookedPushPull',
+      'corpsesBlock',
+      'negativeElevationIsBurrowing',
+      'statusDrivesMovementType',
+      header('Buttons'),
+      'fmModifyGmOnly',
+      'dstdQuickFmButton',
+      header('Wall Builder'),
+      nested('dsct-sub-wb-btn', 'fas fa-dungeon', 'DSCT.setting.wallBuilderSettings', WallBuilderSettingsMenu, { gmOnly: true }),
+    ];
+  }
+
+  static get debugKeys() {
+    return ['undoExpirationCheck', 'experimentalObstacleArrow'];
   }
 }
 
@@ -232,297 +393,115 @@ export class StealthSettingsMenu extends SettingsSubmenu {
   }
 }
 
-export class TriggeredActionsSettingsMenu extends SettingsSubmenu {
+export class HomeRulesSettingsMenu extends SettingsSubmenu {
   static DEFAULT_OPTIONS = {
-    id:     'dsct-triggered-actions-settings',
-    window: { title: 'DSCT.panel.title.TriggeredActionsSettings' },
+    id:     'dsct-home-rules-settings',
+    window: { title: 'DSCT.panel.title.HomeRulesSettings' },
   };
 
-  static get enableKey()   { return 'autoTriggeredActionsEnabled'; }
-
-  static get regularKeys() {
-    return ['autoTriggeredActionsEnabled', 'autoTriggeredActionsTarget', 'triggeredActionsRequireAbility'];
+  static get dependencies() {
+    return { loeCornerMode: 'trueDrawSteelLos', peekRequiresSpeed: 'peekHouseRule', peekDistance: 'peekHouseRule', peekDuration: 'peekHouseRule' };
   }
-}
-
-export class FlatEffectsSettingsMenu extends SettingsSubmenu {
-  static DEFAULT_OPTIONS = {
-    id:     'dsct-flat-effects-settings',
-    window: { title: 'DSCT.panel.title.FlatEffectsSettings' },
-  };
-
-  static get enableKey()   { return 'flatEffectsEnabled'; }
 
   static get regularKeys() {
     return [
-      'flatEffectsEnabled',
-      header('Spend Resource Defaults'),
-      'flatDefaultSpendEnabled',
-      'flatDefaultSpendValue',
-      header('Damage Defaults'),
-      'flatDefaultDamageFormula',
-      'flatDefaultDamageType',
-      header('Forced Movement Defaults'),
-      'flatDefaultMovement',
-      'flatDefaultForcedDistance',
-      header('Applied Condition Defaults'),
-      'flatDefaultPotencyStrength',
-      'flatDefaultAppliedEnd',
-      header('Resource Gain Defaults'),
-      'flatDefaultResourceType',
-      'flatDefaultResourceAmount',
-      header('Heal Defaults'),
-      'flatDefaultHealAmountType',
-      'flatDefaultHealTempStamina',
-      header('Cleanse Defaults'),
-      'flatDefaultCleanseRepeatable',
+      header('Line of Effect'),
+      'trueDrawSteelLos',
+      'loeCornerMode',
+      'revealCombatantPositions',
+      'greyscaleNoLos',
+      header('Peek'),
+      'peekHouseRule',
+      'peekRequiresSpeed',
+      'peekDistance',
+      'peekDuration',
     ];
   }
 }
 
-export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
+export class SquadToolsSettingsMenu extends SettingsSubmenu {
   static DEFAULT_OPTIONS = {
-    id:     'dsct-ability-automation-settings',
-    window: { title: 'DSCT.panel.title.AbilityAutomationSettings' },
+    id:     'dsct-squad-tools-settings',
+    window: { title: 'DSCT.panel.title.SquadToolsSettings' },
   };
 
-  static get enableKey()   { return 'abilityAutomationEnabled'; }
+  static get enableKey() { return 'squadToolsEnabled'; }
+
+  static get requires() {
+    return { groupActionsEnabled: 'abilityTargetingEnabled' };
+  }
 
   static get dependencies() {
     return {
-      alwaysRepickTargets: 'abilityTargetingEnabled',
-      autoConfirmSelection: 'abilityTargetingEnabled',
-      areaPicker: 'abilityTargetingEnabled',
-      areaPickerTurnStep: 'areaPicker',
-      areaPickerPlayerExclude: 'areaPicker',
-      gmBypassRangeEnforcement: 'enforceAbilityRange',
-      abilityTemplateSeconds: 'abilityTemplateCleanup',
       squadAutoAssignStaminaPriority: 'groupActionsEnabled',
       squadTargetingIcon: 'groupActionsEnabled',
+      squadLabelApplyEffects: 'autoSquadLabelsEnabled',
+      squadLabelAutoRelabel: 'autoSquadLabelsEnabled',
+      squadLabelCaptainNow: 'autoSquadLabelsEnabled',
+      squadCaptainShortcut: 'autoSquadLabelsEnabled',
+      squadLabelRenamePreference: 'autoSquadLabelsEnabled',
+      squadGlowMarkerColored: 'squadGlowMarker',
+      squadHudScale: 'squadHudEnabled',
+      squadHudPlayerVisibility: 'squadHudEnabled',
+      dstdSquadSectionsOpen: 'dstdSquadSections',
     };
   }
 
   static get regularKeys() {
     return [
-      'abilityAutomationEnabled',
-      header('Targeting'),
-      'abilityTargetingEnabled',
-      'alwaysRepickTargets',
-      'sortTargetsNearest',
-      'autoConfirmSelection',
-      'areaPicker',
-      'areaPickerTurnStep',
-      'areaPickerPlayerExclude',
+      'squadToolsEnabled',
       header('Group Actions'),
       'groupActionsEnabled',
       'squadAutoAssignStaminaPriority',
       'squadTargetingIcon',
-      header('Ability Range'),
-      'enforceAbilityRange',
-      'gmBypassRangeEnforcement',
-      header('Applying Damage'),
-      'autoApplyOwnAbilities',
-      'potencyChecks',
-      'hideApplyWord',
-      header('Ability Templates'),
-      'abilityTemplateConfigEnabled',
-      'abilityTemplateCleanup',
-      'abilityTemplateSeconds',
-      header('Roll Window'),
-      'rollDialogDodge',
-      header('Visible Modifiers'),
-      'rollDialogPillUI',
-      'dstdRollPills',
-      'dstdRollEditor',
-      'pillDamageEditor',
-      'compactChatPills',
-      'skipPillEditor',
-      'multiplierOverride',
-      'noMultiplierStacking',
-      'extraDamageTypes',
-      header('Enrichers'),
-      'advancedEnrichers',
-      'advancedEnricherMessages',
-      'compactEnrichers',
-      'neutralizeEnrichers',
-      header('Aid Attack'),
-      'aidAttackAutomation',
-      'aidAttackEffectIcon',
-      header('Class: Censor'),
-      'judgementAutomation',
-      'judgedEffectIcon',
-      'judgementBaneLock',
-      'judgementBaneLockDuration',
-      'purifyingFireEnabled',
-      header('Class: Tactician'),
-      'markAutomation',
-      'markedEffectIcon',
-      header('Class: Shadow'),
-      'hiwEnabled',
-      'imNoThreatEnabled',
-      'imNoThreatEffectIcon',
-      'crossfadeEnabled',
-      header('Class: Null'),
-      'nullGrabIntuition',
-      'psionicMartialArts',
-      header('Malice'),
-      'abyssalEvolutionEnabled',
+      header('Squad Labels'),
+      'autoSquadLabelsEnabled',
+      'squadLabelApplyEffects',
+      'squadLabelAutoRelabel',
+      'squadLabelCaptainNow',
+      'squadCaptainShortcut',
+      'squadLabelRenamePreference',
+      header('Turns'),
+      'squadSimultaneousTurns',
+      'pairSimultaneousTurns',
+      'squadGlowMarker',
+      'squadGlowMarkerColored',
+      header('Squad HUD'),
+      'squadHudEnabled',
+      'squadHudScale',
+      'squadHudPlayerVisibility',
+      header('Damage Panels'),
+      'dstdSquadSections',
+      'dstdSquadSectionsOpen',
     ];
   }
 
-  static _FILE_PICKER_KEYS = new Set(['judgedEffectIcon', 'markedEffectIcon', 'aidAttackEffectIcon', 'imNoThreatEffectIcon', 'squadTargetingIcon']);
+  static get debugKeys() { return ['stickbugMode', 'stickbugChatTrigger']; }
+}
 
-  _buildEntry(key) {
-    const entry = super._buildEntry(key);
-    if (entry && AbilityAutomationSettingsMenu._FILE_PICKER_KEYS.has(key)) entry.isFilePicker = true;
-    return entry;
+export class PartyToolsSettingsMenu extends SettingsSubmenu {
+  static DEFAULT_OPTIONS = {
+    id:     'dsct-party-tools-settings',
+    window: { title: 'DSCT.panel.title.PartyToolsSettings' },
+  };
+
+  static get enableKey() { return 'partyToolsEnabled'; }
+
+  static get dependencies() {
+    return { partyIgnoreDeadLanguages: 'partyShowLanguages' };
   }
 
-  _regularItems() {
-    const items = super._regularItems();
-    const intIdx = items.findIndex(it => it.key === 'imNoThreatEnabled');
-    if (intIdx !== -1) {
-      items.splice(intIdx + 1, 0, {
-        isNestedMenu: true,
-        id:    'dsct-sub-animals-btn',
-        icon:  'fas fa-paw',
-        name:  game.i18n.localize('DSCT.setting.intAnimalsMenu.name'),
-        label: game.i18n.localize('DSCT.setting.intAnimalsMenu.label'),
-        hint:  game.i18n.localize('DSCT.setting.intAnimalsMenu.hint'),
-      });
-    }
-    return items;
-  }
-
-  _onRender(context, options) {
-    super._onRender(context, options);
-    this.element.querySelector('#dsct-sub-animals-btn')?.addEventListener('click', () => {
-      new ImNoThreatSettingsMenu().render(true);
-    });
-
-    const enforceInput  = this.element.querySelector('[name="enforceAbilityRange"]');
-    const bypassGroup   = this.element.querySelector('[name="gmBypassRangeEnforcement"]')?.closest('.form-group');
-    const aaEnableInput = this.element.querySelector(`[name="${this.constructor.enableKey}"]`);
-    if (enforceInput && bypassGroup) {
-      const sync = () => {
-        const on = (aaEnableInput?.checked ?? true) && enforceInput.checked;
-        bypassGroup.classList.toggle('dsct-sub-disabled', !on);
-        bypassGroup.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
-      };
-      enforceInput.addEventListener('change', sync);
-      aaEnableInput?.addEventListener('change', sync);
-      sync();
-    }
-
-    const targetingToggle    = this.element.querySelector('[name="abilityTargetingEnabled"]');
-    const autoConfirmGroup   = this.element.querySelector('[name="autoConfirmSelection"]')?.closest('.form-group');
-    if (targetingToggle && autoConfirmGroup) {
-      const syncTargeting = () => {
-        const on = (aaEnableInput?.checked ?? true) && targetingToggle.checked;
-        autoConfirmGroup.classList.toggle('dsct-sub-disabled', !on);
-        autoConfirmGroup.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
-      };
-      targetingToggle.addEventListener('change', syncTargeting);
-      aaEnableInput?.addEventListener('change', syncTargeting);
-      syncTargeting();
-    }
-
-    const judgementToggle     = this.element.querySelector('[name="judgementAutomation"]');
-    const baneLockInput       = this.element.querySelector('[name="judgementBaneLock"]');
-    const baneLockGroup       = baneLockInput?.closest('.form-group');
-    const baneLockDurGroup    = this.element.querySelector('[name="judgementBaneLockDuration"]')?.closest('.form-group');
-    const judgedIconGroup     = this.element.querySelector('[name="judgedEffectIcon"]')?.closest('.form-group');
-    if (judgementToggle) {
-      const setGroup = (grp, on) => {
-        if (!grp) return;
-        grp.classList.toggle('dsct-sub-disabled', !on);
-        grp.querySelectorAll('input, select, button').forEach(i => { i.disabled = !on; });
-      };
-      const syncJudgement = () => {
-        const on = (aaEnableInput?.checked ?? true) && judgementToggle.checked;
-        for (const grp of [baneLockGroup, judgedIconGroup]) setGroup(grp, on);
-        setGroup(baneLockDurGroup, on && (baneLockInput?.checked ?? true));
-      };
-      judgementToggle.addEventListener('change', syncJudgement);
-      baneLockInput?.addEventListener('change', syncJudgement);
-      aaEnableInput?.addEventListener('change', syncJudgement);
-      syncJudgement();
-    }
-
-    const markToggle      = this.element.querySelector('[name="markAutomation"]');
-    const markedIconGroup = this.element.querySelector('[name="markedEffectIcon"]')?.closest('.form-group');
-    if (markToggle && markedIconGroup) {
-      const syncMark = () => {
-        const on = (aaEnableInput?.checked ?? true) && markToggle.checked;
-        markedIconGroup.classList.toggle('dsct-sub-disabled', !on);
-        markedIconGroup.querySelectorAll('input, select, button').forEach(i => { i.disabled = !on; });
-      };
-      markToggle.addEventListener('change', syncMark);
-      aaEnableInput?.addEventListener('change', syncMark);
-      syncMark();
-    }
-
-    if (triggersHandlesClassTriggers()) {
-      for (const name of HANDED_TO_TRIGGERS) {
-        const input = this.element.querySelector(`[name="${name}"]`);
-        const grp = input?.closest('.form-group');
-        if (!grp) continue;
-        input.checked = false;
-        input.dispatchEvent(new Event('change'));
-        grp.classList.add('dsct-sub-disabled');
-        grp.querySelectorAll('input, select').forEach(i => { i.disabled = true; });
-        if (grp.querySelector('.dsct-handed-note')) continue;
-        const note = document.createElement('p');
-        note.className = 'hint dsct-handed-note';
-        note.textContent = game.i18n.localize('DSCT.setting.handedToTriggers');
-        grp.append(note);
-      }
-    }
-    const aidAttackToggle    = this.element.querySelector('[name="aidAttackAutomation"]');
-    const aidAttackIconGroup = this.element.querySelector('[name="aidAttackEffectIcon"]')?.closest('.form-group');
-    if (aidAttackToggle && aidAttackIconGroup) {
-      const syncAidAttack = () => {
-        const on = (aaEnableInput?.checked ?? true) && aidAttackToggle.checked;
-        aidAttackIconGroup.classList.toggle('dsct-sub-disabled', !on);
-        aidAttackIconGroup.querySelectorAll('input, select, button').forEach(i => { i.disabled = !on; });
-      };
-      aidAttackToggle.addEventListener('change', syncAidAttack);
-      aaEnableInput?.addEventListener('change', syncAidAttack);
-      syncAidAttack();
-    }
-
-    const imNoThreatToggle    = this.element.querySelector('[name="imNoThreatEnabled"]');
-    const imNoThreatIconGroup = this.element.querySelector('[name="imNoThreatEffectIcon"]')?.closest('.form-group');
-    if (imNoThreatToggle && imNoThreatIconGroup) {
-      const syncImNoThreat = () => {
-        const on = (aaEnableInput?.checked ?? true) && imNoThreatToggle.checked;
-        imNoThreatIconGroup.classList.toggle('dsct-sub-disabled', !on);
-        imNoThreatIconGroup.querySelectorAll('input, select, button').forEach(i => { i.disabled = !on; });
-      };
-      imNoThreatToggle.addEventListener('change', syncImNoThreat);
-      aaEnableInput?.addEventListener('change', syncImNoThreat);
-      syncImNoThreat();
-    }
-
-    const homebrewOn     = game.settings.get(M, 'homebrewOptions');
-    const crossfadeGroup = this.element.querySelector('[name="crossfadeEnabled"]')?.closest('.form-group');
-    if (crossfadeGroup && !homebrewOn) crossfadeGroup.style.display = 'none';
-
-    const psionicGroup     = this.element.querySelector('[name="psionicMartialArts"]')?.closest('.form-group');
-    const nullGrabToggle   = this.element.querySelector('[name="nullGrabIntuition"]');
-    if (psionicGroup) {
-      if (!homebrewOn) {
-        psionicGroup.style.display = 'none';
-      } else if (nullGrabToggle) {
-        const syncPsionic = () => {
-          const on = nullGrabToggle.checked;
-          psionicGroup.classList.toggle('dsct-sub-disabled', !on);
-          psionicGroup.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
-        };
-        nullGrabToggle.addEventListener('change', syncPsionic);
-        syncPsionic();
-      }
-    }
+  static get regularKeys() {
+    return [
+      'partyToolsEnabled',
+      'partySetupPrompt',
+      header('Languages'),
+      'partyShowLanguages',
+      'partyIgnoreDeadLanguages',
+      header('Ignored Picks'),
+      'partyPlayersCanPickIgnored',
+      'partyIgnoredWarning',
+    ];
   }
 }
 
@@ -539,52 +518,13 @@ export class ModuleButtonsSettingsMenu extends SettingsSubmenu {
   }
 }
 
-export class HomeRulesSettingsMenu extends SettingsSubmenu {
-  static DEFAULT_OPTIONS = {
-    id:     'dsct-home-rules-settings',
-    window: { title: 'DSCT.panel.title.HomeRulesSettings' },
-  };
-
-  static get enableKey()   { return 'homeRulesEnabled'; }
-
-  static get dependencies() {
-    return { peekRequiresSpeed: 'peekHouseRule', peekDistance: 'peekHouseRule', peekDuration: 'peekHouseRule' };
-  }
-
-  static get regularKeys() {
-    return [
-      'homeRulesEnabled',
-      'homebrewOptions',
-      header('Pickers'),
-      'cancelOnRightClick',
-      'targetDistanceLines',
-      header('Vision'),
-      'trueDrawSteelLos',
-      'loeCornerMode',
-      'revealCombatantPositions',
-      'greyscaleNoLos',
-      header('Peek'),
-      'peekHouseRule',
-      'peekRequiresSpeed',
-      'peekDistance',
-      'peekDuration',
-      header('Forced Movement'),
-      'fallDamageCap',
-      'cornerCutMode',
-      'allowCrookedPushPull',
-      'ignoreAllyEnabled',
-      'corpsesBlock',
-      'negativeElevationIsBurrowing',
-      'statusDrivesMovementType',
-    ];
-  }
-}
-
 export class CompatibilitySettingsMenu extends SettingsSubmenu {
   static DEFAULT_OPTIONS = {
     id:     'dsct-compatibility-settings',
     window: { title: 'DSCT.panel.title.CompatibilitySettings' },
   };
+
+  static get intro() { return game.i18n.localize('DSCT.panel.intro.CompatibilitySettings'); }
 
   static get regularKeys() {
     const debugMode = game.settings.get(M, 'debugMode');
@@ -632,99 +572,5 @@ export class CompatibilitySettingsMenu extends SettingsSubmenu {
       return;
     }
     return super.render(...args);
-  }
-
-}
-
-export class PartyToolsSettingsMenu extends SettingsSubmenu {
-  static DEFAULT_OPTIONS = {
-    id:     'dsct-party-tools-settings',
-    window: { title: 'DSCT.panel.title.PartyToolsSettings' },
-  };
-
-  static get enableKey()   { return 'partyToolsEnabled'; }
-
-  static get regularKeys() {
-    return ['partyToolsEnabled', 'partySetupPrompt', 'partyShowLanguages', 'partyIgnoreDeadLanguages',
-      'partyPlayersCanPickIgnored', 'partyIgnoredWarning'];
-  }
-}
-
-export class SquadToolsSettingsMenu extends SettingsSubmenu {
-  static DEFAULT_OPTIONS = {
-    id:     'dsct-squad-tools-settings',
-    window: { title: 'DSCT.panel.title.SquadToolsSettings' },
-  };
-
-  static get enableKey()   { return 'squadToolsEnabled'; }
-
-  static get dependencies() {
-    return { dstdSquadSectionsOpen: 'dstdSquadSections' };
-  }
-
-  static get regularKeys() {
-    return [
-      'squadToolsEnabled',
-      header('Squad Labels'),
-      'autoSquadLabelsEnabled',
-      'squadLabelApplyEffects',
-      'squadLabelAutoRelabel',
-      'squadLabelCaptainNow',
-      'squadCaptainShortcut',
-      'squadLabelRenamePreference',
-      header('Simultaneous Turns'),
-      'squadSimultaneousTurns',
-      'pairSimultaneousTurns',
-      header('Subtle Turn Markers'),
-      'squadGlowMarker',
-      'squadGlowMarkerColored',
-      header('Squad HUD'),
-      'squadHudEnabled',
-      'squadHudScale',
-      'squadHudPlayerVisibility',
-      header('Damage Panels'),
-      'dstdSquadSections',
-      'dstdSquadSectionsOpen',
-    ];
-  }
-
-  static get debugKeys() { return ['stickbugMode', 'stickbugChatTrigger']; }
-
-  _onRender(context, options) {
-    super._onRender(context, options);
-    const el = this.element;
-
-    const labelsInput = el.querySelector('[name="autoSquadLabelsEnabled"]');
-    const labelKeys   = ['squadLabelApplyEffects', 'squadLabelAutoRelabel', 'squadLabelCaptainNow', 'squadCaptainShortcut', 'squadLabelRenamePreference'];
-    const labelGroups = labelKeys.map(k => el.querySelector(`[name="${k}"]`)?.closest('.form-group')).filter(Boolean);
-    const syncLabels  = (on) => {
-      for (const grp of labelGroups) {
-        grp.classList.toggle('dsct-sub-disabled', !on);
-        grp.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
-      }
-    };
-    syncLabels(labelsInput?.checked ?? true);
-    labelsInput?.addEventListener('change', () => syncLabels(labelsInput.checked));
-
-    const glowInput    = el.querySelector('[name="squadGlowMarker"]');
-    const coloredGroup = el.querySelector('[name="squadGlowMarkerColored"]')?.closest('.form-group');
-    const syncColored  = (on) => {
-      coloredGroup?.classList.toggle('dsct-sub-disabled', !on);
-      coloredGroup?.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
-    };
-    syncColored(glowInput?.checked ?? true);
-    glowInput?.addEventListener('change', () => syncColored(glowInput.checked));
-
-    const hudInput     = el.querySelector('[name="squadHudEnabled"]');
-    const hudSubKeys   = ['squadHudScale', 'squadHudPlayerVisibility'];
-    const hudGroups    = hudSubKeys.map(k => el.querySelector(`[name="${k}"]`)?.closest('.form-group')).filter(Boolean);
-    const syncHud      = (on) => {
-      for (const grp of hudGroups) {
-        grp.classList.toggle('dsct-sub-disabled', !on);
-        grp.querySelectorAll('input, select').forEach(i => { i.disabled = !on; });
-      }
-    };
-    syncHud(hudInput?.checked ?? true);
-    hudInput?.addEventListener('change', () => syncHud(hudInput.checked));
   }
 }

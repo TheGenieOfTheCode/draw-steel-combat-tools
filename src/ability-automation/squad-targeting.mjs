@@ -667,7 +667,7 @@ async function _postSquadFreeStrikes(assignments, strike) {
 
 export async function runSquadFreeStrike(actor) {
   if (!game.user.isGM || !actor?.system?.isMinion || !game.combat) return false;
-  if (!getSetting('abilityAutomationEnabled') || !getSetting('groupActionsEnabled')) return false;
+  if (!getSetting('squadToolsEnabled') || !getSetting('groupActionsEnabled')) return false;
   const token = actor.token?.object ?? actor.getActiveTokens?.()[0] ?? null;
   const combatant = token ? game.combat.combatants.find(c => c.tokenId === token.id) : null;
   const group = combatant ? game.combat.groups?.contents.find(g => [...g.members].some(c => c.id === combatant.id)) : null;
@@ -767,7 +767,7 @@ export function checkAndRunSquadTargeting(dialog) {
   }
   _squadTargeted.delete(ability.uuid);
 
-  if (!getSetting('abilityAutomationEnabled')) return null;
+  if (!getSetting('squadToolsEnabled')) return null;
   if (!getSetting('groupActionsEnabled')) return null;
   if (!game.modules.get('draw-steel-target-damage')?.active) return null;
 

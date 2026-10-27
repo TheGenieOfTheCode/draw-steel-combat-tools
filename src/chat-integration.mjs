@@ -160,8 +160,7 @@ function registerRollDialogHooks() {
     if (app._dsctJudgementBaneReminded) return;
     app._dsctJudgementBaneReminded = true;
 
-    const lockEnabled  = getSetting('judgementBaneLock');
-    const lockDuration = lockEnabled ? ((getSetting('judgementBaneLockDuration') ?? 10) * 1000) : 0;
+    const lockDuration = Math.max(0, Number(getSetting('judgementHoldSeconds')) || 0) * 1000;
     const lockUntil    = lockDuration > 0 ? Date.now() + lockDuration : 0;
 
     const nameStr     = censorActor ? censorActor.name : 'Someone';

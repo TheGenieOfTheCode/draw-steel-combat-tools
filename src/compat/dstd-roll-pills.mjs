@@ -630,7 +630,7 @@ export function injectRollPills(message, root) {
       const eff = _effectiveFrom(basis, { basePills: ctx.globalBase, baseOff: ctx.globalBaseOff, session: ctx.globalPills });
       _diceIcons(rollLine, baseRoll, _buildOverride(basis, eff, ctx.globalPills, [...ctx.globalBaseOff]));
       summary.querySelectorAll('.dsct-roll-pills-row').forEach(e => e.remove());
-      if (canEdit && getSetting('dstdRollEditor') && !rollLine.querySelector('.dsct-global-cog')) {
+      if (canEdit && getSetting('modifierEditors') && !rollLine.querySelector('.dsct-global-cog')) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = `${DSTD}-icon-button ${DSTD}-cog-button dsct-global-cog`;
@@ -1175,7 +1175,7 @@ function _onDocumentClick(e) {
     return;
   }
 
-  if (!getSetting('dstdRollEditor')) return;
+  if (!getSetting('modifierEditors')) return;
   const cog = e.target.closest('button[data-dstd-action="editRoll"]');
   if (!cog) return;
   const msgEl = cog.closest('[data-message-id]');

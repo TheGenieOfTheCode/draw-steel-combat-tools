@@ -1025,7 +1025,7 @@ document.addEventListener('contextmenu', async (ev) => {
 
 document.addEventListener('click', (ev) => {
   const btn = ev.target?.closest?.('button[data-dstd-action="editDamage"]');
-  if (!btn || !game.modules.get(DSTD)?.active || !getSetting('pillDamageEditor')) return;
+  if (!btn || !game.modules.get(DSTD)?.active || !getSetting('modifierEditors')) return;
   const msgId = btn.closest('[data-message-id]')?.dataset?.messageId;
   const message = msgId ? game.messages.get(msgId) : null;
   if (!message) return;

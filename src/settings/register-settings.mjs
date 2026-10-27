@@ -10,7 +10,7 @@ import { applyCompactPills } from '../compat/pill-compact.mjs';
 import { applyHideApplyWord } from '../compat/dstd-apply-word.mjs';
 import { InstallMacrosMenu, EnhancedAbilitiesMenu } from '../setup-macros.mjs';
 import { SettingsReportMenu } from '../settings-report.mjs';
-import { registerSettingsLayout } from '../ctlib.mjs';
+import { registerSettingsLayout, isPrimaryGM } from '../ctlib.mjs';
 import {
   ForcedMovementSettingsMenu,
   ConditionsSettingsMenu,
@@ -24,6 +24,15 @@ import {
   PartyToolsSettingsMenu,
   StealthSettingsMenu,
 } from './settings-menus.mjs';
+
+export const migrateMergedSettings = async () => {
+  const M = 'draw-steel-combat-tools';
+  const get = (key) => game.settings.get(M, key);
+  if (!isPrimaryGM() || get('mergedSettingsMigrated')) return;
+  await game.settings.set(M, 'modifierEditors', get('dstdRollEditor') && get('pillDamageEditor'));
+  await game.settings.set(M, 'judgementHoldSeconds', get('judgementBaneLock') ? get('judgementBaneLockDuration') : 0);
+  await game.settings.set(M, 'mergedSettingsMigrated', true);
+};
 
 export const registerSettings = () => {
   const M = 'draw-steel-combat-tools';
@@ -131,15 +140,11 @@ export const registerSettings = () => {
   game.settings.registerMenu(M, 'homeRulesSettings', {
     name: L('homeRulesSettings.name'), label: L('homeRulesSettings.label'),
     hint: L('homeRulesSettings.hint'),
-    icon: 'fas fa-house-chimney', type: HomeRulesSettingsMenu, restricted: false,
-  });
-  game.settings.register(M, 'homeRulesEnabled', {
-    name: L('homeRulesEnabled.name'), hint: L('homeRulesEnabled.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
+    icon: 'fas fa-eye', type: HomeRulesSettingsMenu, restricted: false,
   });
   game.settings.register(M, 'homebrewOptions', {
     name: L('homebrewOptions.name'), hint: L('homebrewOptions.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
+    scope: 'world', config: true, type: Boolean, default: false,
   });
 
   game.settings.registerMenu(M, 'compatibilitySettings', {
@@ -260,7 +265,6 @@ export const registerSettings = () => {
     onChange: safely(() => {
       refreshLoeCornerMode();
       canvas?.perception?.update({ initializeVision: true, refreshVision: true, refreshOcclusion: true });
-
 
       recheckNoLos();
       recheckCombatReveal();
@@ -622,6 +626,10 @@ export const registerSettings = () => {
     name: L('judgementBaneLockDuration.name'), hint: L('judgementBaneLockDuration.hint'),
     scope: 'world', config: false, type: Number, default: 10,
   });
+  game.settings.register(M, 'judgementHoldSeconds', {
+    name: L('judgementHoldSeconds.name'), hint: L('judgementHoldSeconds.hint'),
+    scope: 'world', config: false, type: Number, default: 10,
+  });
   game.settings.register(M, 'markAutomation', {
     name: L('markAutomation.name'), hint: L('markAutomation.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
@@ -742,6 +750,13 @@ export const registerSettings = () => {
   game.settings.register(M, 'pillDamageEditor', {
     name: L('pillDamageEditor.name'), hint: L('pillDamageEditor.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'modifierEditors', {
+    name: L('modifierEditors.name'), hint: L('modifierEditors.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'mergedSettingsMigrated', {
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'compactChatPills', {
     name: L('compactChatPills.name'), hint: L('compactChatPills.hint'),
@@ -968,7 +983,7 @@ export const registerSettings = () => {
   registerSettingsLayout(M, [
     { label: H('abilities'), items: ['abilityAutomationSettings', 'flatEffectsSettings', 'triggeredActionsSettings', 'distributeEnhanced', 'enhancedPromptMode', 'enhancedAutoAdd', 'enhancedSwapMode'] },
     { label: H('combat'), items: ['conditionsSettings', 'forcedMovementSettings', 'teleportEnabled', 'stealthSettings', 'homeRulesSettings', 'squadToolsSettings', 'completeEncounterMode'] },
-    { label: H('table'), items: ['partyToolsSettings', 'moduleButtonsSettings', 'compatibilitySettings'] },
+    { label: H('table'), items: ['partyToolsSettings', 'moduleButtonsSettings', 'compatibilitySettings', 'homebrewOptions'] },
     { label: H('module'), items: ['installMacros', 'macroPromptMode', 'onlineNoticeCheck', 'settingsReport', 'debugMode', 'testFeaturesSettings'] },
   ]);
 };

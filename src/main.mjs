@@ -46,7 +46,7 @@ import { registerStartupNotice, showStartupNotice } from './startup-notice.mjs';
 import { registerSettingsReport, showSettingsReport } from './settings-report.mjs';
 import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-shadow/hesitation.mjs';
 import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
-import { registerSettings } from './settings/register-settings.mjs';
+import { registerSettings, migrateMergedSettings } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
 import { registerBonds } from './bonds.mjs';
 import { registerRollDialogDodge } from './ability-automation/roll-dialog-dodge.mjs';
@@ -419,6 +419,7 @@ Hooks.once('setup', () => applyStatusIcons());
 Hooks.once('ready', () => {
   applyStatusIcons();
   migrateLegacyIcons();
+  migrateMergedSettings();
   migrateLegacyStatuses();
   Hooks.on('canvasReady', () => migrateLegacyStatuses());
 });

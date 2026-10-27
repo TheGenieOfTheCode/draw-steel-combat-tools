@@ -131,7 +131,7 @@
       "forcedMovementSettings": {
         "name": "Forced Movement Settings",
         "label": "Configure Forced Movement",
-        "hint": "Animation speed, the prompts before a fall or before hitting an ally, and who may change a move afterwards."
+        "hint": "How forced movement animates, the prompts before a fall or hitting an ally, the rules it follows, and who may change a move."
       },
       "animationStepDelay": {
         "name": "Animation Step Delay (ms)",
@@ -262,7 +262,7 @@
       "squadToolsSettings": {
         "name": "Squad Tools Settings",
         "label": "Configure Squad Tools",
-        "hint": "Configure squad labels, simultaneous turns, and the squad HUD."
+        "hint": "Group actions, squad labels, turns taken together, the squad HUD and squads in damage panels."
       },
       "squadToolsEnabled": {
         "name": "Squad Tools",
@@ -365,7 +365,7 @@
       "abilityAutomationSettings": {
         "name": "Ability Automation Settings",
         "label": "Configure Ability Automation",
-        "hint": "Configure class ability automations for Censor, Tactician, and Shadow, plus ability range enforcement and malice features."
+        "hint": "Targeting, areas, applying results, the roll window, modifiers in chat, damage rules and enrichers, with class features in a window of their own."
       },
       "flatEffectsSettings": {
         "name": "Flat Effects Settings",
@@ -464,6 +464,10 @@
       "judgementBaneLockDuration": {
         "name": "Seconds to Hold the Roll",
         "hint": "How long the roll is held when a Judgement bane reminder is posted."
+      },
+      "judgementHoldSeconds": {
+        "name": "Seconds to Hold the Roll",
+        "hint": "When a judged creature makes a power roll, its roll buttons wait this long so the Censor can impose the bane or decline. 0 lets the roll go at once."
       },
       "markAutomation": {
         "name": "Mark",
@@ -589,6 +593,15 @@
       "dstdRollEditor": {
         "name": "Modifier Roll Editor",
         "hint": "Replaces the edit roll window on an ability in chat with a compact editor in the Alternative Ability Roll UI style. What you add there is listed under the roll and can be taken off again."
+      },
+      "modifierEditors": {
+        "name": "Modifier Editors",
+        "hint": "Replaces the edit roll and edit damage windows on an ability in chat with compact editors in the Alternative Ability Roll UI style. What you add is listed under the roll or the damage and can be taken off again."
+      },
+      "classFeaturesMenu": {
+        "name": "Class Features",
+        "label": "Configure Class Features",
+        "hint": "Aid Attack, Judgement, Mark, the Shadow's and the Null's features, and Abyssal Evolution."
       },
       "pillDamageEditor": {
         "name": "Modifier Damage Editor",
@@ -784,17 +797,13 @@
         "hint": "A creature pushed into ground one square higher collides with it instead of climbing up. Steps down are unaffected."
       },
       "homeRulesSettings": {
-        "name": "Home Rules",
-        "label": "Configure Home Rules",
-        "hint": "Optional rule modifications for groups that prefer to run things differently."
-      },
-      "homeRulesEnabled": {
-        "name": "Home Rules",
-        "hint": "Unlock the house rules below. Each one still has its own switch, and they keep whatever you set them to."
+        "name": "Line of Effect",
+        "label": "Configure Line of Effect",
+        "hint": "Corner to corner line of effect, who shows through the fog, and peeking around corners."
       },
       "homebrewOptions": {
         "name": "Homebrew Options",
-        "hint": "Show the settings for third party supplements and homebrew, such as the Null and Shadow options in Ability Automation."
+        "hint": "Show the settings for third party supplements and homebrew, such as the Null and Shadow options in Class Features."
       },
       "compatibilitySettings": {
         "name": "Compatibility",
@@ -1588,6 +1597,10 @@
       "cancelled": "Area targeting cancelled."
     },
     "panel": {
+      "intro": {
+        "FlatEffectsSettings": "New flat effects start with these values.",
+        "CompatibilitySettings": "Each section shows only while that module is active."
+      },
       "title": {
         "ForcedMovement": "Forced Movement",
         "ModuleButtonsSettings": "Module Button Visibility",
@@ -1607,7 +1620,8 @@
         "ImNoThreatSettings": "I'm No Threat: Animal Settings",
         "DamageConditions": "Damage & Conditions",
         "VerticalDistance": "Vertical Distance",
-        "HomeRulesSettings": "Home Rules",
+        "HomeRulesSettings": "Line of Effect Settings",
+        "ClassFeaturesSettings": "Class Features Settings",
         "CompatibilitySettings": "Compatibility",
         "SquadToolsSettings": "Squad Tools Settings",
         "PartyToolsSettings": "Party Tools",
