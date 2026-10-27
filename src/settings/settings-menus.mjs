@@ -6,6 +6,7 @@ import { SettingsSubmenu as LibSettingsSubmenu } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const ENRICHER_WIKI = 'https://github.com/MetaMorphic-Digital/draw-steel/wiki/Enrichers';
+const WIKI = 'https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/';
 const FILE_PICKER_KEYS = new Set(['judgedEffectIcon', 'markedEffectIcon', 'aidAttackEffectIcon', 'imNoThreatEffectIcon', 'squadTargetingIcon']);
 
 const linkEnrichers = (root) => {
@@ -76,6 +77,20 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
     id:     'dsct-ability-automation-settings',
     window: { title: 'DSCT.panel.title.AbilityAutomationSettings' },
   };
+
+  static get wiki() {
+    return { base: WIKI, pages: {
+      Targeting: 'Target-Pickers#ability-targeting',
+      Areas: 'Ability-Areas-and-Regions',
+      areaPicker: 'Target-Pickers#area-picker',
+      potencyChecks: 'Potency-Checks',
+      'Roll Window': 'Visible-Modifiers#in-the-roll-dialog',
+      'Modifiers in Chat': 'Visible-Modifiers#in-chat',
+      modifierEditors: 'Visible-Modifiers#the-editors',
+      'Damage Rules': 'Visible-Modifiers#damage-multipliers',
+      Enrichers: 'Enrichers',
+    } };
+  }
 
   static get enableKey() { return 'abilityAutomationEnabled'; }
 
@@ -150,6 +165,18 @@ export class ClassFeaturesSettingsMenu extends SettingsSubmenu {
     window: { title: 'DSCT.panel.title.ClassFeaturesSettings' },
   };
 
+  static get wiki() {
+    return { base: WIKI, pages: {
+      aidAttackAutomation: 'Aid-Attack',
+      judgementAutomation: 'Judgement',
+      purifyingFireEnabled: 'Purifying-Fire',
+      markAutomation: 'Mark',
+      hiwEnabled: 'Hesitation-Is-Weakness',
+      imNoThreatEnabled: 'Im-No-Threat',
+      crossfadeEnabled: 'Crossfade',
+    } };
+  }
+
   static get enableKey() { return 'abilityAutomationEnabled'; }
 
   static get dependencies() {
@@ -217,6 +244,12 @@ export class FlatEffectsSettingsMenu extends SettingsSubmenu {
     window: { title: 'DSCT.panel.title.FlatEffectsSettings' },
   };
 
+  static get wiki() {
+    return { base: WIKI, pages: {
+      flatEffectsEnabled: 'Flat-Effects',
+    } };
+  }
+
   static get enableKey() { return 'flatEffectsEnabled'; }
   static get intro()     { return game.i18n.localize('DSCT.panel.intro.FlatEffectsSettings'); }
 
@@ -251,6 +284,12 @@ export class TriggeredActionsSettingsMenu extends SettingsSubmenu {
     window: { title: 'DSCT.panel.title.TriggeredActionsSettings' },
   };
 
+  static get wiki() {
+    return { base: WIKI, pages: {
+      autoTriggeredActionsEnabled: 'Triggered-Actions',
+    } };
+  }
+
   static get enableKey() { return 'autoTriggeredActionsEnabled'; }
 
   static get dependencies() {
@@ -267,6 +306,17 @@ export class ConditionsSettingsMenu extends SettingsSubmenu {
     id:     'dsct-conditions-settings',
     window: { title: 'DSCT.panel.title.ConditionsSettings' },
   };
+
+  static get wiki() {
+    return { base: WIKI, pages: {
+      'Chat Buttons': 'Damage-and-Conditions-Panel',
+      frightenedEnabled: 'Frightened',
+      tauntedEnabled: 'Taunted',
+      bleedingEnabled: 'Bleeding',
+      recurringDamage: 'Recurring-Damage',
+      Grab: 'Grab-System',
+    } };
+  }
 
   static get enableKey() { return 'conditionsEnabled'; }
 
@@ -327,6 +377,16 @@ export class ForcedMovementSettingsMenu extends SettingsSubmenu {
     window: { title: 'DSCT.panel.title.ForcedMovementSettings' },
   };
 
+  static get wiki() {
+    return { base: WIKI, pages: {
+      Moving: 'Push-Pull-Slide',
+      fallConfirmation: 'Vertical-Movement-and-Falls',
+      Rules: 'Collision-Rules',
+      fallDamageCap: 'Vertical-Movement-and-Falls',
+      'Wall Builder': 'Wall-Builder',
+    } };
+  }
+
   static get enableKey() { return 'forcedMovementEnabled'; }
 
   static get dependencies() {
@@ -369,6 +429,16 @@ export class StealthSettingsMenu extends SettingsSubmenu {
     window: { title: 'DSCT.panel.title.StealthSettings' },
   };
 
+  static get wiki() {
+    return { base: WIKI, pages: {
+      Visuals: 'Stealth-Overview',
+      Hiding: 'Hiding-and-Searching',
+      Observation: 'Observation-Picker',
+      'Cover and Concealment': 'Cover-and-Concealment',
+      lowCoverEnabled: 'Cover-and-Concealment#low-cover',
+    } };
+  }
+
   static get enableKey() { return 'stealthSystemEnabled'; }
 
   static get dependencies() {
@@ -399,6 +469,13 @@ export class HomeRulesSettingsMenu extends SettingsSubmenu {
     window: { title: 'DSCT.panel.title.HomeRulesSettings' },
   };
 
+  static get wiki() {
+    return { base: WIKI, pages: {
+      'Line of Effect': 'Target-Pickers#true-line-of-effect',
+      loeCornerMode: 'Cover-and-Concealment#corner-precision',
+    } };
+  }
+
   static get dependencies() {
     return { loeCornerMode: 'trueDrawSteelLos', peekRequiresSpeed: 'peekHouseRule', peekDistance: 'peekHouseRule', peekDuration: 'peekHouseRule' };
   }
@@ -424,6 +501,15 @@ export class SquadToolsSettingsMenu extends SettingsSubmenu {
     id:     'dsct-squad-tools-settings',
     window: { title: 'DSCT.panel.title.SquadToolsSettings' },
   };
+
+  static get wiki() {
+    return { base: WIKI, pages: {
+      'Group Actions': 'Squad-Targeting',
+      'Squad Labels': 'Squad-Labels',
+      Turns: 'Squad-Simultaneous-Turns',
+      'Squad HUD': 'Squad-HUD',
+    } };
+  }
 
   static get enableKey() { return 'squadToolsEnabled'; }
 
@@ -484,6 +570,12 @@ export class PartyToolsSettingsMenu extends SettingsSubmenu {
     id:     'dsct-party-tools-settings',
     window: { title: 'DSCT.panel.title.PartyToolsSettings' },
   };
+
+  static get wiki() {
+    return { base: WIKI, pages: {
+      partyToolsEnabled: 'Party-Tools',
+    } };
+  }
 
   static get enableKey() { return 'partyToolsEnabled'; }
 

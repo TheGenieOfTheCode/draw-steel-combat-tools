@@ -985,5 +985,23 @@ export const registerSettings = () => {
     { label: H('combat'), items: ['conditionsSettings', 'forcedMovementSettings', 'teleportEnabled', 'stealthSettings', 'homeRulesSettings', 'squadToolsSettings', 'completeEncounterMode'] },
     { label: H('table'), items: ['partyToolsSettings', 'moduleButtonsSettings', 'compatibilitySettings', 'homebrewOptions'] },
     { label: H('module'), items: ['installMacros', 'macroPromptMode', 'onlineNoticeCheck', 'settingsReport', 'debugMode', 'testFeaturesSettings'] },
-  ]);
+  ], {
+    wiki: {
+      base: 'https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/',
+      pages: {
+        abilityAutomationSettings: 'Target-Pickers',
+        flatEffectsSettings: 'Flat-Effects',
+        triggeredActionsSettings: 'Triggered-Actions',
+        distributeEnhanced: 'Enhanced-Abilities',
+        conditionsSettings: 'Damage-and-Conditions-Panel',
+        forcedMovementSettings: 'Overview',
+        teleportEnabled: 'Teleport',
+        stealthSettings: 'Stealth-Overview',
+        homeRulesSettings: 'Target-Pickers#true-line-of-effect',
+        squadToolsSettings: 'Squad-Labels',
+        partyToolsSettings: 'Party-Tools',
+        installMacros: 'Macro-Reference',
+      },
+    },
+  });
 };
