@@ -361,6 +361,16 @@ async function _runTargetPicker(ability, casterToken, { maxTargets: maxOverride 
     });
   }
 
+  const jumpToReach = services.get('jumpToReach');
+  if (jumpToReach && range > 0) {
+    const hidden = !(keywords?.has('area') ?? false);
+    const others = (list) => list.filter(t => t !== casterToken);
+    if (!others(_getValidTargets(casterToken, targetType, range, { excludeSelf, checkLOS: true, respectHidden: hidden })).length) {
+      const candidates = others(_getValidTargets(casterToken, targetType, 0, { excludeSelf, respectHidden: hidden })).map(t => t.document);
+      if (candidates.length) await jumpToReach(casterToken, { range, candidates });
+    }
+  }
+
   const respectHidden = !(keywords?.has('area') ?? false);
   const opening = _reachesThroughOpening(ability);
   const validTokens = _getValidTargets(casterToken, targetType, isRangeEnforced ? range : 0, { excludeSelf, checkLOS: true, respectHidden, opening });
@@ -932,7 +942,11 @@ export function checkAndRunTargetPicker(dialog) {
 
   const peekRescue = getSetting('peekHouseRule') && !isPeeking(casterToken.actor) && wallAdjacent(casterToken) && _peekOptions(casterToken, { targetType: target.type, range, filter: { excludeSelf, checkLOS: true, respectHidden } }).length > 0;
 
-  if (!validTokens.length && !peekRescue) {
+  const jumpRescue = !validTokens.some(t => t !== casterToken) && range > 0 && !!services.get('canJumpToReach')?.(casterToken, {
+    range, candidates: _getValidTargets(casterToken, target.type, 0, { excludeSelf, respectHidden }).filter(t => t !== casterToken).map(t => t.document),
+  });
+
+  if (!validTokens.length && !peekRescue && !jumpRescue) {
     if (rangeEnforced() || !_getValidTargets(casterToken, target.type, 0, { excludeSelf, checkLOS: true, opening }).length) {
       ui.notifications.warn(game.i18n.localize('DSCT.notice.targetPicker.noValidTargets'));
       return null;
