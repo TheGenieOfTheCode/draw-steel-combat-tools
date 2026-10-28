@@ -1570,7 +1570,13 @@
         "clickInArea": "Click a creature in the area",
         "excludeTarget": "Leave it out, or put it back",
         "rightClickTurn": "Right-click Turn",
-        "smallerStep": "Use a smaller turn step"
+        "smallerStep": "Use a smaller turn step",
+        "shiftScroll": "Shift + scroll",
+        "ctrlScroll": "Ctrl + scroll",
+        "pageKeys": "Page Up / Page Down",
+        "raiseArea": "Raise or lower the area",
+        "tiltKeys": "[ and ]",
+        "tiltLine": "Tilt the line up or down"
       }
     },
     "areaPicker": {
@@ -1592,6 +1598,14 @@
       "turn": "Turn {n}°",
       "turnTip": "How far each Shift + scroll turns the line. Click for a bigger step, right-click for a smaller one.",
       "noSuggestion": "No spot in range reaches a target.",
+      "raise": "Raise",
+      "lower": "Lower",
+      "raiseTip": "Move the area up or down one square. Page Up and Page Down do the same.",
+      "tiltUp": "Tilt Up",
+      "tiltDown": "Tilt Down",
+      "tiltTip": "Tilt the line so it climbs or drops as it goes. [ and ] do the same.",
+      "height": "Height {n}",
+      "tilt": "Tilted {n}°",
       "outOfRange": "The area has to be within {range} squares of you.",
       "noArea": "Place the area first.",
       "cancelled": "Area targeting cancelled."

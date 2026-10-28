@@ -37,6 +37,30 @@ const footprint = (tok) => ({
 
 const gapTo = (fp, sx, sy) => Math.max(0, fp.gx - sx, sx - (fp.gx + fp.w - 1), fp.gy - sy, sy - (fp.gy + fp.h - 1));
 
+const unit = () => canvas.scene.grid.distance || 1;
+const TILTS = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90];
+
+function columnOf(tok) {
+  const c = globalThis.ctlib?.tokenColumn?.(tok);
+  if (c) return { z: c.z, d: c.d };
+  const size = Number(tok.actor?.system?.combat?.size?.value) || 0;
+  return { z: (tok.document.elevation ?? 0) / unit(), d: Math.max(1, size, Number(tok.document.depth) > 1 ? Number(tok.document.depth) : 1) };
+}
+
+const overlapsSpan = (col, span) => !!span && col.z < span.t - 1e-6 && col.z + col.d > span.b + 1e-6;
+const gapZ = (col, span) => Math.max(0, Math.floor(span.b) - (Math.ceil(col.z + col.d) - 1), Math.floor(col.z) - (Math.ceil(span.t) - 1));
+const elevationOf = (span) => ({ bottom: span.b * unit(), top: span.t * unit() });
+
+function inArea(tok, probe, spanAt) {
+  if (!tok.document.testInsideRegion(probe)) return false;
+  const col = columnOf(tok);
+  const fp = footprint(tok);
+  for (let dx = 0; dx < fp.w; dx++) {
+    for (let dy = 0; dy < fp.h; dy++) if (overlapsSpan(col, spanAt(fp.gx + dx, fp.gy + dy))) return true;
+  }
+  return false;
+}
+
 function areaOf(ability) {
   const view = chooseTargeting(ability);
   const dist = view?.distance ?? ability.system?.distance;
@@ -48,9 +72,10 @@ function areaOf(ability) {
   return n('primary') ? { shape: 'line', length: n('primary'), width: n('secondary') || 1, range: n('tertiary'), target } : null;
 }
 
-function regionData(ability, shape, mark = null) {
+function regionData(ability, shape, mark = null, elevation = null) {
   const shapes = Array.isArray(shape) ? shape : [shape];
   return {
+    ...(elevation ? { elevation } : {}),
     name: ability.name,
     color: game.user.color,
     levels: [canvas.level.id],
@@ -122,6 +147,66 @@ function diagonalSquares(area, origin, rotation) {
   return out;
 }
 
+function straightSquares(area, at, rotation) {
+  const gs = gridSize();
+  const ax = Math.round(at.x / gs);
+  const ay = Math.round(at.y / gs);
+  const acrossX = Math.round(at.x / gs - area.width / 2);
+  const acrossY = Math.round(at.y / gs - area.width / 2);
+  const turn = turnOf(rotation);
+  const out = [];
+  for (let i = 0; i < area.length; i++) {
+    for (let k = 0; k < area.width; k++) {
+      if (turn === 0) out.push([ax + i, acrossY + k, i]);
+      else if (turn === 180) out.push([ax - 1 - i, acrossY + k, i]);
+      else if (turn === 90) out.push([acrossX + k, ay + i, i]);
+      else out.push([acrossX + k, ay - 1 - i, i]);
+    }
+  }
+  return out;
+}
+
+const lineLength2D = (area, tilt) => {
+  const a = Math.abs(tilt);
+  if (a <= 45) return area.length;
+  if (a >= 90) return 1;
+  return Math.round((area.length - 1) / Math.tan((a * Math.PI) / 180)) + 1;
+};
+
+function tiltedLine(area, at, rotation, tilt, z0) {
+  const flat = { ...area, length: lineLength2D(area, tilt) };
+  const cells = isDiagonal(rotation)
+    ? diagonalSquares(flat, at, rotation).map(([sx, sy], n) => [sx, sy, Math.floor(n / flat.width)])
+    : straightSquares(flat, at, rotation);
+  const steep = Math.abs(tilt) > 45;
+  const slope = Math.tan((tilt * Math.PI) / 180);
+  const rise = new Map();
+  for (let i = 0; i < area.length; i++) {
+    const j = steep ? (Math.abs(tilt) >= 90 ? 0 : Math.round(i / Math.abs(slope))) : i;
+    const off = steep ? i * Math.sign(tilt) : Math.round(i * slope);
+    const r = rise.get(j);
+    rise.set(j, r ? [Math.min(r[0], off), Math.max(r[1], off)] : [off, off]);
+  }
+  const spans = new Map();
+  const squares = [];
+  for (const [sx, sy, j] of cells) {
+    const key = `${sx},${sy}`;
+    const [lo, hi] = rise.get(j) ?? [0, 0];
+    const old = spans.get(key);
+    if (!old) squares.push([sx, sy]);
+    spans.set(key, old ? { b: Math.min(old.b, z0 + lo), t: Math.max(old.t, z0 + hi + area.width) } : { b: z0 + lo, t: z0 + hi + area.width });
+  }
+  const all = [...spans.values()];
+  const whole = { b: Math.min(...all.map((s) => s.b)), t: Math.max(...all.map((s) => s.t)) };
+  const shaped = tilt || isDiagonal(rotation);
+  return {
+    shapes: shaped ? squareShapes(squares) : [lineShape(flat, at.x, at.y, rotation)],
+    squares,
+    whole,
+    spanAt: tilt ? (sx, sy) => spans.get(`${sx},${sy}`) : () => whole,
+  };
+}
+
 const TURN_STEPS = [5, 15, 30, 45, 90];
 const defaultTurnStep = () => {
   const n = Number(getSetting('areaPickerTurnStep'));
@@ -134,10 +219,6 @@ const squareShapes = (squares) => squares.map(([sx, sy]) => ({
   type: 'rectangle', gridBased: true, x: sx * gridSize(), y: sy * gridSize(),
   width: squarePx(), height: squarePx(), anchorX: 0, anchorY: 0,
 }));
-
-const lineShapes = (area, shape) => (isDiagonal(shape.rotation ?? 0)
-  ? squareShapes(diagonalSquares(area, shape, shape.rotation))
-  : [shape]);
 
 const LINE_FLAG = 'areaLine';
 const lineMark = (area) => ({ length: area.length, width: area.width });
@@ -220,7 +301,10 @@ function areaSquares(source) {
   return out;
 }
 
-const withinRange = (doc, fp, range) => !range || areaSquares(doc).some(([sx, sy]) => gapTo(fp, sx, sy) <= range);
+const withinRange = (doc, fp, range, col, spanAt) => !range || areaSquares(doc).some(([sx, sy]) => {
+  const span = spanAt(sx, sy);
+  return Math.max(gapTo(fp, sx, sy), span ? gapZ(col, span) : 0) <= range;
+});
 
 function squareRects(squares) {
   const gs = gridSize();
@@ -248,26 +332,55 @@ function suggestShape(ability, area, caster, candidates) {
   const fp = footprint(caster);
   const R = area.range;
   const gs = gridSize();
+  const me = columnOf(caster);
+  const z0 = Math.floor(me.z);
+  const cols = candidates.map(columnOf);
+  const colOf = new Map(candidates.map((t, i) => [t.id, cols[i]]));
+  const flat = cols.every((c) => Math.floor(c.z) === z0);
   let best = null;
-  
-  const consider = (shapes, distance) => {
-    const doc = testDoc(shapes);
-    const score = candidates.filter(t => t.document.testInsideRegion(doc)).length;
-    if (!score || (best && score < best.score)) return;
-    const squares = areaSquares(shapes);
-    const inRange = R ? squares.filter(([sx, sy]) => gapTo(fp, sx, sy) <= R).length : squares.length;
-    if (!inRange) return;
-    if (best && score === best.score && (inRange < best.inRange || (inRange === best.inRange && distance >= best.distance))) return;
-    best = { shapes, score, inRange, distance };
-  };
+  const better = (score, inRange, distance) => score > 0 && inRange > 0
+    && !(best && (score < best.score || (score === best.score && (inRange < best.inRange || (inRange === best.inRange && distance >= best.distance)))));
+  const rangeCount = (squares, spanAt) => (R ? squares.filter(([sx, sy]) => Math.max(gapTo(fp, sx, sy), gapZ(me, spanAt(sx, sy))) <= R).length : squares.length);
   const fromUser = (x, y) => Math.hypot(x / gs - (fp.gx + fp.w / 2), y / gs - (fp.gy + fp.h / 2));
+  const Terrain = globalThis.ctlib?.SceneTerrain;
+  const terrain = Terrain && !flat ? new Terrain({ scene: canvas.scene }) : null;
+  const grounds = new Map();
+  const groundAt = (sx, sy) => {
+    const k = `${sx},${sy}`;
+    if (!grounds.has(k)) grounds.set(k, terrain?.slabsAt({ x: sx, y: sy }).find((s) => s.bottom === -Infinity)?.top ?? -Infinity);
+    return grounds.get(k);
+  };
+  const aboveGround = (squares, spanAt) => !terrain || squares.every(([sx, sy]) => spanAt(sx, sy).b >= groundAt(sx, sy) - 1e-6);
+
   if (area.shape === 'cube') {
     const n = area.size;
+    const zs = [];
+    if (flat) zs.push(z0);
+    else {
+      const lo = Math.min(...cols.map((c) => Math.floor(c.z))) - n + 1;
+      const hi = Math.max(...cols.map((c) => Math.ceil(c.z + c.d) - 1));
+      for (let z = lo; z <= hi; z++) if (!R || gapZ(me, { b: z, t: z + n }) <= R) zs.push(z);
+    }
     for (let gx = fp.gx - R - n + 1; gx <= fp.gx + fp.w - 1 + R; gx++) {
       for (let gy = fp.gy - R - n + 1; gy <= fp.gy + fp.h - 1 + R; gy++) {
         const gap = Math.max(0, fp.gx - (gx + n - 1), gx - (fp.gx + fp.w - 1), fp.gy - (gy + n - 1), gy - (fp.gy + fp.h - 1));
         if (R && gap > R) continue;
-        consider([cubeShape(area, gx, gy)], fromUser((gx + n / 2) * gs, (gy + n / 2) * gs));
+        const shapes = [cubeShape(area, gx, gy)];
+        const doc = testDoc(shapes);
+        const across = candidates.filter(t => t.document.testInsideRegion(doc));
+        if (!across.length) continue;
+        let squares = null;
+        for (const z of zs) {
+          const span = { b: z, t: z + n };
+          const score = across.filter(t => overlapsSpan(colOf.get(t.id), span)).length;
+          if (!score || (best && score < best.score)) continue;
+          squares ??= areaSquares(shapes);
+          if (!aboveGround(squares, () => span)) continue;
+          const distance = fromUser((gx + n / 2) * gs, (gy + n / 2) * gs) + Math.abs(z - z0) * 0.5;
+          const inRange = rangeCount(squares, () => span);
+          if (!better(score, inRange, distance)) continue;
+          best = { shapes, score, inRange, distance, geo: { z } };
+        }
       }
     }
   } else if (area.shape === 'line') {
@@ -279,27 +392,35 @@ function suggestShape(ability, area, caster, candidates) {
         (occupants.get(key) ?? occupants.set(key, []).get(key)).push(i);
       }
     });
-    const considerSquares = (squares, distance) => {
-      const hit = new Set();
-      for (const [sx, sy] of squares) for (const i of occupants.get(`${sx},${sy}`) ?? []) hit.add(i);
-      const score = hit.size;
-      if (!score || (best && score < best.score)) return;
-      const inRange = R ? squares.filter(([sx, sy]) => gapTo(fp, sx, sy) <= R).length : squares.length;
-      if (!inRange) return;
-      if (best && score === best.score && (inRange < best.inRange || (inRange === best.inRange && distance >= best.distance))) return;
-      best = { shapes: squareShapes(squares), mark: lineMark(area), score, inRange, distance };
-    };
+    const starts = [];
+    if (flat) starts.push(z0);
+    else for (let z = z0 - R; z <= Math.ceil(me.z + me.d) - 1 + R; z++) starts.push(z);
+    const tilts = flat ? [0] : TILTS;
     const seen = new Set();
     for (let vx = fp.gx - R; vx <= fp.gx + fp.w + R; vx++) {
       for (let vy = fp.gy - R; vy <= fp.gy + fp.h + R; vy++) {
         for (const point of [{ x: (vx + 0.5) * gs, y: vy * gs }, { x: vx * gs, y: (vy + 0.5) * gs }]) {
-          for (const rotation of rotationsFor(_turnStep)) {
+          for (const rotation of rotationsFor(flat ? _turnStep : Math.max(_turnStep, 15))) {
             const at = snapLineOrigin(area, point, rotation);
             const key = `${at.x},${at.y},${rotation}`;
             if (seen.has(key)) continue;
             seen.add(key);
-            if (isDiagonal(rotation)) considerSquares(diagonalSquares(area, at, rotation), fromUser(at.x, at.y));
-            else consider([lineShape(area, at.x, at.y, rotation)], fromUser(at.x, at.y));
+            for (const tilt of tilts) {
+              for (const z of starts) {
+                const line = tiltedLine(area, at, rotation, tilt, z);
+                const hit = new Set();
+                for (const [sx, sy] of line.squares) {
+                  const span = line.spanAt(sx, sy);
+                  for (const i of occupants.get(`${sx},${sy}`) ?? []) if (overlapsSpan(cols[i], span)) hit.add(i);
+                }
+                if (!hit.size || (best && hit.size < best.score)) continue;
+                if (!aboveGround(line.squares, line.spanAt)) continue;
+                const distance = fromUser(at.x, at.y) + Math.abs(tilt) / 90 + Math.abs(z - z0) * 0.5;
+                const inRange = rangeCount(line.squares, line.spanAt);
+                if (!better(hit.size, inRange, distance)) continue;
+                best = { shapes: line.shapes, mark: lineMark(area), score: hit.size, inRange, distance, geo: { z, tilt, line: { x: at.x, y: at.y, rotation } } };
+              }
+            }
           }
         }
       }
@@ -308,8 +429,8 @@ function suggestShape(ability, area, caster, candidates) {
   return best;
 }
 
-async function createHeldRegion(ability, shape, mark = null) {
-  const data = regionData(ability, shape, mark);
+async function createHeldRegion(ability, shape, mark = null, elevation = null) {
+  const data = regionData(ability, shape, mark, elevation);
   delete data.flags[DS];
   const [doc] = await canvas.scene.createEmbeddedDocuments('Region', [data], { dsctAreaHold: true });
   if (doc) await doc.update({ [`flags.${DS}.abilitySource`]: ability.uuid });
@@ -357,6 +478,11 @@ async function runAreaPicker(ability, area, caster) {
   let pendingClick = null;
   let generation = 0;
   _turnStep = defaultTurnStep();
+  const me = columnOf(caster);
+  const vert = { z: Math.floor(me.z), tilt: 0, line: null };
+  const burstSpan = { b: me.z - (area.radius ?? 0), t: me.z + me.d + (area.radius ?? 0) };
+  let spanAt = () => burstSpan;
+  let placing = null;
 
   const detail = area.shape === 'burst' ? L('detail.burst', { n: area.radius })
     : area.shape === 'cube' ? L('detail.cube', { n: area.size, range: area.range })
@@ -384,7 +510,9 @@ async function runAreaPicker(ability, area, caster) {
       onCancel: () => doCancel(),
       controls: [
         ...(movable ? [{ input: H('clickMap'), action: H('placeArea') }, { input: H('clickEmpty'), action: H('moveArea') }] : []),
-        ...(area.shape === 'line' ? [{ input: H('turnScroll'), action: H('turnLine') }, { input: H('rightClickTurn'), action: H('smallerStep') }] : []),
+        ...(area.shape === 'line' ? [{ input: H('shiftScroll'), action: H('turnLine') }, { input: H('rightClickTurn'), action: H('smallerStep') }] : []),
+        ...(movable ? [{ input: H(area.shape === 'line' ? 'ctrlScroll' : 'turnScroll'), action: H('raiseArea') }, { input: H('pageKeys'), action: H('raiseArea') }] : []),
+        ...(area.shape === 'line' ? [{ input: H('tiltKeys'), action: H('tiltLine') }] : []),
         ...(canExclude ? [{ input: H('clickInArea'), action: H('excludeTarget') }] : []),
       ],
       cancelOnRightClick: !!getSetting('cancelOnRightClick'),
@@ -410,6 +538,30 @@ async function runAreaPicker(ability, area, caster) {
         tooltip: L('turnTip'),
         tipCategory,
         onClick: () => cycleTurn(1),
+      }] : []), {
+        icon: 'fa-solid fa-arrow-up',
+        label: L('raise'),
+        tooltip: L('raiseTip'),
+        tipCategory,
+        onClick: () => shiftHeight(1),
+      }, {
+        icon: 'fa-solid fa-arrow-down',
+        label: L('lower'),
+        tooltip: L('raiseTip'),
+        tipCategory,
+        onClick: () => shiftHeight(-1),
+      }, ...(area.shape === 'line' ? [{
+        icon: 'fa-solid fa-arrow-trend-up',
+        label: L('tiltUp'),
+        tooltip: L('tiltTip'),
+        tipCategory,
+        onClick: () => shiftTilt(1),
+      }, {
+        icon: 'fa-solid fa-arrow-trend-down',
+        label: L('tiltDown'),
+        tooltip: L('tiltTip'),
+        tipCategory,
+        onClick: () => shiftTilt(-1),
       }] : [])] : [],
     });
 
@@ -429,6 +581,13 @@ async function runAreaPicker(ability, area, caster) {
       return list;
     };
 
+    const heightNote = () => {
+      if (!movable) return '';
+      const parts = [L('height', { n: vert.z })];
+      if (area.shape === 'line' && vert.tilt) parts.push(L('tilt', { n: Math.round(vert.tilt) }));
+      return ` · ${parts.join(' · ')}`;
+    };
+
     const draw = () => {
       _clearPickerReticles();
       for (const t of inside) {
@@ -436,13 +595,13 @@ async function runAreaPicker(ability, area, caster) {
         else _addPickerTarget(t, COLOR_IN);
       }
       if (state === 'placing' && !region) {
-        overlay.setStatus(`${L(area.shape === 'line' ? 'placingLine' : 'placing')} · ${L('count', { n: inside.length, s: inside.length === 1 ? '' : 's' })}`);
+        overlay.setStatus(`${L(area.shape === 'line' ? 'placingLine' : 'placing')} · ${L('count', { n: inside.length, s: inside.length === 1 ? '' : 's' })}${heightNote()}`);
       } else if (state === 'empty') {
         overlay.setStatus(L('empty'));
       } else {
         const n = included().length;
         const base = excluded.size ? L('countExcluded', { n, s: n === 1 ? '' : 's', x: excluded.size }) : L('count', { n, s: n === 1 ? '' : 's' });
-        overlay.setStatus(canExclude && inside.length ? `${base} · ${L('excludeHint')}` : base);
+        overlay.setStatus(`${canExclude && inside.length ? `${base} · ${L('excludeHint')}` : base}${heightNote()}`);
       }
       overlay.setReady(state === 'placed');
     };
@@ -453,19 +612,48 @@ async function runAreaPicker(ability, area, caster) {
       else overlay.setHoleRects(movable ? template : [casterRect, ...template]);
     };
 
+    const announce = (shapes) => {
+      const squares = shapes ? areaSquares(shapes) : [];
+      Hooks.callAll('dsct.areaPreview', squares.length ? {
+        caster, shape: area.shape, tilt: vert.tilt, bottom: vert.z, line: vert.line, size: area.size ?? area.width,
+        squares: squares.map(([x, y]) => ({ x, y, ...(spanAt(x, y) ?? {}) })).filter((s) => s.b !== undefined),
+        inside: inside.map((t) => t.id),
+        excluded: [...excluded],
+        setBottom: movable ? (z) => setHeight(z) : null,
+        aimAt: area.shape === 'line' ? (cell) => aimAt(cell) : null,
+      } : { caster, shape: area.shape, squares: [], inside: [], setBottom: movable ? (z) => setHeight(z) : null });
+    };
+
     const scan = (source) => {
       const shapes = source ? asShapes(source) : null;
       const probe = shapes?.length ? testDoc(shapes) : null;
-      inside = probe ? candidates.filter(t => t.document.testInsideRegion(probe)) : [];
+      inside = probe ? candidates.filter(t => inArea(t, probe, spanAt)) : [];
       for (const id of [...excluded]) if (!inside.some(t => t.id === id)) excluded.delete(id);
       updateHoles(shapes);
       draw();
+      announce(shapes);
     };
 
-    const coveredShapes = (doc) => {
+    const cubeSpan = () => ({ b: vert.z, t: vert.z + area.size });
+    const lineFrom = (shape) => ({ x: shape.x, y: shape.y, rotation: shape.rotation ?? 0 });
+    const currentLine = () => tiltedLine(area, vert.line, vert.line.rotation, vert.tilt, vert.z);
+
+    const covered = (doc) => {
       const list = shapesOf(doc);
-      if (area.shape !== 'line' || !list.length) return list;
-      return [...list.slice(0, -1), ...lineShapes(area, list[list.length - 1])];
+      if (area.shape === 'cube') {
+        const span = cubeSpan();
+        spanAt = () => span;
+        return { shapes: list, whole: span };
+      }
+      const last = list.at(-1);
+      if (area.shape !== 'line' || !last || last.type !== 'line') {
+        spanAt = () => burstSpan;
+        return { shapes: list, whole: burstSpan };
+      }
+      vert.line = lineFrom(last);
+      const line = currentLine();
+      spanAt = line.spanAt;
+      return { shapes: [...list.slice(0, -1), ...line.shapes], whole: line.whole, shaped: !!vert.tilt || isDiagonal(vert.line.rotation) };
     };
 
     
@@ -501,11 +689,71 @@ async function runAreaPicker(ability, area, caster) {
       return doc;
     };
 
-    const createRegion = async (shape, mark = null) => {
+    const createRegion = async (shape, mark = null, elevation = null) => {
       await dropRegion();
-      region = await createHeldRegion(ability, shape, mark);
+      region = await createHeldRegion(ability, shape, mark, elevation);
       state = region ? 'placed' : 'empty';
       scan(region);
+    };
+
+    const updatePlacing = () => {
+      if (!placing) return;
+      const c = covered(placing.document);
+      if (area.shape === 'line') squarePreview(placing.preview, c.shaped ? c.shapes : null);
+      scan(c.shapes);
+    };
+
+    const rebuild = async () => {
+      if (area.shape === 'cube') {
+        const span = cubeSpan();
+        spanAt = () => span;
+        await region.update({ elevation: elevationOf(span) });
+        scan(region);
+        return;
+      }
+      if (!vert.line) return;
+      const line = currentLine();
+      spanAt = line.spanAt;
+      const shaped = !!vert.tilt || isDiagonal(vert.line.rotation);
+      await createRegion(line.shapes, shaped ? lineMark(area) : null, elevationOf(line.whole));
+    };
+
+    let queue = Promise.resolve();
+    const refresh = () => {
+      queue = queue.then(async () => {
+        if (state === 'placing') updatePlacing();
+        else if (state === 'placed' && region) await rebuild();
+      }).catch((err) => console.warn('DSCT | area picker | height change failed:', err));
+      return queue;
+    };
+
+    const setHeight = (z) => {
+      if (!movable || !Number.isFinite(z)) return null;
+      vert.z = Math.round(z);
+      return refresh();
+    };
+    const shiftHeight = (dz) => setHeight(vert.z + dz);
+
+    const shiftTilt = (dir) => {
+      if (area.shape !== 'line') return null;
+      const next = dir > 0 ? TILTS.find((t) => t > vert.tilt + 1e-6) : [...TILTS].reverse().find((t) => t < vert.tilt - 1e-6);
+      if (next === undefined) return null;
+      vert.tilt = next;
+      return refresh();
+    };
+
+    const aimAt = ({ x, y, z }) => {
+      if (area.shape !== 'line' || !vert.line || !Number.isFinite(z)) return null;
+      const gs = gridSize();
+      const rad = (turnOf(vert.line.rotation) * Math.PI) / 180;
+      const dx = Math.cos(rad);
+      const dy = Math.sin(rad);
+      const major = Math.max(Math.abs(dx), Math.abs(dy));
+      const along = ((((x + 0.5) * gs - vert.line.x) * dx + ((y + 0.5) * gs - vert.line.y) * dy) / gs) * major;
+      const run = Math.max(0, Math.floor(along));
+      const rise = Math.round(z) - vert.z;
+      vert.tilt = run === 0 ? (rise === 0 ? 0 : Math.sign(rise) * 90) : Math.max(-90, Math.min(90, (Math.atan2(rise, run) * 180) / Math.PI));
+      return refresh();
     };
 
     const startPlacing = async () => {
@@ -528,20 +776,24 @@ async function runAreaPicker(ability, area, caster) {
           shape.updateSource(snapLineOrigin(area, position, shape.rotation ?? 0));
           return false;
         } : undefined,
-        onRotate: area.shape === 'line' ? ({ shape, event }) => {
+        onRotate: ({ shape, event, document, preview }) => {
+          placing = { document, preview };
+          const raising = area.shape === 'cube' || game.keyboard.isModifierActive('CONTROL');
+          if (raising) {
+            shiftHeight(-Math.sign(event.delta));
+            return false;
+          }
           const rotation = turnOf(Math.round(((shape.rotation ?? 0) + _turnStep * Math.sign(event.delta)) / _turnStep) * _turnStep);
           shape.updateSource({ rotation, ...snapLineOrigin(area, { x: shape.x, y: shape.y }, rotation) });
           return false;
-        } : () => false,
+        },
         onChange: ({ document, preview }) => {
           if (mine !== generation) return;
-          const shapes = coveredShapes(document);
-          const diagonal = area.shape === 'line' && isDiagonal(document.shapes.at(-1)?.rotation ?? 0);
-          if (area.shape === 'line') squarePreview(preview, diagonal ? shapes : null);
-          scan(shapes);
+          placing = { document, preview };
+          updatePlacing();
         },
         preConfirm: ({ document }) => {
-          if (!enforce || withinRange(coveredShapes(document), fp, area.range)) return true;
+          if (!enforce || withinRange(covered(document).shapes, fp, area.range, me, spanAt)) return true;
           overlay.flashWarning(L('outOfRange', { range: area.range }));
           return false;
         },
@@ -549,15 +801,14 @@ async function runAreaPicker(ability, area, caster) {
         preCommit: (documents) => {
           for (const doc of documents) {
             const changes = { [`flags.${DS}.abilitySource`]: new foundry.data.operators.ForcedDeletion() };
-            const line = doc.shapes.at(-1);
-            if (area.shape === 'line' && isDiagonal(line?.rotation ?? 0)) {
-              const shapes = coveredShapes(doc);
-              Object.assign(changes, { shapes, _shapeConstraints: null, [`flags.${M}.${LINE_FLAG}`]: lineMark(area) });
-            }
+            const c = covered(doc);
+            changes.elevation = elevationOf(c.whole);
+            if (c.shaped) Object.assign(changes, { shapes: c.shapes, _shapeConstraints: null, [`flags.${M}.${LINE_FLAG}`]: lineMark(area) });
             doc.updateSource(changes);
           }
         },
       }).catch((err) => { console.warn('DSCT | area picker | placement failed:', err); return null; });
+      placing = null;
       if (mine !== generation) {
         if (placed) await safeDelete(placed);
         return;
@@ -575,7 +826,18 @@ async function runAreaPicker(ability, area, caster) {
       if (state === 'placing') canvas.regions._cancelPlacement?.();
       excluded.clear();
       state = 'busy';
-      await createRegion(best.shapes, best.mark);
+      vert.z = best.geo.z;
+      let whole = { b: vert.z, t: vert.z + area.size };
+      let mark = null;
+      if (area.shape === 'line') {
+        vert.tilt = best.geo.tilt;
+        vert.line = best.geo.line;
+        const line = currentLine();
+        spanAt = line.spanAt;
+        whole = line.whole;
+        if (vert.tilt || isDiagonal(vert.line.rotation)) mark = lineMark(area);
+      } else spanAt = () => whole;
+      await createRegion(best.shapes, mark, elevationOf(whole));
     };
 
     const cleanup = () => {
@@ -591,6 +853,7 @@ async function runAreaPicker(ability, area, caster) {
       }
       canvas.stage.off('mousedown', onClick);
       document.removeEventListener('keydown', onKey);
+      Hooks.callAll('dsct.areaPreview', null);
     };
 
     const doCancel = async ({ quiet = false } = {}) => {
@@ -645,6 +908,13 @@ async function runAreaPicker(ability, area, caster) {
     };
 
     const onKey = (event) => {
+      const vertical = movable && { PageUp: () => shiftHeight(1), PageDown: () => shiftHeight(-1), ']': () => shiftTilt(1), '[': () => shiftTilt(-1) }[event.key];
+      if (vertical && !event.target?.closest?.('input, textarea, [contenteditable]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        vertical();
+        return;
+      }
       if (event.key === 'Enter' && state !== 'placing') {
         event.preventDefault();
         event.stopPropagation();
