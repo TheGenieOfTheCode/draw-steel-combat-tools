@@ -1401,6 +1401,13 @@
           "hint": "Who is healed. Each target is the default; the user heals themselves, for lines like \"you gain 10 temporary Stamina\"."
         }
       },
+      "Grant": {
+        "kind": { "label": "Grants", "hint": "What the creature may use now without spending an action." },
+        "kinds": { "freestrike": "A free strike", "maneuver": "A maneuver", "main": "A main action", "signature": "A signature ability", "heroic": "A heroic ability", "ability": "A named ability", "filter": "Abilities matching a filter" },
+        "ability": { "label": "Ability", "hint": "For a named ability: its name or identifier, like Stand Up or stand-up." },
+        "filter": { "label": "Filter", "hint": "For a filter: type=, category=, keyword= or tag= words, like keyword=melee category=signature." },
+        "recipient": { "label": "Goes To", "hint": "Who gets the action: the user, or each target." }
+      },
       "Cleanse": {
         "defaultLabel": "Cleanse an Effect",
         "standardLabel": "Cleanse one effect",
@@ -3004,6 +3011,7 @@
         "flatHeal": "Heal",
         "flatCleanse": "Cleanse",
         "flatTeleport": "Teleport",
+        "flatGrant": "Grant Action",
         "choose": "Choose",
         "hide": "Hide"
       }

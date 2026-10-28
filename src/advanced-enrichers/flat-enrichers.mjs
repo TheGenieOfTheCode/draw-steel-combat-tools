@@ -6,7 +6,7 @@ import { levelAllows, expendAllows } from '../ability-automation/flat-special-ef
 import { enricherSignatures, effectSignature } from './mirror.mjs';
 
 const DERIVED = 'dsctDrv';
-const FLAT_TYPES = new Set(['dsct.flatDamage', 'dsct.flatHeal', 'dsct.flatResource', 'dsct.flatApplied', 'dsct.flatForced', 'dsct.flatCleanse', 'dsct.flatTeleport']);
+const FLAT_TYPES = new Set(['dsct.flatDamage', 'dsct.flatHeal', 'dsct.flatResource', 'dsct.flatApplied', 'dsct.flatForced', 'dsct.flatCleanse', 'dsct.flatTeleport', 'dsct.flatGrant']);
 const GAIN_TYPES = new Set(['epic', 'heroic', 'renown', 'surge', 'victory', 'wealth']);
 const FORCED_WORDS = {
   vertical: 'vertical', 'ignore-stability': 'ignoreStability', 'no-collision-damage': 'nocollision', 'fast-auto-path': 'fast',
@@ -125,6 +125,13 @@ export const flatEnricherText = (effect, ability) => {
       const modePart = mode === 'adjacent' || mode === 'intoSpace' ? ` mode=${mode}` : '';
       const fallback = mode === 'intoSpace' ? game.i18n.localize('DSCT.FlatEffect.Teleport.intoSpaceLabel') : '';
       return `[[/${mode === 'swap' ? 'teleswap' : 'teleport'} ${quoted(distance)}${modePart} recipient=${self ? 'self' : 'target'}${spendPart(t)}${tag}]]${label(t.display || fallback)}`;
+    }
+    case 'dsct.flatGrant': {
+      const g = effect.flatGrant;
+      const spec = g.kind === 'ability' ? String(g.ability ?? '').trim().toLowerCase().replace(/\s+/g, '-')
+        : g.kind === 'filter' ? String(g.filter ?? '').trim() : g.kind;
+      if (!spec) return null;
+      return `[[/grant ${spec}${g.recipient === 'target' ? ' target' : ''}${tag}]]${label(g.display)}`;
     }
     default:
       return null;

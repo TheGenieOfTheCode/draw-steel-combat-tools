@@ -132,6 +132,15 @@ function _registerPartials() {
     {{formGroup ctx.preApplied.field value=ctx.preApplied.src name="flatResource.preApplied" localize=true}}
   `);
 
+  Handlebars.registerPartial("dsct.flat-grant", `
+    {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatGrant.displayText" localize=true}}
+    {{formGroup ctx.kind.field value=ctx.kind.src name="flatGrant.kind" options=ctx.kindOptions localize=true}}
+    {{formGroup ctx.ability.field value=ctx.ability.src name="flatGrant.ability" localize=true}}
+    {{formGroup ctx.filter.field value=ctx.filter.src name="flatGrant.filter" localize=true}}
+    {{formGroup ctx.recipient.field value=ctx.recipient.src name="flatGrant.recipient" options=ctx.recipientOptions localize=true}}
+    {{formGroup ctx.display.field value=ctx.display.src name="flatGrant.display" localize=true}}
+  `);
+
   Handlebars.registerPartial("dsct.flat-cleanse", `
     {{formGroup ctx.displayText.field value=ctx.displayText.src name="flatCleanse.displayText" localize=true}}
     {{formGroup ctx.recipient.field value=ctx.recipient.src name="flatCleanse.recipient" options=ctx.recipientOptions localize=true}}
@@ -678,6 +687,42 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
         enabled: { field: this.schema.getField("flatCleanse.spend.enabled"), src: src.spend.enabled },
         value:   { field: this.schema.getField("flatCleanse.spend.value"),   src: src.spend.value },
       },
+    };
+  }
+}
+
+const GRANT_KINDS = ["freestrike", "maneuver", "main", "signature", "heroic", "ability", "filter"];
+
+class FlatGrantSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseSpecialEffect {
+  static get TYPE() { return "dsct.flatGrant"; }
+
+  static defineSchema() {
+    return Object.assign(super.defineSchema(), {
+      flatGrant: new SchemaField({
+        displayText: new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.displayText.label", hint: "DSCT.FlatEffect.displayText.hint" }),
+        display:     new StringField({ required: false, blank: true, label: "DSCT.FlatEffect.display.label",     hint: "DSCT.FlatEffect.display.hint" }),
+        kind:        new StringField({ required: true, blank: false, initial: "freestrike", label: "DSCT.FlatEffect.Grant.kind.label", hint: "DSCT.FlatEffect.Grant.kind.hint" }),
+        ability:     new StringField({ required: false, blank: true, initial: "", label: "DSCT.FlatEffect.Grant.ability.label", hint: "DSCT.FlatEffect.Grant.ability.hint" }),
+        filter:      new StringField({ required: false, blank: true, initial: "", label: "DSCT.FlatEffect.Grant.filter.label", hint: "DSCT.FlatEffect.Grant.filter.hint" }),
+        recipient:   new StringField({ required: false, blank: false, initial: "self", label: "DSCT.FlatEffect.Grant.recipient.label", hint: "DSCT.FlatEffect.Grant.recipient.hint" }),
+      }),
+    });
+  }
+
+  get detailsPartial() { return "dsct.flat-grant"; }
+  showUse() { return false; }
+
+  get label() {
+    return game.i18n.localize(`DSCT.FlatEffect.Grant.kinds.${this.flatGrant.kind}`);
+  }
+
+  async getSheetContext() {
+    const src = this._source.flatGrant;
+    const f = (k) => ({ field: this.schema.getField(`flatGrant.${k}`), src: src[k] });
+    return {
+      displayText: f("displayText"), display: f("display"), kind: f("kind"), ability: f("ability"), filter: f("filter"), recipient: f("recipient"),
+      kindOptions: GRANT_KINDS.map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Grant.kinds.${value}`) })),
+      recipientOptions: ["self", "target"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Resource.Recipient.${value}`) })),
     };
   }
 }
@@ -1948,6 +1993,7 @@ function _installFlatEffectChatHook() {
   cfg["dsct.flatHeal"]    = { label: "TYPES.SpecialEffect.dsct.flatHeal",    defaultImage: "icons/svg/heal.svg",      documentClass: FlatHealSpecialEffect };
   cfg["dsct.flatCleanse"] = { label: "TYPES.SpecialEffect.dsct.flatCleanse", defaultImage: "icons/svg/aura.svg",      documentClass: FlatCleanseSpecialEffect };
   cfg["dsct.flatTeleport"] = { label: "TYPES.SpecialEffect.dsct.flatTeleport", defaultImage: "icons/svg/door-exit.svg", documentClass: FlatTeleportSpecialEffect };
+  cfg["dsct.flatGrant"]    = { label: "TYPES.SpecialEffect.dsct.flatGrant",    defaultImage: "icons/svg/upgrade.svg",   documentClass: FlatGrantSpecialEffect };
 })();
 
 function _installCreateDialogFilter() {
@@ -2295,5 +2341,10 @@ export function registerFlatEffects() {
     label: "TYPES.SpecialEffect.dsct.flatTeleport",
     defaultImage: "icons/svg/door-exit.svg",
     documentClass: FlatTeleportSpecialEffect,
+  };
+  ds.CONFIG.SpecialEffect["dsct.flatGrant"] = {
+    label: "TYPES.SpecialEffect.dsct.flatGrant",
+    defaultImage: "icons/svg/upgrade.svg",
+    documentClass: FlatGrantSpecialEffect,
   };
 }

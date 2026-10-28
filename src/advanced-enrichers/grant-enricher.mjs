@@ -20,7 +20,7 @@ export function parseSpec(spec) {
   let named = null;
   for (const word of String(spec).split(/\s+/).filter(Boolean)) {
     const [key, value] = word.split('=');
-    if (value !== undefined && FILTER_KEYS.includes(key)) filter[key] = key === 'type' ? value.split(',') : value;
+    if (value !== undefined) { if (FILTER_KEYS.includes(key)) filter[key] = key === 'type' ? value.split(',') : value; }
     else if (SHORT[word]) Object.assign(filter, SHORT[word]);
     else named = word;
   }
@@ -120,8 +120,8 @@ export function registerGrantEnricher() {
     pattern: /\[\[\/grant(?<config> [^\]]*?)?]](?!])(?:{(?<label>[^}]+)})?/gi,
     enricher: async (match) => {
       const words = (match.groups.config ?? '').trim().split(/\s+/).filter(Boolean).map((w) => w.toLowerCase());
-      const recipient = words.includes('target') || words.includes('targets') ? 'target' : 'self';
-      const what = words.filter((w) => !['target', 'targets', 'self'].includes(w)).join(' ');
+      const recipient = words.some((w) => ['target', 'targets', 'recipient=target'].includes(w)) ? 'target' : 'self';
+      const what = words.filter((w) => !['target', 'targets', 'self'].includes(w) && !(w.includes('=') && !FILTER_KEYS.includes(w.split('=')[0]))).join(' ');
       if (!what) return null;
       const { filter, named } = parseSpec(what);
       const short = Object.keys(SHORT).find((k) => what === k);
