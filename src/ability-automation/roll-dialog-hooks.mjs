@@ -5,6 +5,7 @@ import { stealthTraits } from '../conditions/stealth-traits.mjs';
 import { sizeRankG } from '../conditions/grab.mjs';
 import { getStrikeType, isCrossfadeStrike, getCrossfadeEdgeForAbility } from './class-shadow/crossfade.mjs';
 import { chooseKeywords } from './choose-effect.mjs';
+import { areaOriginFor } from './area-picker.mjs';
 import { richTip, tipAttrs, tipFor } from '../chat-tips.mjs';
 
 let _pillIdCounter = 0;
@@ -393,7 +394,8 @@ function _buildTargetPills(app, tokenId) {
   if (getSetting('coverBaneEnabled') && casterToken && _dealsDamage(ability) && !ignores('Cover')
       && !stealthTraits(casterToken).ignoresCoverBane) {
     const p = pill(mkId(`cov-${tokenId}`), 'bane', _doubled, 'Cover', null, tokenId, false);
-    p.enabled = coverWithBurrow(casterToken, targetToken);
+    const fromOrigin = getSetting('areaCoverFrom') === 'origin' ? areaOriginFor(ability) : null;
+    p.enabled = coverWithBurrow(casterToken, targetToken, fromOrigin ? { origin: fromOrigin } : undefined);
     pills.push(p);
   }
 

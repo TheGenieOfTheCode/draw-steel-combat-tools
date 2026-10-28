@@ -579,6 +579,12 @@
         "auto": "Automatic for everyone",
         "manual": "Manual for everyone"
       },
+      "areaCoverFrom": {
+        "name": "Area Cover From",
+        "hint": "Whether cover against an area ability is judged from the caster, as written, or from the area's origin square, which many tables read as the intent.",
+        "caster": "The caster",
+        "origin": "The origin square"
+      },
       "areaPickerTurnStep": {
         "name": "Line Turn Step",
         "hint": "How far each Shift + scroll turns a line when the Area Picker opens. The Turn button changes it for that pick. Everyone sets their own."

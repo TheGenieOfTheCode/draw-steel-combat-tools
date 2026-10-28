@@ -11,12 +11,12 @@ export {
 
 const M = 'draw-steel-combat-tools';
 
-export function coverWithBurrow(observer, target) {
+export function coverWithBurrow(observer, target, options = undefined) {
   if (getSetting('stealthSystemEnabled') && isBurrowing(target)) {
     if (!isBurrowing(observer)) return true;
     if (burrowAdjacent(observer, target)) return true;
   }
-  return hasCover(observer, target);
+  return hasCover(observer, target, options);
 }
 
 function _liftBelowGround() {

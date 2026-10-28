@@ -733,6 +733,11 @@ export const registerSettings = () => {
     scope: 'world', config: false, type: String, default: 'players',
     choices: { players: L('areaPickerOriginForce.players'), auto: L('areaPickerOriginForce.auto'), manual: L('areaPickerOriginForce.manual') },
   });
+  game.settings.register(M, 'areaCoverFrom', {
+    name: L('areaCoverFrom.name'), hint: L('areaCoverFrom.hint'),
+    scope: 'world', config: false, type: String, default: 'caster',
+    choices: { caster: L('areaCoverFrom.caster'), origin: L('areaCoverFrom.origin') },
+  });
   game.settings.register(M, 'areaPickerPlayerExclude', {
     name: L('areaPickerPlayerExclude.name'), hint: L('areaPickerPlayerExclude.hint'),
     scope: 'world', config: false, type: Boolean, default: false,

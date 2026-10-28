@@ -24,6 +24,13 @@ const RELEASE_WAIT_MS = 5000;
 const DIALOG_WAIT_MS = 15000;
 
 const _picked = new Map();
+const _origins = new Map();
+const ORIGIN_MEMORY_MS = 60000;
+
+export function areaOriginFor(ability) {
+  const o = ability?.uuid ? _origins.get(ability.uuid) : null;
+  return o && Date.now() - o.at < ORIGIN_MEMORY_MS ? o : null;
+}
 let _activeAreaCancel = null;
 
 const L = (key, data) => (data ? game.i18n.format(`DSCT.areaPicker.${key}`, data) : game.i18n.localize(`DSCT.areaPicker.${key}`));
@@ -1064,6 +1071,8 @@ async function runAreaPicker(ability, area, caster) {
       if (state !== 'placed' || !region) { overlay.flashWarning(L('noArea')); return; }
       ++generation;
       const targets = finalTargets();
+      if (origin) _origins.set(ability.uuid, { x: origin.x, y: origin.y, z: originCell(origin), at: Date.now() });
+      else _origins.delete(ability.uuid);
       const held = region;
       region = null;
       state = 'done';
