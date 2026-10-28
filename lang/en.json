@@ -6,6 +6,9 @@
       "main": "a Main Action",
       "signature": "a Signature Ability",
       "heroic": "a Heroic Ability",
+      "meleeFreestrike": "a Melee Free Strike",
+      "rangedFreestrike": "a Ranged Free Strike",
+      "moveText": { "shift": "Shift up to {n} squares", "move": "Move up to {n} squares", "jump": "Jump up to {n} squares" },
       "filtered": "an Ability",
       "label": "Use {name}",
       "labelTarget": "Targets use {name}",
@@ -1403,9 +1406,10 @@
       },
       "Grant": {
         "kind": { "label": "Grants", "hint": "What the creature may use now without spending an action." },
-        "kinds": { "freestrike": "A free strike", "maneuver": "A maneuver", "main": "A main action", "signature": "A signature ability", "heroic": "A heroic ability", "ability": "A named ability", "filter": "Abilities matching a filter" },
+        "kinds": { "freestrike": "A free strike", "maneuver": "A maneuver", "main": "A main action", "signature": "A signature ability", "heroic": "A heroic ability", "ability": "A named ability", "filter": "Abilities matching a filter", "shift": "A shift", "move": "A move", "jump": "A jump" },
         "ability": { "label": "Ability", "hint": "For a named ability: its name or identifier, like Stand Up or stand-up." },
-        "filter": { "label": "Filter", "hint": "For a filter: type=, category=, keyword= or tag= words, like keyword=melee category=signature." },
+        "filter": { "label": "Filter", "hint": "For a filter: type=, category=, keyword= or tag= words, like keyword=melee category=signature. Add melee or ranged to a free strike, like freestrike ranged." },
+        "distance": { "label": "Distance", "hint": "For a shift, move or jump: how many squares, like 2, @R or @movement.value for the creature's speed." },
         "recipient": { "label": "Goes To", "hint": "Who gets the action: the user, or each target." }
       },
       "Cleanse": {

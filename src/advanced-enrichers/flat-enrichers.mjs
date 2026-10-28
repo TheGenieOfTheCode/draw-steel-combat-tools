@@ -128,6 +128,10 @@ export const flatEnricherText = (effect, ability) => {
     }
     case 'dsct.flatGrant': {
       const g = effect.flatGrant;
+      if (['shift', 'move', 'jump'].includes(g.kind)) {
+        if (!String(g.distance ?? '').trim()) return null;
+        return `[[/${g.kind} ${quoted(g.distance)} recipient=${g.recipient === 'target' ? 'target' : 'self'}${tag}]]${label(g.display)}`;
+      }
       const spec = g.kind === 'ability' ? String(g.ability ?? '').trim().toLowerCase().replace(/\s+/g, '-')
         : g.kind === 'filter' ? String(g.filter ?? '').trim() : g.kind;
       if (!spec) return null;
@@ -138,7 +142,7 @@ export const flatEnricherText = (effect, ability) => {
   }
 };
 
-const flatEffectsOf = (ability) => Array.from(ability?.system?.effects?.contents ?? []).filter((e) => FLAT_TYPES.has(e.type));
+const flatEffectsOf = (ability) => Array.from(ability?.system?.effects?.contents ?? []).filter((e) => FLAT_TYPES.has(e.type)).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
 
 export const takesOver = (ability, effect) => {
   if (!on() || !ability || !FLAT_TYPES.has(effect?.type)) return false;

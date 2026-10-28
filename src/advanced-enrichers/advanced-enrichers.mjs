@@ -1687,7 +1687,7 @@ export function registerEnricherKind(enricherId, kind) {
   if (_wrapped) wrapEnricher(enricherId);
 }
 
-import { registerGrantEnricher, registerGrantKinds } from './grant-enricher.mjs';
+import { registerGrantEnricher, registerGrantKinds, registerMoveTextFallback } from './grant-enricher.mjs';
 import { teleportHandler, takeTeleportHandoff } from '../teleport.mjs';
 
 export function registerAdvancedEnrichers() {
@@ -1696,6 +1696,7 @@ export function registerAdvancedEnrichers() {
   registerFlatEnrichers();
   registerGrantEnricher();
   registerGrantKinds();
+  Hooks.once('setup', registerMoveTextFallback);
   for (const id of ENRICHER_IDS) wrapEnricher(id);
   _wrapped = true;
   services.provide('applyAutoEnrichers', applyAutoEnrichers);

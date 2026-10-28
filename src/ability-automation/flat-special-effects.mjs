@@ -137,6 +137,7 @@ function _registerPartials() {
     {{formGroup ctx.kind.field value=ctx.kind.src name="flatGrant.kind" options=ctx.kindOptions localize=true}}
     {{formGroup ctx.ability.field value=ctx.ability.src name="flatGrant.ability" localize=true}}
     {{formGroup ctx.filter.field value=ctx.filter.src name="flatGrant.filter" localize=true}}
+    {{#if ctx.moves}}{{formGroup ctx.distance.field value=ctx.distance.src name="flatGrant.distance" localize=true}}{{/if}}
     {{formGroup ctx.recipient.field value=ctx.recipient.src name="flatGrant.recipient" options=ctx.recipientOptions localize=true}}
     {{formGroup ctx.display.field value=ctx.display.src name="flatGrant.display" localize=true}}
   `);
@@ -692,6 +693,8 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
 }
 
 const GRANT_KINDS = ["freestrike", "maneuver", "main", "signature", "heroic", "ability", "filter"];
+const GRANT_MOVES = ["shift", "move", "jump"];
+const movesGranted = () => CONFIG.TextEditor.enrichers.some(e => e.id === "dsm.grant");
 
 class FlatGrantSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseSpecialEffect {
   static get TYPE() { return "dsct.flatGrant"; }
@@ -705,6 +708,7 @@ class FlatGrantSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Base
         ability:     new StringField({ required: false, blank: true, initial: "", label: "DSCT.FlatEffect.Grant.ability.label", hint: "DSCT.FlatEffect.Grant.ability.hint" }),
         filter:      new StringField({ required: false, blank: true, initial: "", label: "DSCT.FlatEffect.Grant.filter.label", hint: "DSCT.FlatEffect.Grant.filter.hint" }),
         recipient:   new StringField({ required: false, blank: false, initial: "self", label: "DSCT.FlatEffect.Grant.recipient.label", hint: "DSCT.FlatEffect.Grant.recipient.hint" }),
+        distance:    new StringField({ required: false, blank: true, initial: "", label: "DSCT.FlatEffect.Grant.distance.label", hint: "DSCT.FlatEffect.Grant.distance.hint" }),
       }),
     });
   }
@@ -720,8 +724,10 @@ class FlatGrantSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Base
     const src = this._source.flatGrant;
     const f = (k) => ({ field: this.schema.getField(`flatGrant.${k}`), src: src[k] });
     return {
-      displayText: f("displayText"), display: f("display"), kind: f("kind"), ability: f("ability"), filter: f("filter"), recipient: f("recipient"),
-      kindOptions: GRANT_KINDS.map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Grant.kinds.${value}`) })),
+      displayText: f("displayText"), display: f("display"), kind: f("kind"), ability: f("ability"), filter: f("filter"), recipient: f("recipient"), distance: f("distance"),
+      moves: movesGranted() || GRANT_MOVES.includes(src.kind),
+      kindOptions: [...GRANT_KINDS, ...(movesGranted() || GRANT_MOVES.includes(src.kind) ? GRANT_MOVES : [])]
+        .map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Grant.kinds.${value}`) })),
       recipientOptions: ["self", "target"].map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Resource.Recipient.${value}`) })),
     };
   }
@@ -999,7 +1005,6 @@ export async function grantTempStamina(actor, amount, stackKey = null) {
   await safeUpdate(actor, { 'system.stamina.temporary': next, [`flags.${MODULE_ID}.tempFrom`]: stackKey ? { key: stackKey, total: next } : null });
   return before;
 }
-
 
 export async function modifyAttributeSafely(actor, attribute, value, isDelta = false, isBar = true) {
   if (actor.isOwner) return actor.modifyTokenAttribute(attribute, value, isDelta, isBar);

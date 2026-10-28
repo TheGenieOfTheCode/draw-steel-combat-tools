@@ -1,4 +1,5 @@
 import { registerEnricherKind } from './advanced-enrichers.mjs';
+import { runHideFor } from '../ability-automation/hide-effect.mjs';
 
 const getSocket = () => game.modules.get('draw-steel-combat-tools')?.api?.socket ?? null;
 
@@ -12,6 +13,8 @@ const SHORT = {
 };
 const FREE_STRIKES = ['melee-free-strike', 'ranged-free-strike'];
 const FILTER_KEYS = ['type', 'category', 'keyword', 'tag'];
+const RANGES = ['melee', 'ranged'];
+const strikeOnly = (filter) => !!filter.strike && Object.keys(filter).every((k) => k === 'strike' || k === 'range');
 
 const hasTag = (item, tag) => { try { return !!globalThis.ctlib?.hasTags?.(item, tag); } catch { return false; } };
 
@@ -22,6 +25,7 @@ export function parseSpec(spec) {
     const [key, value] = word.split('=');
     if (value !== undefined) { if (FILTER_KEYS.includes(key)) filter[key] = key === 'type' ? value.split(',') : value; }
     else if (SHORT[word]) Object.assign(filter, SHORT[word]);
+    else if (RANGES.includes(word)) filter.range = word;
     else named = word;
   }
   return { filter, named };
@@ -31,6 +35,7 @@ export function matches(item, filter) {
   if (item.type !== 'ability') return false;
   const sys = item.system ?? {};
   if (filter.strike && !(FREE_STRIKES.includes(sys._dsid) || hasTag(item, 'free-strike'))) return false;
+  if (filter.range && !(sys._dsid === `${filter.range}-free-strike` || [...(sys.keywords ?? [])].includes(filter.range))) return false;
   if (filter.type && !filter.type.includes(sys.type)) return false;
   if (filter.category && sys.category !== filter.category) return false;
   if (filter.keyword && !(sys.keywords?.has?.(filter.keyword) ?? [...(sys.keywords ?? [])].includes(filter.keyword))) return false;
@@ -66,21 +71,32 @@ export async function useGranted({ actorUuid, what }) {
   const actor = fromUuidSync(actorUuid);
   if (!actor) return false;
   const { filter, named } = parseSpec(what);
-  const onlyStrike = filter.strike && Object.keys(filter).length === 1;
+  const onlyStrike = strikeOnly(filter);
   if (onlyStrike && !actor.items.some((i) => i.type === 'ability' && hasTag(i, 'free-strike'))) {
     const strike = game.modules.get('draw-steel-triggers')?.api?.freeStrike;
     markNextUse(actor);
-    if (strike) return !!(await strike(actor, 'melee'));
-    const item = actor.items.find((i) => i.system?._dsid === 'melee-free-strike');
-    if (item) return !!(await item.system.use());
-    return !!(await actor.system?.performFreeStrike?.());
+    if (strike) return postedDuring(actor, () => strike(actor, filter.range ?? 'melee'));
+    const item = actor.items.find((i) => i.system?._dsid === `${filter.range ?? 'melee'}-free-strike`);
+    if (item) return postedDuring(actor, () => item.system.use());
+    return postedDuring(actor, () => actor.system?.performFreeStrike?.());
   }
   const item = named
     ? actor.items.find((i) => i.type === 'ability' && (i.system?._dsid === named || i.name.toLowerCase() === named.replace(/-/g, ' ')))
     : await pick(actor, filter);
+  if (!item && ['hide', 'dsct-hide'].includes(named)) return !!(await runHideFor(actor.getActiveTokens()[0] ?? null));
   if (!item) return void ui.notifications.warn(say('none', { name: actor.name }));
   markNextUse(actor);
-  return !!(await item.system.use());
+  return postedDuring(actor, () => item.system.use());
+}
+
+async function postedDuring(actor, run) {
+  let posted = false;
+  const hook = Hooks.on('createChatMessage', (message) => {
+    if (message.speaker?.actor === actor.id || ChatMessage.getSpeakerActor(message.speaker) === actor) posted = true;
+  });
+  try { await run(); }
+  finally { Hooks.off('createChatMessage', hook); }
+  return posted;
 }
 
 function ownerOf(actor) {
@@ -125,11 +141,12 @@ export function registerGrantEnricher() {
       if (!what) return null;
       const { filter, named } = parseSpec(what);
       const short = Object.keys(SHORT).find((k) => what === k);
-      const name = short ? say(short) : named ? named.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : say('filtered');
+      const ranged = !short && !named && strikeOnly(filter) && filter.range;
+      const name = short ? say(short) : ranged ? say(`${filter.range}Freestrike`) : named ? named.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : say('filtered');
       if (!short && !named && !Object.keys(filter).length) return null;
       const label = match.groups.label ?? say(recipient === 'target' ? 'labelTarget' : 'label', { name });
       return ds.applications.ux.helpers.createLink(label, { dsctGrant: what, recipient, tooltip: say(recipient === 'target' ? 'tipTarget' : 'tip', { name }) },
-        { icon: ICONS[short] ?? 'fa-bolt' });
+        { icon: ICONS[short] ?? (ranged ? ICONS.freestrike : 'fa-bolt') });
     },
     onRender: (element) => element.querySelector('a')?.addEventListener('click', onClick),
   });
@@ -146,6 +163,30 @@ const grantKind = (recipient) => ({
     return out;
   },
 });
+
+const MOVE_WORDS = { shift: 'fa-shoe-prints', move: 'fa-person-walking', jump: 'fa-person-running' };
+
+export function registerMoveTextFallback() {
+  if (CONFIG.TextEditor.enrichers.some((e) => e.id === 'dsm.grant')) return;
+  CONFIG.TextEditor.enrichers.push({
+    id: 'dsct.moveText',
+    pattern: /\[\[\/(?<type>shift|move|jump)(?<config> [^\]]*?)?]](?!])(?:{(?<label>[^}]+)})?/gi,
+    enricher: async (match, options) => {
+      const H = ds.applications.ux.helpers;
+      const type = match.groups.type.toLowerCase();
+      const c = H.parseConfig(match.groups.config ?? '');
+      const raw = String(c.distance ?? c.values?.[0] ?? '');
+      const formula = ds.rolls.DSRoll.replaceFormulaData(raw, options?.rollData ?? options?.relativeTo?.getRollData?.() ?? {});
+      let n = Number(formula);
+      if (!Number.isFinite(n)) { try { n = new Roll(formula).evaluateSync({ strict: false }).total; } catch { n = NaN; } }
+      const span = document.createElement('span');
+      span.className = 'dsct-move-text';
+      span.innerHTML = `<i class="fa-solid ${MOVE_WORDS[type]}"></i> `;
+      span.append(match.groups.label ?? say(`moveText.${type}`, { n: Number.isFinite(n) ? n : raw }));
+      return span;
+    },
+  });
+}
 
 export function registerGrantKinds() {
   registerEnricherKind('dsct.grant', grantKind('speaker'));
