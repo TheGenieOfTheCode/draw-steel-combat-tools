@@ -72,9 +72,11 @@ function _patchVisionOrigins() {
       const dest = test.point;
       const elevation = visionSource.origin?.elevation;
       
+      const levels = [visionSource.level, test.level].filter(Boolean);
       for (const o of sightOriginPoints(tok).slice(1)) {
         const origin = { x: o.x, y: o.y, elevation };
-        if (!backend.testCollision(origin, dest, { type: 'sight', mode: 'any', source: visionSource })) return true;
+        if (levels.some((level) => canvas.scene.testSurfaceCollision(origin, dest, { type: 'sight', mode: 'any', level }))) continue;
+        if (!backend.testCollision(origin, dest, { type: 'sight', mode: 'any', source: visionSource, level: visionSource.level })) return true;
       }
       return false;
     },
