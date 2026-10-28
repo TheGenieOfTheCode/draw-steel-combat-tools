@@ -336,6 +336,9 @@ function suggestShape(ability, area, caster, candidates) {
   const z0 = Math.floor(me.z);
   const cols = candidates.map(columnOf);
   const colOf = new Map(candidates.map((t, i) => [t.id, cols[i]]));
+  const lib = globalThis.ctlib;
+  const sees = candidates.map((t) => t.id === caster.id || !lib?.hasSightToToken || lib.hasSightToToken(caster, t));
+  const visible = new Set(candidates.filter((t, i) => sees[i]).map((t) => t.id));
   const flat = cols.every((c) => Math.floor(c.z) === z0);
   let best = null;
   const better = (score, inRange, distance) => score > 0 && inRange > 0
@@ -367,7 +370,7 @@ function suggestShape(ability, area, caster, candidates) {
         if (R && gap > R) continue;
         const shapes = [cubeShape(area, gx, gy)];
         const doc = testDoc(shapes);
-        const across = candidates.filter(t => t.document.testInsideRegion(doc));
+        const across = candidates.filter(t => visible.has(t.id) && t.document.testInsideRegion(doc));
         if (!across.length) continue;
         let squares = null;
         for (const z of zs) {
@@ -411,7 +414,7 @@ function suggestShape(ability, area, caster, candidates) {
                 const hit = new Set();
                 for (const [sx, sy] of line.squares) {
                   const span = line.spanAt(sx, sy);
-                  for (const i of occupants.get(`${sx},${sy}`) ?? []) if (overlapsSpan(cols[i], span)) hit.add(i);
+                  for (const i of occupants.get(`${sx},${sy}`) ?? []) if (sees[i] && overlapsSpan(cols[i], span)) hit.add(i);
                 }
                 if (!hit.size || (best && hit.size < best.score)) continue;
                 if (!aboveGround(line.squares, line.spanAt)) continue;
@@ -574,7 +577,45 @@ async function runAreaPicker(ability, area, caster) {
     };
     turnButton?.addEventListener('contextmenu', (ev) => { ev.preventDefault(); cycleTurn(-1); });
 
-    const included = () => inside.filter(t => !excluded.has(t.id));
+    const lib = globalThis.ctlib;
+    const casterCol = lib?.tokenColumn?.(caster) ?? null;
+    const casterPoints = () => lib?.sightOriginPoints?.(caster) ?? [caster.center];
+    let origin = null;
+    let barred = new Set();
+    const forced = new Set();
+    const squareColumn = (s) => ({ heights: [s.b + 0.05, s.t - 0.05], level: casterCol?.level ?? null });
+    const clear3d = (a, b, from, to) => !lib?.lineBlocked3d || !lib.lineBlocked3d(a, b, from, to);
+    const centreOf = (sx, sy) => ({ x: (sx + 0.5) * gridSize(), y: (sy + 0.5) * gridSize() });
+
+    const near = (q) => Math.hypot(q.x + 0.5 - (fp.gx + fp.w / 2), q.y + 0.5 - (fp.gy + fp.h / 2));
+    const pickOrigin = (squares) => {
+      const ranked = squares.flatMap(([sx, sy]) => {
+        const s = spanAt(sx, sy);
+        return s ? [{ x: sx, y: sy, b: s.b, t: s.t, gap: Math.max(gapTo(fp, sx, sy), gapZ(me, s)) }] : [];
+      }).sort((p, q) => p.gap - q.gap || near(p) - near(q));
+      if (!casterCol) return ranked[0] ? { ...ranked[0], sees: true } : null;
+      const from = casterPoints();
+      for (const q of ranked) {
+        if (area.range && q.gap > area.range) break;
+        const c = centreOf(q.x, q.y);
+        if (q.gap === 0 || from.some((p) => clear3d(p, c, casterCol, squareColumn(q)))) return { ...q, sees: true };
+      }
+      return ranked[0] ? { ...ranked[0], sees: false } : null;
+    };
+
+    const reaches = (t) => {
+      if (t.id === caster.id || forced.has(t.id) || !lib?.tokenColumn) return true;
+      if (area.shape === 'burst') return lib.hasSightToToken ? lib.hasSightToToken(caster, t) : true;
+      if (!origin) return true;
+      const fpT = footprint(t);
+      if (origin.x >= fpT.gx && origin.x < fpT.gx + fpT.w && origin.y >= fpT.gy && origin.y < fpT.gy + fpT.h) return true;
+      const o = centreOf(origin.x, origin.y);
+      const col = lib.tokenColumn(t);
+      const points = lib.sightSamplePoints?.(t) ?? [t.center];
+      return points.some((p) => clear3d(o, p, squareColumn(origin), col));
+    };
+
+    const included = () => inside.filter(t => !excluded.has(t.id) && !barred.has(t.id));
     const finalTargets = () => {
       const list = included();
       if (withSelf && !list.some(t => t.id === caster.id)) list.unshift(caster);
@@ -591,17 +632,20 @@ async function runAreaPicker(ability, area, caster) {
     const draw = () => {
       _clearPickerReticles();
       for (const t of inside) {
-        if (excluded.has(t.id)) _addPickerReticle(t, COLOR_OUT, 0.8);
+        if (excluded.has(t.id) || barred.has(t.id)) _addPickerReticle(t, COLOR_OUT, 0.8);
         else _addPickerTarget(t, COLOR_IN);
       }
+      const behind = barred.size ? ` · ${L('barred', { n: barred.size })}` : '';
+      const noOrigin = origin && !origin.sees ? ` · ${L('noOrigin')}` : '';
       if (state === 'placing' && !region) {
-        overlay.setStatus(`${L(area.shape === 'line' ? 'placingLine' : 'placing')} · ${L('count', { n: inside.length, s: inside.length === 1 ? '' : 's' })}${heightNote()}`);
+        const n = included().length;
+        overlay.setStatus(`${L(area.shape === 'line' ? 'placingLine' : 'placing')} · ${L('count', { n, s: n === 1 ? '' : 's' })}${behind}${noOrigin}${heightNote()}`);
       } else if (state === 'empty') {
         overlay.setStatus(L('empty'));
       } else {
         const n = included().length;
         const base = excluded.size ? L('countExcluded', { n, s: n === 1 ? '' : 's', x: excluded.size }) : L('count', { n, s: n === 1 ? '' : 's' });
-        overlay.setStatus(`${canExclude && inside.length ? `${base} · ${L('excludeHint')}` : base}${heightNote()}`);
+        overlay.setStatus(`${canExclude && inside.length ? `${base} · ${L('excludeHint')}` : base}${behind}${noOrigin}${heightNote()}`);
       }
       overlay.setReady(state === 'placed');
     };
@@ -617,8 +661,9 @@ async function runAreaPicker(ability, area, caster) {
       Hooks.callAll('dsct.areaPreview', squares.length ? {
         caster, shape: area.shape, tilt: vert.tilt, bottom: vert.z, line: vert.line, size: area.size ?? area.width,
         squares: squares.map(([x, y]) => ({ x, y, ...(spanAt(x, y) ?? {}) })).filter((s) => s.b !== undefined),
-        inside: inside.map((t) => t.id),
-        excluded: [...excluded],
+        inside: included().map((t) => t.id),
+        excluded: [...excluded, ...barred],
+        origin: origin ? { x: origin.x, y: origin.y, sees: origin.sees } : null,
         setBottom: movable ? (z) => setHeight(z) : null,
         aimAt: area.shape === 'line' ? (cell) => aimAt(cell) : null,
       } : { caster, shape: area.shape, squares: [], inside: [], setBottom: movable ? (z) => setHeight(z) : null });
@@ -628,6 +673,8 @@ async function runAreaPicker(ability, area, caster) {
       const shapes = source ? asShapes(source) : null;
       const probe = shapes?.length ? testDoc(shapes) : null;
       inside = probe ? candidates.filter(t => inArea(t, probe, spanAt)) : [];
+      origin = probe && movable ? pickOrigin(areaSquares(shapes)) : null;
+      barred = new Set(inside.filter((t) => !reaches(t)).map((t) => t.id));
       for (const id of [...excluded]) if (!inside.some(t => t.id === id)) excluded.delete(id);
       updateHoles(shapes);
       draw();
@@ -793,9 +840,17 @@ async function runAreaPicker(ability, area, caster) {
           updatePlacing();
         },
         preConfirm: ({ document }) => {
-          if (!enforce || withinRange(covered(document).shapes, fp, area.range, me, spanAt)) return true;
-          overlay.flashWarning(L('outOfRange', { range: area.range }));
-          return false;
+          if (!enforce) return true;
+          const shapes = covered(document).shapes;
+          if (!withinRange(shapes, fp, area.range, me, spanAt)) {
+            overlay.flashWarning(L('outOfRange', { range: area.range }));
+            return false;
+          }
+          if (pickOrigin(areaSquares(shapes))?.sees === false) {
+            overlay.flashWarning(L('noOriginWarn', { range: area.range }));
+            return false;
+          }
+          return true;
         },
         preSkip: () => false,
         preCommit: (documents) => {
@@ -899,7 +954,9 @@ async function runAreaPicker(ability, area, caster) {
       const hit = state === 'placed' ? hitToken(pos, inside) : null;
       if (hit) {
         if (!canExclude) return;
-        if (excluded.has(hit.id)) excluded.delete(hit.id);
+        if (barred.has(hit.id)) { forced.add(hit.id); barred.delete(hit.id); }
+        else if (forced.has(hit.id)) { forced.delete(hit.id); barred.add(hit.id); }
+        else if (excluded.has(hit.id)) excluded.delete(hit.id);
         else excluded.add(hit.id);
         draw();
         return;

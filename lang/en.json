@@ -1606,6 +1606,9 @@
       "tiltTip": "Tilt the line so it climbs or drops as it goes. [ and ] do the same.",
       "height": "Height {n}",
       "tilt": "Tilted {n}°",
+      "barred": "{n} behind a barrier, click one to count it anyway",
+      "noOrigin": "No square within reach that you have line of effect to",
+      "noOriginWarn": "You need line of effect to a square of the area within {range} squares of you.",
       "outOfRange": "The area has to be within {range} squares of you.",
       "noArea": "Place the area first.",
       "cancelled": "Area targeting cancelled."
