@@ -329,6 +329,21 @@ const _addEffects = async (item, effects) => {
   if (effects.length) await item.createEmbeddedDocuments('ActiveEffect', effects, { keepId: true });
 };
 
+const SPECIAL = 'enhancedSpecialEffects';
+
+const _mergeSpecialEffects = async (item, system) => {
+  const ops = foundry.data?.operators;
+  if (item.type !== 'ability' || !ops?.ForcedDeletion) return [];
+  const ours = Object.entries(system?.effects ?? {}).filter(([, e]) => String(e?.type ?? '').startsWith('dsct.'));
+  const keep = new Set(ours.map(([id]) => id));
+  const have = item.toObject()?.system?.effects ?? {};
+  const next = {};
+  for (const id of item.getFlag(ENH_FLAG, SPECIAL) ?? []) if (!keep.has(id) && have[id]) next[id] = new ops.ForcedDeletion();
+  for (const [id, entry] of ours) next[id] = have[id] ? ops.ForcedReplacement.create(entry) : entry;
+  if (Object.keys(next).length) await item.update({ system: { effects: next } });
+  return [...keep];
+};
+
 const GRANTED_BY = 'enhancedGrantedBy';
 
 export async function syncEnhancedGrants(item, doc) {
@@ -371,6 +386,7 @@ export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
   const flags = { ...(data.flags?.[ENH_FLAG] ?? {}), enhanced: true, enhancedHash: hash };
   if (effectsOnly) {
     await _addEffects(item, data.effects ?? []);
+    flags[SPECIAL] = await _mergeSpecialEffects(item, data.system);
     await item.update({ flags: { [ENH_FLAG]: flags } });
     return true;
   }
