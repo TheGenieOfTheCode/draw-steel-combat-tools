@@ -42,7 +42,7 @@ const _escapeGrabInFlight = new Set();
 const _bleedingInFlight   = new Set();
 const _recentlyCreated    = new Set();
 
-const BLEED_ACTIONS = new Set(['main', 'triggered', 'freeTriggered']);
+const BLEED_ACTIONS = new Set(['main', 'triggered']);
 const BLEED_CHARACTERISTICS = ['might', 'agility'];
 
 const bleedsOn = (msg) => {
