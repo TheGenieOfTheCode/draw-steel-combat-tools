@@ -1379,11 +1379,12 @@ const onClick = (ec, a, message, key, kind) => async (event) => {
   }
 };
 
-const autoApplies = (kind, a, message) => {
+const autoApplies = (kind, a, message, ec) => {
   if (message?.getFlag(M, 'autoApply')) return true;
   const ability = abilityOf(message);
   if (!ability) return false;
   if (Number(sourceConfig(a).spend) > 0) return false;
+  if (!sourceConfig(a).flat && !sourceConfig(a).recipient && ability.system?.target?.type === 'self' && OTHERS.test(sentenceBefore(ec))) return false;
   if (sourceConfig(a).flat) {
     if (kind.id === 'forced') return (a.dataset.properties ?? '').split(',').includes('fast-auto-path') || autoPathsFm(message, a);
     if (kind.id === 'cleanse') return a.dataset.all === 'true';
@@ -1424,7 +1425,7 @@ const decorate = (ec) => {
   ec.dataset.advKind = kind.id;
   ec.classList.add('dsct-adv');
   ec._advOriginal = a.innerHTML;
-  if (autoApplies(kind, a, message)) ec.dataset.advAuto = '1';
+  if (autoApplies(kind, a, message, ec)) ec.dataset.advAuto = '1';
   build(ec, a, message, key, kind);
   ec.addEventListener('click', onClick(ec, a, message, key, kind), { capture: true });
   ensureRoll(kind, message, key, a).catch((err) => console.warn('DSCT | advanced enricher | roll failed:', err));

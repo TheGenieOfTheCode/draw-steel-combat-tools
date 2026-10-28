@@ -521,6 +521,7 @@ const _wouldPrompt = (actionRow, btn, message) => {
 const AUTO_APPLY_SETTLE_MS = 600;
 const FM_SETTLE_MAX_MS = 15000;
 const NOT_APPLY = new Set(['undoDamage', 'undoStatus', 'editDamage', 'editRoll', 'updateTargets', 'rollReactive']);
+const TEXT_FREE_STRIKE = 'dstFreeStrike000';
 
 const _effectRows = (targetRow) => [...targetRow.querySelectorAll(`.${DSTD}-action-row`)].filter(r => !r.classList.contains('dsct-dstd-global-row'));
 
@@ -597,6 +598,7 @@ const _autoButton = (actionRow, safe = false, message = null) => {
   if (verdict === 'affected' && _damageHeld(actionRow, message)) return null;
   const btn = [...actionRow.children].find(c => c.tagName === 'BUTTON');
   if (!btn || btn.disabled || NOT_APPLY.has(btn.dataset.dstdAction) || btn.classList.contains(`${DSTD}-undo-button`)) return null;
+  if (btn.dataset.partId === TEXT_FREE_STRIKE) return null;
   if (btn.dataset.dstdAction === 'applyStatus' && verdict !== 'affected' && _statusHasPotency(btn, message)) return null;
   if (actionRow.classList.contains('dsct-dstd-fm-row') && !/\bAuto\b/.test(btn.textContent)) return null;
   if (safe && _wouldPrompt(actionRow, btn, message)) return null;
@@ -2308,6 +2310,13 @@ async function _injectFmButtons(message, root) {
     const body = row.querySelector(`.${DSTD}-target-body`);
     if (!body) continue;
     const actions = body.querySelector(`.${DSTD}-target-actions`) ?? body;
+    if (onUserRow) {
+      for (const b of actions.querySelectorAll(`button[data-part-id="${TEXT_FREE_STRIKE}"]`)) {
+        const strikeRow = b.closest(`.${DSTD}-action-row`) ?? b;
+        strikeRow.style.display = 'none';
+        strikeRow.dataset.dsctManual = '1';
+      }
+    }
 
     for (const effect of fmEffects) {
       if (!doFm || selfOnlyRow || othersOnlyRow) break;
