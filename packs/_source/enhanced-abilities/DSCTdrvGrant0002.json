@@ -1,0 +1,79 @@
+{
+  "folder": "DSCTfldDrvHero01",
+  "name": "Melee Superiority",
+  "type": "ability",
+  "_id": "DSCTdrvGrant0002",
+  "img": "icons/skills/melee/strike-sword-steel-yellow.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "freeTriggered",
+    "category": "",
+    "resource": null,
+    "trigger": "A creature marked by you attempts to move or shift within distance of your melee free strike",
+    "distance": {
+      "type": "special",
+      "primary": "",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "special",
+      "custom": "",
+      "value": null
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "dsctDrvGrantAc01": {
+        "_id": "dsctDrvGrantAc01",
+        "type": "dsct.flatGrant",
+        "name": "",
+        "img": null,
+        "sort": 100000,
+        "description": "",
+        "before": false,
+        "flatGrant": {
+          "displayText": "Make a melee free strike against that creature",
+          "display": "Free Strike",
+          "kind": "filter",
+          "ability": "",
+          "filter": "freestrike melee",
+          "recipient": "self",
+          "distance": ""
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": "melee-superiority-a-creature-marked-by-you-attempts-to-move-or-shift-within-dist"
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrvGrant0002"
+}

@@ -1,0 +1,97 @@
+{
+  "folder": "DSCTfldDrvHero01",
+  "name": "Bait and Ambush",
+  "type": "ability",
+  "_id": "DSCTdrvGrant0001",
+  "img": "icons/magic/perception/eye-ringed-glow-angry-small-red.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "freeTriggered",
+    "category": "",
+    "resource": null,
+    "trigger": "You or any ally makes a strike against a creature marked by you",
+    "distance": {
+      "type": "special",
+      "primary": "",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "special",
+      "custom": "",
+      "value": null
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "dsctDrvGrantMv01": {
+        "_id": "dsctDrvGrantMv01",
+        "type": "dsct.flatGrant",
+        "name": "",
+        "img": null,
+        "sort": 100000,
+        "description": "",
+        "before": false,
+        "flatGrant": {
+          "displayText": "The striker shifts up to a number of squares equal to your Reason score",
+          "display": "Shift",
+          "kind": "shift",
+          "ability": "",
+          "filter": "",
+          "recipient": "target",
+          "distance": "@R"
+        }
+      },
+      "dsctDrvGrantAc01": {
+        "_id": "dsctDrvGrantAc01",
+        "type": "dsct.flatGrant",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatGrant": {
+          "displayText": "The striker uses the Hide maneuver as a free maneuver",
+          "display": "Hide",
+          "kind": "ability",
+          "ability": "hide",
+          "filter": "",
+          "recipient": "target",
+          "distance": ""
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": "bait-and-ambush-you-or-any-ally-makes-a-strike-against-a-creature-marked-by-you"
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrvGrant0001"
+}
