@@ -25,6 +25,7 @@ import { registerJudgedMarked } from './conditions/judged-marked.mjs';
 import { registerTriggersDerived } from './compat/triggers-derived.mjs';
 import { registerApplyToTargets, applyEnricherPayload } from './conditions/apply-to-targets.mjs';
 import { registerAdvancedEnrichers, registerEnricherKind } from './advanced-enrichers/advanced-enrichers.mjs';
+import { useGranted } from './advanced-enrichers/grant-enricher.mjs';
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { registerAreaLineRendering } from './ability-automation/area-picker.mjs';
@@ -565,6 +566,7 @@ Hooks.once('socketlib.ready', () => {
   const socket = socketlib.registerModule('draw-steel-combat-tools');
   api.socket = socket;
 
+  socket.register('dsct.useGranted',        (payload) => useGranted(payload));
   socket.register('dsct.detected',          (spotterId, hiderId) => playDetected(spotterId, hiderId));
   socket.register('dsct.applyToTargets',    (payload) => applyEnricherPayload(payload));
   socket.register('dsct.stealthPing',       (at, sceneId) => { if (game.user.isGM) pingStealthStop(at, sceneId); });

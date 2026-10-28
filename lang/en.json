@@ -1,5 +1,21 @@
 {
   "DSCT": {
+    "grantAction": {
+      "freestrike": "a Free Strike",
+      "maneuver": "a Maneuver",
+      "main": "a Main Action",
+      "signature": "a Signature Ability",
+      "heroic": "a Heroic Ability",
+      "filtered": "an Ability",
+      "label": "Use {name}",
+      "labelTarget": "Targets use {name}",
+      "tip": "Use {name} now without spending an action.",
+      "tipTarget": "Each targeted creature uses {name} now without spending an action.",
+      "pickTitle": "{name}: Choose One",
+      "none": "{name} has nothing to use for this.",
+      "noTargets": "Target the creatures that get this action first.",
+      "noMover": "Select the creature that acts first."
+    },
     "applyToTargets": {
       "tooltip": "Shift-click to apply to your targets instead.",
       "noTargets": "Target the tokens to apply this to."

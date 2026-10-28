@@ -1683,10 +1683,14 @@ export function registerEnricherKind(enricherId, kind) {
   if (_wrapped) wrapEnricher(enricherId);
 }
 
+import { registerGrantEnricher, registerGrantKinds } from './grant-enricher.mjs';
+
 export function registerAdvancedEnrichers() {
   registerPanelDecorator({ id: 'advanced-enrichers-apply-rows', priority: 5, decorate: dropApplyRows });
   registerCtEnrichers();
   registerFlatEnrichers();
+  registerGrantEnricher();
+  registerGrantKinds();
   for (const id of ENRICHER_IDS) wrapEnricher(id);
   _wrapped = true;
   services.provide('applyAutoEnrichers', applyAutoEnrichers);
