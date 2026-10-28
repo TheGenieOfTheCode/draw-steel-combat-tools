@@ -328,7 +328,7 @@ const rangeRect = (fp, range) => ({
   w: (fp.w + range * 2) * gridSize(), h: (fp.h + range * 2) * gridSize(),
 });
 
-function suggestShape(ability, area, caster, candidates) {
+function suggestShape(ability, area, caster, candidates, must = null) {
   const fp = footprint(caster);
   const R = area.range;
   const gs = gridSize();
@@ -339,7 +339,12 @@ function suggestShape(ability, area, caster, candidates) {
   const lib = globalThis.ctlib;
   const sees = candidates.map((t) => t.id === caster.id || !lib?.hasSightToToken || lib.hasSightToToken(caster, t));
   const visible = new Set(candidates.filter((t, i) => sees[i]).map((t) => t.id));
-  const flat = cols.every((c) => Math.floor(c.z) === z0);
+  const flat = !must && cols.every((c) => Math.floor(c.z) === z0);
+  const holds = (squares, spanAt) => !must || squares.some(([sx, sy]) => {
+    if (sx !== must.x || sy !== must.y) return false;
+    const span = spanAt(sx, sy);
+    return !!span && span.b <= must.z && must.z < span.t;
+  });
   let best = null;
   const better = (score, inRange, distance) => score > 0 && inRange > 0
     && !(best && (score < best.score || (score === best.score && (inRange < best.inRange || (inRange === best.inRange && distance >= best.distance)))));
@@ -368,6 +373,7 @@ function suggestShape(ability, area, caster, candidates) {
       for (let gy = fp.gy - R - n + 1; gy <= fp.gy + fp.h - 1 + R; gy++) {
         const gap = Math.max(0, fp.gx - (gx + n - 1), gx - (fp.gx + fp.w - 1), fp.gy - (gy + n - 1), gy - (fp.gy + fp.h - 1));
         if (R && gap > R) continue;
+        if (must && (must.x < gx || must.x > gx + n - 1 || must.y < gy || must.y > gy + n - 1)) continue;
         const shapes = [cubeShape(area, gx, gy)];
         const doc = testDoc(shapes);
         const across = candidates.filter(t => visible.has(t.id) && t.document.testInsideRegion(doc));
@@ -375,6 +381,7 @@ function suggestShape(ability, area, caster, candidates) {
         let squares = null;
         for (const z of zs) {
           const span = { b: z, t: z + n };
+          if (must && (must.z < z || must.z > z + n - 1)) continue;
           const score = across.filter(t => overlapsSpan(colOf.get(t.id), span)).length;
           if (!score || (best && score < best.score)) continue;
           squares ??= areaSquares(shapes);
@@ -417,7 +424,7 @@ function suggestShape(ability, area, caster, candidates) {
                   for (const i of occupants.get(`${sx},${sy}`) ?? []) if (sees[i] && overlapsSpan(cols[i], span)) hit.add(i);
                 }
                 if (!hit.size || (best && hit.size < best.score)) continue;
-                if (!aboveGround(line.squares, line.spanAt)) continue;
+                if (!aboveGround(line.squares, line.spanAt) || !holds(line.squares, line.spanAt)) continue;
                 const distance = fromUser(at.x, at.y) + Math.abs(tilt) / 90 + Math.abs(z - z0) * 0.5;
                 const inRange = rangeCount(line.squares, line.spanAt);
                 if (!better(hit.size, inRange, distance)) continue;
@@ -516,6 +523,7 @@ async function runAreaPicker(ability, area, caster) {
         ...(area.shape === 'line' ? [{ input: H('shiftScroll'), action: H('turnLine') }, { input: H('rightClickTurn'), action: H('smallerStep') }] : []),
         ...(movable ? [{ input: H(area.shape === 'line' ? 'ctrlScroll' : 'turnScroll'), action: H('raiseArea') }, { input: H('pageKeys'), action: H('raiseArea') }] : []),
         ...(area.shape === 'line' ? [{ input: H('tiltKeys'), action: H('tiltLine') }] : []),
+        ...(movable && getSetting('areaPickerOrigin') === 'manual' ? [{ input: H('clickSquare'), action: H('pickOrigin') }, { input: H('escPlacing'), action: H('repickOrigin') }] : []),
         ...(canExclude ? [{ input: H('clickInArea'), action: H('excludeTarget') }] : []),
       ],
       cancelOnRightClick: !!getSetting('cancelOnRightClick'),
@@ -587,8 +595,67 @@ async function runAreaPicker(ability, area, caster) {
     const clear3d = (a, b, from, to) => !lib?.lineBlocked3d || !lib.lineBlocked3d(a, b, from, to);
     const centreOf = (sx, sy) => ({ x: (sx + 0.5) * gridSize(), y: (sy + 0.5) * gridSize() });
 
+    const manual = movable && getSetting('areaPickerOrigin') === 'manual';
+    let chosen = null;
+    const originLayer = new PIXI.Graphics();
+    originLayer.eventMode = 'none';
+    let originSquares = new Set();
+    let originHover = null;
+
+    const originValid = (sx, sy, z, from) => {
+      const span = { b: z, t: z + 1 };
+      const gap = Math.max(gapTo(fp, sx, sy), gapZ(me, span));
+      if (area.range && gap > area.range) return false;
+      if (gap === 0 || !casterCol) return true;
+      const c = centreOf(sx, sy);
+      return from.some((p) => clear3d(p, c, casterCol, squareColumn(span)));
+    };
+
+    const drawOriginStep = () => {
+      const gs = gridSize();
+      const R = area.range || 0;
+      const from = casterPoints();
+      originSquares = new Set();
+      originLayer.clear();
+      for (let gx = fp.gx - R; gx <= fp.gx + fp.w - 1 + R; gx++) {
+        for (let gy = fp.gy - R; gy <= fp.gy + fp.h - 1 + R; gy++) {
+          if (!originValid(gx, gy, vert.z, from)) continue;
+          originSquares.add(`${gx},${gy}`);
+          originLayer.beginFill(COLOR_IN, 0.16).lineStyle(1.5, COLOR_IN, 0.55).drawRoundedRect(gx * gs + 3, gy * gs + 3, gs - 6, gs - 6, 5).endFill();
+        }
+      }
+      if (originHover && originSquares.has(`${originHover.x},${originHover.y}`)) {
+        originLayer.lineStyle(3, 0xffffff, 0.95).drawRoundedRect(originHover.x * gs + 2, originHover.y * gs + 2, gs - 4, gs - 4, 6);
+      }
+      if (!originLayer.parent) canvas.interface.addChild(originLayer);
+    };
+
+    const onOriginHover = (event) => {
+      if (state !== 'origin') return;
+      const p = event.data.getLocalPosition(canvas.stage);
+      const cell = { x: Math.floor(p.x / gridSize()), y: Math.floor(p.y / gridSize()) };
+      if (originHover && originHover.x === cell.x && originHover.y === cell.y) return;
+      originHover = cell;
+      drawOriginStep();
+    };
+
+    const lineAtOrigin = (rotation) => {
+      const gs = gridSize();
+      const rad = (turnOf(rotation) * Math.PI) / 180;
+      const dx = Math.cos(rad);
+      const dy = Math.sin(rad);
+      const major = Math.max(Math.abs(dx), Math.abs(dy));
+      const c = centreOf(chosen.x, chosen.y);
+      const back = { x: c.x - (dx * gs) / (2 * major), y: c.y - (dy * gs) / (2 * major) };
+      const at = snapLineOrigin(area, back, rotation);
+      const has = (p) => tiltedLine(area, p, rotation, 0, 0).squares.some(([sx, sy]) => sx === chosen.x && sy === chosen.y);
+      if (has(at)) return at;
+      return has(back) ? back : at;
+    };
+
     const near = (q) => Math.hypot(q.x + 0.5 - (fp.gx + fp.w / 2), q.y + 0.5 - (fp.gy + fp.h / 2));
     const pickOrigin = (squares) => {
+      if (chosen) return { x: chosen.x, y: chosen.y, b: chosen.z, t: chosen.z + 1, gap: 0, sees: true };
       const ranked = squares.flatMap(([sx, sy]) => {
         const s = spanAt(sx, sy);
         return s ? [{ x: sx, y: sy, b: s.b, t: s.t, gap: Math.max(gapTo(fp, sx, sy), gapZ(me, s)) }] : [];
@@ -637,7 +704,9 @@ async function runAreaPicker(ability, area, caster) {
       }
       const behind = barred.size ? ` · ${L('barred', { n: barred.size })}` : '';
       const noOrigin = origin && !origin.sees ? ` · ${L('noOrigin')}` : '';
-      if (state === 'placing' && !region) {
+      if (state === 'origin') {
+        overlay.setStatus(`${L('pickOrigin', { range: area.range })}${heightNote()}`);
+      } else if (state === 'placing' && !region) {
         const n = included().length;
         overlay.setStatus(`${L(area.shape === 'line' ? 'placingLine' : 'placing')} · ${L('count', { n, s: n === 1 ? '' : 's' })}${behind}${noOrigin}${heightNote()}`);
       } else if (state === 'empty') {
@@ -652,9 +721,11 @@ async function runAreaPicker(ability, area, caster) {
 
     const updateHoles = (shapes) => {
       const template = shapes ? squareRects(areaSquares(shapes)) : [];
-      if (state === 'placing' || state === 'empty') overlay.setHoleRects([reach, ...template]);
+      if (state === 'placing' || state === 'empty' || state === 'origin') overlay.setHoleRects([reach, ...template]);
       else overlay.setHoleRects(movable ? template : [casterRect, ...template]);
     };
+
+    const originCell = (o) => (chosen ? chosen.z : Math.max(Math.floor(o.b), Math.min(Math.ceil(o.t) - 1, Math.floor(me.z))));
 
     const announce = (shapes) => {
       const squares = shapes ? areaSquares(shapes) : [];
@@ -663,7 +734,7 @@ async function runAreaPicker(ability, area, caster) {
         squares: squares.map(([x, y]) => ({ x, y, ...(spanAt(x, y) ?? {}) })).filter((s) => s.b !== undefined),
         inside: included().map((t) => t.id),
         excluded: [...excluded, ...barred],
-        origin: origin ? { x: origin.x, y: origin.y, sees: origin.sees } : null,
+        origin: origin ? { x: origin.x, y: origin.y, sees: origin.sees, b: originCell(origin), t: originCell(origin) + 1 } : null,
         setBottom: movable ? (z) => setHeight(z) : null,
         aimAt: area.shape === 'line' ? (cell) => aimAt(cell) : null,
       } : { caster, shape: area.shape, squares: [], inside: [], setBottom: movable ? (z) => setHeight(z) : null });
@@ -776,7 +847,16 @@ async function runAreaPicker(ability, area, caster) {
 
     const setHeight = (z) => {
       if (!movable || !Number.isFinite(z)) return null;
+      if (state === 'origin') {
+        vert.z = Math.round(z);
+        drawOriginStep();
+        draw();
+        announce(null);
+        return null;
+      }
+      if (chosen && area.shape === 'line') return null;
       vert.z = Math.round(z);
+      if (chosen) vert.z = Math.max(chosen.z - area.size + 1, Math.min(chosen.z, vert.z));
       return refresh();
     };
     const shiftHeight = (dz) => setHeight(vert.z + dz);
@@ -803,8 +883,37 @@ async function runAreaPicker(ability, area, caster) {
       return refresh();
     };
 
+    const beginOrigin = async () => {
+      ++generation;
+      if (state === 'placing') canvas.regions?._cancelPlacement?.();
+      await dropRegion();
+      excluded.clear();
+      chosen = null;
+      inside = [];
+      origin = null;
+      barred = new Set();
+      state = 'origin';
+      drawOriginStep();
+      updateHoles(null);
+      draw();
+      announce(null);
+    };
+
+    const chooseOrigin = (cell) => {
+      if (!originSquares.has(`${cell.x},${cell.y}`)) {
+        overlay.flashWarning(L('noOriginWarn', { range: area.range }));
+        return;
+      }
+      chosen = { x: cell.x, y: cell.y, z: vert.z };
+      if (area.shape === 'cube') vert.z = Math.max(chosen.z - area.size + 1, Math.min(chosen.z, vert.z));
+      originLayer.clear();
+      state = 'empty';
+      startPlacing();
+    };
+
     const startPlacing = async () => {
       if (!movable || state === 'placing') return;
+      if (manual && !chosen) return beginOrigin();
       const mine = ++generation;
       await dropRegion();
       excluded.clear();
@@ -815,11 +924,22 @@ async function runAreaPicker(ability, area, caster) {
         onMove: area.shape === 'cube' ? ({ shape, position }) => {
           const gs = gridSize();
           const n = area.size;
-          const gx = Math.round(position.x / gs - n / 2);
-          const gy = Math.round(position.y / gs - n / 2);
+          let gx = Math.round(position.x / gs - n / 2);
+          let gy = Math.round(position.y / gs - n / 2);
+          if (chosen) {
+            gx = Math.max(chosen.x - n + 1, Math.min(chosen.x, gx));
+            gy = Math.max(chosen.y - n + 1, Math.min(chosen.y, gy));
+          }
           shape.updateSource({ x: (gx + n * (shape.anchorX ?? 0)) * gs, y: (gy + n * (shape.anchorY ?? 0)) * gs });
           return false;
         } : area.shape === 'line' ? ({ shape, position }) => {
+          if (chosen) {
+            const c = centreOf(chosen.x, chosen.y);
+            const angle = (Math.atan2(position.y - c.y, position.x - c.x) * 180) / Math.PI;
+            const rotation = turnOf(Math.round(angle / _turnStep) * _turnStep);
+            shape.updateSource({ rotation, ...lineAtOrigin(rotation) });
+            return false;
+          }
           shape.updateSource(snapLineOrigin(area, position, shape.rotation ?? 0));
           return false;
         } : undefined,
@@ -831,7 +951,7 @@ async function runAreaPicker(ability, area, caster) {
             return false;
           }
           const rotation = turnOf(Math.round(((shape.rotation ?? 0) + _turnStep * Math.sign(event.delta)) / _turnStep) * _turnStep);
-          shape.updateSource({ rotation, ...snapLineOrigin(area, { x: shape.x, y: shape.y }, rotation) });
+          shape.updateSource({ rotation, ...(chosen ? lineAtOrigin(rotation) : snapLineOrigin(area, { x: shape.x, y: shape.y }, rotation)) });
           return false;
         },
         onChange: ({ document, preview }) => {
@@ -868,6 +988,7 @@ async function runAreaPicker(ability, area, caster) {
         if (placed) await safeDelete(placed);
         return;
       }
+      if (!placed && manual) return beginOrigin();
       region = await linkAbility(placed ?? null);
       state = region ? 'placed' : 'empty';
       scan(region);
@@ -875,10 +996,11 @@ async function runAreaPicker(ability, area, caster) {
 
     const suggest = async () => {
       if (!movable) return;
-      const best = suggestShape(ability, area, caster, candidates);
-      if (!best) { overlay.flashWarning(L('noSuggestion')); return; }
+      const best = suggestShape(ability, area, caster, candidates, chosen);
+      if (!best) { overlay.flashWarning(L(chosen ? 'noSuggestionOrigin' : 'noSuggestion')); return; }
       ++generation;
       if (state === 'placing') canvas.regions._cancelPlacement?.();
+      originLayer.clear();
       excluded.clear();
       state = 'busy';
       vert.z = best.geo.z;
@@ -893,6 +1015,7 @@ async function runAreaPicker(ability, area, caster) {
         if (vert.tilt || isDiagonal(vert.line.rotation)) mark = lineMark(area);
       } else spanAt = () => whole;
       await createRegion(best.shapes, mark, elevationOf(whole));
+      if (manual && !chosen && origin) chosen = { x: origin.x, y: origin.y, z: Math.max(Math.floor(origin.b), Math.min(Math.ceil(origin.t) - 1, Math.floor(me.z))) };
     };
 
     const cleanup = () => {
@@ -907,7 +1030,9 @@ async function runAreaPicker(ability, area, caster) {
         _clearPickerReticles();
       }
       canvas.stage.off('mousedown', onClick);
+      canvas.stage.off('pointermove', onOriginHover);
       document.removeEventListener('keydown', onKey);
+      originLayer.destroy();
       Hooks.callAll('dsct.areaPreview', null);
     };
 
@@ -949,8 +1074,12 @@ async function runAreaPicker(ability, area, caster) {
       lastClickAt = now;
       if (state === 'placing') return;
       clearTimeout(pendingClick);
-      if (isDouble) { lastClickAt = 0; suggest(); return; }
       const pos = event.data.getLocalPosition(canvas.app.stage);
+      if (state === 'origin') {
+        chooseOrigin({ x: Math.floor(pos.x / gridSize()), y: Math.floor(pos.y / gridSize()) });
+        return;
+      }
+      if (isDouble) { lastClickAt = 0; suggest(); return; }
       const hit = state === 'placed' ? hitToken(pos, inside) : null;
       if (hit) {
         if (!canExclude) return;
@@ -979,11 +1108,13 @@ async function runAreaPicker(ability, area, caster) {
       } else if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
-        doCancel();
+        if (manual && state === 'placing') canvas.regions?._cancelPlacement?.();
+        else doCancel();
       }
     };
 
     canvas.stage.on('mousedown', onClick);
+    canvas.stage.on('pointermove', onOriginHover);
     document.addEventListener('keydown', onKey);
 
     if (area.shape === 'burst') createRegion(burstShape(area, caster));

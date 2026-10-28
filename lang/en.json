@@ -566,6 +566,12 @@
         "name": "Area Picker",
         "hint": "Before the roll window, place an ability's burst, cube or line on the map and see who it catches. Turn it off to place areas yourself after the roll."
       },
+      "areaPickerOrigin": {
+        "name": "Origin Square",
+        "hint": "Automatic uses the square of the area nearest you that you have line of effect to. Manual has you click that square first, then place the area around it. Everyone sets their own.",
+        "auto": "Automatic",
+        "manual": "Manual"
+      },
       "areaPickerTurnStep": {
         "name": "Line Turn Step",
         "hint": "How far each Shift + scroll turns a line when the Area Picker opens. The Turn button changes it for that pick. Everyone sets their own."
@@ -1576,7 +1582,10 @@
         "pageKeys": "Page Up / Page Down",
         "raiseArea": "Raise or lower the area",
         "tiltKeys": "[ and ]",
-        "tiltLine": "Tilt the line up or down"
+        "tiltLine": "Tilt the line up or down",
+        "pickOrigin": "Choose the square the area starts from",
+        "escPlacing": "Esc while placing",
+        "repickOrigin": "Choose the starting square again"
       }
     },
     "areaPicker": {
@@ -1606,6 +1615,8 @@
       "tiltTip": "Tilt the line so it climbs or drops as it goes. [ and ] do the same.",
       "height": "Height {n}",
       "tilt": "Tilted {n}°",
+      "pickOrigin": "Click the square the area starts from, within {range} of you",
+      "noSuggestionOrigin": "No placement around that origin square reaches a target.",
       "barred": "{n} behind a barrier, click one to count it anyway",
       "noOrigin": "No square within reach that you have line of effect to",
       "noOriginWarn": "You need line of effect to a square of the area within {range} squares of you.",
