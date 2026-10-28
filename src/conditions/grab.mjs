@@ -775,7 +775,10 @@ export function registerKnockbackGuard() {
     if (getSetting('abilityAutomationEnabled') && checkAndRunChoose(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && _checkMeleeRangedChoice(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && checkAndRunAreaPicker(app) === 'block') return false;
-    if (getSetting('abilityAutomationEnabled') && _checkAbilityRange(app) === 'block') return false;
+    if (getSetting('abilityAutomationEnabled') && _checkAbilityRange(app) === 'block') {
+      setTimeout(() => app.dispatchEvent(new Event('close')));
+      return false;
+    }
     if (getSetting('abilityAutomationEnabled') && checkAndRunSquadTargeting(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && checkAndRunTargetPicker(app) === 'block') return false;
   });
