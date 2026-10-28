@@ -42,7 +42,7 @@ import { openImNoThreatPanel } from './ability-automation/ability-automation.mjs
 import { openTransformPicker, runTransform } from './ability-automation/transformation.mjs';
 import { triggerAbyssalEvolution, registerMaliceInjectors } from './ability-automation/malice/malice-features.mjs';
 import { registerCrossfadeHooks } from './ability-automation/class-shadow/crossfade.mjs';
-import { registerSquadTargetingHooks, _pendingSquadMap, runSquadFreeStrike } from './ability-automation/squad-targeting.mjs';
+import { registerSquadTargetingHooks, _pendingSquadMap, runSquadFreeStrike, useSquadAbility } from './ability-automation/squad-targeting.mjs';
 import { registerStartupNotice, showStartupNotice } from './startup-notice.mjs';
 import { registerSettingsReport, showSettingsReport } from './settings-report.mjs';
 import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-shadow/hesitation.mjs';
@@ -119,6 +119,7 @@ const api = {
   powerWordKill:     forwardToDeathTracker('powerWordKill'),
   cleanupPixi,
   squadFreeStrike:   runSquadFreeStrike,
+  squadAttack:       useSquadAbility,
   advancedEnrichers: { registerKind: registerEnricherKind },
   releasePickerLock: forwardToDeathTracker('releasePickerLock', { quiet: true }),
   forcedMovement:   runForcedMovement,

@@ -757,6 +757,16 @@ export function registerSquadTargetingHooks() {
   });
 }
 
+export async function useSquadAbility(ability, assignments) {
+  const pairs = new Map([...(assignments ?? [])].filter(([m, t]) => canvas.tokens.get(m) && canvas.tokens.get(t)));
+  if (!ability || !pairs.size) return null;
+  const minionTokens = [...pairs.keys()].map((id) => canvas.tokens.get(id));
+  setFoundryTargets([...new Set(pairs.values())].map((id) => canvas.tokens.get(id)));
+  _squadTargeted.set(ability.uuid, Date.now());
+  _pendingSquadMap = _buildTargetMap(pairs, minionTokens, ability);
+  return ability.system.use();
+}
+
 export function checkAndRunSquadTargeting(dialog) {
   const ability = dialog.options?.ability;
   if (!ability) return null;
