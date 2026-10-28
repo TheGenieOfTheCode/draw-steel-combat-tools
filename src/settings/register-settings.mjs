@@ -728,6 +728,11 @@ export const registerSettings = () => {
     scope: 'client', config: false, type: String, default: 'auto',
     choices: { auto: L('areaPickerOrigin.auto'), manual: L('areaPickerOrigin.manual') },
   });
+  game.settings.register(M, 'areaPickerOriginForce', {
+    name: L('areaPickerOriginForce.name'), hint: L('areaPickerOriginForce.hint'),
+    scope: 'world', config: false, type: String, default: 'players',
+    choices: { players: L('areaPickerOriginForce.players'), auto: L('areaPickerOriginForce.auto'), manual: L('areaPickerOriginForce.manual') },
+  });
   game.settings.register(M, 'areaPickerPlayerExclude', {
     name: L('areaPickerPlayerExclude.name'), hint: L('areaPickerPlayerExclude.hint'),
     scope: 'world', config: false, type: Boolean, default: false,

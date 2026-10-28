@@ -14,6 +14,10 @@ const DS = 'draw-steel';
 const SHAPES = new Set(['burst', 'cube', 'line']);
 const EACH_TYPES = new Set(['creature', 'enemy', 'ally', 'object', 'creatureObject', 'enemyObject', 'selfAlly']);
 const DOUBLE_CLICK_MS = 400;
+const originMode = () => {
+  const forced = getSetting('areaPickerOriginForce');
+  return forced && forced !== 'players' ? forced : getSetting('areaPickerOrigin');
+};
 const COLOR_IN = 0x44CC44;
 const COLOR_OUT = 0xCC8844;
 const RELEASE_WAIT_MS = 5000;
@@ -523,7 +527,7 @@ async function runAreaPicker(ability, area, caster) {
         ...(area.shape === 'line' ? [{ input: H('shiftScroll'), action: H('turnLine') }, { input: H('rightClickTurn'), action: H('smallerStep') }] : []),
         ...(movable ? [{ input: H(area.shape === 'line' ? 'ctrlScroll' : 'turnScroll'), action: H('raiseArea') }, { input: H('pageKeys'), action: H('raiseArea') }] : []),
         ...(area.shape === 'line' ? [{ input: H('tiltKeys'), action: H('tiltLine') }] : []),
-        ...(movable && getSetting('areaPickerOrigin') === 'manual' ? [{ input: H('clickSquare'), action: H('pickOrigin') }, { input: H('escPlacing'), action: H('repickOrigin') }] : []),
+        ...(movable && originMode() === 'manual' ? [{ input: H('clickSquare'), action: H('pickOrigin') }, { input: H('escPlacing'), action: H('repickOrigin') }] : []),
         ...(canExclude ? [{ input: H('clickInArea'), action: H('excludeTarget') }] : []),
       ],
       cancelOnRightClick: !!getSetting('cancelOnRightClick'),
@@ -595,7 +599,7 @@ async function runAreaPicker(ability, area, caster) {
     const clear3d = (a, b, from, to) => !lib?.lineBlocked3d || !lib.lineBlocked3d(a, b, from, to);
     const centreOf = (sx, sy) => ({ x: (sx + 0.5) * gridSize(), y: (sy + 0.5) * gridSize() });
 
-    const manual = movable && getSetting('areaPickerOrigin') === 'manual';
+    const manual = movable && originMode() === 'manual';
     let chosen = null;
     const originLayer = new PIXI.Graphics();
     originLayer.eventMode = 'none';

@@ -572,6 +572,13 @@
         "auto": "Automatic",
         "manual": "Manual"
       },
+      "areaPickerOriginForce": {
+        "name": "Origin Square for Everyone",
+        "hint": "Let each person choose Automatic or Manual for themselves, or set one for the whole table.",
+        "players": "Players choose",
+        "auto": "Automatic for everyone",
+        "manual": "Manual for everyone"
+      },
       "areaPickerTurnStep": {
         "name": "Line Turn Step",
         "hint": "How far each Shift + scroll turns a line when the Area Picker opens. The Turn button changes it for that pick. Everyone sets their own."
