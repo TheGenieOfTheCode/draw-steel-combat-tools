@@ -2,8 +2,8 @@ import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHoo
 import { runColoredTokenPicker, _getValidTargets, burstTargetsAround, setTriggerSubject } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections, rollBleeding } from './chat-integration.mjs';
-import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync, allowOutOfRange } from './conditions/grab.mjs';
-import { STEALTH_WORKFLOW_READY, applyFall, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, asStaminaLoss} from './helpers.mjs';
+import { runGrab, toggleGrabPanel, endGrab, applyGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync, allowOutOfRange } from './conditions/grab.mjs';
+import { STEALTH_WORKFLOW_READY, applyFall, registerFallHandler, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, asStaminaLoss} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { services, registerStatusGroup, clearPickerArrows, activateTokenLayer, stackedPrompt, isPrimaryGM } from './ctlib.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
@@ -14,7 +14,7 @@ import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered
 import { registerModuleButtons } from './module-buttons.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
 import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities, swapEnhancedItem, removeEnhancedGrants } from './setup-macros.mjs';
-import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.mjs';
+import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport, registerTeleportHandler } from './teleport.mjs';
 import { registerTargetDistance } from './ability-automation/target-distance.mjs';
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
@@ -161,6 +161,9 @@ const api = {
   cleanupEnhancedAbilities,
   distributeAbilities:  distributeAbilities,
   fall:                 applyFall,
+  registerTeleportHandler,
+  registerFallHandler,
+  grabs:                { applyGrab },
   parsePowerRollState:  parsePowerRollState,
   applyRollMod:         applyRollMod,
   applyStatus,

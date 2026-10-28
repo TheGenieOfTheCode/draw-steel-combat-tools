@@ -332,7 +332,11 @@ export const fallGate = async (token, height) => {
   return ctx;
 };
 
+let _fallHandler = null;
+export const registerFallHandler = (fn) => { _fallHandler = typeof fn === 'function' ? fn : null; };
+
 export const applyFall = async (token, targetElev = 0, { silent = false, skipConfirm = false } = {}) => {
+  if (_fallHandler) return _fallHandler(token, targetElev, { silent, skipConfirm });
   const currentElev = token.document?.elevation ?? 0;
   if (currentElev <= targetElev) return { dmg: 0, fallDist: 0, effectiveFall: 0 };
 

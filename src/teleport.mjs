@@ -245,7 +245,18 @@ const _clearTravelState = async (token) => {
   return { removedGrabs, removedStatuses };
 };
 
+let _tpHandler = null;
+let _lastHandoff = null;
+export const registerTeleportHandler = (handler) => { _tpHandler = handler?.teleport ? handler : null; };
+export const teleportHandler = () => _tpHandler;
+export const takeTeleportHandoff = () => { const h = _lastHandoff; _lastHandoff = null; return h; };
+
 export const executeTeleport = async (token, distance, animate, colorHex, animDuration = 600, opts = {}) => {
+   if (_tpHandler && !opts.intoSpaceOf) {
+     const id = await _tpHandler.teleport(token.document, { distance, color: animate ? colorHex : null, duration: animDuration, adjacentTo: opts.adjacentTo ?? null });
+     _lastHandoff = id ? { movementId: id } : null;
+     return;
+   }
    const into = opts.intoSpaceOf?.document ?? opts.intoSpaceOf ?? null;
    const chosenGrid = into
      ? { ...toGrid(into), targetElev: into.elevation ?? 0, arrivalElev: into.elevation ?? 0, willFall: false, isOnTerrain: false }
@@ -357,6 +368,11 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
 };
 
 export const executeTeleswap = async (tokenA, tokenB, maxDist, animate, colorHex, animDuration = 600) => {
+  if (_tpHandler?.teleswap) {
+    const ids = await _tpHandler.teleswap(tokenA.document, tokenB.document, { distance: maxDist, color: animate ? colorHex : null, duration: animDuration });
+    _lastHandoff = ids?.[tokenA.id] ? { movementId: ids[tokenA.id] } : null;
+    return !!ids?.[tokenA.id];
+  }
   if (!tokenA || !tokenB || tokenA.id === tokenB.id) {
     ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sameToken'));
     return;

@@ -846,7 +846,9 @@ const TELEPORT = {
       try { await teleportToken(token, opts, partner); }
       catch (err) { console.warn('DSCT | advanced enricher | teleport:', err); }
       const undoMessageId = captured();
+      const handoff = takeTeleportHandoff();
       if (undoMessageId) out[doc.uuid] = { amount: opts.distance, undoMessageId };
+      else if (handoff) out[doc.uuid] = { amount: opts.distance, movementId: handoff.movementId };
     }
     return out;
   },
@@ -861,11 +863,13 @@ const TELEPORT = {
       try { await runTeleportEffect({ ...tpSettings(effect.flatTeleport, livePills(st, doc)), distance: String(r.amount) }, ability, { sourceActor, partnerToken: doc.object ?? null }); }
       catch (err) { console.warn('DSCT | advanced enricher | flat teleport:', err); }
       const undoMessageId = captured();
+      const handoff = takeTeleportHandoff();
       if (undoMessageId) out[doc.uuid] = { amount: r.amount, undoMessageId };
+      else if (handoff) out[doc.uuid] = { amount: r.amount, movementId: handoff.movementId };
     }
     return out;
   },
-  undo: async (_doc, rec) => pressUndo(rec.undoMessageId, '.dsct-undo-tp'),
+  undo: async (doc, rec) => (rec.movementId ? teleportHandler()?.undo?.(doc, rec.movementId) : pressUndo(rec.undoMessageId, '.dsct-undo-tp')),
 };
 
 const statusChoices = () => CONFIG.statusEffects.filter((s) => s.name).map((s) => ({ value: s.id, label: game.i18n.localize(s.name) }));
@@ -1684,6 +1688,7 @@ export function registerEnricherKind(enricherId, kind) {
 }
 
 import { registerGrantEnricher, registerGrantKinds } from './grant-enricher.mjs';
+import { teleportHandler, takeTeleportHandoff } from '../teleport.mjs';
 
 export function registerAdvancedEnrichers() {
   registerPanelDecorator({ id: 'advanced-enrichers-apply-rows', priority: 5, decorate: dropApplyRows });
