@@ -31,7 +31,15 @@ import { beginPickerOverlay, endPickerOverlay } from '../ability-automation/pick
 let _fmGateBypass = false;
 let _fmContextKey = null;
 
+let _handler = null;
+
+export const registerForcedMovementHandler = (handler) => { _handler = handler?.forcedMovement ? handler : null; };
+export const forcedMovementHandler = () => _handler;
+const standAsideApi = () => _handler;
+
 export function bypassNextFmGate() {
+  const fm = standAsideApi();
+  if (fm) return fm.bypassNextFmGate();
   _fmGateBypass = true;
 }
 
@@ -40,6 +48,8 @@ let _gateProbe = null;
 export const forcedMovementTaken = (actor) => Number(actor?.getFlag?.('draw-steel-combat-tools', 'forcedMovementTaken')) || 0;
 
 export async function gateForcedMovement(opts) {
+  const fm = standAsideApi();
+  if (fm) return { held: false, run: () => fm.forcedMovement(opts) };
   const probe = {};
   _gateProbe = probe;
   try { await runForcedMovement(opts); }
@@ -2730,6 +2740,9 @@ export const pickTarget = (remaining) => new Promise((resolve) => {
 });
 
 export async function runForcedMovement(macroArgs = []) {
+  const fm = standAsideApi();
+  const hasArgs = Array.isArray(macroArgs) ? macroArgs.length >= 2 : (macroArgs && typeof macroArgs === 'object' && Object.keys(macroArgs).length > 0);
+  if (fm && hasArgs) return fm.forcedMovement(macroArgs);
 
   if (Array.isArray(macroArgs) && macroArgs.length >= 2) {
     const type              = parseType(macroArgs[0]);

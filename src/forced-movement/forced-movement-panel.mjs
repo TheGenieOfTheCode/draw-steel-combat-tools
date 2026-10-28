@@ -1,7 +1,7 @@
 import {
   getWindowById, getModuleApi, getSetting,
 } from '../helpers.mjs';
-import { pickTarget } from './forced-movement-engine.mjs';
+import { pickTarget, forcedMovementHandler } from './forced-movement-engine.mjs';
 import { runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
 import { tipAttrs, tipFor } from '../chat-tips.mjs';
@@ -168,6 +168,11 @@ export class ForcedMovementPanel extends FitsOnResize(ds.applications.api.DSAppl
       const targetsToProcess = this._targetTokens.slice(0, 25);
       const payload = { type, distance, sourceId: this._sourceToken?.id, verticalHeight, fallReduction, noFallDamage, noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, ignoreStability, fastMove, juggernaut };
 
+      const fm = forcedMovementHandler();
+      if (fm) {
+        await fm.forcedMovement({ ...payload, targets: targetsToProcess });
+        return;
+      }
       if (targetsToProcess.length === 1) {
         await api.forcedMovement({ ...payload, targetId: targetsToProcess[0].id });
       } else {

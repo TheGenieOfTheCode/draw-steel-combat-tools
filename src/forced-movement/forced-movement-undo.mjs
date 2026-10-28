@@ -3,6 +3,7 @@ import {
   getSetting, getTokenById,
 } from '../helpers.mjs';
 import { applyGrab } from '../conditions/grab.mjs';
+import { forcedMovementHandler } from './forced-movement-engine.mjs';
 import { addPreviewToken, removePreviewToken, activateTokenLayer, services } from '../ctlib.mjs';
 
 const restoreGrabs = async (grabsToRestore) => {
@@ -218,6 +219,7 @@ const addFmUndoPreview = (btn, previews) => {
 export const registerForcedMovementHooks = () => {
   Hooks.on('renderChatMessageHTML', (msg, el) => {
     if (!msg.getFlag('draw-steel-combat-tools', 'isFmUndo') || msg.getFlag('draw-steel-combat-tools', 'noMove')) return;
+    if (forcedMovementHandler()?.ownsMessage?.(msg)) return;
 
     const isUndone   = msg.getFlag('draw-steel-combat-tools', 'isUndone');
     const isCombined = msg.getFlag('draw-steel-combat-tools', 'isCombined');

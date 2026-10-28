@@ -1,4 +1,4 @@
-import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHooks, bypassNextFmGate } from './forced-movement/forced-movement.mjs';
+import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHooks, bypassNextFmGate, registerForcedMovementHandler } from './forced-movement/forced-movement.mjs';
 import { runColoredTokenPicker, _getValidTargets, burstTargetsAround, setTriggerSubject } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections, rollBleeding } from './chat-integration.mjs';
@@ -121,6 +121,7 @@ const api = {
   releasePickerLock: forwardToDeathTracker('releasePickerLock', { quiet: true }),
   forcedMovement:   runForcedMovement,
   bypassNextFmGate: bypassNextFmGate,
+  registerForcedMovementHandler,
   setTriggerDamage:  setPendingTriggerDamage,
   setTriggerSubject: setTriggerSubject,
   colorTokenPicker: runColoredTokenPicker,
