@@ -1376,6 +1376,7 @@ const onClick = (ec, a, message, key, kind) => async (event) => {
 };
 
 const autoApplies = (kind, a, message) => {
+  if (message?.getFlag(M, 'autoApply')) return true;
   const ability = abilityOf(message);
   if (!ability) return false;
   if (Number(sourceConfig(a).spend) > 0) return false;
@@ -1583,6 +1584,23 @@ const applyAutoEnrichers = async (message, doc = document, phase = null) => {
   return damaged;
 };
 
+const undoAutoEnrichers = async (message, doc = document) => {
+  if (!message || !advancedEnrichersOn()) return false;
+  const li = doc.querySelector(`li.chat-message[data-message-id="${message.id}"]`);
+  let undone = false;
+  for (const ec of li?.querySelectorAll('enriched-content.dsct-adv') ?? []) {
+    const a = linkOf(ec);
+    const kind = kindOf(ec, a);
+    if (!kind) continue;
+    const key = ec.dataset.dsctAdv;
+    for (const t of Object.keys(stateOf(game.messages.get(message.id), key).applied ?? {})) {
+      await undoRow(kind, game.messages.get(message.id), key, t.replace(/__/g, '.'));
+      undone = true;
+    }
+  }
+  return undone;
+};
+
 const settleOthersEnrichers = async (message, doc = document) => {
   if (!message || !advancedEnrichersOn()) return false;
   const li = doc.querySelector(`li.chat-message[data-message-id="${message.id}"]`);
@@ -1646,6 +1664,7 @@ export function registerAdvancedEnrichers() {
   registerFlatEnrichers();
   for (const id of ENRICHER_IDS) wrapEnricher(id);
   services.provide('applyAutoEnrichers', applyAutoEnrichers);
+  services.provide('undoAutoEnrichers', undoAutoEnrichers);
   services.provide('settleOthersEnrichers', settleOthersEnrichers);
   services.provide('areaEnrichersPending', areaEnrichersPending);
   services.provide('syncEmptyPanel', (message, root) => hideEmptyPanel({ message, root, panel: root.querySelector(DSTD_PANEL) }));
