@@ -24,7 +24,7 @@ import { applyStatus, removeStatus, statusSourceUuids, migrateLegacyStatuses, cr
 import { registerJudgedMarked } from './conditions/judged-marked.mjs';
 import { registerTriggersDerived } from './compat/triggers-derived.mjs';
 import { registerApplyToTargets, applyEnricherPayload } from './conditions/apply-to-targets.mjs';
-import { registerAdvancedEnrichers } from './advanced-enrichers/advanced-enrichers.mjs';
+import { registerAdvancedEnrichers, registerEnricherKind } from './advanced-enrichers/advanced-enrichers.mjs';
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
 import { registerAreaLineRendering } from './ability-automation/area-picker.mjs';
@@ -118,6 +118,7 @@ const api = {
   powerWordKill:     forwardToDeathTracker('powerWordKill'),
   cleanupPixi,
   squadFreeStrike:   runSquadFreeStrike,
+  advancedEnrichers: { registerKind: registerEnricherKind },
   releasePickerLock: forwardToDeathTracker('releasePickerLock', { quiet: true }),
   forcedMovement:   runForcedMovement,
   bypassNextFmGate: bypassNextFmGate,

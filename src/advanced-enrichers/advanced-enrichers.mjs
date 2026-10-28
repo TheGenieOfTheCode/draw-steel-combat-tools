@@ -1658,11 +1658,37 @@ const dropApplyRows = ({ root, panel }) => {
   for (const btn of panel.querySelectorAll('[data-part-id="apply"][data-dstd-action]')) btn.closest(`.${DSTD}-action-row`)?.remove();
 };
 
+let _wrapped = false;
+
+export function registerEnricherKind(enricherId, kind) {
+  if (!enricherId || !kind?.id || typeof kind.applyMany !== 'function') throw new Error('CT | registerEnricherKind needs an enricher id, a kind id and applyMany');
+  KINDS.push({
+    recipient: 'targets',
+    chipIcon: null,
+    rolls: null,
+    single: () => true,
+    signature: () => null,
+    typeChoices: () => [],
+    steps: () => [],
+    notes: () => [],
+    result: (_st, a) => ({ label: a.textContent.trim() }),
+    lead: (r) => r.label,
+    shown: (r) => r.label,
+    undo: async () => {},
+    test: (ec) => ec.getAttribute('enricher') === enricherId,
+    ...kind,
+  });
+  if (ENRICHER_IDS.includes(enricherId)) return;
+  ENRICHER_IDS.push(enricherId);
+  if (_wrapped) wrapEnricher(enricherId);
+}
+
 export function registerAdvancedEnrichers() {
   registerPanelDecorator({ id: 'advanced-enrichers-apply-rows', priority: 5, decorate: dropApplyRows });
   registerCtEnrichers();
   registerFlatEnrichers();
   for (const id of ENRICHER_IDS) wrapEnricher(id);
+  _wrapped = true;
   services.provide('applyAutoEnrichers', applyAutoEnrichers);
   services.provide('undoAutoEnrichers', undoAutoEnrichers);
   services.provide('settleOthersEnrichers', settleOthersEnrichers);
