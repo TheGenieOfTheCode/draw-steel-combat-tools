@@ -1409,7 +1409,8 @@
         "kinds": { "freestrike": "A free strike", "maneuver": "A maneuver", "main": "A main action", "signature": "A signature ability", "heroic": "A heroic ability", "ability": "A named ability", "filter": "Abilities matching a filter", "shift": "A shift", "move": "A move", "jump": "A jump" },
         "ability": { "label": "Ability", "hint": "For a named ability: its name or identifier, like Stand Up or stand-up." },
         "filter": { "label": "Filter", "hint": "For a filter: type=, category=, keyword= or tag= words, like keyword=melee category=signature. Add melee or ranged to a free strike, like freestrike ranged." },
-        "distance": { "label": "Distance", "hint": "For a shift, move or jump: how many squares, like 2, @R or @movement.value for the creature's speed." },
+        "distance": { "label": "Distance", "hint": "For a shift, move or jump: how many squares, like 2, @R, @movement.value for the creature's speed, jump for its longest jump, or text for the number in the ability's own text." },
+        "noProvoke": { "label": "No Free Strikes", "hint": "For a move or jump: leaving an enemy's reach doesn't provoke a free strike." },
         "recipient": { "label": "Goes To", "hint": "Who gets the action: the user, or each target." }
       },
       "Cleanse": {

@@ -130,7 +130,7 @@ export const flatEnricherText = (effect, ability) => {
       const g = effect.flatGrant;
       if (['shift', 'move', 'jump'].includes(g.kind)) {
         if (!String(g.distance ?? '').trim()) return null;
-        return `[[/${g.kind} ${quoted(g.distance)} recipient=${g.recipient === 'target' ? 'target' : 'self'}${tag}]]${label(g.display)}`;
+        return `[[/${g.kind} ${quoted(g.distance)} recipient=${g.recipient === 'target' ? 'target' : 'self'}${g.noProvoke && g.kind !== 'shift' ? ' noprovoke' : ''}${tag}]]${label(g.display)}`;
       }
       const spec = g.kind === 'ability' ? String(g.ability ?? '').trim().toLowerCase().replace(/\s+/g, '-')
         : g.kind === 'filter' ? String(g.filter ?? '').trim() : g.kind;

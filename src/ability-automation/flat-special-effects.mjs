@@ -137,7 +137,8 @@ function _registerPartials() {
     {{formGroup ctx.kind.field value=ctx.kind.src name="flatGrant.kind" options=ctx.kindOptions localize=true}}
     {{formGroup ctx.ability.field value=ctx.ability.src name="flatGrant.ability" localize=true}}
     {{formGroup ctx.filter.field value=ctx.filter.src name="flatGrant.filter" localize=true}}
-    {{#if ctx.moves}}{{formGroup ctx.distance.field value=ctx.distance.src name="flatGrant.distance" localize=true}}{{/if}}
+    {{#if ctx.moves}}{{formGroup ctx.distance.field value=ctx.distance.src name="flatGrant.distance" localize=true}}
+    {{formGroup ctx.noProvoke.field value=ctx.noProvoke.src name="flatGrant.noProvoke" localize=true}}{{/if}}
     {{formGroup ctx.recipient.field value=ctx.recipient.src name="flatGrant.recipient" options=ctx.recipientOptions localize=true}}
     {{formGroup ctx.display.field value=ctx.display.src name="flatGrant.display" localize=true}}
   `);
@@ -709,6 +710,7 @@ class FlatGrantSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Base
         filter:      new StringField({ required: false, blank: true, initial: "", label: "DSCT.FlatEffect.Grant.filter.label", hint: "DSCT.FlatEffect.Grant.filter.hint" }),
         recipient:   new StringField({ required: false, blank: false, initial: "self", label: "DSCT.FlatEffect.Grant.recipient.label", hint: "DSCT.FlatEffect.Grant.recipient.hint" }),
         distance:    new StringField({ required: false, blank: true, initial: "", label: "DSCT.FlatEffect.Grant.distance.label", hint: "DSCT.FlatEffect.Grant.distance.hint" }),
+        noProvoke:   new BooleanField({ initial: false, label: "DSCT.FlatEffect.Grant.noProvoke.label", hint: "DSCT.FlatEffect.Grant.noProvoke.hint" }),
       }),
     });
   }
@@ -724,7 +726,7 @@ class FlatGrantSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Base
     const src = this._source.flatGrant;
     const f = (k) => ({ field: this.schema.getField(`flatGrant.${k}`), src: src[k] });
     return {
-      displayText: f("displayText"), display: f("display"), kind: f("kind"), ability: f("ability"), filter: f("filter"), recipient: f("recipient"), distance: f("distance"),
+      displayText: f("displayText"), display: f("display"), kind: f("kind"), ability: f("ability"), filter: f("filter"), recipient: f("recipient"), distance: f("distance"), noProvoke: f("noProvoke"),
       moves: movesGranted() || GRANT_MOVES.includes(src.kind),
       kindOptions: [...GRANT_KINDS, ...(movesGranted() || GRANT_MOVES.includes(src.kind) ? GRANT_MOVES : [])]
         .map(value => ({ value, label: game.i18n.localize(`DSCT.FlatEffect.Grant.kinds.${value}`) })),
