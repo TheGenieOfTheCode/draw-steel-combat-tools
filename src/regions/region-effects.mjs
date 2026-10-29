@@ -18,7 +18,7 @@ function _dispositionField() {
   }), { initial: [], required: false });
 }
 
-function _passesDispositionFilter(behavior, event) {
+export function _passesDispositionFilter(behavior, event) {
   if (!behavior.dispositions?.size) return true;
   const disp = event.data?.token?.disposition;
   return [...behavior.dispositions].some(k => DISPOSITION_MAP[k] === disp);

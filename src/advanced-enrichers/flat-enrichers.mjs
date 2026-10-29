@@ -10,7 +10,7 @@ const FLAT_TYPES = new Set(['dsct.flatDamage', 'dsct.flatHeal', 'dsct.flatResour
 const GAIN_TYPES = new Set(['epic', 'heroic', 'renown', 'surge', 'victory', 'wealth']);
 const FORCED_WORDS = {
   vertical: 'vertical', 'ignore-stability': 'ignoreStability', 'no-collision-damage': 'nocollision', 'fast-auto-path': 'fast',
-  'no-mover-collision-damage': 'nomovercollision', 'no-obstacle-collision-damage': 'noobstaclecollision',
+  'no-mover-collision-damage': 'nomovercollision', 'no-obstacle-collision-damage': 'noobstaclecollision', safely: 'safely',
 };
 
 const on = () => getSetting('advancedEnrichers') !== false && getSetting('flatEffectsEnabled') !== false;

@@ -1,4 +1,4 @@
-import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, sightSamples, sightOriginPoints, messageDamageSource, isOwnAbilityActor } from './helpers.mjs';
+import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, sightSamples, sightOriginPoints, messageDamageSource, isOwnAbilityActor, spendBeyondCost } from './helpers.mjs';
 import { chooseMessageFilter, chooseKeywords } from './ability-automation/choose-effect.mjs';
 import { applyGrab, runGrab, grabChat } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
@@ -33,6 +33,7 @@ function _fmBaseStateFromBtn(btn) {
     noMoverCollisionDamage:    props.has('no-mover-collision-damage'),
     noObstacleCollisionDamage:  props.has('no-obstacle-collision-damage'),
     ignoreStability:           props.has('ignore-stability'),
+    safely:                    props.has('safely'),
     fastMove:          props.has('fast-auto-path'),
   };
 }
@@ -135,6 +136,7 @@ function _extendFMProperties() {
     forcedProps['no-mover-collision-damage']  = { label: 'DSCT.FM.Property.NoMoverCollisionDamage' };
     forcedProps['no-obstacle-collision-damage'] = { label: 'DSCT.FM.Property.NoObstacleCollisionDamage' };
     forcedProps['fast-auto-path']             = { label: 'DSCT.FM.Property.FastAutoPath' };
+    forcedProps['safely']                     = { label: 'DSCT.FM.Property.Safely' };
   }
   const appliedProps = ds?.CONFIG?.PowerRollEffect?.applied?.properties;
   if (appliedProps) {
@@ -466,7 +468,7 @@ function _registerButtonHooks() {
       const fmUuid   = normalizeCollection(_msg.system?.parts).find(p => p.type === 'abilityUse')?.abilityUuid;
       const fmItem   = fmUuid ? fromUuidSync(fmUuid) : null;
       const fmChosen = fmItem ? [...chooseKeywords(fmItem, _msg)] : null;
-      const fmSpent  = (Number(_msg.flavor?.match(/^Spent (\d+)/i)?.[1]) || 0) - (Number(fmItem?.system?.resource) || 0);
+      const fmSpent  = spendBeyondCost(_msg, fmItem);
       for (const btn of fmBtns) {
         if (!btn.dataset.distanceFormula || fmSpent <= 0) continue;
         btn.dataset.distance = String(ds.utils.evaluateFormula(btn.dataset.distanceFormula,
@@ -501,6 +503,7 @@ function _registerButtonHooks() {
             st.noObstacleCollisionDamage ? 'no-obstacle-collision-damage' : null,
             st.ignoreStability         ? 'ignore-stability'             : null,
             st.fastMove                ? 'fast-auto-path'               : null,
+            st.safely                  ? 'safely'                       : null,
           ].filter(Boolean));
           const vertDist = st.vertical
             ? (st.verticalDistance !== '' ? Number(st.verticalDistance) : st.distance)

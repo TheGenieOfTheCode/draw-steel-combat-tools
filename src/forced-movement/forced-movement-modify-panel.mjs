@@ -18,6 +18,7 @@ export const replayModifiers = (baseStates, stack, states) => {
     st.noMoverCollisionDamage   = base.noMoverCollisionDamage;
     st.noObstacleCollisionDamage = base.noObstacleCollisionDamage;
     st.ignoreStability          = base.ignoreStability;
+    st.safely                   = !!base.safely;
     st.fastMove                 = base.fastMove;
     st.sourceTokenId            = base.sourceTokenId ?? null;
     for (const entry of stack) {
@@ -34,6 +35,7 @@ export const replayModifiers = (baseStates, stack, states) => {
       st.noMoverCollisionDamage     = m.noMoverCollisionDamage;
       st.noObstacleCollisionDamage   = m.noObstacleCollisionDamage;
       st.ignoreStability            = m.ignoreStability;
+      st.safely                     = m.safely ?? st.safely;
       st.fastMove                   = m.fastMove;
       st.sourceTokenId              = m.sourceTokenId ?? st.sourceTokenId;
     }
@@ -77,6 +79,7 @@ const _buildModTooltip = (entry, baseStates) => {
     if (m.noObstacleCollisionDamage && !base?.noObstacleCollisionDamage)           parts.push('No obstacle damage');
     if (_guardsAnyDamage(base) && !_guardsAnyDamage(m))                            parts.push('All take damage');
     if (m.ignoreStability && !base?.ignoreStability)                               parts.push('Ignore stability');
+    if (m.safely && !base?.safely)                                                 parts.push('Safely');
     if (m.fastMove && !base?.fastMove)                                             parts.push('Fast path');
     if (m.sourceTokenId)                                    parts.push(`Source: ${canvas.tokens?.get(m.sourceTokenId)?.name ?? '?'}`);
     return parts.join(', ');
@@ -103,6 +106,7 @@ export const _modEffectSummary = (entry, baseStates) => {
   if (m.noObstacleCollisionDamage && !base?.noObstacleCollisionDamage)       parts.push('No Obstacle Dmg');
   if (_guardsAnyDamage(base) && !_guardsAnyDamage(m))                        parts.push('All Take Damage');
   if (m.ignoreStability && !base?.ignoreStability)                           parts.push('Ignore Stability');
+  if (m.safely && !base?.safely)                                             parts.push('Safely');
   if (m.fastMove && !base?.fastMove)                                         parts.push('Fast Path');
   if (m.sourceTokenId)                                parts.push(`Source → ${canvas.tokens?.get(m.sourceTokenId)?.name ?? '?'}`);
   return parts.join(', ');
@@ -138,6 +142,7 @@ const _pillCategories = (entry, baseStates) => {
   if ((m.noFallDamage && !base?.noFallDamage) || (m.noCollisionDamage && !base?.noCollisionDamage)
     || (m.noMoverCollisionDamage && !base?.noMoverCollisionDamage) || (m.noObstacleCollisionDamage && !base?.noObstacleCollisionDamage)
     || (_guardsAnyDamage(base) && !_guardsAnyDamage(m))
+    || (m.safely && !base?.safely)
     || m.fallReduction !== (base?.fallReduction ?? 0)) cats.push('guard');
   if ((m.ignoreStability && !base?.ignoreStability) || (m.fastMove && !base?.fastMove) || m.sourceTokenId) cats.push('tweak');
   return cats;
@@ -266,6 +271,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
         noMoverCollisionDamage:    tmp.noMoverCollisionDamage,
         noObstacleCollisionDamage:  tmp.noObstacleCollisionDamage,
         ignoreStability:           tmp.ignoreStability,
+        safely:                    tmp.safely,
         fastMove:                  tmp.fastMove,
         sourceTokenId:             tmp.sourceTokenId ?? null,
       };
@@ -319,6 +325,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
     st.noMoverCollisionDamage   = colDmgVal === 'no-mover';
     st.noObstacleCollisionDamage = colDmgVal === 'no-obstacle';
     st.ignoreStability          = root.querySelector(`[data-field="ignoreStab-${i}"]`)?.checked  ?? st.ignoreStability;
+    st.safely                   = root.querySelector(`[data-field="safely-${i}"]`)?.checked      ?? st.safely;
     st.fastMove          = root.querySelector(`[data-field="fast-${i}"]`)?.checked     ?? st.fastMove;
     const fmSrcRaw       = root.querySelector(`[data-field="fmSrc-${i}"]`)?.value?.trim() ?? '';
     st.sourceTokenId     = fmSrcRaw ? (canvas.tokens?.placeables.find(t => t.name === fmSrcRaw)?.id ?? null) : null;
@@ -390,6 +397,8 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
               <input type="checkbox" data-field="ignoreStab-${i}" ${state.ignoreStability ? 'checked' : ''}> Ignore Stability</label>
             <label style="color:var(--dsct-accent-text, var(--dsct-accent));font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="fast-${i}" ${state.fastMove ? 'checked' : ''}> Fast Path</label>
+            <label style="color:var(--dsct-accent-text, var(--dsct-accent));font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;" ${tipAttrs(tipFor('fmPanelSafely'))}>
+              <input type="checkbox" data-field="safely-${i}" ${state.safely ? 'checked' : ''}> Safely</label>
           </div>
         </div>
       `;
@@ -438,6 +447,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
         setChk('noFall', m.noFallDamage ?? false);
         setVal('colDmg', m.noCollisionDamage ? 'none' : m.noMoverCollisionDamage ? 'no-mover' : m.noObstacleCollisionDamage ? 'no-obstacle' : 'all');
         setChk('ignoreStab', m.ignoreStability ?? false);
+        setChk('safely',     m.safely             ?? false);
         setChk('fast',       m.fastMove           ?? false);
       }
     };
@@ -509,6 +519,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
             noMoverCollisionDamage:  colDmgV === 'no-mover',
             noObstacleCollisionDamage: colDmgV === 'no-obstacle',
             ignoreStability:         get('ignoreStab')?.checked       ?? false,
+            safely:                  get('safely')?.checked           ?? false,
             fastMove:                get('fast')?.checked             ?? false,
           };
         });

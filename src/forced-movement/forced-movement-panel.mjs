@@ -162,11 +162,12 @@ export class ForcedMovementPanel extends FitsOnResize(ds.applications.api.DSAppl
     const noObstacleCollisionDamage = juggernaut || colDmgVal === 'no-obstacle';
     const ignoreStability          = juggernaut || this.element.querySelector('#fm-ign-stab')?.checked;
     const fastMove          = this.element.querySelector('#fm-fast-move')?.checked;
+    const safely            = !!this.element.querySelector('#fm-safely')?.checked;
 
     const api = getModuleApi(false);
     if (api && api.forcedMovement) {
       const targetsToProcess = this._targetTokens.slice(0, 25);
-      const payload = { type, distance, sourceId: this._sourceToken?.id, verticalHeight, fallReduction, noFallDamage, noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, ignoreStability, fastMove, juggernaut };
+      const payload = { type, distance, sourceId: this._sourceToken?.id, verticalHeight, fallReduction, noFallDamage, noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, ignoreStability, fastMove, juggernaut, safely };
 
       const fm = forcedMovementHandler();
       if (fm) {

@@ -1,4 +1,4 @@
-import { getSetting, noLogFlag } from '../../helpers.mjs';
+import { getSetting, noLogFlag, spentTotal } from '../../helpers.mjs';
 import { chooseKeywords } from '../choose-effect.mjs';
 import { FitsOnResize } from '../../fit-window.mjs';
 import { safeUpdate, safeDelete } from '../../ctlib.mjs';
@@ -679,7 +679,7 @@ export const registerImNoThreatHooks = () => {
 
     if (getSetting('imNoThreatEnabled') && dsid === 'im-no-threat') {
       const actorId       = msg.speaker?.actor ?? null;
-      const spendDetected = !!(actorId && msg.flavor?.toLowerCase().startsWith('spent '));
+      const spendDetected = !!(actorId && spentTotal(msg) > 0);
       const mimicUsed     = !!msg.getFlag('draw-steel-combat-tools', 'intFreeMimicUsed');
 
       if (spendDetected && !mimicUsed && !grantedMimicMsgs.has(msg.id)) {

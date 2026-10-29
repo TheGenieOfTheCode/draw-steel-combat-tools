@@ -43,7 +43,7 @@ export class VerticalDistancePopup extends ds.applications.api.DSApplication {
     number.addEventListener('input', () => {
       const v = parseInt(number.value);
       if (!isNaN(v)) {
-        slider.value = Math.max(-this.#maxAbsVal, Math.min(this.#maxAbsVal, v));
+        slider.value = Math.max(this.#minVal ?? -this.#maxAbsVal, Math.min(this.#maxAbsVal, v));
         this.#onPreview?.(v);
       }
     });

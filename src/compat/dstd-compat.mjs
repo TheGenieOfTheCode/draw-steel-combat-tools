@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor, effectStartFor } from '../helpers.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor, effectStartFor, spendBeyondCost } from '../helpers.mjs';
 import { isOthersEffect, othersSpec, triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks, modifyAttributeSafely } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker, runMultiTokenPicker, pickTargetsFor, setFoundryTargets } from '../ability-automation/target-picker.mjs';
@@ -247,6 +247,7 @@ export function registerDstdCompat() {
   services.provide('abilityResolving', _abilityResolving);
   services.provide('reapplyDamageRow', _reapplyDamageRow);
   services.provide('redealDamageRow', _redealDamageRow);
+  services.provide('undoDamageRow', _undoDamageRow);
 
   
   
@@ -451,12 +452,19 @@ async function _reapplyDamageRow(message, targetKey) {
   return false;
 }
 
-async function _redealDamageRow(message, targetKey) {
-  const row = () => document.querySelector(`#chat li.chat-message[data-message-id="${message?.id}"]`)
-    ?.querySelector(DSTD_PANEL)?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(targetKey)}"]`);
-  const undo = row() ? [...row().querySelectorAll('button[data-dstd-action="undoDamage"]')].find(b => !b.disabled) : null;
+const _damageRowOf = (message, targetKey) => document.querySelector(`#chat li.chat-message[data-message-id="${message?.id}"]`)
+  ?.querySelector(DSTD_PANEL)?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(targetKey)}"]`);
+
+async function _undoDamageRow(message, targetKey) {
+  const undo = [...(_damageRowOf(message, targetKey)?.querySelectorAll('button[data-dstd-action="undoDamage"]') ?? [])].find(b => !b.disabled);
   if (!undo) return false;
   undo.click();
+  return true;
+}
+
+async function _redealDamageRow(message, targetKey) {
+  const row = () => _damageRowOf(message, targetKey);
+  if (!await _undoDamageRow(message, targetKey)) return false;
   for (let i = 0; i < 20; i++) {
     await new Promise(r => setTimeout(r, 150));
     const btn = row() ? [...row().querySelectorAll('button[data-dstd-action="applyDamage"]')].find(b => !b.disabled && !b.closest('.is-applied')) : null;
@@ -1227,6 +1235,7 @@ function _buildBaseState(movementType, distance, properties, verticalDistance, f
     noMoverCollisionDamage:    properties.has('no-mover-collision-damage'),
     noObstacleCollisionDamage:  properties.has('no-obstacle-collision-damage'),
     ignoreStability:           properties.has('ignore-stability'),
+    safely:                    properties.has('safely'),
     fastMove:          properties.has('fast-auto-path'),
     sourceTokenId:     null,
   };
@@ -2362,6 +2371,7 @@ async function _injectFmButtons(message, root) {
             noMoverCollisionDamage:    baseState.noMoverCollisionDamage,
             noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
             ignoreStability:           baseState.ignoreStability,
+            safely:                    baseState.safely,
             fastMove:                  baseState.fastMove,
           }],
           noteName: 'Flying',
@@ -2385,6 +2395,7 @@ async function _injectFmButtons(message, root) {
             noMoverCollisionDamage:    baseState.noMoverCollisionDamage,
             noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
             ignoreStability:           baseState.ignoreStability,
+            safely:                    baseState.safely,
             fastMove:                  baseState.fastMove,
           }],
           noteName: 'Big vs Little',
@@ -2393,9 +2404,7 @@ async function _injectFmButtons(message, root) {
           srcTokenId: sourceToken.id,
         } : null;
 
-        const _spentRx = new RegExp(game.i18n.localize('DRAW_STEEL.Item.ability.ConfigureUse.SpentFlavor')
-          .replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{value\\}', '(\\d+)').replace('\\{name\\}', '.+'));
-        const _spentN = (Number(_spentRx.exec(message?.flavor ?? '')?.[1]) || 0) - (Number(ability.system?.resource) || 0);
+        const _spentN = spendBeyondCost(message, ability);
         let _spendBonus = 0;
         if (_spentN > 0 && /@spend\b/i.test(distanceRaw)) {
           try { _spendBonus = (Number(ds.utils.evaluateFormula(distanceRaw, { ...rollData, spend: _spentN })) || 0) - baseDistance; }
@@ -2413,6 +2422,7 @@ async function _injectFmButtons(message, root) {
             noMoverCollisionDamage:    baseState.noMoverCollisionDamage,
             noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
             ignoreStability:           baseState.ignoreStability,
+            safely:                    baseState.safely,
             fastMove:                  baseState.fastMove,
           }],
           noteName: game.i18n.localize('DSCT.panel.modFm.spent'),
@@ -2519,6 +2529,7 @@ async function _injectFmButtons(message, root) {
             clickState.noObstacleCollisionDamage ? 'no-obstacle-collision-damage' : null,
             clickState.ignoreStability         ? 'ignore-stability'             : null,
             clickState.fastMove                ? 'fast-auto-path'               : null,
+            clickState.safely                  ? 'safely'                       : null,
           ].filter(Boolean));
           const vertDist = clickState.vertical
             ? (clickState.verticalDistance !== '' ? Number(clickState.verticalDistance) : clickState.distance)
@@ -3242,7 +3253,7 @@ async function _injectFmButtons(message, root) {
           noCollisionDamage: baseState.noCollisionDamage,
           noMoverCollisionDamage: baseState.noMoverCollisionDamage,
           noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
-          ignoreStability: baseState.ignoreStability, fastMove: baseState.fastMove,
+          ignoreStability: baseState.ignoreStability, fastMove: baseState.fastMove, safely: baseState.safely,
         }],
         noteName: 'Flying', noteDesc: '',
       } : null;
@@ -3348,6 +3359,7 @@ async function _injectFmButtons(message, root) {
           clickState.noObstacleCollisionDamage ? 'no-obstacle-collision-damage' : null,
           clickState.ignoreStability         ? 'ignore-stability'             : null,
           clickState.fastMove                ? 'fast-auto-path'               : null,
+          clickState.safely                  ? 'safely'                       : null,
         ].filter(Boolean));
         const vertDist = clickState.vertical
           ? (clickState.verticalDistance !== '' ? Number(clickState.verticalDistance) : clickState.distance)
@@ -3757,8 +3769,7 @@ async function _injectFmButtons(message, root) {
       const tpKey = `ftp_${effect.id}_${targetKey}`;
       if (actions.querySelector(`[data-dsct-flat-tp-key="${tpKey}"]`)) continue;
 
-      const spentMatch = message?.flavor?.match(/^Spent (\d+)/i);
-      const tpDist = teleportDistance(tv, ability, spentMatch ? parseInt(spentMatch[1]) : 0);
+      const tpDist = teleportDistance(tv, ability, spendBeyondCost(message, ability));
       const tpLabel = (tv.display || teleportAutoLabel(tv, tpDist)) + _spendSuffix(tv.spend);
 
       const tpBtn = document.createElement('button');
@@ -3825,7 +3836,7 @@ async function _injectFmButtons(message, root) {
           capturedTpMsgId = msg.id;
           capturedTpDist = msg.getFlag(M, 'tpDistance') ?? null;
         });
-        try { await runTeleportEffect(tv, ability, { sourceActor, partnerToken: td?.object ?? null }); }
+        try { await runTeleportEffect(tv, ability, { sourceActor, partnerToken: td?.object ?? null, spent: spendBeyondCost(message, ability) }); }
         finally { Hooks.off('createChatMessage', tpHookId); }
         if (!capturedTpMsgId) return;
 

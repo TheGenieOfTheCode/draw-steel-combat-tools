@@ -3,7 +3,7 @@ import { runColoredTokenPicker, _getValidTargets, burstTargetsAround, setTrigger
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections, rollBleeding } from './chat-integration.mjs';
 import { runGrab, toggleGrabPanel, endGrab, applyGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync, allowOutOfRange } from './conditions/grab.mjs';
-import { STEALTH_WORKFLOW_READY, applyFall, registerFallHandler, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, asStaminaLoss} from './helpers.mjs';
+import { STEALTH_WORKFLOW_READY, applyFall, registerFallHandler, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, asStaminaLoss, spendBeyondCost} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { services, registerStatusGroup, clearPickerArrows, activateTokenLayer, stackedPrompt, isPrimaryGM } from './ctlib.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
@@ -378,8 +378,7 @@ Hooks.once('setup', () => {
           if (spent === null) {
             const msgEl = element.closest('[data-message-id]');
             const msg   = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
-            const m     = msg?.flavor?.match(/^Spent (\d+)/i);
-            spent = m ? parseInt(m[1]) : 0;
+            spent = msg ? spendBeyondCost(msg) : 0;
           }
           node.textContent = node.textContent
             .replace(/@spend/gi, String(spent))
@@ -414,8 +413,7 @@ Hooks.once('setup', () => {
         if (!span) return;
         const msgEl = element.closest('[data-message-id]');
         const msg   = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
-        const m     = msg?.flavor?.match(/^Spent (\d+)/i);
-        span.innerText = String(m ? parseInt(m[1]) : 0);
+        span.innerText = String(msg ? spendBeyondCost(msg) : 0);
       },
     };
   }

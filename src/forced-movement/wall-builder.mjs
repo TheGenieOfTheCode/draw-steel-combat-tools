@@ -275,10 +275,10 @@ const mergeCollinearWalls = async (wallDocs) => {
 
 export const mergeSelectedWalls = async () => {
   const selected = canvas.walls.controlled.map(w => w.document ?? w);
-  if (!selected.length) { ui.notifications.warn('No walls selected.'); return; }
+  if (!selected.length) { ui.notifications.warn(game.i18n.localize('DSCT.notice.wb.selectWallFirst')); return; }
   const before = selected.length;
   await mergeCollinearWalls(selected);
-  ui.notifications.info(`Merged ${before} wall segments into fewer walls.`);
+  ui.notifications.info(game.i18n.format('DSCT.notice.wb.wallsMerged', { count: before }));
 };
 
 const splitBlockWallsAtTile = async (gx, gy, blockTag) => {

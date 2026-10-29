@@ -7,19 +7,42 @@ import {
   tokenAt, tileAt, wallBetween, tileIsOpenDoor,
   applyDamage,
   canCurrentlyFly, getWallBlockTop,
-  safeUpdate, safeDelete, safeCreateEmbedded, safeToggleStatusEffect,
-  getSetting, chooseFreeSquare, confirmFall, fallGate, stepOffCatcher,
+  safeUpdate, safeDelete, safeCreateEmbedded,
+  getSetting, chooseFreeSquare, confirmFall, fallGate, stepOffCatcher, knockProne,
 } from '../helpers.mjs';
 import { clipSegToBoxT, squaresForWall } from './wall-builder.mjs';
+import { wallHeight, SceneTerrain } from '../ctlib.mjs';
+
+const L = (key, data = {}) => game.i18n.format(`DSCT.chat.fm.${key}`, data);
+const pl = (n) => (n !== 1 ? 's' : '');
+
+const wallSpan = (w) => {
+  const { bottom, top } = wallHeight(w);
+  const unit = w.parent?.grid?.distance || 1;
+  return { bottom: Number.isFinite(bottom) ? bottom * unit : 0, top: Number.isFinite(top) ? top * unit : Infinity };
+};
+
+const sceneTerrain = () => new SceneTerrain();
+
+const terrainTop = (terrain, grid, below, cap = Infinity) => {
+  let top = null;
+  for (const s of terrain.slabsAt(grid)) {
+    if (s.tile || s.liquid) continue;
+    const b = terrain.grid.toElevation(s.bottom);
+    const t = terrain.grid.toElevation(s.top);
+    if (b >= below || t > cap) continue;
+    top = Math.max(top ?? -Infinity, t);
+  }
+  return top ?? 0;
+};
 
 const cornerCutsWall = (from, to, elev = 0) => {
-  if (from.x === to.x || from.y === to.y) return false; 
-  const cA = { x: to.x,   y: from.y }; 
-  const cB = { x: from.x, y: to.y   }; 
+  if (from.x === to.x || from.y === to.y) return false;
+  const cA = { x: to.x,   y: from.y };
+  const cB = { x: from.x, y: to.y   };
   const active = (w) => {
     if (!w || hasTags(w, 'broken')) return false;
-    const wb = w.flags?.['wall-height']?.bottom ?? 0;
-    const wt = w.flags?.['wall-height']?.top    ?? Infinity;
+    const { bottom: wb, top: wt } = wallSpan(w);
     return !(elev >= wt || elev < wb);
   };
   const hasVert  = active(wallBetween(from, cA)) || active(wallBetween(to, cA));
@@ -154,7 +177,7 @@ const breakTileFromTop = async (tile, fallDmg, undoOps, collisionMsgs, targetTok
     undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['broken'] });
     if (prevDamagedTag) undoOps.push({ op: 'addTags', uuid: tile.document.uuid, tags: [prevDamagedTag] });
 
-    collisionMsgs.push(`${targetToken.name} crashes through the entire ${mat} object (${tileHeight} square${tileHeight !== 1 ? 's' : ''}).`);
+    collisionMsgs.push(L('crashThroughAll', { name: targetToken.name, material: mat, height: tileHeight, s: pl(tileHeight) }));
     return tileBottom;
   }
 
@@ -170,7 +193,7 @@ const breakTileFromTop = async (tile, fallDmg, undoOps, collisionMsgs, targetTok
   if (!prevDamagedTag) undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: ['partially-broken'] });
   if (prevDamagedTag) undoOps.push({ op: 'addTags', uuid: tile.document.uuid, tags: [prevDamagedTag] });
 
-  collisionMsgs.push(`${targetToken.name} breaks ${squaresBroken} square${squaresBroken !== 1 ? 's' : ''} off the top of the ${mat} object (${tileHeight} tall, now ${newTop - tileBottom} remain).`);
+  collisionMsgs.push(L('breakOffTop', { name: targetToken.name, count: squaresBroken, s: pl(squaresBroken), material: mat, height: tileHeight, left: newTop - tileBottom }));
   return newTop - 1;
 };
 
@@ -238,7 +261,7 @@ const splitTileAtElevation = async (tile, splitElev, undoOps, collisionMsgs) => 
     }
   }
 
-  collisionMsgs.push(`The ${mat} object splits at elevation ${splitElev}.`);
+  collisionMsgs.push(L('objectSplits', { material: mat, elevation: splitElev }));
 
   const createdTileUuid  = createdTiles?.[0] ? embeddedUuid(canvas.scene, 'Tile', createdTiles[0]) : null;
   const createdWallUuids = createdWalls.map(w => embeddedUuid(canvas.scene, 'Wall', w));
@@ -254,97 +277,99 @@ const splitTileAtElevation = async (tile, splitElev, undoOps, collisionMsgs) => 
   undoOps.push({ op: 'addTags',    uuid: tile.document.uuid, tags: [blockTag] });
 };
 
-const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, canFly, undoOps, collisionMsgs, fallReduction = 0, noFallDamage = false) => {
-  if (isNaN(finalElev)) return finalElev;
-
-  
-  
+const landOnCreature = async (targetToken, landingGrid, fallDmg, undoOps, collisionMsgs, spare = false) => {
+  const raw = tokenAt(landingGrid.x, landingGrid.y, targetToken.id);
+  const landedOn = (raw && !isTokenDead(raw)) ? raw : null;
+  if (!landedOn) return;
   const GRID = getGRID();
-  const terrainSurface = game.modules.get('ds-terrain-designer')?.active
-    ? (canvas.scene.getFlag('ds-terrain-designer', 'elevation-levels')?.[`${landingGrid.x},${landingGrid.y}`] ?? 0)
-    : 0;
-  const tilesBelow = canvas.tiles.placeables
+  undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { isUndo: true } });
+  if (!spare) {
+    const prev = await applyDamage(landedOn.actor, fallDmg, undefined, { fall: true });
+    if (prev) undoOps.push({ op: 'stamina', uuid: landedOn.actor.uuid, prevValue: prev.prevValue, prevTemp: prev.prevTemp, squadGroupUuid: prev.squadGroup?.uuid ?? null, prevSquadHP: prev.prevSquadHP, squadCombatantIds: prev.squadCombatantIds, squadTokenIds: prev.squadTokenIds ?? [] });
+    collisionMsgs.push(L('impactDamage', { name: landedOn.name, dmg: fallDmg }));
+    const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
+    const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
+    if (fallerSize > blockerMight) {
+      await knockProne(landedOn.actor, undoOps);
+      collisionMsgs.push(L('knockedProne', { name: landedOn.name, faller: targetToken.name, size: fallerSize, might: blockerMight }));
+    }
+  }
+  const fallerWouldDie  = (targetToken.actor.system.stamina?.value ?? 1) <= 0;
+  const blockerWouldDie = (landedOn.actor.system.stamina?.value ?? 1) <= 0;
+  if (getSetting('debugMode')) console.log(`DSCT | landOnCreature | faller=${targetToken.name} grid=(${toGrid(targetToken.document).x},${toGrid(targetToken.document).y}) landedOn=${landedOn.name} | fallerWouldDie=${fallerWouldDie} blockerWouldDie=${blockerWouldDie}`);
+  if (fallerWouldDie && blockerWouldDie) {
+    collisionMsgs.push(L('bothDefeated', { name: targetToken.name, other: landedOn.name }));
+    return;
+  }
+  const chosen = await chooseFreeSquare(targetToken, landedOn);
+  if (chosen) {
+    await safeUpdate(targetToken.document, { x: chosen.x * GRID, y: chosen.y * GRID }, { dsMovement: true });
+    collisionMsgs.push(L('landsNearby', { name: targetToken.name }));
+  } else {
+    collisionMsgs.push(L('noFreeSpace', { name: targetToken.name }));
+  }
+};
+
+const fallNote = (rawFall, effectiveFall, agility, extra) => (extra > 0
+  ? L('fallNoteReduced', { raw: rawFall, agility, extra })
+  : L('fallNoteAgility', { effective: effectiveFall, agility }));
+
+const landingSurfaceAt = (grid, elev, terrainBelow = Infinity, terrain = sceneTerrain()) => {
+  const terrainSurface = terrainTop(terrain, grid, elev + 1, terrainBelow);
+  const topTile = canvas.tiles.placeables
     .filter(t => {
       const tg = toGrid(t.document);
-      if (tg.x !== landingGrid.x || tg.y !== landingGrid.y) return false;
+      if (tg.x !== grid.x || tg.y !== grid.y) return false;
       if (!hasTags(t, 'obstacle') || hasTags(t, 'broken') || tileIsOpenDoor(t)) return false;
       const top = getWallBlockTop(t) ?? 0;
-      return (top - 1) < finalElev;
+      return (top - 1) < elev;
     })
-    .sort((a, b) => (getWallBlockTop(b) ?? 0) - (getWallBlockTop(a) ?? 0));
+    .sort((a, b) => (getWallBlockTop(b) ?? 0) - (getWallBlockTop(a) ?? 0))[0] ?? null;
+  const tileSurface = topTile ? ((getWallBlockTop(topTile) ?? 1) - 1) : terrainSurface;
+  return { surface: Math.max(tileSurface, terrainSurface), topTile };
+};
 
-  const topTile      = tilesBelow[0] ?? null;
-  const origTopValue = topTile ? (getWallBlockTop(topTile) ?? 1) : 1;
-  
-  
-  const tileSurface    = topTile ? (origTopValue - 1) : terrainSurface;
-  const landingSurface = Math.max(tileSurface, terrainSurface);
+const fallDamageFor = (height, agility, reduction = 0, { slam = false } = {}) => {
+  const effective = Math.max(0, height - (slam ? 0 : Math.max(0, agility)) - reduction);
+  return { effective, damage: effective >= 2 ? Math.min(effective * 2, getSetting('fallDamageCap')) : 0 };
+};
+
+const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, canFly, undoOps, collisionMsgs, fallReduction = 0, noFallDamage = false, spareLandedOn = false) => {
+  if (isNaN(finalElev)) return finalElev;
+
+  const { surface: landingSurface, topTile } = landingSurfaceAt(landingGrid, finalElev);
 
   if (!canFly && finalElev > landingSurface) {
     const rawFall        = finalElev - landingSurface;
     const gate           = await fallGate(targetToken, rawFall);
     if (gate.cancel) {
-      collisionMsgs.push(`${targetToken.name} stops their fall in the air.`);
+      collisionMsgs.push(L('stopsFall', { name: targetToken.name }));
       return finalElev;
     }
     if (gate.safe) {
-      await safeUpdate(targetToken.document, { elevation: landingSurface });
+      await safeUpdate(targetToken.document, { elevation: landingSurface }, { dsMovement: true });
       await stepOffCatcher(targetToken);
-      collisionMsgs.push(`${targetToken.name} is caught and lands safely.`);
+      collisionMsgs.push(L('caughtSafely', { name: targetToken.name }));
       return landingSurface;
     }
-    const effectiveFall  = Math.max(0, rawFall - Math.max(0, agility) - fallReduction - gate.reduction);
+    const { effective: effectiveFall, damage: fallDmg } = fallDamageFor(rawFall, agility, fallReduction + gate.reduction);
 
     if (rawFall > 0 && getSetting('fallConfirmation')) {
-      const previewDmg = noFallDamage ? 0 : (effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, getSetting('fallDamageCap')));
+      const previewDmg = noFallDamage ? 0 : fallDmg;
       const confirmed = await confirmFall(targetToken, rawFall, effectiveFall, previewDmg, { noFallDamage });
       if (!confirmed) return finalElev;
     }
 
     if (noFallDamage) {
-      await safeUpdate(targetToken.document, { elevation: landingSurface });
-      collisionMsgs.push(`${targetToken.name} falls ${rawFall} square${rawFall !== 1 ? 's' : ''} but takes no damage.`);
-      if (effectiveFall >= 2) {
-        const fallDmg = Math.min(effectiveFall * 2, getSetting('fallDamageCap'));
-        const _landedOnRaw = tokenAt(landingGrid.x, landingGrid.y, targetToken.id);
-        const landedOn = (_landedOnRaw && !isTokenDead(_landedOnRaw)) ? _landedOnRaw : null;
-        if (landedOn) {
-          undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { isUndo: true } });
-          const blockerPrev1 = await applyDamage(landedOn.actor, fallDmg, undefined, { fall: true });
-          if (blockerPrev1) undoOps.push({ op: 'stamina', uuid: landedOn.actor.uuid, prevValue: blockerPrev1.prevValue, prevTemp: blockerPrev1.prevTemp, squadGroupUuid: blockerPrev1.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev1.prevSquadHP, squadCombatantIds: blockerPrev1.squadCombatantIds, squadTokenIds: blockerPrev1.squadTokenIds ?? [] });
-          collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
-          const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
-          const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
-          if (fallerSize > blockerMight) {
-            await safeToggleStatusEffect(landedOn.actor, 'prone', { active: true });
-            undoOps.push({ op: 'status', uuid: landedOn.actor.uuid, effectId: 'prone', active: false });
-            collisionMsgs.push(`${landedOn.name} is knocked prone (${targetToken.name}'s size ${fallerSize} exceeds their Might ${blockerMight}).`);
-          }
-          const blockerWouldDie = (landedOn.actor.system.stamina?.value ?? 1) <= 0;
-          if (!blockerWouldDie) {
-            const chosen = await chooseFreeSquare(targetToken, landedOn);
-            if (chosen) {
-              await safeUpdate(targetToken.document, { x: chosen.x * GRID, y: chosen.y * GRID }, { dsMovement: true });
-              collisionMsgs.push(`${targetToken.name} lands in a nearby free space.`);
-            } else {
-              collisionMsgs.push(`${targetToken.name} could not find a free space to land.`);
-            }
-          } else {
-            collisionMsgs.push(`${targetToken.name} and ${landedOn.name} are both defeated; no repositioning needed.`);
-          }
-        }
-      }
+      await safeUpdate(targetToken.document, { elevation: landingSurface }, { dsMovement: true });
+      collisionMsgs.push(L('fallNoDamage', { name: targetToken.name, dist: rawFall, s: pl(rawFall) }));
+      if (fallDmg) await landOnCreature(targetToken, landingGrid, fallDmg, undoOps, collisionMsgs, spareLandedOn);
       return landingSurface;
     }
 
-    if (effectiveFall >= 2) {
-      const fallDmg = Math.min(effectiveFall * 2, getSetting('fallDamageCap'));
+    if (fallDmg) {
       await applyDamage(targetToken.actor, fallDmg, undefined, { fall: true });
-
-      const reductionNote = fallReduction + gate.reduction > 0
-        ? ` (${rawFall} raw, reduced by Agility ${agility} + ${fallReduction + gate.reduction})`
-        : ` (${effectiveFall} effective after Agility ${agility})`;
-      collisionMsgs.push(`${targetToken.name} falls ${rawFall} square${rawFall !== 1 ? 's' : ''}${reductionNote} and takes <strong>${fallDmg} damage</strong>, landing prone.`);
+      collisionMsgs.push(L('fallDamage', { name: targetToken.name, dist: rawFall, s: pl(rawFall), note: fallNote(rawFall, effectiveFall, agility, fallReduction + gate.reduction), dmg: fallDmg }));
 
       let actualLanding = landingSurface;
       if (topTile) {
@@ -352,139 +377,55 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
         if (newTop !== null) actualLanding = newTop;
       }
 
-      await safeUpdate(targetToken.document, { elevation: actualLanding });
-      await safeToggleStatusEffect(targetToken.actor, 'prone', { active: true });
-      undoOps.push({ op: 'status', uuid: targetToken.actor.uuid, effectId: 'prone', active: false });
-
-      const _landedOnRaw = tokenAt(landingGrid.x, landingGrid.y, targetToken.id);
-      const landedOn = (_landedOnRaw && !isTokenDead(_landedOnRaw)) ? _landedOnRaw : null;
-      if (landedOn) {
-        undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { isUndo: true } });
-        const blockerPrev2 = await applyDamage(landedOn.actor, fallDmg, undefined, { fall: true });
-        if (blockerPrev2) undoOps.push({ op: 'stamina', uuid: landedOn.actor.uuid, prevValue: blockerPrev2.prevValue, prevTemp: blockerPrev2.prevTemp, squadGroupUuid: blockerPrev2.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev2.prevSquadHP, squadCombatantIds: blockerPrev2.squadCombatantIds, squadTokenIds: blockerPrev2.squadTokenIds ?? [] });
-        collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
-        const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
-        const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
-        if (fallerSize > blockerMight) {
-          await safeToggleStatusEffect(landedOn.actor, 'prone', { active: true });
-          undoOps.push({ op: 'status', uuid: landedOn.actor.uuid, effectId: 'prone', active: false });
-          collisionMsgs.push(`${landedOn.name} is knocked prone (${targetToken.name}'s size ${fallerSize} exceeds their Might ${blockerMight}).`);
-        }
-        const fallerWouldDie  = (targetToken.actor.system.stamina?.value ?? 1) <= 0;
-        const blockerWouldDie = (landedOn.actor.system.stamina?.value ?? 1) <= 0;
-        if (getSetting('debugMode')) console.log(`DSCT | applyFallDamage | creature collision | faller=${targetToken.name} grid=(${toGrid(targetToken.document).x},${toGrid(targetToken.document).y}) landedOn=${landedOn.name} | fallerWouldDie=${fallerWouldDie} blockerWouldDie=${blockerWouldDie}`);
-        if (!fallerWouldDie || !blockerWouldDie) {
-          const chosen = await chooseFreeSquare(targetToken, landedOn);
-          if (chosen) {
-            await safeUpdate(targetToken.document, { x: chosen.x * GRID, y: chosen.y * GRID }, { dsMovement: true });
-            collisionMsgs.push(`${targetToken.name} lands in a nearby free space.`);
-          } else {
-            collisionMsgs.push(`${targetToken.name} could not find a free space to land.`);
-          }
-        } else {
-          collisionMsgs.push(`${targetToken.name} and ${landedOn.name} are both defeated; no repositioning needed.`);
-        }
-      }
+      await safeUpdate(targetToken.document, { elevation: actualLanding }, { dsMovement: true });
+      await knockProne(targetToken.actor, undoOps);
+      await landOnCreature(targetToken, landingGrid, fallDmg, undoOps, collisionMsgs);
       return actualLanding;
     } else if (rawFall > 0) {
-      await safeUpdate(targetToken.document, { elevation: landingSurface });
-      const reductionNote = fallReduction + gate.reduction > 0
-        ? ` (${rawFall} raw, reduced by Agility ${agility} + ${fallReduction + gate.reduction})`
-        : ` (${effectiveFall} effective after Agility ${agility})`;
-      collisionMsgs.push(`${targetToken.name} falls ${rawFall} square${rawFall !== 1 ? 's' : ''}${reductionNote}. Less than 2 squares, no damage.`);
+      await safeUpdate(targetToken.document, { elevation: landingSurface }, { dsMovement: true });
+      collisionMsgs.push(L('fallTooShort', { name: targetToken.name, dist: rawFall, s: pl(rawFall), note: fallNote(rawFall, effectiveFall, agility, fallReduction + gate.reduction) }));
       return landingSurface;
     }
   } else if (canFly && finalElev > 0) {
-    collisionMsgs.push(`${targetToken.name} is launched into the air (elevation ${finalElev}). No fall damage since they can fly.`);
+    collisionMsgs.push(L('launchedFlying', { name: targetToken.name, elevation: finalElev }));
   }
   return finalElev;
 };
 
-const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landingGrid, undoOps, collisionMsgs, noFallDamage = false) => {
-  const GRID   = getGRID();
+const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landingGrid, undoOps, collisionMsgs, noFallDamage = false, spareLandedOn = false) => {
   const canFly = canCurrentlyFly(targetToken.actor);
   if (canFly) return finalElev;
 
-  const tilesBelow = canvas.tiles.placeables
-    .filter(t => {
-      const tg = toGrid(t.document);
-      if (tg.x !== landingGrid.x || tg.y !== landingGrid.y) return false;
-      if (!hasTags(t, 'obstacle') || hasTags(t, 'broken') || tileIsOpenDoor(t)) return false;
-      const top = getWallBlockTop(t) ?? 0;
-      return (top - 1) < finalElev;
-    })
-    .sort((a, b) => (getWallBlockTop(b) ?? 0) - (getWallBlockTop(a) ?? 0));
-
-  const topTile    = tilesBelow[0] ?? null;
-  const terrainVal = game.modules.get('ds-terrain-designer')?.active
-    ? (canvas.scene.getFlag('ds-terrain-designer', 'elevation-levels')?.[`${landingGrid.x},${landingGrid.y}`] ?? 0)
-    : 0;
-  
-  
-  
-  const terrainSurface = terrainVal < (finalElev + forcedDist) ? terrainVal : 0;
-  
-  const tileSurface    = topTile ? ((getWallBlockTop(topTile) ?? 1) - 1) : terrainSurface;
-  const landingSurface = Math.max(tileSurface, terrainSurface);
+  const { surface: landingSurface, topTile } = landingSurfaceAt(landingGrid, finalElev, finalElev + forcedDist);
   const gate           = await fallGate(targetToken, forcedDist);
   if (gate.cancel) {
-    collisionMsgs.push(`${targetToken.name} stops their fall in the air.`);
+    collisionMsgs.push(L('stopsFall', { name: targetToken.name }));
     return finalElev;
   }
   if (gate.safe) {
-    await safeUpdate(targetToken.document, { elevation: landingSurface });
+    await safeUpdate(targetToken.document, { elevation: landingSurface }, { dsMovement: true });
     await stepOffCatcher(targetToken);
-    collisionMsgs.push(`${targetToken.name} is caught and lands safely.`);
+    collisionMsgs.push(L('caughtSafely', { name: targetToken.name }));
     return landingSurface;
   }
-  const effectiveFall  = Math.max(0, forcedDist - gate.reduction);
+  const { effective: effectiveFall, damage: fallDmg } = fallDamageFor(forcedDist, 0, gate.reduction, { slam: true });
 
   if (forcedDist > 0 && getSetting('fallConfirmation')) {
-    const previewDmg = noFallDamage ? 0 : (effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, getSetting('fallDamageCap')));
+    const previewDmg = noFallDamage ? 0 : fallDmg;
     const confirmed = await confirmFall(targetToken, forcedDist, effectiveFall, previewDmg, { noFallDamage });
     if (!confirmed) return finalElev;
   }
 
   if (noFallDamage) {
-    await safeUpdate(targetToken.document, { elevation: landingSurface });
-    collisionMsgs.push(`${targetToken.name} is slammed ${forcedDist} square${forcedDist !== 1 ? 's' : ''} downward but takes no fall damage.`);
-    if (effectiveFall >= 2) {
-      const fallDmg = Math.min(effectiveFall * 2, getSetting('fallDamageCap'));
-      const _landedOnRaw = tokenAt(landingGrid.x, landingGrid.y, targetToken.id);
-      const landedOn = (_landedOnRaw && !isTokenDead(_landedOnRaw)) ? _landedOnRaw : null;
-      if (landedOn) {
-        undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { isUndo: true } });
-        const blockerPrev3 = await applyDamage(landedOn.actor, fallDmg, undefined, { fall: true });
-        if (blockerPrev3) undoOps.push({ op: 'stamina', uuid: landedOn.actor.uuid, prevValue: blockerPrev3.prevValue, prevTemp: blockerPrev3.prevTemp, squadGroupUuid: blockerPrev3.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev3.prevSquadHP, squadCombatantIds: blockerPrev3.squadCombatantIds, squadTokenIds: blockerPrev3.squadTokenIds ?? [] });
-        collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
-        const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
-        const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
-        if (fallerSize > blockerMight) {
-          await safeToggleStatusEffect(landedOn.actor, 'prone', { active: true });
-          undoOps.push({ op: 'status', uuid: landedOn.actor.uuid, effectId: 'prone', active: false });
-          collisionMsgs.push(`${landedOn.name} is knocked prone.`);
-        }
-        const blockerWouldDie = (landedOn.actor.system.stamina?.value ?? 1) <= 0;
-        if (!blockerWouldDie) {
-          const chosen = await chooseFreeSquare(targetToken, landedOn);
-          if (chosen) {
-            await safeUpdate(targetToken.document, { x: chosen.x * GRID, y: chosen.y * GRID }, { dsMovement: true });
-            collisionMsgs.push(`${targetToken.name} lands in a nearby free space.`);
-          } else {
-            collisionMsgs.push(`${targetToken.name} could not find a free space to land.`);
-          }
-        } else {
-          collisionMsgs.push(`${targetToken.name} and ${landedOn.name} are both defeated; no repositioning needed.`);
-        }
-      }
-    }
+    await safeUpdate(targetToken.document, { elevation: landingSurface }, { dsMovement: true });
+    collisionMsgs.push(L('slammedNoDamage', { name: targetToken.name, dist: forcedDist, s: pl(forcedDist) }));
+    if (fallDmg) await landOnCreature(targetToken, landingGrid, fallDmg, undoOps, collisionMsgs, spareLandedOn);
     return landingSurface;
   }
 
-  if (effectiveFall >= 2) {
-    const fallDmg = Math.min(effectiveFall * 2, getSetting('fallDamageCap'));
+  if (fallDmg) {
     await applyDamage(targetToken.actor, fallDmg, undefined, { fall: true });
-    collisionMsgs.push(`${targetToken.name} is slammed ${forcedDist} square${forcedDist !== 1 ? 's' : ''} downward into the ground and takes <strong>${fallDmg} damage</strong> (Agility treated as 0), landing prone.`);
+    collisionMsgs.push(L('slammedDamage', { name: targetToken.name, dist: forcedDist, s: pl(forcedDist), dmg: fallDmg }));
 
     let actualLanding = landingSurface;
     if (topTile) {
@@ -492,44 +433,13 @@ const applyForcedFallDamage = async (targetToken, forcedDist, finalElev, landing
       if (newTop !== null) actualLanding = newTop;
     }
 
-    await safeUpdate(targetToken.document, { elevation: actualLanding });
-    await safeToggleStatusEffect(targetToken.actor, 'prone', { active: true });
-    undoOps.push({ op: 'status', uuid: targetToken.actor.uuid, effectId: 'prone', active: false });
-
-    const _landedOnRaw = tokenAt(landingGrid.x, landingGrid.y, targetToken.id);
-    const landedOn = (_landedOnRaw && !isTokenDead(_landedOnRaw)) ? _landedOnRaw : null;
-    if (landedOn) {
-      undoOps.push({ op: 'update', uuid: landedOn.document.uuid, data: { x: landedOn.document.x, y: landedOn.document.y, elevation: landedOn.document.elevation ?? 0 }, options: { isUndo: true } });
-      const blockerPrev4 = await applyDamage(landedOn.actor, fallDmg, undefined, { fall: true });
-      if (blockerPrev4) undoOps.push({ op: 'stamina', uuid: landedOn.actor.uuid, prevValue: blockerPrev4.prevValue, prevTemp: blockerPrev4.prevTemp, squadGroupUuid: blockerPrev4.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev4.prevSquadHP, squadCombatantIds: blockerPrev4.squadCombatantIds, squadTokenIds: blockerPrev4.squadTokenIds ?? [] });
-      collisionMsgs.push(`${landedOn.name} takes <strong>${fallDmg} damage</strong> from the impact.`);
-      const fallerSize   = targetToken.actor?.system?.combat?.size?.value ?? 1;
-      const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
-      if (fallerSize > blockerMight) {
-        await safeToggleStatusEffect(landedOn.actor, 'prone', { active: true });
-        undoOps.push({ op: 'status', uuid: landedOn.actor.uuid, effectId: 'prone', active: false });
-        collisionMsgs.push(`${landedOn.name} is knocked prone.`);
-      }
-      const fallerWouldDie  = (targetToken.actor.system.stamina?.value ?? 1) <= 0;
-      const blockerWouldDie = (landedOn.actor.system.stamina?.value ?? 1) <= 0;
-      if (getSetting('debugMode')) console.log(`DSCT | applyForcedFallDamage | creature collision | faller=${targetToken.name} grid=(${toGrid(targetToken.document).x},${toGrid(targetToken.document).y}) landedOn=${landedOn.name} | fallerWouldDie=${fallerWouldDie} blockerWouldDie=${blockerWouldDie}`);
-      if (!fallerWouldDie || !blockerWouldDie) {
-        const chosen = await chooseFreeSquare(targetToken, landedOn);
-        if (chosen) {
-          await safeUpdate(targetToken.document, { x: chosen.x * GRID, y: chosen.y * GRID }, { dsMovement: true });
-          collisionMsgs.push(`${targetToken.name} lands in a nearby free space.`);
-        } else {
-          collisionMsgs.push(`${targetToken.name} could not find a free space to land.`);
-        }
-      } else {
-        collisionMsgs.push(`${targetToken.name} and ${landedOn.name} are both defeated; no repositioning needed.`);
-      }
-    }
-
+    await safeUpdate(targetToken.document, { elevation: actualLanding }, { dsMovement: true });
+    await knockProne(targetToken.actor, undoOps);
+    await landOnCreature(targetToken, landingGrid, fallDmg, undoOps, collisionMsgs);
     return actualLanding;
   } else {
-    await safeUpdate(targetToken.document, { elevation: landingSurface });
-    if (effectiveFall > 0) collisionMsgs.push(`${targetToken.name} is slammed 1 square downward into the ground. Less than 2 squares, no fall damage.`);
+    await safeUpdate(targetToken.document, { elevation: landingSurface }, { dsMovement: true });
+    if (effectiveFall > 0) collisionMsgs.push(L('slammedShort', { name: targetToken.name }));
     return landingSurface;
   }
 };
@@ -559,8 +469,7 @@ const wallsAtStep = (newCells, dx, dy, stepElev) => {
   for (const cell of newCells) {
     const w = wallBetween({ x: cell.x - dx, y: cell.y - dy }, cell);
     if (!w || seen.has(w.id) || hasTags(w, 'broken')) continue;
-    const wb = w.flags?.['wall-height']?.bottom ?? 0;
-    const wt = w.flags?.['wall-height']?.top    ?? Infinity;
+    const { bottom: wb, top: wt } = wallSpan(w);
     if (stepElev >= wt || stepElev < wb) continue;
     seen.add(w.id);
     result.push({ wall: w, cell });
@@ -632,7 +541,7 @@ const doBreakObstacleWall = async (wall, stepElev, undoOps, collisionMsgs, step 
         if (prevDmgTag) undoOps.push({ op: 'addTags', uuid: tile.document.uuid, tags: [prevDmgTag] });
       }
       const mat = getMaterial(wall);
-      collisionMsgs.push(`The top of the ${mat} object collapses into the gap (now ${wallTop - 1 - wallBottom} square${wallTop - 1 - wallBottom !== 1 ? 's' : ''} tall).`);
+      collisionMsgs.push(L('topCollapses', { material: mat, height: wallTop - 1 - wallBottom, s: pl(wallTop - 1 - wallBottom) }));
     } else {
       const origMat      = tile ? getMaterial(tile) : 'stone';
       const prevAlpha    = tile ? (tile.document.alpha ?? getMaterialAlpha(origMat)) : getMaterialAlpha(origMat);
@@ -694,6 +603,11 @@ export {
   splitConvertedWall,
   breakTileFromTop,
   splitTileAtElevation,
+  wallSpan,
+  sceneTerrain,
+  terrainTop,
+  landingSurfaceAt,
+  fallDamageFor,
   applyFallDamage,
   applyForcedFallDamage,
   buildUndoLog,

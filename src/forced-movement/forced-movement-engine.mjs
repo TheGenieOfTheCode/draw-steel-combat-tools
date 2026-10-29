@@ -12,7 +12,7 @@ import {
   safeUpdate, safeDelete, safeToggleStatusEffect,
   getSetting, rangeEnforced, getTokenById,
   confirmFriendlyFireCase1, confirmFriendlyFireCase2,
-  tokFootprintDist,
+  tokFootprintDist, knockProne,
 } from '../helpers.mjs';
 import { endGrab } from '../conditions/grab.mjs';
 import {
@@ -22,11 +22,20 @@ import {
   tokensAtCells, tilesAtCells, doBreakObstacleWall,
   applyFallDamage, applyForcedFallDamage, destroyObjectToken, _fmDistCap,
   splitConvertedWall, splitTileAtElevation,
+  wallSpan, sceneTerrain, terrainTop,
 } from './forced-movement-collision.mjs';
+import { harmfulRegionsAt, harmfulFallAt, harmfulSlam, landingElevation, startingRegions } from './forced-movement-safety.mjs';
 import { toggleForcedMovementPanel } from './forced-movement-panel.mjs';
 import { VerticalDistancePopup } from './forced-movement-vertical-popup.mjs';
 import { runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { beginPickerOverlay, endPickerOverlay } from '../ability-automation/picker-overlay.mjs';
+
+const L = (key, data = {}) => game.i18n.format(`DSCT.chat.fm.${key}`, data);
+const pl = (n) => (n !== 1 ? 's' : '');
+const typeName = (type) => {
+  const key = `DSCT.panel.fm.${String(type).toLowerCase()}`;
+  return game.i18n.has(key) ? game.i18n.localize(key) : String(type);
+};
 
 let _fmGateBypass = false;
 let _fmContextKey = null;
@@ -57,10 +66,15 @@ export async function gateForcedMovement(opts) {
   return probe.run ? probe : null;
 }
 
+const movementSettled = async (doc) => {
+  const deadline = Date.now() + 5000;
+  while (doc.movement?.state === 'pending' && Date.now() < deadline) await new Promise(r => setTimeout(r, 50));
+};
+
 const _postNoMove = async (targetToken, sourceToken, type, why, suppressMessage = false) => {
   const doc = targetToken.document;
   const data = {
-    content: `<strong>${foundry.utils.escapeHTML(targetToken.name)}</strong> forced: ${type} 0. ${why}`,
+    content: L('noMove', { name: foundry.utils.escapeHTML(targetToken.name), type: typeName(type), why }),
     undoLog: [], moveId: null, targetTokenId: targetToken.id, targetSceneId: canvas.scene.id,
     finalPos: { x: doc.x, y: doc.y, elevation: doc.elevation ?? 0 }, hadDamage: false, grabsToRestore: [], noMove: true,
     fmLog: { movement: String(type).toLowerCase(), vertical: false, moved: 0,
@@ -87,11 +101,11 @@ const _runForcedMovement = async (...args) => {
   return result;
 };
 
-const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false, juggernaut = false, noMoverCollisionDamage = false, noObstacleCollisionDamage = false, contextMessageId = null, origin = null, modifierNotes = []) => {
+const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false, juggernaut = false, noMoverCollisionDamage = false, noObstacleCollisionDamage = false, contextMessageId = null, origin = null, modifierNotes = [], { safely = false } = {}) => {
   if (sourceToken && sourceToken.id === targetToken?.id && /^(?:push|pull)$/i.test(String(type))) {
     const kind = String(type).toLowerCase();
     const post = () => _postNoMove(targetToken, sourceToken, type,
-      `${foundry.utils.escapeHTML(targetToken.name)} is the source of the ${kind}, and nothing can be ${kind === 'push' ? 'pushed away from' : 'pulled toward'} itself.`, suppressMessage);
+      L(kind === 'push' ? 'selfPush' : 'selfPull', { name: foundry.utils.escapeHTML(targetToken.name) }), suppressMessage);
     if (_gateProbe) { Object.assign(_gateProbe, { held: false, run: post }); return; }
     _fmGateBypass = false;
     _fmContextKey = null;
@@ -111,14 +125,15 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       type, distance, target: targetToken, source: sourceToken,
       messageId: contextMessageId, origin, fmKey, keywords: [...keywords],
       verticalHeight, fallReduction, noFallDamage, ignoreStability, bonusCreatureDmg, bonusObjectDmg,
-      noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, fastMove,
+      noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, fastMove, safely,
       resume: (mods = {}) => {
         _fmGateBypass = true;
         try {
           return _runForcedMovement(mods.type ?? ctx.type, mods.distance ?? ctx.distance, mods.target ?? targetToken, mods.source ?? sourceToken,
             mods.bonusCreatureDmg ?? ctx.bonusCreatureDmg, mods.bonusObjectDmg ?? ctx.bonusObjectDmg, mods.verticalHeight ?? ctx.verticalHeight,
             fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove,
-            false, juggernaut, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, [...modifierNotes, ...(mods.modifierNotes ?? [])]);
+            false, juggernaut, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, [...modifierNotes, ...(mods.modifierNotes ?? [])],
+            { safely: mods.safely ?? ctx.safely });
         } finally {
           _fmGateBypass = false;
         }
@@ -130,8 +145,9 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       return;
     }
     if (gate === false) return;
-    ({ type, distance, verticalHeight, bonusCreatureDmg, bonusObjectDmg } = ctx);
+    ({ type, distance, verticalHeight, bonusCreatureDmg, bonusObjectDmg, safely } = ctx);
   }
+  if (safely) juggernaut = false;
   const fmFrom = { x: targetToken.document.x, y: targetToken.document.y, elevation: targetToken.document.elevation ?? 0 };
   
   const fmLog = (final) => ({
@@ -141,11 +157,11 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     source: sourceToken ? { name: sourceToken.name ?? '', src: sourceToken.document?.texture?.src ?? null,
       tokenId: sourceToken.document?.uuid ? sourceToken.id : null, sceneId: canvas.scene?.id ?? null } : null,
   });
-  const noMoverDmgBase = noCollisionDamage || noMoverCollisionDamage;
+  const noMoverDmgBase = noCollisionDamage || noMoverCollisionDamage || safely;
   const moverSkipsObjects = !!targetToken.actor?.getFlag('draw-steel-combat-tools', 'noObjectCollisionDamage');
   let noMoverDmg = noMoverDmgBase;
   const hitObject = () => { if (moverSkipsObjects) noMoverDmg = true; };
-  const noObstacleDmg = noCollisionDamage || noObstacleCollisionDamage;
+  const noObstacleDmg = noCollisionDamage || noObstacleCollisionDamage || safely;
   const grabState = window._activeGrabs?.get(targetToken.id);
   if (grabState) {
     const sourceIsGrabber = sourceToken && sourceToken.id === grabState.grabberTokenId;
@@ -196,13 +212,13 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
   if (reduced === 0 && reducedVert === 0) {
     ui.notifications.info(game.i18n.format('DSCT.notice.fm.stabilityFullyResists', { name: targetToken.name }));
     Hooks.callAll('dsct.forcedMovement', { type, distance, target: targetToken, source: sourceToken ?? null, keywords, moved: 0, resisted: true });
-    return _postNoMove(targetToken, sourceToken, type, `Stability reduced ${String(type).toLowerCase()} ${effectiveDistance} to 0.`, suppressMessage);
+    return _postNoMove(targetToken, sourceToken, type, L('stabilityToZero', { type: typeName(type), distance: effectiveDistance }), suppressMessage);
   }
 
   if (stability > 0) {
     const parts = [];
-    if (distance > 0)                    parts.push(`push ${effectiveDistance} to ${reduced}`);
-    if (Math.abs(effectiveVertical) > 0) parts.push(`vertical ${Math.abs(effectiveVertical)} to ${Math.abs(reducedVert)}`);
+    if (distance > 0)                    parts.push(L('reducedPart', { type: typeName(type), from: effectiveDistance, to: reduced }));
+    if (Math.abs(effectiveVertical) > 0) parts.push(L('verticalPart', { from: Math.abs(effectiveVertical), to: Math.abs(reducedVert) }));
     ui.notifications.info(game.i18n.format('DSCT.notice.fm.stabilityReduces', { name: targetToken.name, amount: stability, parts: parts.join(', ') }));
   }
 
@@ -230,27 +246,27 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
   const buildSummary = () => {
     const flyingConversion = origReduced > 0 && reduced === 0;
     const parts = flyingConversion
-      ? [`${type} ${Math.abs(reducedVert)} (vertical)`]
-      : [`${type} ${reduced}`];
-    if (!flyingConversion && isVertical) parts.push(`vertical ${reducedVert}`);
-    if (taken)              parts.push(`+${taken} moved farther`);
+      ? [L('partVerticalOnly', { type: typeName(type), n: Math.abs(reducedVert) })]
+      : [L('partMove', { type: typeName(type), n: reduced })];
+    if (!flyingConversion && isVertical) parts.push(L('partVertical', { n: reducedVert }));
+    if (taken)              parts.push(L('partTaken', { n: taken }));
     for (const note of modifierNotes) parts.push(foundry.utils.escapeHTML(String(note)));
-    if (bonusCreatureDmg)  parts.push(`+${bonusCreatureDmg} creature collision`);
-    if (bonusObjectDmg)     parts.push(`+${bonusObjectDmg} object collision`);
-    if (fallReduction)      parts.push(`+${fallReduction} fall reduction`);
-    if (noFallDamage)       parts.push('no fall damage');
-    if (noCollisionDamage)          parts.push('no collision damage');
-    if (noMoverCollisionDamage)     parts.push('no mover collision damage');
-    if (noObstacleCollisionDamage)   parts.push('no obstacle collision damage');
-    if (ignoreStability)    parts.push('ignores stability');
-    if (juggernaut)         parts.push('juggernaut mode');
-    const summaryPrefix = juggernaut ? '<strong>UNSTOPPABLE.</strong> ' : '';
-    let summary = `${summaryPrefix}<strong>${targetToken.name}</strong> forced: ${parts.join(', ')}.`;
+    if (bonusCreatureDmg)  parts.push(L('partCreatureBonus', { n: bonusCreatureDmg }));
+    if (bonusObjectDmg)     parts.push(L('partObjectBonus', { n: bonusObjectDmg }));
+    if (fallReduction)      parts.push(L('partFallReduction', { n: fallReduction }));
+    if (noFallDamage)       parts.push(L('partNoFallDamage'));
+    if (noCollisionDamage)          parts.push(L('partNoCollision'));
+    if (noMoverCollisionDamage)     parts.push(L('partNoMoverCollision'));
+    if (noObstacleCollisionDamage)   parts.push(L('partNoObstacleCollision'));
+    if (ignoreStability)    parts.push(L('partIgnoreStability'));
+    if (safely)             parts.push(L('partSafely'));
+    if (juggernaut)         parts.push(L('partJuggernaut'));
+    let summary = L(juggernaut ? 'summaryUnstoppable' : 'summary', { name: targetToken.name, parts: parts.join(', ') });
     if (stability > 0 && !ignoreStability) {
       const stabParts = [];
-      if (effectiveDistance !== origReduced && origReduced > 0)                                        stabParts.push(`push ${effectiveDistance} to ${origReduced}`);
-      if (Math.abs(effectiveVertical) !== Math.abs(reducedVert) && Math.abs(effectiveVertical) > 0) stabParts.push(`vertical ${Math.abs(effectiveVertical)} to ${Math.abs(reducedVert)}`);
-      if (stabParts.length) summary += ` Stability reduced ${stabParts.join(', ')}.`;
+      if (effectiveDistance !== origReduced && origReduced > 0)                                        stabParts.push(L('reducedPart', { type: typeName(type), from: effectiveDistance, to: origReduced }));
+      if (Math.abs(effectiveVertical) !== Math.abs(reducedVert) && Math.abs(effectiveVertical) > 0) stabParts.push(L('verticalPart', { from: Math.abs(effectiveVertical), to: Math.abs(reducedVert) }));
+      if (stabParts.length) summary += ` ${L('stabilityReduced', { parts: stabParts.join(', ') })}`;
     }
     if (friendlyFireNote) summary += ` ${friendlyFireNote}`;
     return summary;
@@ -259,14 +275,17 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
   
   const cornerCutMode = getSetting('cornerCutMode');
 
-  const ncdNote  = (noMoverDmg && noObstacleDmg) ? ' (No Collision Damage)' : noMoverDmg ? ' (No Mover Damage)' : noObstacleDmg ? ' (No Obstacle Damage)' : '';
+  const ncdKey   = (noMoverDmg && noObstacleDmg) ? 'ncdAll' : noMoverDmg ? 'ncdMover' : noObstacleDmg ? 'ncdObstacle' : null;
+  const ncdNote  = ncdKey ? ` ${L(ncdKey)}` : '';
   let moverIsDefeated    = false;
   let friendlyFireNote   = null;
-  const dmgStr        = (n) => `${noMoverDmg  ? 'would take' : 'takes'} <strong>${n} damage</strong>${ncdNote}`;
-  const TakesStr      = (n) => `${noMoverDmg  ? 'Would take' : 'Takes'} <strong>${n} damage</strong>${ncdNote}`;
-  const blockerDmgStr = (n) => `${noObstacleDmg ? 'would take' : 'takes'} <strong>${n} damage</strong>`;
-  const moverAndTakes  = (n) => moverIsDefeated ? '' : ` and ${dmgStr(n)}`;
-  const moverDealsNote = (n) => moverIsDefeated ? '' : `, deals <strong>${n} damage</strong>`;
+  const dmgStr        = (n) => L(noMoverDmg ? 'wouldTake' : 'takes', { n }) + ncdNote;
+  const TakesStr      = (n) => L(noMoverDmg ? 'wouldTakeCap' : 'takesCap', { n }) + ncdNote;
+  const blockerDmgStr = (n) => L(noObstacleDmg ? 'wouldTake' : 'takes', { n });
+  const moverAndTakes  = (n) => moverIsDefeated ? '' : L('andDamage', { damage: dmgStr(n) });
+  const moverDealsNote = (n) => moverIsDefeated ? '' : L('dealsNote', { n });
+  const takesTail      = (n) => moverIsDefeated ? '' : L('takesTail', { damage: TakesStr(n) });
+  const ffNote         = (to) => L('friendlyFire', { type: typeName(type), from: reduced, to });
 
   const hs = tokenSize / 2;
   const ctr = (g) => ({ x: g.x + hs, y: g.y + hs });
@@ -293,8 +312,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     if (isBurrowing && statusMode) return true;
     const w = wallBetween(from, to);
     if (w && !hasTags(w, 'broken')) {
-      const wb = w.flags?.['wall-height']?.bottom ?? 0;
-      const wt = w.flags?.['wall-height']?.top    ?? Infinity;
+      const { bottom: wb, top: wt } = wallSpan(w);
       if (!(elev >= wt || elev < wb)) return true;
     }
     if (cornerCutsWall(from, to, elev)) return true;
@@ -318,6 +336,24 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     if (bElev <  elev && (elev - bElev) >= bSize)     return false;
     return true;
   };
+
+  const terrain       = sceneTerrain();
+  const freeStepUp    = getSetting('collisionOnUnitStep') ? 0 : 1;
+  const steepStep     = (to, running) => terrainTop(terrain, to, running + tokenSize) > running + freeStepUp;
+  const fallOpts      = { agility, fallReduction, noFallDamage, canFly, terrain };
+  const startRegions  = safely ? startingRegions(targetToken.document) : null;
+  const safeCache     = new Map();
+  const cached = (key, fn) => { if (!safeCache.has(key)) safeCache.set(key, fn()); return safeCache.get(key); };
+  const safeStep = (from, to, elev = startElev) => cached(`s${from.x},${from.y}>${to.x},${to.y}@${elev}`, () => {
+    if (checkStepCollisionAtElev(from, to, elev)) return false;
+    if (isLargeToken && wallsAtStep(newlyEnteredCells(footprintCells(from.x, from.y, tokenSize), footprintCells(to.x, to.y, tokenSize)), to.x - from.x, to.y - from.y, elev).length) return false;
+    if (!isVertical && steepStep(to, elev)) return false;
+    return cached(`p${to.x},${to.y}@${elev}`, () => !harmfulRegionsAt(targetToken.document, to, elev, { passing: true, already: startRegions }).length);
+  });
+  const safeEnd = (cell, elev = startElev) => cached(`e${cell.x},${cell.y}@${elev}`, () =>
+    !harmfulFallAt(cell, elev, fallOpts)
+    && !harmfulRegionsAt(targetToken.document, cell, landingElevation(cell, elev, canFly, terrain), { already: startRegions }).length);
+  const noSafeMove = () => _postNoMove(targetToken, sourceToken, type, L('safelyNoMove', { name: foundry.utils.escapeHTML(targetToken.name) }), suppressMessage);
 
   let autoPath = null;
   if (fastMove && reduced > 0) {
@@ -403,12 +439,25 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       }
   }
 
+  if (safely && autoPath?.length) {
+    let keep = 0;
+    let prev = startGrid;
+    for (let i = 0; i < autoPath.length; i++) {
+      if (!safeStep(prev, autoPath[i])) break;
+      if (safeEnd(autoPath[i])) keep = i + 1;
+      prev = autoPath[i];
+    }
+    autoPath = autoPath.slice(0, keep);
+    if (!keep && !isVertical) return noSafeMove();
+  }
+
   
   let destroyArrow     = () => {};
   let previewArrow     = null;
   let previewCollision = null;
   let lastArrowPts     = [];
   let lastVisiblePts   = [];
+  let noSafeSquare     = false;
   let finalPath = autoPath;
   if (!finalPath) {
     finalPath = await new Promise((resolve) => {
@@ -594,6 +643,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             if (type === 'Push' && sourceGrid && gridDist(ctr(nb), sourceGrid) <= gridDist(ctr(pos), sourceGrid)) continue;
             if (type === 'Pull' && sourceGrid && gridDist(ctr(nb), sourceGrid) >= gridDist(ctr(pos), sourceGrid)) continue;
             if (cornerCutsWall(pos, nb) && cornerCutMode === 'block') continue;
+            if (safely && !safeStep(pos, nb)) continue;
             const k = key(nb);
             if (!visited.has(k)) {
               visited.set(k, steps + 1);
@@ -603,6 +653,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           }
         }
         const wallReachable = new Set();
+        if (safely) return { reachable, wallReachable };
         for (const k of reachable) {
           const [rx, ry] = k.split(',').map(Number);
           const pos = { x: rx, y: ry };
@@ -679,6 +730,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         if (type === 'Push' && sourceGrid && gridDist(ctr(to), sourceGrid) <= gridDist(ctr(from), sourceGrid)) return false;
         if (type === 'Pull' && sourceGrid && gridDist(ctr(to), sourceGrid) >= gridDist(ctr(from), sourceGrid)) return false;
         if (straightLineRequired && !isOnLine(to)) return false;
+        if (safely && !safeStep(from, to)) return false;
         return true;
       };
 
@@ -730,6 +782,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
               if (!allowSourceCells && sourceCellSet.has(`${c.x},${c.y}`)) continue;
               if (path.some(p => gridEq(p, c)) || steps.some(s => gridEq(s, c))) continue;
               if (straightLineRequired && !isOnLine(c)) continue;
+              if (safely && !safeStep(curr, c)) continue;
               chosen = c;
               break;
             }
@@ -838,6 +891,15 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         return true;
       };
 
+      const destOk = (k) => { const [x, y] = k.split(',').map(Number); return safeEnd({ x, y }); };
+      const unsafeEnd = () => safely && path.length > 0 && !safeEnd(path[path.length - 1]);
+      if (safely && !isVertical && ![...getLineFiltered().activeRange].some(destOk)) {
+        for (const g of [graphics, arrowGraphics, chevronGraphics, maskGraphics, chevronMaskGraphics]) { canvas.app.stage.removeChild(g); g.destroy(); }
+        noSafeSquare = true;
+        resolve([]);
+        return;
+      }
+
       const overlay = new PIXI.Container();
       overlay.interactive = true;
       overlay.hitArea     = new PIXI.Rectangle(0, 0, canvas.dimensions.width, canvas.dimensions.height);
@@ -866,7 +928,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const cells = new Map();
           for (const k of sourceSet) {
             const [gx, gy] = k.split(',').map(Number);
-            const active = !lineActive || activeSet.has(k);
+            const active = (!lineActive || activeSet.has(k)) && (!safely || destOk(k));
             for (let ix = 0; ix < tokenSize; ix++) {
               for (let iy = 0; iy < tokenSize; iy++) {
                 const ck = `${gx + ix},${gy + iy}`;
@@ -915,7 +977,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const p           = path[pi];
           const prev        = pi > 0 ? path[pi - 1] : startGrid;
           const _cwIn       = cornerCutsWall(prev, p);
-          const _isObstacle = _cwIn || cellIsObstacle(p.x, p.y);
+          const _isObstacle = !safely && (_cwIn || cellIsObstacle(p.x, p.y));
           if (_isObstacle) _orangeGridCells.add(`${p.x},${p.y}`);
           if (_doLog) {
             console.log(`step ${pi} (${p.x},${p.y}) → cellHasWall:${cellHasWall(p.x, p.y)} cornerCut:${_cwIn} isObstacle:${_isObstacle} → ${_isObstacle ? 'ORANGE' : 'BLUE'}`);
@@ -929,7 +991,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const prev = path.length ? path[path.length - 1] : startGrid;
           const hk   = `${hover.x},${hover.y}`;
           const inRange = activeRange.has(hk) || activeWall.has(hk);
-          const destCollision = cornerCutsWall(prev, hover) || cellIsObstacle(hover.x, hover.y);
+          const destCollision = !safely && (cornerCutsWall(prev, hover) || cellIsObstacle(hover.x, hover.y));
 
           if (isValidStep(prev, hover)) {
             setCells(hover.x, hover.y, destCollision ? colorCollision : colorValid, 0.45);
@@ -938,7 +1000,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             if (suggestion) {
               let suggPrev = prev;
               for (const s of suggestion) {
-                setCells(s.x, s.y, (cornerCutsWall(suggPrev, s) || cellIsObstacle(s.x, s.y)) ? colorCollision : colorSuggest, 0.45);
+                setCells(s.x, s.y, (!safely && (cornerCutsWall(suggPrev, s) || cellIsObstacle(s.x, s.y))) ? colorCollision : colorSuggest, 0.45);
                 suggPrev = s;
               }
             }
@@ -1393,7 +1455,9 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         const gk   = `${gpos.x},${gpos.y}`;
         const { activeRange, activeWall } = getLineFiltered();
 
+        const unsafeWarn = () => fmOverlay?.flashWarning(game.i18n.format('DSCT.notice.fm.unsafeEnd', { name: targetToken.name }));
         if (path.length > 0 && (gridEq(gpos, startGrid) || path.some(p => gridEq(p, gpos)))) {
+          if (unsafeEnd()) { unsafeWarn(); return; }
           cleanup(isVertical); resolve(path); return;
         }
         
@@ -1402,6 +1466,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         }
 
         if (isValidStep(prev, gpos)) {
+          if (safely && path.length + 1 >= reduced && !safeEnd(gpos)) { unsafeWarn(); return; }
           path.push(gpos);
           pathSegments.push(1);
           if (straightLineRequired && type === 'Push' && path.length === 1 && lockedDirX === null) {
@@ -1415,6 +1480,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         } else if (activeRange.has(gk) || activeWall.has(gk)) {
           const suggestion = getSuggestedPath(prev, gpos);
           if (!suggestion) { fmOverlay?.flashWarning(game.i18n.localize('DSCT.notice.fm.noValidPath')); return; }
+          if (safely && path.length + suggestion.length + (gridEq(suggestion[suggestion.length - 1], gpos) ? 0 : 1) >= reduced && !safeEnd(gpos)) { unsafeWarn(); return; }
           const before = path.length;
           for (const s of suggestion) path.push(s);
           if (!gridEq(path[path.length - 1], gpos)) path.push(gpos);
@@ -1446,7 +1512,11 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
 
       const onKeyDown = (e) => {
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cleanup();            resolve(null); }
-        if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); cleanup(isVertical);  resolve(path); }
+        if (e.key === 'Enter')  {
+          e.preventDefault(); e.stopPropagation();
+          if (unsafeEnd()) { fmOverlay?.flashWarning(game.i18n.format('DSCT.notice.fm.unsafeEnd', { name: targetToken.name })); return; }
+          cleanup(isVertical); resolve(path);
+        }
       };
 
       let _cleaned = false;
@@ -1610,7 +1680,10 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         title: `${type} ${reduced}: ${targetToken.name}`,
         status: game.i18n.format('DSCT.notice.fm.pathInstruction', { type, distance: reduced, vert: vertNote }),
         holeRects: fmHoleRects(),
-        onConfirm: () => { cleanup(isVertical); resolve(path); },
+        onConfirm: () => {
+          if (unsafeEnd()) { fmOverlay?.flashWarning(game.i18n.format('DSCT.notice.fm.unsafeEnd', { name: targetToken.name })); return; }
+          cleanup(isVertical); resolve(path);
+        },
         onCancel: () => { cleanup(); resolve(null); },
         controls: [
           { input: 'DSCT.picker.help.clickSquare', action: 'DSCT.picker.help.addStep' },
@@ -1623,6 +1696,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     });
   }
 
+  if (noSafeSquare) return noSafeMove();
   const path = finalPath;
   if (!path || (path.length === 0 && !isVertical)) {
     ui.notifications.info(game.i18n.localize('DSCT.notice.fm.cancelled'));
@@ -1650,6 +1724,48 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         popupMax = 0;
       }
       if (popupMin === 0 && popupMax === 0) {
+        reducedVert = 0;
+        isVertical  = false;
+      }
+    }
+
+    if (safely && isVertical) {
+      const vertBlocked = (e) => {
+        const vTile = getWallBlockTileAt(startGrid.x, startGrid.y);
+        if (vTile && !hasTags(vTile, 'broken')) {
+          const blockTag = getTags(vTile).find(t => t.startsWith('wall-block-'));
+          const walls    = blockTag ? getByTag(blockTag).filter(o => Array.isArray(o.c)) : [];
+          if (e >= (walls[0]?.flags?.['wall-height']?.bottom ?? 0) && e < (walls[0]?.flags?.['wall-height']?.top ?? Infinity)) return true;
+        }
+        const blocker = tokenAt(startGrid.x, startGrid.y, targetToken.id);
+        return !!blocker && (!isTokenDead(blocker) || getSetting('corpsesBlock')) && (blocker.document.elevation ?? 0) === e;
+      };
+      const vertOk = (v) => {
+        const last = path.length ? path[path.length - 1] : startGrid;
+        for (let i = 0; i < (path.length || Math.abs(v)); i++) {
+          if (path.length) {
+            if (!safeStep(i ? path[i - 1] : startGrid, path[i], startElev + roundHalfFloor(v * (i + 1) / path.length))) return false;
+          } else {
+            const e = startElev + Math.sign(v) * (i + 1);
+            if (vertBlocked(e) || harmfulRegionsAt(targetToken.document, startGrid, e, { passing: true, already: startRegions }).length) return false;
+          }
+        }
+        const endElev = startElev + v;
+        if (v < 0 && (!path.length || endElev <= 0)) {
+          return !harmfulSlam(-v, fallOpts)
+            && !harmfulRegionsAt(targetToken.document, last, landingElevation(last, endElev, canFly, terrain), { already: startRegions }).length;
+        }
+        return safeEnd(last, endElev);
+      };
+      const low = popupMin ?? -popupMax;
+      let up = 0;
+      while (up < popupMax && vertOk(up + 1)) up++;
+      let down = 0;
+      while (down > low && vertOk(down - 1)) down--;
+      popupMax = up;
+      popupMin = down;
+      if (!up && !down) {
+        if (!path.length) { endPickerOverlay(); destroyArrow(); return noSafeMove(); }
         reducedVert = 0;
         isVertical  = false;
       }
@@ -1694,20 +1810,20 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const tileBottom = walls[0]?.flags?.['wall-height']?.bottom ?? 0;
           const tileTop    = walls[0]?.flags?.['wall-height']?.top    ?? Infinity;
           if (stepElev >= tileBottom && stepElev < tileTop) {
+            if (safely) { blocked = true; break; }
             hitObject();
             const dmg = 2 + remaining + bonusObjectDmg;
             if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, dmg, undefined, { forced: true });
-            collisionMsgs.push(`${targetToken.name} is blocked by a wall and ${dmgStr(dmg)}.`);
+            collisionMsgs.push(L('blockedWall', { name: targetToken.name, damage: dmgStr(dmg) }));
             if (dir === -1) {
               const ffd = Math.abs(reducedVert);
               if (!noFallDamage && !targetIsDead && ffd >= 2) {
                 const fallDmg = Math.min(ffd * 2, getSetting('fallDamageCap'));
                 await applyDamage(targetToken.actor, fallDmg, undefined, { forced: true });
-                collisionMsgs.push(`${targetToken.name} also takes <strong>${fallDmg} damage</strong> from being slammed into the surface (Agility treated as 0), landing prone.`);
-                await safeToggleStatusEffect(targetToken.actor, 'prone', { active: true });
-                undoOps.push({ op: 'status', uuid: targetToken.actor.uuid, effectId: 'prone', active: false });
+                collisionMsgs.push(L('slammedSurface', { name: targetToken.name, dmg: fallDmg }));
+                await knockProne(targetToken.actor, undoOps);
               } else if (!noFallDamage && !targetIsDead && ffd === 1) {
-                collisionMsgs.push(`${targetToken.name} is slammed 1 square downward into the surface. Less than 2 squares, no fall damage.`);
+                collisionMsgs.push(L('slammedSurfaceShort', { name: targetToken.name }));
               }
             }
             blocked = true;
@@ -1718,17 +1834,18 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         const blocker = tokenAt(startGrid.x, startGrid.y, targetToken.id);
         const blockerIsDead = isTokenDead(blocker);
         if (blocker && (!blockerIsDead || getSetting('corpsesBlock')) && (blocker.document.elevation ?? 0) === stepElev) {
+          if (safely) { blocked = true; break; }
           if (blockerIsDead) {
             if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, remaining + bonusCreatureDmg, undefined, { forced: true });
-            collisionMsgs.push(`<strong>Collision!</strong> ${targetToken.name} crashes into the corpse of ${blocker.name}${noMoverDmg || targetIsDead ? '.' : `. ${TakesStr(remaining + bonusCreatureDmg)}.`}`);
+            collisionMsgs.push(L('corpseCrash', { name: targetToken.name, other: blocker.name }) + (noMoverDmg || targetIsDead ? '' : L('takesTail', { damage: TakesStr(remaining + bonusCreatureDmg) })));
           } else {
             undoOps.push({ op: 'update', uuid: blocker.document.uuid, data: { x: blocker.document.x, y: blocker.document.y, elevation: blocker.document.elevation ?? 0 }, options: { isUndo: true } });
             if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, remaining + bonusCreatureDmg, undefined, { forced: true });
             if (!noObstacleDmg) await applyDamage(blocker.actor, remaining + bonusCreatureDmg);
             const _vDmg  = remaining + bonusCreatureDmg;
             const _vSame = noMoverDmg === noObstacleDmg;
-            const _vMsg  = _vSame ? `${noMoverDmg ? 'Would both take' : 'Both take'} <strong>${_vDmg} damage</strong>${ncdNote}` : `${targetToken.name} ${dmgStr(_vDmg)}; ${blocker.name} ${blockerDmgStr(_vDmg)}`;
-            collisionMsgs.push(`<strong>Collision!</strong> ${targetToken.name} hits ${blocker.name}. ${_vMsg}.`);
+            const _vMsg  = _vSame ? L(noMoverDmg ? 'wouldBothTake' : 'bothTake', { n: _vDmg }) + ncdNote : L('eachTakes', { name: targetToken.name, damage: dmgStr(_vDmg), other: blocker.name, otherDamage: blockerDmgStr(_vDmg) });
+            collisionMsgs.push(L('collisionHits', { name: targetToken.name, other: blocker.name, damage: _vMsg }));
           }
           blocked = true;
           break;
@@ -1737,12 +1854,12 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         finalElev = stepElev;
       }
 
-      await safeUpdate(targetToken.document, { elevation: finalElev });
+      await safeUpdate(targetToken.document, { elevation: finalElev }, { dsMovement: true });
       const vertEffectiveNoFallDmg = noFallDamage || targetIsDead;
       const vertTargetElev = !blocked
         ? (dir === -1
-          ? await applyForcedFallDamage(targetToken, Math.abs(reducedVert), finalElev, startGrid, undoOps, collisionMsgs, vertEffectiveNoFallDmg)
-          : await applyFallDamage(targetToken, finalElev, startGrid, agility, canFly, undoOps, collisionMsgs, fallReduction, vertEffectiveNoFallDmg))
+          ? await applyForcedFallDamage(targetToken, Math.abs(reducedVert), finalElev, startGrid, undoOps, collisionMsgs, vertEffectiveNoFallDmg, noFallDamage)
+          : await applyFallDamage(targetToken, finalElev, startGrid, agility, canFly, undoOps, collisionMsgs, fallReduction, vertEffectiveNoFallDmg, noFallDamage))
         : finalElev;
 
       
@@ -1832,9 +1949,6 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     window._dsctFMActive = true;
 
     
-    const terrainMap = (!isVertical && game.modules.get('ds-terrain-designer')?.active)
-      ? (canvas.scene.getFlag('ds-terrain-designer', 'elevation-levels') ?? {})
-      : null;
     let terrainRunningElev = startElev;
 
     for (let i = 0; i < path.length; i++) {
@@ -1855,6 +1969,12 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         ? startElev + roundHalfFloor(reducedVert * (i + 1) / path.length)
         : startElev;
 
+      if (safely && (stepElev < 0 || !safeStep(prev, step, stepElev))) {
+        landingIndex = i - 1;
+        collisionMsgs.push(L('safelyStops', { name: targetToken.name }));
+        break;
+      }
+
       const burrowBlock = isBurrowing && statusMode;
       if (stepElev < 0 || (i === 0 && (startElev < 0 || burrowBlock))) {
         landingIndex = i - 1;
@@ -1863,12 +1983,12 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           hitObject();
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
-          collisionMsgs.push(`${targetToken.name} cannot be force-moved while underground${moverAndTakes(dmg)}.`);
+          collisionMsgs.push(L('underground', { name: targetToken.name, damage: moverAndTakes(dmg) }));
         } else if (burrowBlock) {
           hitObject();
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
-          collisionMsgs.push(`${targetToken.name} cannot be force-moved while burrowing${moverAndTakes(dmg)}.`);
+          collisionMsgs.push(L('burrowing', { name: targetToken.name, damage: moverAndTakes(dmg) }));
         }
 
         break;
@@ -1878,15 +1998,14 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       
       
       
-      if (terrainMap) {
-        const toTE = terrainMap[`${step.x},${step.y}`] ?? 0;
-        const freeStepUp = getSetting('collisionOnUnitStep') ? 0 : 1;
+      if (!isVertical) {
+        const toTE = terrainTop(terrain, step, terrainRunningElev + tokenSize);
         if (toTE > terrainRunningElev + freeStepUp) {
           landingIndex = i - 1;
           hitObject();
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
-          collisionMsgs.push(`${targetToken.name} is blocked by a steep elevation change${moverAndTakes(dmg)}.`);
+          collisionMsgs.push(L('steepElevation', { name: targetToken.name, damage: moverAndTakes(dmg) }));
           break;
         }
         if (Math.abs(toTE - terrainRunningElev) === 1) terrainRunningElev = toTE;
@@ -1904,7 +2023,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             hitObject();
             const dmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(dmg);
-            collisionMsgs.push(`${targetToken.name} is blocked by a wall at elevation ${stepElev}${moverAndTakes(dmg)}.`);
+            collisionMsgs.push(L('wallAtElevation', { name: targetToken.name, elevation: stepElev, damage: moverAndTakes(dmg) }));
             break;
           }
         }
@@ -1913,7 +2032,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       const tileDesc = (tiles) => {
         const counts = {};
         for (const t of tiles) { const m = getMaterial(t); counts[m] = (counts[m] ?? 0) + 1; }
-        return Object.entries(counts).map(([m, n]) => n > 1 ? `${n} ${m} objects` : `a ${m} object`).join(' and ');
+        return game.i18n.getListFormatter().format(Object.entries(counts).map(([m, n]) => (n > 1 ? L('objectMany', { n, material: m }) : L('objectOne', { material: m }))));
       };
 
       const breakTile = async (tile) => {
@@ -1971,7 +2090,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           hitObject();
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
-          collisionMsgs.push(`${targetToken.name} is stopped by an obstacle${moverAndTakes(dmg)}.`);
+          collisionMsgs.push(L('stoppedObstacle', { name: targetToken.name, damage: moverAndTakes(dmg) }));
           return 'break';
         }
 
@@ -1982,20 +2101,20 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           for (const tile of softTiles) await breakTile(tile);
           hitObject();
           const tileDmg = maxTileDmg + bonusObjectDmg;
-          if (softTiles.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(softTiles)} (costs ${maxTileCost}${moverDealsNote(tileDmg)}).`);
+          if (softTiles.length > 0) collisionMsgs.push(L('smashCosts', { name: targetToken.name, things: tileDesc(softTiles), cost: maxTileCost, deals: moverDealsNote(tileDmg) }));
           await dmgTarget(tileDmg);
           if (juggernaut && softTiles.length > 0) costConsumed -= 1; else costConsumed += maxTileCost - 1;
-          if (moverWouldStop(tileDmg)) { await killMover(`${targetToken.name} is killed by the impact; continuing as a corpse.`); return 'continue'; }
+          if (moverWouldStop(tileDmg)) { await killMover(L('killedByImpact', { name: targetToken.name })); return 'continue'; }
           return softTiles.length > 0 ? 'continue' : null;
         } else {
           const brokenTiles = softTiles.filter(t => remaining >= (MATERIAL_RULES()[getMaterial(t)]?.cost ?? 99));
           for (const tile of brokenTiles) await breakTile(tile);
-          if (brokenTiles.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${tileDesc(brokenTiles)}.`);
+          if (brokenTiles.length > 0) collisionMsgs.push(L('smashThrough', { name: targetToken.name, things: tileDesc(brokenTiles) }));
           landingIndex = i - 1;
           hitObject();
           const dmg = 2 + remaining + bonusObjectDmg;
           await dmgTarget(dmg);
-          collisionMsgs.push(`${targetToken.name} is stopped by an obstacle (needs ${maxTileCost}, has ${remaining})${moverIsDefeated ? '.' : `. ${TakesStr(dmg)}.`}`);
+          collisionMsgs.push(L('stoppedObstacleNeeds', { name: targetToken.name, needs: maxTileCost, has: remaining }) + takesTail(dmg));
           return 'break';
         }
       };
@@ -2016,7 +2135,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             const dmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(dmg);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token hit indestructible wall at step ${i}. dmg=${dmg}`);
-            collisionMsgs.push(`${targetToken.name} hits a wall${moverAndTakes(dmg)}.`);
+            collisionMsgs.push(L('hitsWall', { name: targetToken.name, damage: moverAndTakes(dmg) }));
             break;
           }
           
@@ -2026,28 +2145,28 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const wallDesc = (walls) => {
             const counts = {};
             for (const w of walls) { const m = getMaterial(w); counts[m] = (counts[m] ?? 0) + 1; }
-            return Object.entries(counts).map(([m, n]) => n > 1 ? `${n} ${m} walls` : `a ${m} wall`).join(' and ');
+            return game.i18n.getListFormatter().format(Object.entries(counts).map(([m, n]) => (n > 1 ? L('wallMany', { n, material: m }) : L('wallOne', { material: m }))));
           };
           if (remaining >= maxCost) {
             for (const { wall, cell } of softEntries) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs, cell);
             hitObject();
             const wallDmg = maxWallDmg + bonusObjectDmg;
-            collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(softEntries.map(e => e.wall))} (costs ${maxCost}${moverDealsNote(wallDmg)}).`);
+            collisionMsgs.push(L('smashCosts', { name: targetToken.name, things: wallDesc(softEntries.map(e => e.wall)), cost: maxCost, deals: moverDealsNote(wallDmg) }));
             await dmgTarget(wallDmg);
             if (juggernaut && softEntries.length > 0) costConsumed -= 1; else costConsumed += maxCost - 1;
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token broke ${softEntries.length} wall(s). maxCost=${maxCost}, maxDmg=${maxWallDmg}`);
-            if (moverWouldStop(wallDmg)) { await killMover(`${targetToken.name} is killed by the impact; continuing as a corpse.`); continue; }
+            if (moverWouldStop(wallDmg)) { await killMover(L('killedByImpact', { name: targetToken.name })); continue; }
             continue;
           } else {
             const brokenEntries = softEntries.filter(({ wall: w }) => remaining >= (MATERIAL_RULES()[getMaterial(w)]?.cost ?? 99));
             for (const { wall, cell } of brokenEntries) await doBreakObstacleWall(wall, stepElev, undoOps, collisionMsgs, cell);
-            if (brokenEntries.length > 0) collisionMsgs.push(`${targetToken.name} smashes through ${wallDesc(brokenEntries.map(e => e.wall))}.`);
+            if (brokenEntries.length > 0) collisionMsgs.push(L('smashThrough', { name: targetToken.name, things: wallDesc(brokenEntries.map(e => e.wall)) }));
             landingIndex = i - 1;
             hitObject();
             const dmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(dmg);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token stopped (maxCost=${maxCost} > remaining=${remaining}). dmg=${dmg}`);
-            collisionMsgs.push(`${targetToken.name} is stopped by a wall it cannot break through (needs ${maxCost}, has ${remaining})${moverIsDefeated ? '.' : `. ${TakesStr(dmg)}.`}`);
+            collisionMsgs.push(L('stoppedWallNeeds', { name: targetToken.name, needs: maxCost, has: remaining }) + takesTail(dmg));
             break;
           }
         }
@@ -2074,12 +2193,12 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             hitObject();
             const moverDmg = maxObjCost + 2;
             const objNames = objectBlockers.map(o => o.name).join(', ');
-            collisionMsgs.push(`${targetToken.name} smashes through ${objNames} (max ${maxObjCost} stamina)${moverIsDefeated ? '.' : `. ${TakesStr(moverDmg)}.`}`);
+            collisionMsgs.push(L('smashObjects', { name: targetToken.name, things: objNames, n: maxObjCost }) + takesTail(moverDmg));
             await dmgTarget(moverDmg);
             for (const obj of objectBlockers) await destroyObjectToken(obj, undoOps);
             costConsumed += Math.max(0, maxObjCost - 1);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token smashed through ${objectBlockers.length} object(s). maxObjCost=${maxObjCost}`);
-            if (moverWouldStop(moverDmg)) { await killMover(`${targetToken.name} is killed by the impact; continuing as a corpse.`); continue; }
+            if (moverWouldStop(moverDmg)) { await killMover(L('killedByImpact', { name: targetToken.name })); continue; }
           } else {
             const brokenObjects = objectBlockers.filter(o => dealDmg >= (o.actor?.system?.stamina?.value ?? 0));
             const survivingObjects = objectBlockers.filter(o => !brokenObjects.includes(o));
@@ -2096,7 +2215,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             hitObject();
             const stopDmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(stopDmg);
-            collisionMsgs.push(`${targetToken.name} is stopped by ${survivingObjects.map(o => o.name).join(', ')} (needs ${maxObjCost} stamina, has ${remaining})${moverIsDefeated ? '.' : `. ${TakesStr(stopDmg)}.`}`);
+            collisionMsgs.push(L('stoppedObjects', { name: targetToken.name, things: survivingObjects.map(o => o.name).join(', '), needs: maxObjCost, has: remaining }) + takesTail(stopDmg));
             if (getSetting('debugMode')) console.log(`DSCT | FM | Large token stopped by object(s) (maxObjCost=${maxObjCost} > remaining=${remaining}).`);
             break;
           }
@@ -2108,7 +2227,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           const stopDmg  = 2 + remaining;
           landingIndex   = i - 1;
           if (!moverIsDefeated) await dmgTarget(stopDmg);
-          collisionMsgs.push(`${targetToken.name} is stopped by the corpse${plural ? 's' : ''} of ${names}${moverIsDefeated ? '.' : `. ${TakesStr(stopDmg)}.`}`);
+          collisionMsgs.push(L(plural ? 'stoppedCorpses' : 'stoppedCorpse', { name: targetToken.name, things: names }) + takesTail(stopDmg));
           if (getSetting('debugMode')) console.log(`DSCT | FM | Large token stopped by corpse(s): ${names}`);
           break;
         }
@@ -2119,13 +2238,13 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
               case1Fired = true;
               if (!noMoverDmg) {
                 const stop = await confirmFriendlyFireCase1(sourceToken, targetToken);
-                if (stop) { landingIndex = i - 1; friendlyFireNote = `Friendly fire reduced ${type} ${reduced} to ${i}.`; break; }
+                if (stop) { landingIndex = i - 1; friendlyFireNote = ffNote(i); break; }
               }
             } else if (!noObstacleDmg) {
               const allyBlockers = creatureBlockers.filter(b => sameDisp(sourceToken, b));
               if (allyBlockers.length > 0) {
                 const action = await confirmFriendlyFireCase2(sourceToken, targetToken, allyBlockers, remaining + bonusCreatureDmg);
-                if (action === 'cancel') { landingIndex = i - 1; friendlyFireNote = `Friendly fire reduced ${type} ${reduced} to ${i}.`; break; }
+                if (action === 'cancel') { landingIndex = i - 1; friendlyFireNote = ffNote(i); break; }
                 if (action === 'ignore') {
                   const targetRank = sizeRank(targetToken.actor?.system?.combat?.size ?? { value: 1, letter: 'M' });
                   creatureBlockers = creatureBlockers.filter(b =>
@@ -2178,13 +2297,13 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             if (blockerPrev) undoOps.push({ op: 'stamina', uuid: blocker.actor.uuid, prevValue: blockerPrev.prevValue, prevTemp: blockerPrev.prevTemp, squadGroupUuid: blockerPrev.squadGroup?.uuid ?? null, prevSquadHP: blockerPrev.prevSquadHP, squadCombatantIds: blockerPrev.squadCombatantIds, squadTokenIds: blockerPrev.squadTokenIds ?? [] });
           }
           const blockerNames = creatureBlockers.map(b => b.name).join(', ');
-          const bonusNote    = bonusCreatureDmg ? ` (${remaining} + ${bonusCreatureDmg} bonus)` : '';
+          const bonusNote    = bonusCreatureDmg ? L('bonusNote', { n: remaining, bonus: bonusCreatureDmg }) : '';
           if (juggernaut) {
-            collisionMsgs.push(`<strong>Unstoppable!</strong> ${targetToken.name} obliterates ${blockerNames} and keeps going.`);
+            collisionMsgs.push(L('obliterates', { name: targetToken.name, things: blockerNames }));
             continue;
           }
-          const _ltPhrase = (noMoverDmg === noObstacleDmg) ? (noMoverDmg ? 'Would all take' : 'All take') : noMoverDmg ? `Obstacles take, ${targetToken.name} would take` : `${targetToken.name} takes, obstacles would take`;
-          collisionMsgs.push(`<strong>Collision!</strong> ${targetToken.name} crashes into ${blockerNames} with ${remaining} square${remaining !== 1 ? 's' : ''} remaining. ${_ltPhrase} <strong>${dmg} damage</strong>${bonusNote}${ncdNote}.`);
+          const _ltPhrase = L((noMoverDmg === noObstacleDmg) ? (noMoverDmg ? 'wouldAllTake' : 'allTake') : noMoverDmg ? 'obstaclesTake' : 'moverTakes', { name: targetToken.name, n: dmg });
+          collisionMsgs.push(L('crashInto', { name: targetToken.name, things: blockerNames, n: remaining, s: pl(remaining), damage: _ltPhrase + bonusNote + ncdNote }));
           break;
         }
 
@@ -2205,8 +2324,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         const cB = { x: prev.x, y: step.y };
         const activeWall = (w) => {
           if (!w || hasTags(w, 'broken')) return null;
-          const wb = w.flags?.['wall-height']?.bottom ?? 0;
-          const wt = w.flags?.['wall-height']?.top    ?? Infinity;
+          const { bottom: wb, top: wt } = wallSpan(w);
           return (stepElev >= wt || stepElev < wb) ? null : w;
         };
         const wVert  = activeWall(wallBetween(prev, cA)) ?? activeWall(wallBetween(step, cA));
@@ -2229,8 +2347,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         }
       }
       if (wall && !hasTags(wall, 'broken')) {
-        const wallBottom = wall.flags?.['wall-height']?.bottom ?? 0;
-        const wallTop    = wall.flags?.['wall-height']?.top    ?? Infinity;
+        const { bottom: wallBottom, top: wallTop } = wallSpan(wall);
         if (!(stepElev >= wallTop || stepElev < wallBottom)) {
           
           
@@ -2240,7 +2357,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             const dmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(dmg);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Hit indestructible wall (no 'obstacle' tag) at step ${i}. dmg=${dmg}`);
-            collisionMsgs.push(`${targetToken.name} hits a wall${moverAndTakes(dmg)}.`);
+            collisionMsgs.push(L('hitsWall', { name: targetToken.name, damage: moverAndTakes(dmg) }));
             break;
           }
 
@@ -2258,7 +2375,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
               const dmg = 2 + remaining + bonusObjectDmg;
               await dmgTarget(dmg);
               if (getSetting('debugMode')) console.log(`DSCT | FM | Stopped by non-breakable obstacle wall at step ${i}. dmg=${dmg}`);
-              collisionMsgs.push(`${targetToken.name} hits a wall${moverAndTakes(dmg)}.`);
+              collisionMsgs.push(L('hitsWall', { name: targetToken.name, damage: moverAndTakes(dmg) }));
               break;
             }
 
@@ -2294,7 +2411,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
                     undoOps.push({ op: 'removeTags', uuid: tile.document.uuid, tags: [`damaged:${prevDmgN + 1}`] });
                     if (prevDmgTag) undoOps.push({ op: 'addTags', uuid: tile.document.uuid, tags: [prevDmgTag] });
                   }
-                  collisionMsgs.push(`The top of the ${mat} object collapses into the gap (now ${wallTop - 1 - wallBottom} square${wallTop - 1 - wallBottom !== 1 ? 's' : ''} tall).`);
+                  collisionMsgs.push(L('topCollapses', { material: mat, height: wallTop - 1 - wallBottom, s: pl(wallTop - 1 - wallBottom) }));
                 } else {
                   const origMat      = tile ? getMaterial(tile) : 'stone';
                   const prevAlpha    = tile ? (tile.document.alpha ?? getMaterialAlpha(origMat)) : getMaterialAlpha(origMat);
@@ -2318,16 +2435,16 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
               } else {
                 await safeDelete(wall);
               }
-              collisionMsgs.push(`${targetToken.name} smashes through ${mat} (costs ${rule.cost}${moverDealsNote(rule.damage)}).`);
+              collisionMsgs.push(L('smashCosts', { name: targetToken.name, things: mat, cost: rule.cost, deals: moverDealsNote(rule.damage) }));
               if (juggernaut) costConsumed -= 1; else costConsumed += rule.cost - 1;
               if (getSetting('debugMode')) console.log(`DSCT | FM | Broke wall (${mat}) at step ${i}. cost=${rule.cost}, costConsumed now=${costConsumed}, remaining after break=${remaining - rule.cost}`);
-              if (moverWouldStop(dmg)) { await killMover(`${targetToken.name} is killed by the impact; continuing as a corpse.`); continue; }
+              if (moverWouldStop(dmg)) { await killMover(L('killedByImpact', { name: targetToken.name })); continue; }
               continue;
             }
 
             landingIndex = i - 1;
             if (getSetting('debugMode')) console.log(`DSCT | FM | Blocked by ${mat} wall at step ${i} (needs ${rule.cost}, has ${remaining}). Landing at step ${i - 1}.`);
-            collisionMsgs.push(`${targetToken.name} hits ${mat} but lacks the momentum to break through (needs ${rule.cost}, has ${remaining})${moverIsDefeated ? '.' : `. ${TakesStr(dmg)}.`}`);
+            collisionMsgs.push(L('lacksMomentum', { name: targetToken.name, material: mat, needs: rule.cost, has: remaining }) + takesTail(dmg));
             break;
           }
         }
@@ -2347,7 +2464,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           landingIndex = i - 1;
           const stopDmg = remaining + bonusCreatureDmg;
           if (!moverIsDefeated && !noMoverDmg) await dmgTarget(stopDmg);
-          collisionMsgs.push(`${targetToken.name} is stopped by the corpse of ${blocker.name}${moverIsDefeated || noMoverDmg ? '.' : `. ${TakesStr(stopDmg)}.`}`);
+          collisionMsgs.push(L('stoppedCorpse', { name: targetToken.name, things: blocker.name }) + (noMoverDmg ? '' : takesTail(stopDmg)));
           break;
         }
 
@@ -2356,7 +2473,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           if (sourceToken && !noMoverDmg && !case1Fired && getSetting('friendlyFireConfirmation') && sameDisp(sourceToken, targetToken)) {
             case1Fired = true;
             const stop = await confirmFriendlyFireCase1(sourceToken, targetToken);
-            if (stop) { landingIndex = i - 1; friendlyFireNote = `Friendly fire reduced ${type} ${reduced} to ${i}.`; break; }
+            if (stop) { landingIndex = i - 1; friendlyFireNote = ffNote(i); break; }
           }
           const objectHP  = blocker.actor?.system?.stamina?.value ?? 0;
           const dealDmg   = remaining + bonusObjectDmg;
@@ -2373,15 +2490,15 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           await dmgTarget(moverDmg);
 
           if (objBreaks) {
-            collisionMsgs.push(`${targetToken.name} smashes through ${blocker.name} (${objectHP} stamina)${moverIsDefeated ? '.' : `. ${TakesStr(moverDmg)}.`}`);
+            collisionMsgs.push(L('smashObject', { name: targetToken.name, other: blocker.name, n: objectHP }) + takesTail(moverDmg));
             await destroyObjectToken(blocker, undoOps);
             costConsumed += Math.max(0, objectHP - 1);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Object ${blocker.name} destroyed (HP=${objectHP}, remaining=${remaining}). Movement continues.`);
-            if (moverWouldStop(moverDmg)) { await killMover(`${targetToken.name} is killed by the impact; continuing as a corpse.`); continue; }
+            if (moverWouldStop(moverDmg)) { await killMover(L('killedByImpact', { name: targetToken.name })); continue; }
             continue;
           } else {
             landingIndex = i - 1;
-            collisionMsgs.push(`${targetToken.name} crashes into ${blocker.name} but cannot destroy it (needs ${objectHP} stamina, has ${remaining})${moverIsDefeated ? `. ${blocker.name} ${dmgStr(dealDmg)}.` : `. ${TakesStr(moverDmg)}, ${blocker.name} ${dmgStr(dealDmg)}.`}`);
+            collisionMsgs.push(`${L('cannotDestroy', { name: targetToken.name, other: blocker.name, needs: objectHP, has: remaining })} ${moverIsDefeated ? L('objectTakes', { other: blocker.name, damage: dmgStr(dealDmg) }) : L('moverAndObjectTake', { damage: TakesStr(moverDmg), other: blocker.name, otherDamage: dmgStr(dealDmg) })}`);
             if (getSetting('debugMode')) console.log(`DSCT | FM | Object ${blocker.name} survived (HP=${objectHP}, remaining=${remaining}). Stopped.`);
             break;
           }
@@ -2395,11 +2512,11 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             case1Fired = true;
             if (!noMoverDmg) {
               const stop = await confirmFriendlyFireCase1(sourceToken, targetToken);
-              if (stop) { friendlyFireNote = `Friendly fire reduced ${type} ${reduced} to ${i}.`; break; }
+              if (stop) { friendlyFireNote = ffNote(i); break; }
             }
           } else if (!noObstacleDmg && sameDisp(sourceToken, blocker)) {
             const action = await confirmFriendlyFireCase2(sourceToken, targetToken, [blocker], remaining + bonusCreatureDmg);
-            if (action === 'cancel') { friendlyFireNote = `Friendly fire reduced ${type} ${reduced} to ${i}.`; break; }
+            if (action === 'cancel') { friendlyFireNote = ffNote(i); break; }
             if (action === 'ignore') { landingIndex = savedLandingIndex; continue; }
           }
         }
@@ -2435,16 +2552,16 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         }
 
         const dmgTotal  = remaining + bonusCreatureDmg;
-        const bonusNote = bonusCreatureDmg ? ` (${remaining} + ${bonusCreatureDmg} bonus)` : '';
+        const bonusNote = bonusCreatureDmg ? L('bonusNote', { n: remaining, bonus: bonusCreatureDmg }) : '';
         if (juggernaut) {
-          collisionMsgs.push(`<strong>Unstoppable!</strong> ${targetToken.name} obliterates ${blocker.name} and keeps going.`);
+          collisionMsgs.push(L('obliterates', { name: targetToken.name, things: blocker.name }));
           continue;
         }
         const _hcSame = noMoverDmg === noObstacleDmg;
         const _hcMsg  = _hcSame
-          ? `${noMoverDmg ? 'Would both take' : 'Both take'} <strong>${dmgTotal} damage</strong>${bonusNote}${ncdNote}`
-          : `${targetToken.name} ${dmgStr(dmgTotal)}; ${blocker.name} ${blockerDmgStr(dmgTotal)}${bonusNote}`;
-        collisionMsgs.push(`<strong>Collision!</strong> ${targetToken.name} crashes into ${blocker.name} with ${remaining} square${remaining !== 1 ? 's' : ''} remaining. ${_hcMsg}.`);
+          ? L(noMoverDmg ? 'wouldBothTake' : 'bothTake', { n: dmgTotal }) + bonusNote + ncdNote
+          : L('eachTakes', { name: targetToken.name, damage: dmgStr(dmgTotal), other: blocker.name, otherDamage: blockerDmgStr(dmgTotal) }) + bonusNote;
+        collisionMsgs.push(L('crashInto', { name: targetToken.name, things: blocker.name, n: remaining, s: pl(remaining), damage: _hcMsg }));
         break;
       }
 
@@ -2463,7 +2580,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             hitObject();
             const dmg = 2 + remaining + bonusObjectDmg;
             await dmgTarget(dmg);
-            collisionMsgs.push(`${targetToken.name} is stopped by an obstacle${moverAndTakes(dmg)}.`);
+            collisionMsgs.push(L('stoppedObstacle', { name: targetToken.name, damage: moverAndTakes(dmg) }));
             break;
           }
 
@@ -2506,21 +2623,23 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             } else {
               await safeDelete(tile.document);
             }
-            collisionMsgs.push(`${targetToken.name} smashes through ${mat} (costs ${rule.cost}${moverDealsNote(rule.damage)}).`);
+            collisionMsgs.push(L('smashCosts', { name: targetToken.name, things: mat, cost: rule.cost, deals: moverDealsNote(rule.damage) }));
             costConsumed += rule.cost - 1;
             if (getSetting('debugMode')) console.log(`DSCT | FM | Broke tile (${mat}) at step ${i}. cost=${rule.cost}, costConsumed now=${costConsumed}, remaining after break=${remaining - rule.cost}`);
-            if (moverWouldStop(dmg)) { await killMover(`${targetToken.name} is killed by the impact; continuing as a corpse.`); continue; }
+            if (moverWouldStop(dmg)) { await killMover(L('killedByImpact', { name: targetToken.name })); continue; }
             continue;
           }
 
           landingIndex = i - 1;
           if (getSetting('debugMode')) console.log(`DSCT | FM | Blocked by ${mat} tile at step ${i} (needs ${rule.cost}, has ${remaining}). Landing at step ${i - 1}.`);
-          collisionMsgs.push(`${targetToken.name} hits ${mat} but lacks the momentum to break through (needs ${rule.cost}, has ${remaining})${moverIsDefeated ? '.' : `. ${TakesStr(dmg)}.`}`);
+          collisionMsgs.push(L('lacksMomentum', { name: targetToken.name, material: mat, needs: rule.cost, has: remaining }) + takesTail(dmg));
           break;
         }
       }
     }
     if (getSetting('debugMode')) console.log(`DSCT | FM | Path loop done. landingIndex=${landingIndex}, path.length=${path.length}, costConsumed=${costConsumed}`);
+    if (safely && !isVertical) while (landingIndex >= 0 && !safeEnd(path[landingIndex])) landingIndex--;
+    if (safely && landingIndex < 0) { window._dsctFMActive = false; return noSafeMove(); }
 
     const landingGrid      = landingIndex >= 0 ? path[landingIndex] : startGrid;
     const landingStepIndex = landingIndex >= 0 ? landingIndex : -1;
@@ -2549,17 +2668,19 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           : startElev;
 
         if (isVertical && stepElev !== (targetToken.document.elevation ?? 0)) {
-          await safeUpdate(targetToken.document, { elevation: stepElev });
+          await safeUpdate(targetToken.document, { elevation: stepElev }, { dsMovement: true });
+          await movementSettled(targetToken.document);
         }
         const stepMoveData = { x: stepWorld.x, y: stepWorld.y };
-        if (terrainMap) {
-          const te = terrainMap[`${stepGrid.x},${stepGrid.y}`] ?? 0;
+        if (!isVertical) {
+          const te = terrainTop(terrain, stepGrid, animTerrainElev + tokenSize);
           if (Math.abs(te - animTerrainElev) === 1) {
             stepMoveData.elevation = te;
             animTerrainElev = te;
           }
         }
         await safeUpdate(targetToken.document, stepMoveData, { dsMovement: true });
+        await movementSettled(targetToken.document);
         await new Promise(r => setTimeout(r, getSetting('animationStepDelay')));
       }
     } finally {
@@ -2572,8 +2693,8 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     
     const horzEffectiveNoFallDmg = noFallDamage || targetIsDead || moverIsDefeated;
     const targetElev = (reducedVert < 0 && finalElev <= 0)
-      ? await applyForcedFallDamage(targetToken, Math.abs(reducedVert), finalElev, landingGrid, undoOps, collisionMsgs, horzEffectiveNoFallDmg)
-      : await applyFallDamage(targetToken, finalElev, landingGrid, agility, canFly, undoOps, collisionMsgs, fallReduction, horzEffectiveNoFallDmg);
+      ? await applyForcedFallDamage(targetToken, Math.abs(reducedVert), finalElev, landingGrid, undoOps, collisionMsgs, horzEffectiveNoFallDmg, noFallDamage)
+      : await applyFallDamage(targetToken, finalElev, landingGrid, agility, canFly, undoOps, collisionMsgs, fallReduction, horzEffectiveNoFallDmg, noFallDamage);
     if (getSetting('debugMode')) console.log(`DSCT | FM | finalElev=${finalElev}, targetElev=${targetElev} (after fall)`);
 
     
@@ -2620,7 +2741,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
           g.offsetY = grabbedTok.document.y - targetToken.document.y;
         } else {
           grabsEnded.push({ grabberTokenId: targetToken.id, grabbedTokenId: grabbedId });
-          await endGrab(grabbedId, { silent: false, customMsg: `${grab.grabberName} was force-moved out of reach and released ${grab.grabbedName}.` });
+          await endGrab(grabbedId, { silent: false, customMsg: L('grabReleased', { grabber: grab.grabberName, grabbed: grab.grabbedName }) });
         }
       }
     }
@@ -2635,7 +2756,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     const fullUndoLog = buildUndoLog(targetToken, startPos, startElevSnap, movedSnap, undoOps, targetIsDead);
 
     if (totalTargetDmg > 0) {
-      collisionMsgs.push(`<strong>Total damage to ${targetToken.name}: ${totalTargetDmg}</strong>`);
+      collisionMsgs.push(L('totalDamage', { name: targetToken.name, n: totalTargetDmg }));
     }
 
     if (getSetting('debugMode')) {
@@ -2757,6 +2878,7 @@ export async function runForcedMovement(macroArgs = []) {
     const keywords          = macroArgs[9] ? String(macroArgs[9]).split(',').map(k => k.trim().toLowerCase()).filter(Boolean) : [];
     const range             = parseInt(macroArgs[10]) || 0;
     const fastMove          = macroArgs[11] === 'true' || macroArgs[11] === true;
+    const safely            = macroArgs[12] === 'true' || macroArgs[12] === true;
 
     let verticalHeight = 0;
     if (verticalRaw !== undefined && verticalRaw !== '') {
@@ -2799,12 +2921,12 @@ export async function runForcedMovement(macroArgs = []) {
     }
 
     if (targetsToProcess.length === 1) {
-      await _runForcedMovement(type, distance, targetsToProcess[0], source, bonusCreatureDmg, bonusObjectDmg, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove);
+      await _runForcedMovement(type, distance, targetsToProcess[0], source, bonusCreatureDmg, bonusObjectDmg, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove, false, false, false, false, null, null, [], { safely });
     } else {
       const results = [];
       if (fastMove) {
         for (const t of targetsToProcess) {
-          const result = await _runForcedMovement(type, distance, t, source, bonusCreatureDmg, bonusObjectDmg, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove, true);
+          const result = await _runForcedMovement(type, distance, t, source, bonusCreatureDmg, bonusObjectDmg, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove, true, false, false, false, null, null, [], { safely });
           if (result) results.push(result);
         }
       } else {
@@ -2813,7 +2935,7 @@ export async function runForcedMovement(macroArgs = []) {
           const picked = await pickTarget(remaining);
           if (!picked) break;
           remaining = remaining.filter(t => t.id !== picked.id);
-          const result = await _runForcedMovement(type, distance, picked, source, bonusCreatureDmg, bonusObjectDmg, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove, true);
+          const result = await _runForcedMovement(type, distance, picked, source, bonusCreatureDmg, bonusObjectDmg, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, keywords, fastMove, true, false, false, false, null, null, [], { safely });
           if (result) results.push(result);
         }
       }
@@ -2846,6 +2968,7 @@ export async function runForcedMovement(macroArgs = []) {
     const noObstacleCollisionDamage = propSet.has('no-obstacle-collision-damage');
     const ignoreStability          = propSet.has('ignore-stability');
     const fastMove          = propSet.has('fast-auto-path');
+    const safely            = propSet.has('safely') || macroArgs.safely === true;
 
     if (!type)           { ui.notifications.warn(game.i18n.localize('DSCT.notice.fm.invalidMovementType')); return; }
     if (isNaN(distance)) { ui.notifications.warn(game.i18n.localize('DSCT.notice.fm.invalidDistance')); return; }
@@ -2873,12 +2996,12 @@ export async function runForcedMovement(macroArgs = []) {
 
     if (targetsToProcess.length === 1) {
       _fmContextKey = fmKey;
-      await _runForcedMovement(type, distance, targetsToProcess[0], source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, false, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, modifierNotes);
+      await _runForcedMovement(type, distance, targetsToProcess[0], source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, false, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, modifierNotes, { safely });
     } else {
       const results = [];
       if (fastMove) {
         for (const t of targetsToProcess) {
-          const result = await _runForcedMovement(type, distance, t, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, modifierNotes);
+          const result = await _runForcedMovement(type, distance, t, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, modifierNotes, { safely });
           if (result) results.push(result);
         }
       } else {
@@ -2887,7 +3010,7 @@ export async function runForcedMovement(macroArgs = []) {
           const picked = await pickTarget(remaining);
           if (!picked) break;
           remaining = remaining.filter(t => t.id !== picked.id);
-          const result = await _runForcedMovement(type, distance, picked, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, modifierNotes);
+          const result = await _runForcedMovement(type, distance, picked, source, 0, 0, verticalHeight, fallReduction, false, ignoreStability, noCollisionDamage, kwList, fastMove, true, false, noMoverCollisionDamage, noObstacleCollisionDamage, contextMessageId, origin, modifierNotes, { safely });
           if (result) results.push(result);
         }
       }
@@ -2908,11 +3031,11 @@ export async function runForcedMovement(macroArgs = []) {
     }
   }
   else if (typeof macroArgs === 'object' && !Array.isArray(macroArgs) && Object.keys(macroArgs).length > 0) {
-    const { type, distance, sourceId, targetId, verticalHeight, fallReduction, noFallDamage, noCollisionDamage, noMoverCollisionDamage = false, noObstacleCollisionDamage = false, ignoreStability, fastMove, suppressMessage, juggernaut } = macroArgs;
+    const { type, distance, sourceId, targetId, verticalHeight, fallReduction, noFallDamage, noCollisionDamage, noMoverCollisionDamage = false, noObstacleCollisionDamage = false, ignoreStability, fastMove, suppressMessage, juggernaut, safely = false } = macroArgs;
     const target = getTokenById(targetId);
     const source = sourceId ? getTokenById(sourceId) : null;
     if (!target) { ui.notifications.warn(game.i18n.localize('DSCT.notice.fm.targetNotFound')); return; }
-    return await _runForcedMovement(type, distance, target, source, 0, 0, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, [], fastMove, suppressMessage, juggernaut, noMoverCollisionDamage, noObstacleCollisionDamage);
+    return await _runForcedMovement(type, distance, target, source, 0, 0, verticalHeight, fallReduction, noFallDamage, ignoreStability, noCollisionDamage, [], fastMove, suppressMessage, juggernaut, noMoverCollisionDamage, noObstacleCollisionDamage, null, null, [], { safely });
   }
   else {
     toggleForcedMovementPanel();

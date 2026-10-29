@@ -1,4 +1,4 @@
-import { getSetting, applyDamage, undoDamage, getSquadGroup, safeDelete, isOwnAbilityActor, messageDamageSource } from '../helpers.mjs';
+import { getSetting, applyDamage, undoDamage, getSquadGroup, safeDelete, isOwnAbilityActor, messageDamageSource, spendBeyondCost } from '../helpers.mjs';
 import { DSTD, DSTD_PANEL, DSTD_ROW, isPrimaryGM, safeUpdate, dropKey, dropKeyOverSocket, faceFromToken, faceChainHTML, activateFaces, services, registerPanelDecorator, damageTypeIconHTML, resourceTokenHTML } from '../ctlib.mjs';
 import { damageSignature, healSignature, gainSignature, applySignature, derivedSignatures } from './mirror.mjs';
 import { richTip, setTip, tipFor } from '../chat-tips.mjs';
@@ -13,7 +13,7 @@ import { runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { applyLinkTo } from '../conditions/apply-to-targets.mjs';
 import { gateForcedMovement, forcedMovementTaken } from '../forced-movement/forced-movement-engine.mjs';
 import { triggerRollData, modifyAttributeSafely, grantTempStamina, othersSpec, runTeleportEffect, partnerFilter, teleportModeOptions, teleportMoverOptions } from '../ability-automation/flat-special-effects.mjs';
-import { FORCED_ICONS, teleportOptions, teleportToken, cleanseSpec, cleanseActor, cleanseMatches, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
+import { FORCED_ICONS, teleportOptions, teleportToken, pickPartner, cleanseSpec, cleanseActor, cleanseMatches, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
 import { registerFlatEnrichers } from './flat-enrichers.mjs';
 import { resolveTokenRefs } from './refs.mjs';
 import { recoveriesAvailable, takeRecovery } from '../bonds.mjs';
@@ -194,7 +194,7 @@ const diceBrackets = (term) => {
 };
 
 const SOURCE_SKIP = new Set(['scaling', 'aoe', 'heal', 'healing', 'temp', 'temphp', 'value', 'temporary',
-  'vertical', 'ignorestability', 'nocollision', 'fast', 'swap', 'teleswap', 'adjacent', 'true', 'false']);
+  'vertical', 'ignorestability', 'nocollision', 'safely', 'fast', 'swap', 'teleswap', 'adjacent', 'true', 'false']);
 const GAIN_TYPES = new Set(['epic', 'heroic', 'renown', 'surge', 'victory', 'wealth', 'hr', 'victories', 'surges']);
 
 const sourceFormula = (a) => {
@@ -229,8 +229,7 @@ const refLabel = (ref) => {
 const rollDataFor = (message, a) => {
   const preset = a && presetSource(a) ? sourceDoc(message, a)?.actor?.getRollData?.() : null;
   const base = preset ?? abilityOf(message)?.getRollData?.() ?? ChatMessage.getSpeakerActor(message.speaker)?.getRollData?.() ?? {};
-  const spent = Number(String(message.flavor ?? '').match(/^Spent (\d+)/i)?.[1]);
-  return { ...base, ...triggerRollData(message), ...(Number.isFinite(spent) ? { spend: spent } : {}) };
+  return { ...base, ...triggerRollData(message), spend: spendBeyondCost(message, abilityOf(message)) };
 };
 
 const prettyOps = (text) => esc(text).replace(/\s*\*\s*/g, ' × ').replace(/\s*\/\s*/g, ' ÷ ').replace(/\s*\+\s*/g, ' + ').replace(/\s*-\s*/g, ' − ');
@@ -633,7 +632,7 @@ const fmBaseState = (a, distance) => {
     fallReduction: Number(a.dataset.fallReduction) || 0, noFallDamage: false,
     noCollisionDamage: props.has('no-collision-damage'), noMoverCollisionDamage: props.has('no-mover-collision-damage'),
     noObstacleCollisionDamage: props.has('no-obstacle-collision-damage'), ignoreStability: props.has('ignore-stability'),
-    fastMove: props.has('fast-auto-path'), sourceTokenId: null,
+    fastMove: props.has('fast-auto-path'), safely: props.has('safely'), sourceTokenId: null,
   };
 };
 
@@ -642,7 +641,7 @@ const autoPathsFm = (message, a) => !!message && getSetting('fmAutoForOwnAbiliti
 
 const fmProps = (s) => new Set([
   s.vertical && 'vertical', s.noCollisionDamage && 'no-collision-damage', s.noMoverCollisionDamage && 'no-mover-collision-damage',
-  s.noObstacleCollisionDamage && 'no-obstacle-collision-damage', s.ignoreStability && 'ignore-stability', s.fastMove && 'fast-auto-path',
+  s.noObstacleCollisionDamage && 'no-obstacle-collision-damage', s.ignoreStability && 'ignore-stability', s.fastMove && 'fast-auto-path', s.safely && 'safely',
 ].filter(Boolean));
 
 const fmMovementName = (s) => {
@@ -839,8 +838,13 @@ const TELEPORT = {
     for (const doc of docs) {
       const token = doc.object;
       const mode = tpSettings({ mode: base.mode }, livePills(st, doc)).mode;
-      const partner = mode ? (sourceDoc(message, a)?.object ?? null) : null;
-      if (!token || (partner && partner.id === token.id)) continue;
+      let partner = mode ? (sourceDoc(message, a)?.object ?? null) : null;
+      if (!token) continue;
+      if (partner?.id === token.id) {
+        const others = flatTargets(message).map((u) => fromUuidSync(u)?.object).filter((t) => t && t.id !== token.id);
+        partner = await pickPartner(token, others.length ? others : undefined);
+        if (!partner) continue;
+      }
       const opts = { ...base, mode, distance: this.result(st, a, doc)?.amount ?? base.distance };
       const captured = captureMessage('isTpUndo');
       try { await teleportToken(token, opts, partner); }
@@ -1400,7 +1404,7 @@ const spentOn = (message) => {
   const part = (message.system?.parts?.contents ?? []).find((p) => p?.abilityUuid);
   const effects = abilityOf(message)?.system?.effects;
   if (part?.effects && effects) for (const id of part.effects) if (effects.get?.(id)?.type === 'spend') return true;
-  return /^Spent \d+/i.test(String(message.flavor ?? ''));
+  return spendBeyondCost(message, abilityOf(message)) > 0;
 };
 
 const markReplaced = (ec, a) => {

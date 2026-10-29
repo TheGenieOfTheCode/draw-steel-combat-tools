@@ -1,4 +1,4 @@
-import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed, effectStartFor, movesGranted } from '../helpers.mjs';
+import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed, effectStartFor, movesGranted, spendBeyondCost } from '../helpers.mjs';
 import { applyStatus } from '../conditions/statuses.mjs';
 import { DAMAGE_TYPES, isPrimaryGM, safeCreateEmbedded, safeDelete, safeSetFlag, safeToggleStatusEffect, safeUpdate, services } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
@@ -1484,9 +1484,7 @@ function _buildCleanseButton(effect, item) {
 function _buildTeleportButton(effect, item, message) {
   const tv = effect.flatTeleport;
   const { mode, mover, animate, color, duration, display, spend } = tv;
-  const spentMatch = message?.flavor?.match(/^Spent (\d+)/i);
-  const spent = spentMatch ? parseInt(spentMatch[1]) : 0;
-  const dist = teleportDistance(tv, item, spent);
+  const dist = teleportDistance(tv, item, spendBeyondCost(message, item));
   const defaultLabel = teleportAutoLabel(tv, dist);
   const spendSuffix = spend?.enabled ? ` ${game.i18n.format("DSCT.FlatEffect.spend.costSuffix", { cost: spend.value })}` : "";
 

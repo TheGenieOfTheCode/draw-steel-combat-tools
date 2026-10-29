@@ -48,7 +48,7 @@ const needSelection = (key = 'needSelection') => void ui.notifications.warn(L(ke
 export const FORCED_ICONS = { push: 'fa-right-long', pull: 'fa-left-long', slide: 'fa-arrows-left-right' };
 const FORCED_FLAGS = {
   vertical: 'vertical', ignorestability: 'ignore-stability', nocollision: 'no-collision-damage', fast: 'fast-auto-path',
-  nomovercollision: 'no-mover-collision-damage', noobstaclecollision: 'no-obstacle-collision-damage',
+  nomovercollision: 'no-mover-collision-damage', noobstaclecollision: 'no-obstacle-collision-damage', safely: 'safely',
 };
 
 const forced = {
@@ -67,6 +67,7 @@ const forced = {
     if (c.vertical === true) props.add('vertical');
     if (c.ignoreStability === true || c.stability === false) props.add('ignore-stability');
     if (c.collision === false) props.add('no-collision-damage');
+    if (c.safely === true) props.add('safely');
     const formula = formulaOf(parts, options);
     if (!validFormula(formula)) return null;
     const cfg = ds.CONFIG.abilities.forcedMovement[type];
@@ -143,16 +144,19 @@ const teleport = {
         if (controlled().length !== 1) return void ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.mustSelectOne'));
         token = controlled()[0];
       }
-      let partner = null;
-      if (opts.mode) {
-        const targets = [...game.user.targets].filter((t) => t.id !== token.id);
-        partner = targets.length === 1 ? targets[0] : (getSetting('abilityAutomationEnabled') ? await runSourcePicker() : null);
-        if (!partner) return void ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.needTarget'));
-        if (partner.id === token.id) return void ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sameToken'));
-      }
+      const partner = opts.mode ? await pickPartner(token) : null;
+      if (opts.mode && !partner) return;
       await teleportToken(token, opts, partner);
     });
   },
+};
+
+export const pickPartner = async (token, candidates = [...game.user.targets]) => {
+  const others = candidates.filter((t) => t && t.id !== token.id);
+  const partner = others.length === 1 ? others[0] : (getSetting('abilityAutomationEnabled') ? await runSourcePicker() : null);
+  if (!partner) return void ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.needTarget'));
+  if (partner.id === token.id) return void ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sameToken'));
+  return partner;
 };
 
 export const teleportOptions = (a) => {

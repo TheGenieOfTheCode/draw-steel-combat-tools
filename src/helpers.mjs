@@ -120,6 +120,18 @@ export const messageDamageSource = (message) => {
   };
 };
 
+export const spentTotal = (message) => {
+  const rx = new RegExp(game.i18n.localize('DRAW_STEEL.Item.ability.ConfigureUse.SpentFlavor')
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{value\\}', '(\\d+)').replace('\\{name\\}', '.+'));
+  return Number(rx.exec(message?.flavor ?? '')?.[1]) || 0;
+};
+
+export const spendBeyondCost = (message, ability = null) => {
+  const use = message?.system?.parts?.contents?.find((p) => p.type === 'abilityUse');
+  ability ??= use?.abilityUuid ? fromUuidSync(use.abilityUuid, { strict: false }) : null;
+  return Math.max(0, spentTotal(message) - (Number(ability?.system?.resource) || 0));
+};
+
 export const applyDamage = async (actor, amount, squadGroupOverride = undefined, {
   damageType     = 'untyped',
   ignoreImmunity = false,
@@ -154,11 +166,12 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
 
 export const confirmFall = async (token, rawFall, effectiveFall, dmg, { noFallDamage = false } = {}) => {
   const agility = token.actor?.system?.characteristics?.agility?.value ?? 0;
-  let content = `<b><i class="fa-solid fa-chevrons-down"></i> Fall:</b> <b>${token.name}</b> is about to fall <b>${rawFall}</b> square${rawFall !== 1 ? 's' : ''}`;
-  if (agility > 0 && effectiveFall !== rawFall) content += ` (${effectiveFall} effective after Agility ${agility})`;
-  if (noFallDamage)     content += `. No fall damage will be taken.`;
-  else if (dmg > 0)     content += `, dealing <b>${dmg} damage</b> and landing prone.`;
-  else                  content += `. Less than 2 effective squares; no damage.`;
+  const L = (key, data = {}) => game.i18n.format(`DSCT.fall.${key}`, data);
+  const content = L('confirmPrompt', {
+    name: token.name, dist: rawFall, s: rawFall !== 1 ? 's' : '',
+    agility: agility > 0 && effectiveFall !== rawFall ? L('confirmAgility', { effective: effectiveFall, agility }) : '',
+    outcome: L(noFallDamage ? 'confirmNoDamage' : (dmg > 0 ? 'confirmDamage' : 'confirmTooShort'), { dmg }),
+  });
 
   const msg = await ChatMessage.create({
     content,
@@ -333,6 +346,11 @@ export const fallGate = async (token, height) => {
   return ctx;
 };
 
+export const knockProne = async (actor, undoOps = null) => {
+  await safeToggleStatusEffect(actor, 'prone', { active: true });
+  undoOps?.push({ op: 'status', uuid: actor.uuid, effectId: 'prone', active: false });
+};
+
 let _fallHandler = null;
 export const registerFallHandler = (fn) => { _fallHandler = typeof fn === 'function' ? fn : null; };
 
@@ -361,17 +379,19 @@ export const applyFall = async (token, targetElev = 0, { silent = false, skipCon
   }
 
   
+  const tokenIsDead = token.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead') ?? false;
+  const hurt = dmg > 0 && !tokenIsDead;
   if (!silent && fallDist > 0) {
     await ChatMessage.create({
-      content: fallLines(token.name, { fallDist, effectiveFall, dmg, agility, reasons, caught }).join('<br>'),
+      content: fallLines(token.name, { fallDist, effectiveFall, dmg, agility, reasons, caught, prone: hurt }).join('<br>'),
       speaker: ChatMessage.getSpeaker({ token: token.document }),
       flags: { [M]: { fallLog: { fell: fallDist, effective: effectiveFall, dmg, targetTokenId: token.id, targetSceneId: token.document.parent?.id ?? canvas.scene?.id } } },
     });
   }
 
-  const tokenIsDead = token.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead') ?? false;
-  if (dmg > 0 && !tokenIsDead) await applyDamage(token.actor, dmg, undefined, { fall: true });
+  if (hurt) await applyDamage(token.actor, dmg, undefined, { fall: true });
   await safeUpdate(token.document, { elevation: targetElev });
+  if (hurt) await knockProne(token.actor);
   if (caught) await stepOffCatcher(token);
 
   if (dmg > 0) {
@@ -382,7 +402,7 @@ export const applyFall = async (token, targetElev = 0, { silent = false, skipCon
       await applyDamage(landedOn.actor, dmg, undefined, { fall: true });
       const fallerSize   = token.actor?.system?.combat?.size?.value ?? 1;
       const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
-      if (fallerSize > blockerMight) await safeToggleStatusEffect(landedOn.actor, 'prone', { active: true });
+      if (fallerSize > blockerMight) await knockProne(landedOn.actor);
       const fallerWouldDie  = (token.actor.system.stamina?.value ?? 1) <= 0;
       const blockerWouldDie = (landedOn.actor.system.stamina?.value ?? 1) <= 0;
       if (!fallerWouldDie || !blockerWouldDie) {
@@ -395,7 +415,7 @@ export const applyFall = async (token, targetElev = 0, { silent = false, skipCon
   return { dmg, fallDist, effectiveFall };
 };
 
-const fallLines = (name, { fallDist, effectiveFall, dmg, agility, reasons, caught }) => {
+const fallLines = (name, { fallDist, effectiveFall, dmg, agility, reasons, caught, prone }) => {
   const L = (key, data) => game.i18n.format(`DSCT.fall.${key}`, data);
   const lines = [L('fell', { name, dist: fallDist, s: fallDist !== 1 ? 's' : '' })];
   if (agility > 0) lines.push(L('agility', { n: agility }));
@@ -403,6 +423,7 @@ const fallLines = (name, { fallDist, effectiveFall, dmg, agility, reasons, caugh
   if (caught) lines.push(L('caught', {}));
   else if (dmg > 0) lines.push(L('damage', { dmg, effective: effectiveFall }));
   else lines.push(L('tooShort', { effective: effectiveFall }));
+  if (prone) lines.push(L('prone', { name }));
   return lines;
 };
 
