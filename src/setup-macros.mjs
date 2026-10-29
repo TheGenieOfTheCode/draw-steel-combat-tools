@@ -1,4 +1,4 @@
-import { HANDED_TO_TRIGGERS, triggersHandlesClassTriggers } from './helpers.mjs';
+import { HANDED_TO_TRIGGERS, triggersHandlesClassTriggers, movesGranted } from './helpers.mjs';
 
 const MACRO_FOLDER_NAME = 'Draw Steel: Combat Tools';
 
@@ -145,7 +145,7 @@ const enhancedPacks = () => enhancedPackIds().map(id => game.packs.get(id)).filt
 async function enhancedDocuments() {
   const out = [];
   for (const pack of enhancedPacks()) out.push(...await pack.getDocuments());
-  return out;
+  return movesGranted() ? out : out.filter((d) => !d.flags?.[ENH_FLAG]?.enhancedNeedsMoves);
 }
 
 export function enhancedStamp(data) {

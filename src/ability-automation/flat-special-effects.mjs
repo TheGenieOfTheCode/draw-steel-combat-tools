@@ -1,4 +1,4 @@
-import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed, effectStartFor } from '../helpers.mjs';
+import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed, effectStartFor, movesGranted } from '../helpers.mjs';
 import { applyStatus } from '../conditions/statuses.mjs';
 import { DAMAGE_TYPES, isPrimaryGM, safeCreateEmbedded, safeDelete, safeSetFlag, safeToggleStatusEffect, safeUpdate, services } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
@@ -695,7 +695,6 @@ class FlatCleanseSpecialEffect extends ds.data.pseudoDocuments.specialEffects.Ba
 
 const GRANT_KINDS = ["freestrike", "maneuver", "main", "signature", "heroic", "ability", "filter"];
 const GRANT_MOVES = ["shift", "move", "jump"];
-const movesGranted = () => CONFIG.TextEditor.enrichers.some(e => e.id === "dsm.grant");
 
 class FlatGrantSpecialEffect extends ds.data.pseudoDocuments.specialEffects.BaseSpecialEffect {
   static get TYPE() { return "dsct.flatGrant"; }

@@ -34,6 +34,7 @@ const MASTER_TOGGLE = {
 };
 
 export const HANDED_TO_TRIGGERS = new Set(['judgementAutomation', 'markAutomation']);
+export const movesGranted = () => CONFIG.TextEditor.enrichers.some((e) => e.id === 'dsm.grant');
 export const triggersHandlesClassTriggers = () => !!game.modules.get('draw-steel-triggers')?.active
   && game.settings.settings.has('draw-steel-triggers.featureTriggers')
   && game.settings.get('draw-steel-triggers', 'featureTriggers') !== false;

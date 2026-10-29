@@ -1,5 +1,6 @@
 import { registerEnricherKind } from './advanced-enrichers.mjs';
 import { runHideFor } from '../ability-automation/hide-effect.mjs';
+import { movesGranted } from '../helpers.mjs';
 
 const getSocket = () => game.modules.get('draw-steel-combat-tools')?.api?.socket ?? null;
 
@@ -167,7 +168,7 @@ const grantKind = (recipient) => ({
 const MOVE_WORDS = { shift: 'fa-shoe-prints', move: 'fa-person-walking', jump: 'fa-person-running' };
 
 export function registerMoveTextFallback() {
-  if (CONFIG.TextEditor.enrichers.some((e) => e.id === 'dsm.grant')) return;
+  if (movesGranted()) return;
   CONFIG.TextEditor.enrichers.push({
     id: 'dsct.moveText',
     pattern: /\[\[\/(?<type>shift|move|jump)(?<config> [^\]]*?)?]](?!])(?:{(?<label>[^}]+)})?/gi,
@@ -181,6 +182,7 @@ export function registerMoveTextFallback() {
       if (!Number.isFinite(n)) { try { n = new Roll(formula).evaluateSync({ strict: false }).total; } catch { n = NaN; } }
       const span = document.createElement('span');
       span.className = 'dsct-move-text';
+      if (!match.groups.label && !Number.isFinite(n)) return span;
       span.innerHTML = `<i class="fa-solid ${MOVE_WORDS[type]}"></i> `;
       span.append(match.groups.label ?? say(`moveText.${type}`, { n: Number.isFinite(n) ? n : raw }));
       return span;

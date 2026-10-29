@@ -57,7 +57,8 @@
     "draw-steel-combat-tools": {
       "enhanced": true,
       "enhancedSpecific": true,
-      "enhancedEffectsOnly": true
+      "enhancedEffectsOnly": true,
+      "enhancedNeedsMoves": true
     }
   },
   "_stats": {
