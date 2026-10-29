@@ -560,31 +560,35 @@ async function runAreaPicker(ability, area, caster) {
         tooltip: L('turnTip'),
         tipCategory,
         onClick: () => cycleTurn(1),
-      }] : []), {
+      }] : []), [{
         icon: 'fa-solid fa-arrow-up',
         label: L('raise'),
+        kbd: 'PgUp',
         tooltip: L('raiseTip'),
         tipCategory,
         onClick: () => shiftHeight(1),
       }, {
         icon: 'fa-solid fa-arrow-down',
         label: L('lower'),
+        kbd: 'PgDn',
         tooltip: L('raiseTip'),
         tipCategory,
         onClick: () => shiftHeight(-1),
-      }, ...(area.shape === 'line' ? [{
+      }], ...(area.shape === 'line' ? [[{
         icon: 'fa-solid fa-arrow-trend-up',
         label: L('tiltUp'),
+        kbd: ']',
         tooltip: L('tiltTip'),
         tipCategory,
         onClick: () => shiftTilt(1),
       }, {
         icon: 'fa-solid fa-arrow-trend-down',
         label: L('tiltDown'),
+        kbd: '[',
         tooltip: L('tiltTip'),
         tipCategory,
         onClick: () => shiftTilt(-1),
-      }] : [])] : [],
+      }]] : [])] : [],
     });
 
     const turnButton = document.querySelector('#dsct-picker-topbar .dsct-area-turn');

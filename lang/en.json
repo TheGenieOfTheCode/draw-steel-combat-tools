@@ -72,18 +72,18 @@
         "name": "Complete Encounter Window",
         "hint": "The system asks about victories and resets whenever a combat ends. Accepting answers it with its defaults (1 victory, temporary Stamina, heroic resources and surges reset) without showing it; skipping closes it and applies nothing.",
         "choice": {
-          "ask": "Show it (system default)",
-          "accept": "Accept the defaults without showing it",
-          "skip": "Close it and apply nothing"
+          "ask": "Show It (System Default)",
+          "accept": "Accept the Defaults Without Showing It",
+          "skip": "Close It and Apply Nothing"
         }
       },
       "enhancedSwapMode": {
         "name": "Overwrite On Import",
         "hint": "What to do when you import something the Combat Tools compendiums carry an enhanced version of. Asking lists what would be overwritten before anything is written.",
         "choice": {
-          "ask": "Ask the first time",
-          "always": "Always overwrite",
-          "never": "Never overwrite"
+          "ask": "Ask the First Time",
+          "always": "Always Overwrite",
+          "never": "Never Overwrite"
         }
       },
       "distributeEnhanced": {
@@ -100,9 +100,9 @@
         "name": "Sample Macro Import Prompt",
         "hint": "When to offer the Director the sample macros on load.",
         "choice": {
-          "ask": "Ask on every initialization",
-          "skipUpdate": "Ask only when the module updates",
-          "never": "Don't ask again"
+          "ask": "Ask on Every Initialization",
+          "skipUpdate": "Ask Only When the Module Updates",
+          "never": "Don't Ask Again"
         }
       },
       "fmAutoForOwnAbilities": {
@@ -123,7 +123,7 @@
         "choice": {
           "off": "Off",
           "show": "Show",
-          "apply": "Show and auto-apply"
+          "apply": "Show and Auto-Apply"
         }
       },
       "dstdQuickFmButton": {
@@ -318,9 +318,9 @@
       "squadLabelRenamePreference": {
         "name": "Auto-Rename Preference",
         "hint": "Whether to ask before renaming squads at the start of combat, or always do the same thing.",
-        "ask": "Ask every time",
-        "rename": "Always rename and apply",
-        "apply": "Always just apply labels"
+        "ask": "Ask Every Time",
+        "rename": "Always Rename and Apply",
+        "apply": "Always Just Apply Labels"
       },
       "squadSimultaneousTurns": {
         "name": "Squads Take Their Turn Together",
@@ -343,7 +343,7 @@
         "hint": "How much of the squad bar players see. The Director always sees all of it.",
         "choice": {
           "all": "Full (bar and Stamina numbers)",
-          "bar": "Bar only (no Stamina numbers)",
+          "bar": "Bar Only (No Stamina Numbers)",
           "none": "Hidden (individual token bars restored)"
         }
       },
@@ -594,15 +594,15 @@
       "areaPickerOriginForce": {
         "name": "Origin Square for Everyone",
         "hint": "Let each person choose Automatic or Manual for themselves, or set one for the whole table.",
-        "players": "Players choose",
-        "auto": "Automatic for everyone",
-        "manual": "Manual for everyone"
+        "players": "Players Choose",
+        "auto": "Automatic for Everyone",
+        "manual": "Manual for Everyone"
       },
       "areaCoverFrom": {
         "name": "Area Cover From",
         "hint": "Whether cover against an area ability is judged from the caster, as written, or from the area's origin square, which many tables read as the intent.",
-        "caster": "The caster",
-        "origin": "The origin square"
+        "caster": "The Caster",
+        "origin": "The Origin Square"
       },
       "areaPickerTurnStep": {
         "name": "Line Turn Step",
@@ -864,9 +864,9 @@
         "name": "Sneaking in Combat (House Rule)",
         "hint": "By the book, any movement during combat ends hiding. Either option lets a hidden creature move at half speed and stay hidden, checking cover or concealment along the whole path or only at each end of it.",
         "choice": {
-          "off": "Off, by the book",
-          "path": "Every square of the move",
-          "ends": "Start and end of the move"
+          "off": "Off, by the Book",
+          "path": "Every Square of the Move",
+          "ends": "Start and End of the Move"
         }
       },
       "stealthAutoReveal": {
@@ -2017,6 +2017,7 @@
       "heal": { "category": "Heal", "body": "Restores this Stamina to the target." },
       "othersPick": { "category": "Recipients", "body": "Pick who {name} reaches besides its targets. Each one gets their own row below." },
       "chainPick": { "category": "Chain", "body": "Pick the next creature or object the ability leaps to, within {range} squares of the last one. It uses the same power roll." },
+      "choosePick": { "category": "Choose", "body": "Picks this option. Its enrichers then act on the result already rolled." },
       "healUndo": { "category": "Heal", "body": "Takes back the Stamina this row restored." },
       "teleport": { "category": "Teleport", "body": "Opens the teleport picker for this target." },
       "teleportRun": { "category": "Teleport", "body": "Runs the teleport with the settings above." },
@@ -3051,8 +3052,7 @@
         "heading": "Choose one:",
         "chosen": "Chosen: {name}",
         "critical": "Critical hit: every option applies",
-        "noArea": "The area for {name} isn't on the scene, so only the targets you had stay.",
-        "pickTip": "Choose {name}",
+        "noArea": "The area for {name} isn't on the scene, so only the targets you had stay.",
         "notYours": "Only the chat message's owner can choose."
       },
       "sameAsAbility": "Same as ability",

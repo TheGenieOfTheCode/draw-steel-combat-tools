@@ -1,5 +1,6 @@
 import { normalizeCollection } from '../helpers.mjs';
 import { stackedPrompt, DSTD } from '../ctlib.mjs';
+import { setTip, tipFor } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 const PARTIAL = `modules/${M}/templates/effects/choose.hbs`;
@@ -897,7 +898,7 @@ const chooseEnricher = {
       const line = li.querySelector('.dsct-choose-line');
       line.setAttribute('role', 'button');
       line.tabIndex = 0;
-      line.dataset.tooltip = game.i18n.format('DSCT.choose.after.pickTip', { name: effect.choose.choices[Number(li.dataset.index)]?.name ?? '' });
+      setTip(line, tipFor('choosePick', { title: effect.choose.choices[Number(li.dataset.index)]?.name ?? '' }));
       const pick = async (event) => {
         event.preventDefault();
         event.stopPropagation();
