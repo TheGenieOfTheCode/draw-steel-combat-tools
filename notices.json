@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "latest": {
-    "version": "1.2.7",
+    "version": "1.2.8",
     "url": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest"
   },
   "recommends": [
@@ -22,7 +22,7 @@
     {
       "id": "draw-steel-triggers",
       "title": "Draw Steel: Triggers",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "url": "https://github.com/TheGenieOfTheCode/draw-steel-triggers/releases/latest",
       "reason": "[Combat Tools] Offers triggered actions on a stack the moment they trigger, and holds damage, rolls and forced movement until they're decided."
     },
