@@ -453,13 +453,11 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
   }
 
   const progressEl = document.createElement('div');
-  progressEl.style.cssText = 'position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;align-items:center;pointer-events:none;';
+  progressEl.className = 'dsct-progress';
   progressEl.innerHTML = `
-    <div style="background:var(--dsct-bg,#0e0c14);color:var(--dsct-text-active,#c0a8e8);padding:8px 20px 10px;border-radius:0 0 8px 8px;min-width:260px;text-align:center;border:1px solid var(--dsct-border-outer,#4a3870);border-top:none;box-shadow:0 4px 12px #0006;">
-      <div id="_dsct_prog_label" style="font-size:13px;margin-bottom:6px;">Converting walls...</div>
-      <div style="background:var(--dsct-border,#2a2040);border-radius:4px;height:5px;">
-        <div id="_dsct_prog_fill" style="background:var(--dsct-accent,#7a50c0);height:5px;border-radius:4px;width:0%;transition:width 0.1s;"></div>
-      </div>
+    <div class="dsct-progress-bar">
+      <div id="_dsct_prog_label" class="dsct-progress-label">Converting walls...</div>
+      <div class="dsct-progress-track"><div id="_dsct_prog_fill" class="dsct-progress-fill"></div></div>
     </div>`;
   document.body.appendChild(progressEl);
 

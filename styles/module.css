@@ -28,24 +28,6 @@
   color: var(--dsct-text-label);
 }
 
-.dsct-close-btn {
-  width: 19px;
-  height: 19px;
-  flex-shrink: 0;
-  cursor: pointer;
-  margin-left: auto;
-  background: var(--dsct-bg-btn);
-  border: 1px solid var(--dsct-border);
-  color: var(--dsct-text-dim);
-  border-radius: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  padding: 0;
-}
-.dsct-close-btn:hover { color: var(--dsct-text) !important; }
-
 .dsct-section {
   padding: 7px;
   border: 1px solid var(--dsct-border);
@@ -265,12 +247,12 @@ button.dsct-dc-grab-fist:disabled {
 }
 button.dsct-dc-grab-fist.lit {
   opacity: 1;
-  color: var(--dsct-accent, #a98ae0);
-  text-shadow: 0 0 6px rgba(122, 80, 192, 0.8);
+  color: var(--color-warm-2);
+  text-shadow: 0 0 6px rgba(201, 89, 63, 0.8);
 }
 button.dsct-dc-grab-fist.active {
-  color: #c0a8e8;
-  background: rgba(122, 80, 192, 0.3);
+  color: var(--color-light-1);
+  background: var(--color-warm-2);
   border-radius: 3px;
 }
 
@@ -410,23 +392,29 @@ button.dsct-dc-grab-fist.active {
   flex: 1;
   font-size: 12px;
   padding: 8px 5px;
-  border-radius: 2px;
+  border-radius: 4px;
   cursor: pointer;
-  background: var(--dsct-bg-btn);
-  border: 1px solid var(--dsct-border);
-  color: var(--dsct-text);
+  background: var(--button-background-color);
+  border: 1px solid var(--button-border-color);
+  color: var(--button-text-color);
 }
 .dsct-grab-action-btn.accent {
-  border-color: var(--dsct-accent);
-  color: var(--dsct-accent-text, var(--dsct-accent));
+  border-color: var(--color-warm-2);
 }
 .dsct-grab-action-btn.danger {
-  border-color: var(--dsct-accent-red);
-  color: var(--dsct-accent-red);
+  border-color: #7a3f3f;
+  color: #dc9a8f;
 }
 .dsct-grab-action-btn.success {
-  border-color: var(--dsct-accent-green);
-  color: var(--dsct-accent-green);
+  border-color: #3f7a4a;
+  color: #8fdca0;
+}
+body.theme-light .dsct-grab-action-btn.danger { border-color: #b0574d; color: #9a2f22; }
+body.theme-light .dsct-grab-action-btn.success { color: #1d6a33; }
+.dsct-grab-action-btn:hover {
+  background: var(--button-hover-background-color);
+  border-color: var(--button-hover-border-color);
+  color: var(--button-hover-text-color);
 }
 .dsct-grab-action-btn.repositioning {
   border-color: #806020;
@@ -954,14 +942,6 @@ enriched-content[enricher="dsct.teleport"] {
   background: var(--dsct-bg);
 }
 
-.dsct-settings-input {
-  background: var(--dsct-bg-btn);
-  border: 1px solid var(--dsct-border);
-  color: var(--dsct-text);
-  border-radius: 3px;
-  padding: 4px 6px;
-}
-
 .dsct-defaults-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -1141,7 +1121,7 @@ enriched-content[enricher="dsct.teleport"] {
 }
 #dsct-vertical-popup #dsct-vert-slider::-webkit-slider-runnable-track {
   width: 6px;
-  background: var(--dsct-border);
+  background: color-mix(in srgb, var(--color-form-hint) 50%, transparent);
   border-radius: 3px;
 }
 #dsct-vertical-popup #dsct-vert-slider::-webkit-slider-thumb {
@@ -1149,7 +1129,7 @@ enriched-content[enricher="dsct.teleport"] {
   appearance: none;
   width: 30px;
   height: 14px;
-  background: var(--dsct-accent);
+  background: var(--color-warm-2);
   border-radius: 4px;
   cursor: pointer;
   margin-left: -12px;
@@ -1157,8 +1137,38 @@ enriched-content[enricher="dsct.teleport"] {
 
 #dsct-vertical-popup .dsct-vert-range-label {
   font-size: 11px;
-  color: var(--dsct-text-dim);
+  color: var(--color-form-hint);
 }
+
+.dsct-progress {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  pointer-events: none;
+}
+.dsct-progress-bar {
+  min-width: 260px;
+  padding: 8px 20px 10px;
+  text-align: center;
+  background: var(--color-cool-5-90);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-cool-4);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 12px #0006;
+  backdrop-filter: blur(4px);
+  font-family: var(--font-body);
+}
+body.theme-light .dsct-progress-bar {
+  background: url("../../../ui/parchment.jpg") repeat;
+  color: var(--color-dark-1);
+}
+.dsct-progress-label { font-size: 13px; margin-bottom: 6px; }
+.dsct-progress-track { height: 5px; border-radius: 4px; background: var(--color-cool-4); }
+body.theme-light .dsct-progress-track { background: rgba(0 0 0 / 15%); }
+.dsct-progress-fill { width: 0%; height: 5px; border-radius: 4px; background: var(--color-warm-2); transition: width 0.1s; }
 
 #dsct-vertical-popup .dsct-vert-input-col {
   display: flex;
@@ -2926,42 +2936,20 @@ body.dsct-shift-targets enriched-content[enricher="ds.apply"] a.roll-link > i {
 body.dsct-shift-targets enriched-content[enricher="ds.apply"] a.roll-link > i::before { content: "\f05b"; }
 body.dsbl-dark-chat.dsct-shift-targets .theme-dark .chat-message enriched-content[enricher="ds.apply"] a.roll-link { color: #e2b04a; }
 
-.dsct-status-icons { --dsct-si-text: light-dark(#3a3060, #d4cfe6); --dsct-si-edge: light-dark(#746a90, #776d9e); display: flex; flex-direction: column; gap: 6px; }
+.dsct-status-icons { --dsct-si-text: var(--color-text-primary); --dsct-si-edge: color-mix(in srgb, var(--color-form-hint) 50%, transparent); display: flex; flex-direction: column; gap: 6px; }
 .dsct-status-icons-intro { margin: 0 0 2px; color: var(--dsct-si-text); }
 .dsct-status-icons-group { margin: 6px 0 0; padding-bottom: 2px; border-bottom: 1px solid var(--dsct-si-edge); font-size: var(--font-size-12); text-transform: uppercase; letter-spacing: 0.06em; color: var(--dsct-si-text); }
 .dsct-status-icons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
 .dsct-status-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; border: 1px solid var(--dsct-si-edge); border-radius: 4px; cursor: pointer; }
-.dsct-status-tile:hover, .dsct-status-tile:focus-visible { border-color: var(--dsct-accent); outline: none; }
-.dsct-status-tile.changed { border-color: var(--dsct-accent); box-shadow: inset 0 0 0 1px var(--dsct-accent); }
-.dsct-status-tile-img { width: 40px; height: 40px; padding: 4px; border: none; border-radius: 4px; background: #23202e; object-fit: contain; pointer-events: none; }
+.dsct-status-tile:hover, .dsct-status-tile:focus-visible { border-color: var(--color-warm-2); outline: none; }
+.dsct-status-tile.changed { border-color: var(--color-warm-2); box-shadow: inset 0 0 0 1px var(--color-warm-2); }
+.dsct-status-tile-img { width: 40px; height: 40px; padding: 4px; border: none; border-radius: 4px; background: var(--color-cool-5); object-fit: contain; pointer-events: none; }
 .dsct-status-tile-name { font-size: var(--font-size-11); line-height: 1.15; text-align: center; color: var(--dsct-si-text); pointer-events: none; }
 .dsct-status-tile-reset { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; min-height: 0; padding: 0; line-height: 1; font-size: 10px; border-radius: 3px; }
 .dsct-status-icons-footer { display: flex; gap: 6px; margin-top: 6px; }
 .dsct-status-icons-footer button { flex: 1; }
 .dsct-enricher-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 #dsct-dc-panel.minimizing { transition: max-height 0.25s ease-out, max-width 0.25s ease-out !important; }
-
-.dsct-panel,
-.dsct-wbs-content {
-  --dsct-bg: transparent;
-  --dsct-bg-inner: transparent;
-  --dsct-bg-btn: var(--button-background-color);
-  --dsct-border: color-mix(in srgb, var(--color-fieldset-border) 60%, transparent);
-  --dsct-border-outer: var(--color-fieldset-border);
-  --dsct-text: var(--color-text-primary);
-  --dsct-text-dim: var(--color-form-hint);
-  --dsct-text-label: var(--color-form-hint);
-  --dsct-text-muted: var(--color-form-hint);
-  --dsct-accent: var(--color-warm-2);
-  --dsct-accent-text: var(--color-form-label);
-  --dsct-text-active: var(--color-form-label);
-  --dsct-animal-label: var(--color-form-label);
-  --dsct-mimic-label: var(--color-form-label);
-  --dsct-text-mimic: var(--color-text-accent);
-  --dsct-text-mimic-dim: var(--color-form-hint);
-  --dsct-border-panel: var(--dsct-border);
-  --dsct-close-fg: var(--color-form-hint);
-}
 
 .application .dsct-panel {
   padding: 0;
