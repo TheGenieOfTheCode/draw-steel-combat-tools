@@ -17,7 +17,7 @@
       "title": "Draw Steel: Battle Log",
       "version": "1.5.0",
       "url": "https://github.com/TheGenieOfTheCode/draw-steel-battle-log/releases/latest",
-      "reason": "[Combat Tools] Draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat cards match the dark theme."
+      "reason": "[Combat Tools] Draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat messages match the dark theme."
     },
     {
       "id": "draw-steel-triggers",

@@ -22,7 +22,7 @@
     ],
     "recommends": [
       { "id": "draw-steel-death-tracker", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-death-tracker/releases/latest/download/module.json", "reason": "[Combat Tools] Keeps track of who falls: deaths announced in chat with an undo, the right minions taken from a squad, and the fallen left where they fell." },
-      { "id": "draw-steel-battle-log", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-battle-log/releases/latest/download/module.json", "reason": "[Combat Tools] Draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat cards match the dark theme." },
+      { "id": "draw-steel-battle-log", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-battle-log/releases/latest/download/module.json", "reason": "[Combat Tools] Draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat messages match the dark theme." },
       { "id": "draw-steel-triggers", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-triggers/releases/latest/download/module.json", "reason": "[Combat Tools] Offers triggered actions on a stack the moment they trigger, and holds damage, rolls and forced movement until they're decided." }
     ],
     "conflicts": [
