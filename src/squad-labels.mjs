@@ -153,7 +153,7 @@ const _applySquadLabels = async () => {
 
   if (dbg) console.log(`DSCT | SL | applySquadLabels done in ${(performance.now()-_t0).toFixed(0)}ms -- skipped=${skipped} updated=${updated}`);
 
-  if (!game.combat.started) {
+  if (game.combat && !game.combat.started) {
     ui.notifications.info(game.i18n.localize('DSCT.notice.squads.labelsApplied'));
   }
 };
