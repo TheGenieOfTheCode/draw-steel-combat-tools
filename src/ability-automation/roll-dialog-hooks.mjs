@@ -979,23 +979,29 @@ export function registerRollDialogPillHooks() {
   
   
   if (game.modules.get('ds-terrain-designer')?.active) {
-    setTimeout(() => {
+    Hooks.once('ready', () => setTimeout(() => {
       const AbilitySystem = CONFIG.Item.dataModels?.ability;
       if (!AbilitySystem?.prototype?.getTargetModifiers) return;
-      const _prev = AbilitySystem.prototype.getTargetModifiers;
-      AbilitySystem.prototype.getTargetModifiers = function(target) {
-        const suppress = getSetting('rollDialogPillUI') && getSetting('highGroundEnabled');
-        const origInfo = suppress ? ui.notifications?.info?.bind(ui.notifications) : null;
-        if (origInfo) {
-          ui.notifications.info = (msg, ...rest) => {
+      const mute = function (wrapped, target) {
+        const notes = getSetting('rollDialogPillUI') && getSetting('highGroundEnabled') ? ui.notifications : null;
+        const own = notes && Object.prototype.hasOwnProperty.call(notes, 'info');
+        const info = notes?.info;
+        if (notes) {
+          notes.info = (msg, ...rest) => {
             if (typeof msg === 'string' && /high ground/i.test(msg)) return;
-            return origInfo(msg, ...rest);
+            return info.call(notes, msg, ...rest);
           };
         }
-        try { return _prev.call(this, target); }
-        finally { if (origInfo) ui.notifications.info = origInfo; }
+        try { return wrapped(target); }
+        finally { if (notes) { if (own) notes.info = info; else delete notes.info; } }
       };
-    }, 0);
+      if (game.modules.get('lib-wrapper')?.active) {
+        libWrapper.register(M_ID, 'CONFIG.Item.dataModels.ability.prototype.getTargetModifiers', mute, 'WRAPPER');
+        return;
+      }
+      const _prev = AbilitySystem.prototype.getTargetModifiers;
+      AbilitySystem.prototype.getTargetModifiers = function (target) { return mute.call(this, _prev.bind(this), target); };
+    }, 0));
   }
 
   Hooks.on('renderAbilityConfigurationDialog', (app) => {

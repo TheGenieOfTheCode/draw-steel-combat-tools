@@ -2,6 +2,7 @@ import { registerEffectFlag } from '../effect-flag-picker.mjs';
 import { armCoverImmunity, disarmCoverImmunity, getSetting } from '../helpers.mjs';
 import { isPrimaryGM } from '../ctlib.mjs';
 
+const M = 'draw-steel-combat-tools';
 const FLAG_ROOT = 'flags.draw-steel-ctlib.loe';
 
 export function registerLineOfEffectFlags() {
@@ -58,13 +59,19 @@ function _wrapTakeDamage() {
       proto = Object.getPrototypeOf(proto);
     }
   }
+  const clear = async function (wrapped, ...args) {
+    try { return await wrapped(...args); }
+    finally { disarmCoverImmunity(this.parent).catch(() => {}); }
+  };
   for (const proto of owners) {
+    const name = Object.keys(globalThis.ds?.data?.Actor ?? {}).find(k => ds.data.Actor[k]?.prototype === proto);
+    if (name && game.modules.get('lib-wrapper')?.active) {
+      libWrapper.register(M, `ds.data.Actor.${name}.prototype.takeDamage`, clear, 'WRAPPER');
+      continue;
+    }
     const original = proto.takeDamage;
     if (typeof original !== 'function' || original.__dsctCoverImmunity) continue;
-    async function takeDamage(...args) {
-      try { return await original.apply(this, args); }
-      finally { disarmCoverImmunity(this.parent).catch(() => {}); }
-    }
+    async function takeDamage(...args) { return clear.call(this, original.bind(this), ...args); }
     takeDamage.__dsctCoverImmunity = true;
     proto.takeDamage = takeDamage;
   }
