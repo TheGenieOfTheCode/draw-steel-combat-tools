@@ -101,6 +101,11 @@ export const registerSettings = () => {
     default: 'ask',
   });
 
+  game.settings.register(M, 'neutralFoesHostile', {
+    name: L('neutralFoesHostile.name'), hint: L('neutralFoesHostile.hint'),
+    scope: 'world', config: true, type: Boolean, default: true,
+  });
+
   game.settings.register(M, 'dstdQuickFmButton', {
     name: L('dstdQuickFmButton.name'), hint: L('dstdQuickFmButton.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

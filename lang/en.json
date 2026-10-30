@@ -77,6 +77,10 @@
           "skip": "Close It and Apply Nothing"
         }
       },
+      "neutralFoesHostile": {
+        "name": "Engaging in Hostilities",
+        "hint": "When combat starts or an NPC joins it, neutral NPCs turn Hostile and Noncombatants turn Neutral, with a whisper to switch any back. Rules that look for enemies, like ranged strike banes, skip neutral tokens."
+      },
       "enhancedSwapMode": {
         "name": "Overwrite On Import",
         "hint": "What to do when you import something the Combat Tools compendiums carry an enhanced version of. Asking lists what would be overwritten before anything is written.",
@@ -2627,6 +2631,16 @@
         "line": "{n} {type} damage",
         "ignores": "(ignores immunity)"
       },
+      "hostileNeutrals": {
+        "title": "Engaging in Hostilities",
+        "nowHostile": "These neutral NPCs are now Hostile:",
+        "nowNeutral": "These Noncombatants are now Neutral:",
+        "undo": "Click a portrait to switch that token back.",
+        "secret": "Left as Secret, so some effects will not count them as enemies: {names}.",
+        "tipHostile": "Hostile. Click to make it Neutral.",
+        "tipNeutral": "Neutral. Click to make it Hostile.",
+        "gone": "This token no longer exists."
+      },
       "squads": {
         "captainFell": "<strong>Captain fallen:</strong> {name} has fallen as captain of {group}.",
         "captainLostSquad": "<strong>Squad wiped:</strong> {name} is no longer the captain of {group}. Their entire squad has been wiped out.",
@@ -3059,7 +3073,7 @@
         "heading": "Choose one:",
         "chosen": "Chosen: {name}",
         "critical": "Critical hit: every option applies",
-        "noArea": "The area for {name} isn't on the scene, so only the targets you had stay.",
+        "noArea": "The area for {name} isn't on the scene, so only the targets you had stay.",
         "notYours": "Only the chat message's owner can choose."
       },
       "sameAsAbility": "Same as ability",

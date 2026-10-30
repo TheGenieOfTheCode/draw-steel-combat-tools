@@ -3373,3 +3373,38 @@ a.dsct-adv-compact {
   text-wrap: balance;
 }
 
+.dsct-hn-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0;
+}
+button.dsct-hn-token {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  min-height: 0;
+  padding: 0;
+  border: 2px solid var(--color-level-error, #c9593f);
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-cool-5, #1d1f27);
+}
+button.dsct-hn-token img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: none;
+}
+button.dsct-hn-token.is-neutral {
+  border-color: var(--color-level-warning, #e0b44c);
+}
+button.dsct-hn-token.is-reverted img,
+button.dsct-hn-token.is-gone img {
+  filter: grayscale(0.8);
+  opacity: 0.6;
+}
+.dsct-hn-note {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}

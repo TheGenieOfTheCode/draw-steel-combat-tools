@@ -11,6 +11,7 @@ import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { registerSquadTurnHooks } from './squad-turns.mjs';
 import { registerPairTurnHooks } from './pair-turns.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
+import { registerHostileNeutralHooks } from './hostile-neutrals.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
 import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities, swapEnhancedItem, removeEnhancedGrants } from './setup-macros.mjs';
@@ -279,6 +280,7 @@ Hooks.once('init', () => {
   registerSquadTurnHooks();
   registerPairTurnHooks();
   registerTriggeredActionHooks();
+  registerHostileNeutralHooks();
   registerModuleButtons();
   registerForcedMovementHooks();
   registerWallDoorHooks();
