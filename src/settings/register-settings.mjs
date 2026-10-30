@@ -1002,7 +1002,7 @@ export const registerSettings = () => {
   const H = (key) => `DSCT.setting.tabHeaders.${key}`;
   registerSettingsLayout(M, [
     { label: H('abilities'), items: ['abilityAutomationSettings', 'flatEffectsSettings', 'triggeredActionsSettings', 'distributeEnhanced', 'enhancedPromptMode', 'enhancedAutoAdd', 'enhancedSwapMode'] },
-    { label: H('combat'), items: ['conditionsSettings', 'forcedMovementSettings', 'teleportEnabled', 'stealthSettings', 'homeRulesSettings', 'squadToolsSettings', 'completeEncounterMode'] },
+    { label: H('combat'), items: ['conditionsSettings', 'forcedMovementSettings', 'teleportEnabled', 'stealthSettings', 'homeRulesSettings', 'squadToolsSettings', 'completeEncounterMode', 'neutralFoesHostile'] },
     { label: H('table'), items: ['partyToolsSettings', 'moduleButtonsSettings', 'compatibilitySettings', 'homebrewOptions'] },
     { label: H('module'), items: ['installMacros', 'macroPromptMode', 'onlineNoticeCheck', 'settingsReport', 'debugMode', 'testFeaturesSettings'] },
   ], {
