@@ -1,4 +1,5 @@
 import { HANDED_TO_TRIGGERS, triggersHandlesClassTriggers, movesGranted } from './helpers.mjs';
+import { offersChoices, postEnhancedChoices } from './enhanced-choices.mjs';
 
 const MACRO_FOLDER_NAME = 'Draw Steel: Combat Tools';
 
@@ -402,6 +403,9 @@ export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
 
   await _syncEffects(item, data.effects ?? []);
   await item.update({ flags: { [ENH_FLAG]: flags } });
+  if (flags.enhancedSwapped && offersChoices(data)) {
+    await postEnhancedChoices(item).catch((err) => console.warn(`DSCT | enhanced | could not offer the choices of ${item.name}:`, err));
+  }
   return true;
 };
 

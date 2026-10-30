@@ -937,6 +937,13 @@
       "nobody": "{name} has nobody to hide from here.",
       "hiddenFrom": "{name} is now hidden from {count} creature(s)."
     },
+    "enhancedChoices": {
+      "title": "{name} Choices",
+      "body": "{actor} now has the enhanced {name}, which gives each of its choices as a feature of its own. Choose them here. To change them later, use the arrow button beside each choice on the feature's Advancement tab.",
+      "choose": "Choose",
+      "chosen": "Chosen",
+      "gone": "Feature Removed"
+    },
     "enhancedBadge": {
       "enhanced": {
         "label": "Combat Tools Enhanced",

@@ -1,0 +1,48 @@
+{
+ "folder": "DSCTfffMeloChc01",
+ "name": "Melodrama: More from Three Heroes Acting",
+ "type": "feature",
+ "_id": "DSCTmeloRais0001",
+ "img": "icons/skills/ranged/arrow-strike-apple-orange.webp",
+ "system": {
+  "description": {
+   "value": "<p>The first time three or more heroes use an ability on the same turn, you [[/gain 3 heroic]]{gain 3 drama instead of 2}.</p><section class=\"secret\"><p><em>Granted by Draw Steel: Combat Tools' Melodrama.</em></p></section>",
+   "director": ""
+  },
+  "source": {
+   "book": "Heroes",
+   "page": "210",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "melodrama-more-three-heroes",
+  "advancements": {},
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [],
+ "sort": 1100,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "createdTime": 1793347200000,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTmeloRais0001"
+}

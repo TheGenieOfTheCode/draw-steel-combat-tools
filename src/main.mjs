@@ -84,6 +84,7 @@ import { registerConsumeEffects } from './conditions/consume-effects.mjs';
 import { registerReactiveTests } from './conditions/reactive-tests.mjs';
 import { registerTurnGain } from './conditions/turn-gain.mjs';
 import { registerEnhancedBadge } from './enhanced-badge.mjs';
+import { registerEnhancedChoices } from './enhanced-choices.mjs';
 import { registerManualText } from './manual-text.mjs';
 import { registerEnhancedRedirects, enhancedRedirects } from './enhanced-redirects.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
@@ -263,6 +264,7 @@ Hooks.once('init', () => {
   registerCoverImmunity();
   registerEffectFlagPicker();
   registerEnhancedBadge();
+  registerEnhancedChoices();
   registerManualText();
   registerEnhancedRedirects();
   if (STEALTH_WORKFLOW_READY) {

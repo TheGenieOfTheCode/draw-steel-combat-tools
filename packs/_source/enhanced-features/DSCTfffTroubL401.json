@@ -1,0 +1,22 @@
+{
+ "type": "Item",
+ "folder": "DSCTfffTroubad01",
+ "name": "Level 4",
+ "color": null,
+ "sorting": "m",
+ "_id": "DSCTfffTroubL401",
+ "description": "",
+ "sort": 4000,
+ "flags": {},
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "lastModifiedBy": null,
+  "modifiedTime": null
+ },
+ "_key": "!folders!DSCTfffTroubL401"
+}
