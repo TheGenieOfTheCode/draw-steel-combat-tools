@@ -203,9 +203,17 @@ export const applyStatus = async (target, statusId, { source = null, end = null,
   }
   effect.updateSource(foundry.utils.mergeObject(resolveEnd(end), { flags: flags ?? {}, ...(data ?? {}) }));
 
-  const existing = status._id ? actor.effects.get(status._id) : null;
+  const existing = existingStatusEffect(actor, statusId);
   if (existing) await safeDelete(existing);
   return createStatusEffect(actor, effect.toObject(), {});
+};
+
+export const existingStatusEffect = (actor, statusId) => {
+  const status = CONFIG.statusEffects.find(s => s.id === statusId);
+  if (!actor || !status) return null;
+  if (status._id) return actor.effects.get(status._id) ?? null;
+  const name = game.i18n.localize(status.name ?? '');
+  return actor.effects.find(e => e.statuses.size === 1 && e.statuses.has(statusId) && e.name === name) ?? null;
 };
 
 export const removeStatus = async (target, statusId) => {
