@@ -453,6 +453,7 @@ async function runForced(part, st, keywords, index = 0) {
     st.noObstacleCollisionDamage ? 'no-obstacle-collision-damage' : null,
     st.ignoreStability ? 'ignore-stability' : null,
     st.fastMove ? 'fast-auto-path' : null,
+    st.safely ? 'safely' : null,
   ].filter(Boolean));
   const target = part.tokenUuid ? fromUuidSync(part.tokenUuid)?.object : null;
   const speaker = part.message.speaker?.token ? canvas.tokens.get(part.message.speaker.token) : null;
