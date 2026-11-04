@@ -648,6 +648,7 @@ function _registerChooseMessageHooks() {
   Hooks.on('renderChatMessageHTML', (message, html) => {
     try {
       _applyToCard(message, html);
+      _filterSectionButtons(message, html);
       _armTemplate(message, html);
     } catch (err) {
       console.warn('DSCT | Choose | applying choice to card failed:', err);
@@ -679,6 +680,14 @@ export function chooseHiddenRollIndexes(message) {
     if (!_effectShows(effect, assignment)) hidden.add(String(effect.id));
   }
   return hidden.size ? hidden : null;
+}
+
+function _filterSectionButtons(message, html) {
+  const hidden = chooseHiddenRollIndexes(message);
+  if (!hidden) return;
+  for (const btn of html.querySelectorAll('[data-message-part] button[data-uuid]')) {
+    if (hidden.has(String(btn.dataset.uuid).split('.').pop())) btn.remove();
+  }
 }
 
 export function filterChooseDstdRows(message, panel) {

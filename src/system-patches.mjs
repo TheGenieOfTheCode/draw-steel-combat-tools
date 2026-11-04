@@ -10,7 +10,7 @@ import { executeAsDirector, safeUpdate } from './ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
-function _fmMakeLabel(state) {
+export function _fmMakeLabel(state) {
   return [
     state.fastMove ? 'Auto' : '',
     state.vertical ? (state.verticalDistance ? `Vertical ${state.verticalDistance}` : 'Vertical') : '',
@@ -18,7 +18,7 @@ function _fmMakeLabel(state) {
   ].filter(Boolean).join(' ');
 }
 
-function _fmBaseStateFromBtn(btn) {
+export function _fmBaseStateFromBtn(btn) {
   const props = new Set(JSON.parse(btn.dataset.properties ?? '[]'));
   const vd    = Number(btn.dataset.verticalDistance ?? 0);
   return {
@@ -275,6 +275,14 @@ async function _applyEffectRouted(wrapped, tierKey, effectId, options) {
   await executeAsDirector(api.socket, 'dsct.applyEffectAsGM', this.uuid, tierKey, effectId, targets.map(a => a.uuid));
 }
 
+export function sectionTargetToken(message, el) {
+  const partId = el?.closest?.('[data-message-part]')?.dataset.messagePart;
+  const part = partId ? message?.system?.parts?.get?.(partId) : null;
+  if (part?.type !== 'targetResult') return null;
+  const doc = part.tokenUuid ? fromUuidSync(part.tokenUuid, { strict: false }) : null;
+  return doc?.object ?? part.actorTarget?.getActiveTokens?.()?.[0] ?? null;
+}
+
 function _patchDamageRollButton() {
   libWrapper.register(
     M,
@@ -335,7 +343,8 @@ function _registerButtonHooks() {
 
     const parts      = normalizeCollection(_msg.system?.parts);
     const abilityUse = parts.find(p => p.type === 'abilityUse');
-    if (getSetting('applyDamageEnabled') && !_dstdCeding && getSetting('areaDamageEnabled') && abilityUse?.abilityUuid) {
+    const nativeArea = !!globalThis.ds?.CONFIG?.MessagePart?.targetResult;
+    if (getSetting('applyDamageEnabled') && !_dstdCeding && !nativeArea && getSetting('areaDamageEnabled') && abilityUse?.abilityUuid) {
       const item   = await fromUuid(abilityUse.abilityUuid).catch(() => null);
       if (chooseKeywords(item, _msg).has('area')) {
         for (const btn of root.querySelectorAll('.apply-damage')) {
@@ -373,15 +382,16 @@ function _registerButtonHooks() {
       const debug = getSetting('debugMode');
       if (debug) console.log(`DSCT | PurifyingFire | speakerActor=${speakerActor?.name ?? 'none'}`);
       if (speakerActor?.items.some(i => getItemDsid(i) === 'purifying-fire' || i.name.toLowerCase() === 'purifying fire')) {
+        const fireWeak = (t) => t.actor?.effects.some(ef => ef.changes?.some(c => c.key === 'system.damage.weaknesses.fire'));
         const targetTokens = [...game.user.targets];
         if (debug) console.log(`DSCT | PurifyingFire | targets from game.user.targets:`, targetTokens.map(t => t.name));
-        if (debug) targetTokens.forEach(t => console.log(`DSCT | PurifyingFire | ${t.name} effects:`, [...(t.actor?.effects ?? [])].map(ef => ({ name: ef.name, changes: ef.changes }))));
-        const hasFireWeaknessTarget = targetTokens.some(t =>
-          t.actor?.effects.some(ef => ef.changes?.some(c => c.key === 'system.damage.weaknesses.fire'))
-        );
+        const hasFireWeaknessTarget = targetTokens.some(fireWeak) || normalizeCollection(_msg.system?.parts)
+          .some(p => p.type === 'targetResult' && fireWeak(fromUuidSync(p.tokenUuid ?? '')?.object ?? { actor: p.actorTarget }));
         if (debug) console.log(`DSCT | PurifyingFire | hasFireWeaknessTarget=${hasFireWeaknessTarget}`);
         if (hasFireWeaknessTarget) {
           for (const btn of root.querySelectorAll('.apply-damage')) {
+            const section = sectionTargetToken(_msg, btn);
+            if (section && !fireWeak(section)) continue;
             const partEl = btn.closest('[data-message-part]');
             const partId = partEl?.dataset.messagePart;
             const part   = partId ? _msg.system.parts.get(partId) : null;
@@ -460,7 +470,8 @@ function _registerButtonHooks() {
     }
 
     const fmBtns = [...root.querySelectorAll('[data-dsct-action="dsct-fm"]')];
-    if (fmBtns.length) {
+    const fmByResult = !!ds.CONFIG.MessagePart?.targetResult && !game.modules.get('draw-steel-target-damage')?.active;
+    if (fmBtns.length && !fmByResult) {
       
       
       const fmUuid   = normalizeCollection(_msg.system?.parts).find(p => p.type === 'abilityUse')?.abilityUuid;
@@ -554,10 +565,12 @@ function _registerButtonHooks() {
         if (!shiftBypass && getSetting('restrictGrabButtons') && !game.user.isGM) return;
 
         const controlled = canvas.tokens.controlled;
-        const grabber    = controlled.length === 1 ? controlled[0] : null;
+        const section    = sectionTargetToken(_msg, btn);
+        const speaker    = section ? canvas.tokens.get(_msg.speaker?.token) ?? null : null;
+        const grabber    = speaker ?? (controlled.length === 1 ? controlled[0] : null);
         if (!grabber) { ui.notifications.warn(game.i18n.localize('DSCT.notice.sys.controlGrabber')); return; }
 
-        const targets = [...game.user.targets].filter(t => t.id !== grabber.id);
+        const targets = (section ? [section] : [...game.user.targets]).filter(t => t.id !== grabber.id);
         if (!targets.length) { ui.notifications.warn(game.i18n.format('DSCT.notice.sys.grabApplyTarget', { s: maxGrabs > 1 ? 's' : '' })); return; }
         if (targets.length > maxGrabs) { ui.notifications.warn(game.i18n.format('DSCT.notice.sys.grabTooManyTargets', { max: maxGrabs, s: maxGrabs !== 1 ? 's' : '' })); return; }
 
@@ -616,12 +629,13 @@ function _registerButtonHooks() {
         e.preventDefault();
         e.stopPropagation();
 
-        const targets = [...game.user.targets];
-        if (!targets.length) { ui.notifications.error(game.i18n.localize('DSCT.notice.sys.noTargetForDamage')); return; }
-
         const li  = btn.closest('[data-message-id]');
         const msg = game.messages.get(li?.dataset.messageId);
         if (!msg) return;
+
+        const section = sectionTargetToken(msg, btn);
+        const targets = section ? [section] : [...game.user.targets];
+        if (!targets.length) { ui.notifications.error(game.i18n.localize('DSCT.notice.sys.noTargetForDamage')); return; }
 
         const partId = btn.dataset.dsctPartId;
         const part   = partId ? msg.system.parts.get(partId) : null;

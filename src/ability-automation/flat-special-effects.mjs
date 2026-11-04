@@ -1,5 +1,5 @@
 import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed } from '../helpers.mjs';
-import { DAMAGE_TYPES, isPrimaryGM, safeUpdate } from '../ctlib.mjs';
+import { DAMAGE_TYPES, isPrimaryGM, safeUpdate, rolledTargets } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 import { executeTeleport, executeTeleswap } from '../teleport.mjs';
@@ -803,9 +803,29 @@ export function triggerRollData(message) {
 
 const _levelOf = (actor) => Number(actor?.system?.level ?? actor?.system?.details?.level ?? 0) || 0;
 
+function _messageTargetUuids(message) {
+  const stored = message?.flags?.['draw-steel-target-damage']?.state?.targets;
+  if (Array.isArray(stored) && stored.length) return stored.map(t => t?.tokenUuid ?? t?.actorUuid).filter(Boolean);
+  return message ? rolledTargets(message).map(t => t.tokenUuid ?? t.actorUuid).filter(Boolean) : [];
+}
+
+function _cardTargetTokens(message) {
+  return _messageTargetUuids(message).map((u) => {
+    const doc = fromUuidSync(u, { strict: false });
+    return doc?.object ?? doc?.getActiveTokens?.()?.[0] ?? null;
+  }).filter(Boolean);
+}
+
+function _pickTargets(message, targetToken = null) {
+  if (targetToken) return [targetToken];
+  const chosen = [...game.user.targets];
+  return chosen.length ? chosen : _cardTargetTokens(message);
+}
+
 function _otherTargetActor(message, owner) {
-  const uuids = (message?.getFlag?.('draw-steel-target-damage', 'state')?.targets ?? []).map(t => t.tokenUuid).filter(Boolean);
-  const actors = uuids.length ? uuids.map(u => fromUuidSync(u)?.actor) : [...game.user.targets].map(t => t.actor);
+  const uuids = _messageTargetUuids(message);
+  const actorOf = (u) => { const doc = fromUuidSync(u); return doc?.documentName === 'Actor' ? doc : doc?.actor; };
+  const actors = uuids.length ? uuids.map(actorOf) : [...game.user.targets].map(t => t.actor);
   return actors.find(a => a && a !== owner) ?? null;
 }
 
@@ -953,8 +973,8 @@ function _buildAppliedButton(effect, item) {
   return btn;
 }
 
-function _flatRecipients(btn, item) {
-  if (btn.dataset.recipient !== "self") return [...game.user.targets];
+function _flatRecipients(btn, item, message = null, targetToken = null) {
+  if (btn.dataset.recipient !== "self") return _pickTargets(message, targetToken);
   const actor = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : item?.actor;
   const token = actor?.getActiveTokens?.(true, false)?.[0] ?? null;
   return token ? [token] : [];
@@ -1158,14 +1178,11 @@ export async function runPreAppliedResources(flatEffects, item, message) {
   }
 }
 
-const DSTD_ID = "draw-steel-target-damage";
-
 function _recordedTargets(message) {
-  const stored = message?.getFlag?.(DSTD_ID, "state")?.targets;
-  if (!Array.isArray(stored) || !stored.length) return null;
+  const stored = _messageTargetUuids(message);
+  if (!stored.length) return null;
   const jobs = [];
-  for (const entry of stored) {
-    const uuid = entry?.tokenUuid ?? entry?.actorUuid;
+  for (const uuid of stored) {
     if (!uuid) continue;
     const doc = fromUuidSync(uuid);
     const actor = doc?.actor ?? doc ?? null;
@@ -1429,13 +1446,13 @@ export async function removeFlatAppliedEffect(actor, statusId, { stack = false }
   if (ids.length) await actor.deleteEmbeddedDocuments('ActiveEffect', ids);
 }
 
-export function addFlatEffectListeners(section, item, message) {
+export function addFlatEffectListeners(section, item, message, { targetToken = null } = {}) {
   section.querySelectorAll(".dsct-flat-damage-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       const formula = btn.dataset.formula;
       const typeList = btn.dataset.types ? btn.dataset.types.split(",").filter(Boolean) : [];
       const immunities = btn.dataset.ignoredImmunities ? btn.dataset.ignoredImmunities.split(",").filter(Boolean) : [];
-      const targets = [...game.user.targets];
+      const targets = _pickTargets(message, targetToken);
       if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
 
       if (btn.dataset.spendEnabled === "true") {
@@ -1498,7 +1515,7 @@ export function addFlatEffectListeners(section, item, message) {
         if (!ok) return;
       }
       const tv = { ...btn.dataset.tv ? JSON.parse(btn.dataset.tv) : {}, distance: btn.dataset.distance };
-      await runTeleportEffect(tv, item, { sourceActor, allowShiftTarget: true, shiftKey: e.shiftKey });
+      await runTeleportEffect(tv, item, { sourceActor, allowShiftTarget: true, shiftKey: e.shiftKey, partnerToken: targetToken });
     });
   });
 
@@ -1506,7 +1523,7 @@ export function addFlatEffectListeners(section, item, message) {
     btn.addEventListener("click", async () => {
       const statusId = btn.dataset.statusId;
       if (!statusId) return;
-      const targets = [...game.user.targets];
+      const targets = _pickTargets(message, targetToken);
       if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
 
       if (btn.dataset.spendEnabled === "true") {
@@ -1524,7 +1541,7 @@ export function addFlatEffectListeners(section, item, message) {
 
   section.querySelectorAll(".dsct-flat-heal-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const targets = _flatRecipients(btn, item);
+      const targets = _flatRecipients(btn, item, message, targetToken);
       if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
       const sourceActor         = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : null;
       const spendRecovery       = btn.dataset.spendRecovery === "true";
@@ -1624,7 +1641,7 @@ export function addFlatEffectListeners(section, item, message) {
 
   section.querySelectorAll(".dsct-flat-cleanse-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const targets = _flatRecipients(btn, item);
+      const targets = _flatRecipients(btn, item, message, targetToken);
       if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
 
       const expiryFilter = new Set(btn.dataset.expiryFilter ? btn.dataset.expiryFilter.split(",").filter(Boolean) : []);
