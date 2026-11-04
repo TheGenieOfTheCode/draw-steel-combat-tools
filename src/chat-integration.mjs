@@ -1,7 +1,7 @@
 import { applyGrab, buildFreeStrikeButton, sizeRankG, grabUiState, refreshGrabUis, grabChat } from './conditions/grab.mjs';
 import { getItemDsid, getSetting, getTokenById, getWindowById, getModuleApi, normalizeCollection, applyDamage, undoDamage, getSquadGroup, safeDelete } from './helpers.mjs';
 import { registerAbilityInjectors } from './ability-automation/ability-automation.mjs';
-import { safeUpdate } from './ctlib.mjs';
+import { safeUpdate, tierFor, rolledTargets } from './ctlib.mjs';
 
 export const triggerGrabberFreeStrike = async (grabberTok, grab) => {
   const api = getModuleApi(false);
@@ -286,9 +286,9 @@ export function registerChatHooks() {
     if (!msg.getFlag('draw-steel-combat-tools', 'abilityDsid') && dsid) {
       await msg.setFlag('draw-steel-combat-tools', 'abilityDsid', dsid);
     }
-    if (!abilityResult?.tier) return;
-
-    const tier = abilityResult.tier;
+    const rolled = rolledTargets(msg);
+    const tier = tierFor(msg, null) ?? (rolled.length === 1 ? rolled[0].tier : null);
+    if (!tier) return;
     if (getSetting('debugMode')) console.log(`DSCT | trySetFlag | dsid=${dsid} tier=${tier} item.system.power.effects count=${normalizeCollection(item.system?.power?.effects).length}`);
 
     if (!msg.getFlag('draw-steel-combat-tools', 'escapeGrab') && !_escapeGrabInFlight.has(msg.id)) {

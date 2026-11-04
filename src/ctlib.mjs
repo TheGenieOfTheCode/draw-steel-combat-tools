@@ -31,6 +31,8 @@ export const {
   visibleSquareCorners, visibleTargetCorners, wallBetween, wallBlocksMovement, wallGrantsCover
 } = lib;
 
+export const { tierFor, powerRollFor, rolledTargets, PRE_APPLY, APPLY, applyHooksMode, RESULT_MENU } = lib;
+
 export const SettingsSubmenu = lib.settingsSubmenu?.() ?? lib.SettingsSubmenu;
 
 export const primaryGM = lib.primaryGM ?? (() => game.users.activeGM ?? null);

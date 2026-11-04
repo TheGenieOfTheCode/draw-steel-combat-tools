@@ -1,5 +1,5 @@
 import { safeCreateEmbedded, safeDelete, getItemDsid, getSetting, normalizeCollection, getModuleApi, getActingActor } from '../helpers.mjs';
-import { safeUpdate } from '../ctlib.mjs';
+import { safeUpdate, rolledTargets, powerRollFor } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -322,10 +322,7 @@ export const registerTacticalHooks = () => {
     
     
     
-    const abilityResultParts = parts.filter(p => p.type === 'abilityResult');
-    const actualTargetCount = abilityResultParts.reduce((sum, p) =>
-      sum + (p.rolls?.filter(r => r instanceof ds.rolls.PowerRoll).length ?? 0), 0
-    );
+    const actualTargetCount = rolledTargets(message).length || (powerRollFor(message, null) ? 1 : 0);
     const isDesignedSingleTarget = item.system.target?.value === 1;
     const isSingleTarget = isDesignedSingleTarget || actualTargetCount === 1;
     if (debug) {
