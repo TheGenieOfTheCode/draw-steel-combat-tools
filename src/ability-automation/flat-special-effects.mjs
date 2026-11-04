@@ -1489,7 +1489,7 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
       await roll.evaluate();
       const amount = Math.floor(roll.total);
 
-      const source = { ...messageDamageSource(message), actorUuid: item.actor?.uuid ?? messageDamageSource(message).actorUuid, ability: item.name };
+      const source = { ...messageDamageSource(message), actorUuid: item.actor?.uuid ?? messageDamageSource(message).actorUuid, ability: item.name, abilityUuid: item.uuid };
       await withDamageSource(source, async () => {
         for (const target of targets) {
           if (!target.actor) continue;
