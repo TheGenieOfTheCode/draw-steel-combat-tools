@@ -12,7 +12,7 @@ import { TargetTabsDamageEditor, TargetTabsModEditor, KindPillDialog, EnricherEf
 import { runMultiTokenPicker } from '../ability-automation/target-picker.mjs';
 import { applyLinkTo } from '../conditions/apply-to-targets.mjs';
 import { gateForcedMovement, forcedMovementTaken } from '../forced-movement/forced-movement-engine.mjs';
-import { triggerRollData, modifyAttributeSafely, grantTempStamina, othersSpec, runTeleportEffect, partnerFilter, teleportModeOptions, teleportMoverOptions } from '../ability-automation/flat-special-effects.mjs';
+import { messageTargetUuids, triggerRollData, modifyAttributeSafely, grantTempStamina, othersSpec, runTeleportEffect, partnerFilter, teleportModeOptions, teleportMoverOptions } from '../ability-automation/flat-special-effects.mjs';
 import { FORCED_ICONS, teleportOptions, teleportToken, pickPartner, cleanseSpec, cleanseActor, cleanseMatches, restoreCleansed, registerCtEnrichers } from './ct-enrichers.mjs';
 import { registerFlatEnrichers } from './flat-enrichers.mjs';
 import { resolveTokenRefs } from './refs.mjs';
@@ -87,7 +87,7 @@ const sourceConfig = (a) => {
   return parse(a.dataset.dsctSource, { multiple: true })[0] ?? {};
 };
 
-const flatTargets = (message) => (message.flags?.[DSTD]?.state?.targets ?? []).map((t) => t.tokenUuid).filter(Boolean);
+const flatTargets = (message) => messageTargetUuids(message);
 
 const presetSource = (a) => {
   const raw = sourceConfig(a).source ?? a?.dataset.source;

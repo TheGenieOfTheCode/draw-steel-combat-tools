@@ -976,14 +976,14 @@ export function triggerRollData(message) {
 
 const _levelOf = (actor) => Number(actor?.system?.level ?? actor?.system?.details?.level ?? 0) || 0;
 
-function _messageTargetUuids(message) {
+export function messageTargetUuids(message) {
   const stored = message?.flags?.['draw-steel-target-damage']?.state?.targets;
   if (Array.isArray(stored) && stored.length) return stored.map(t => t?.tokenUuid ?? t?.actorUuid).filter(Boolean);
   return message ? rolledTargets(message).map(t => t.tokenUuid ?? t.actorUuid).filter(Boolean) : [];
 }
 
 function _cardTargetTokens(message) {
-  return _messageTargetUuids(message).map((u) => {
+  return messageTargetUuids(message).map((u) => {
     const doc = fromUuidSync(u, { strict: false });
     return doc?.object ?? doc?.getActiveTokens?.()?.[0] ?? null;
   }).filter(Boolean);
@@ -996,7 +996,7 @@ function _pickTargets(message, targetToken = null) {
 }
 
 function _otherTargetActor(message, owner) {
-  const uuids = _messageTargetUuids(message);
+  const uuids = messageTargetUuids(message);
   const actorOf = (u) => { const doc = fromUuidSync(u); return doc?.documentName === 'Actor' ? doc : doc?.actor; };
   const actors = uuids.length ? uuids.map(actorOf) : [...game.user.targets].map(t => t.actor);
   return actors.find(a => a && a !== owner) ?? null;
@@ -1404,7 +1404,7 @@ export async function runPreAppliedResources(flatEffects, item, message) {
 }
 
 function _recordedTargets(message) {
-  const stored = _messageTargetUuids(message);
+  const stored = messageTargetUuids(message);
   if (!stored.length) return null;
   const jobs = [];
   for (const uuid of stored) {
