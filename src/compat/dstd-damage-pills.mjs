@@ -2,6 +2,9 @@ import { DSTD, registerPanelDecorator, isPrimaryGM, safeUpdate } from '../ctlib.
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
 import { chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
 import { markAreaCaps } from './dstd-area-cap.mjs';
+import { compactPillHTML } from './pill-compact.mjs';
+import { syncSurgeRows } from './dstd-extra-damage.mjs';
+import { pillTip, richTip, setTip, tipAttrs, tipFor } from '../chat-tips.mjs';
 
 const M    = 'draw-steel-combat-tools';
 
@@ -34,6 +37,9 @@ export function damagePillDisplayList(pills) {
   return list;
 }
 
+export const extraTypesConvert = () => getSetting('extraDamageTypes') === 'convert';
+const ownHit = (p) => p.kind === 'surge' && !!p.damageType && !extraTypesConvert();
+
 export function foldDamagePills(base, pills) {
   let v = Number(base) || 0;
   for (const x of damagePillDisplayList(pills)) {
@@ -41,7 +47,7 @@ export function foldDamagePills(base, pills) {
     const p = x.pill;
     if (p.kind === 'half') v = Math.floor(v / 2);
     else if (p.kind === 'double') v = v * 2;
-    else if (p.kind === 'delta' || p.kind === 'surge') v = Math.max(0, v + (Number(p.value) || 0));
+    else if (p.kind === 'delta' || (p.kind === 'surge' && !ownHit(p))) v = Math.max(0, v + (Number(p.value) || 0));
   }
   return Math.max(0, v);
 }
@@ -61,9 +67,11 @@ export function damageTypeColor(value) {
 
 export function damagePillType(pills) {
   let found = null;
+  const converts = extraTypesConvert();
   for (const x of damagePillDisplayList(pills)) {
     if (x.inert || x.pill.enabled === false) continue;
     if (x.pill.kind === 'type') found = x.pill.value ?? '';
+    else if (converts && x.pill.damageType && (x.pill.kind === 'surge' || x.pill.kind === 'delta')) found = x.pill.damageType;
   }
   return found;
 }
@@ -82,10 +90,11 @@ export function damagePillEffect(p) {
 export function damagePillAmtStr(p) {
   if (p.kind === 'half') return L('half');
   if (p.kind === 'double') return L('double');
-  if (p.kind === 'surge') return L('surgeAmt', { n: Math.abs(Number(p.value) || 0) });
+  if (p.kind === 'surge') return p.damageType ? L('surgeAmtTyped', { n: Math.abs(Number(p.value) || 0), type: damageTypeLabel(p.damageType) })
+    : L('surgeAmt', { n: Math.abs(Number(p.value) || 0) });
   if (p.kind === 'type') return damageTypeLabel(p.value);
   const v = Number(p.value) || 0;
-  const amt = v >= 0 ? `+${v}` : String(v);
+  const amt = `${v >= 0 ? `+${v}` : String(v)}${p.damageType ? ` ${damageTypeLabel(p.damageType)}` : ''}`;
   return p.formula ? `${amt} (${p.formula})` : amt;
 }
 
@@ -95,7 +104,7 @@ export function damagePillText(p) {
   if (label) return `${damagePillAmtStr(p)} · ${label}`;
   if (p.kind === 'half') return L('effectHalf');
   if (p.kind === 'double') return L('effectDouble');
-  if (p.kind === 'surge') return L('surge');
+  if (p.kind === 'surge') return p.damageType ? L('surgeTyped', { type: damageTypeLabel(p.damageType) }) : L('surge');
   if (p.kind === 'type') return damageTypeLabel(p.value);
   return damagePillEffect(p);
 }
@@ -116,7 +125,7 @@ export function styleTypePill(el, p) {
   el.style.background = `color-mix(in srgb, ${col} 12%, transparent)`;
 }
 
-class DsctDamageEditor extends ds.applications.api.DSApplication {
+export class DsctDamageEditor extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     id: 'dsct-damage-editor',
     classes: ['draw-steel', 'dsct-roll-editor', 'dsct-damage-editor'],
@@ -204,11 +213,11 @@ class DsctDamageEditor extends ds.applications.api.DSApplication {
         const srcAttr = (p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : '')
           + (p.lineFrom ? ` data-line-from="${p.lineFrom}"` : '')
           + (p.lineStyle ? ` data-line-style="${p.lineStyle}"` : '');
-        return `<button type="button" class="dsct-source-pill dsct-de-pill dsct-dpill-${p.kind}${off ? ' dsct-pill-disabled' : ''}${x.inert ? ' dsct-dpill-inert' : ''}"${_typePillStyleAttr(p)} data-pill-idx="${x.idx}"${srcAttr} title="${foundry.utils.escapeHTML(title)}"><span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${fromStr}</button>`;
+        return `<button type="button" class="dsct-source-pill dsct-de-pill dsct-dpill-${p.kind}${off ? ' dsct-pill-disabled' : ''}${x.inert ? ' dsct-dpill-inert' : ''}"${_typePillStyleAttr(p)} data-pill-idx="${x.idx}"${srcAttr} ${tipAttrs(pillTip({ title: damagePillText(p), category: game.i18n.localize('DSCT.tip.damagePill.category'), src: p.src, hint: title }))}><span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${fromStr}</button>`;
       });
       const label = this._cfg.label
         ? `<span class="dsct-pills-label">${foundry.utils.escapeHTML(this._cfg.label)}</span>` : '';
-      const addBtn = `<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" title="${L('addPill')}">+</button>`;
+      const addBtn = `<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" ${tipAttrs(tipFor('addDamageModifier'))}>+</button>`;
       rowEl.innerHTML = `${label}${items.join('')}${addBtn}`;
     }
     setTimeout(() => this.setPosition({ height: 'auto' }), 0);
@@ -291,6 +300,7 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
       
       surgeOptions: Array.from({ length: room }, (_, i) => i + 1),
       surgeTooltip: surge ? L('surgeTooltip', { damage: surge.damage, available: surge.available }) : '',
+      surgeTypeOptions: (surge?.types ?? []).map((value) => ({ value, label: damageTypeLabel(value) })),
       typeOptions: [
         { value: '__untyped', label: L('typeUntyped') },
         ...Object.entries(globalThis.ds?.CONFIG?.damageTypes ?? {})
@@ -312,6 +322,8 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
     this._typeSelect  = root.querySelector('.dsct-dmw-type-select');
     this._surgeGroup  = root.querySelector('.dsct-amw-surge-group');
     this._surgeSelect = root.querySelector('.dsct-amw-surge-select');
+    this._surgeTypeGroup  = root.querySelector('.dsct-amw-surge-type-group');
+    this._surgeTypeSelect = root.querySelector('.dsct-amw-surge-type-select');
     this._typeButtons = [...root.querySelectorAll('.dsct-amw-type-btn')];
 
     this._syncFields();
@@ -348,6 +360,7 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
     this._valueInput?.addEventListener('input',  () => this._updatePreview());
     this._typeSelect?.addEventListener('change', () => this._updatePreview());
     this._surgeSelect?.addEventListener('change', () => this._updatePreview());
+    this._surgeTypeSelect?.addEventListener('change', () => this._updatePreview());
 
     this._updatePreview();
   }
@@ -356,6 +369,7 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
     if (this._valueGroup) this._valueGroup.style.display = this._kind === 'delta' ? '' : 'none';
     if (this._typeGroup)  this._typeGroup.style.display  = this._kind === 'type' ? '' : 'none';
     if (this._surgeGroup) this._surgeGroup.style.display = this._kind === 'surge' ? '' : 'none';
+    if (this._surgeTypeGroup) this._surgeTypeGroup.style.display = this._kind === 'surge' ? '' : 'none';
     setTimeout(() => this.setPosition({ height: 'auto' }), 0);
   }
 
@@ -370,6 +384,7 @@ class DsctDamageAddDialog extends ds.applications.api.DSApplication {
     } else if (this._kind === 'surge') {
       pill.value = Number(this._editor._cfg.surge?.damage) || 0;
       pill.source = 'surge';
+      if (this._surgeTypeSelect?.value) pill.damageType = this._surgeTypeSelect.value;
     } else if (this._kind === 'type') {
       const v = this._typeSelect?.value ?? '__untyped';
       pill.value = v === '__untyped' ? '' : v;
@@ -444,7 +459,7 @@ function _pillOpData(ov, pills) {
   const base = Number(ov.baseAmount ?? 0);
   const orig = _origDamageType(ov);
   const typePill = damagePillType(pills);
-  const surges = pills.filter((p) => p.kind === 'surge' && p.enabled !== false).length;
+  const surges = pills.filter((p) => p.kind === 'surge' && p.enabled !== false && !ownHit(p)).length;
   const surgeDamage = Number(ov.surgeDamage ?? 0) || 0;
   return {
     ...ov,
@@ -572,6 +587,7 @@ async function _toggleOverridePill(message, opId, idx) {
   if (!Array.isArray(ov?.dstPills) || !ov.dstPills[idx]) return;
   const pills = ov.dstPills.map((p, i) => i === idx ? { ...p, enabled: p.enabled === false } : p);
   await _writePillsToOps(message, _pillFamily(state, opId), pills, ov.dstGrp ?? 'rolled');
+  await _syncTypedSurges(message, opId, pills);
 }
 
 async function _toggleHalfFamily(message, opId) {
@@ -606,6 +622,7 @@ async function _removeOverridePill(message, opId, idx) {
   if (!Array.isArray(ov?.dstPills)) return;
   const pills = ov.dstPills.filter((_, i) => i !== idx);
   await _writePillsToOps(message, _pillFamily(state, opId), pills, ov.dstGrp ?? 'rolled');
+  await _syncTypedSurges(message, opId, pills);
 }
 
 function _findPartRoll(message, partId, rollIndex) {
@@ -625,10 +642,13 @@ async function _resolveSurgeContext(message, state) {
   if (src?.type === 'retainer') src = src.system?.retainer?.mentor ?? null;
   if (src?.type === 'draw-steel-companion.companion') src = src.system?.retainer?.mentor ?? null;
   if (src?.type !== 'hero') return null;
+  const types = String(foundry.utils.getProperty(src, `flags.${M}.surgeTypes`) ?? '').split(/[\s,|]+/)
+    .filter((t) => t && t in (globalThis.ds?.CONFIG?.damageTypes ?? {}));
   return {
     actorUuid: src.uuid,
     available: Number(src.system?.hero?.surges ?? 0) || 0,
     damage: Number(src.getRollData?.()?.chr ?? 0) || 0,
+    types: [...new Set(types)],
   };
 }
 
@@ -677,8 +697,10 @@ async function _openPillDamageEditor(message, button, fullEditor = false) {
     ...(p.enabled === false ? { enabled: false } : {}),
     
     ...(p.dstSquad ? { dstSquad: true } : {}),
+    ...(p.dealer ? { dealer: true } : {}),
     ...(p.lineStyle ? { lineStyle: p.lineStyle } : {}),
     ...(p.formula ? { formula: p.formula } : {}),
+    ...(p.damageType ? { damageType: p.damageType } : {}),
   }));
   if (!pills.length && !ov) return;
   const fam = ov?.dstFam ?? foundry.utils.randomID();
@@ -716,6 +738,20 @@ async function _openPillDamageEditor(message, button, fullEditor = false) {
     }
   }
   await _writePillsToOps(message, [...known.entries()], pills, srcGrp);
+  await _syncTypedSurges(message, opId, pills);
+}
+
+async function _syncTypedSurges(message, opId, pills) {
+  const state = message.getFlag(DSTD, 'state') ?? {};
+  const ov = state.damageOverrides?.[opId];
+  const target = (state.targets ?? []).find((t) => t.tokenUuid && opId.endsWith(`-${_dsctHashKey(t.tokenUuid.replace(/\./g, '__'))}`));
+  if (!target || !ov?.dstFam) return;
+  const typed = new Map();
+  for (const p of pills) {
+    if (ownHit(p) && p.enabled !== false) typed.set(p.damageType, (typed.get(p.damageType) ?? 0) + 1);
+  }
+  await syncSurgeRows(message, { targetUuid: target.tokenUuid, key: ov.dstFam, surgeDamage: Number(ov.surgeDamage) || 0,
+    label: L('surge'), wanted: [...typed].map(([type, count]) => ({ type, count })) });
 }
 
 const _providers = [];
@@ -874,7 +910,7 @@ function _injectDamagePills(message, root) {
     const seen = new Set();
     for (const btn of row.querySelectorAll('button[data-dstd-action="applyDamage"][data-operation-id]')) {
       const id = btn.dataset.operationId;
-      if (seen.has(id)) continue;
+      if (seen.has(id) || btn.closest('.dsct-extra-dmg-row')) continue;
       seen.add(id);
       const ov = overrides[id];
       const have = Array.isArray(ov?.dstPills) ? ov.dstPills : [];
@@ -912,7 +948,7 @@ function _injectDamagePills(message, root) {
   }
 
   for (const btn of root.querySelectorAll('button[data-dstd-action="editDamage"][data-operation-id]')) {
-    btn.disabled = apps[btn.dataset.operationId]?.status === 'applied';
+    btn.disabled = apps[btn.dataset.operationId]?.status === 'applied' || btn.dataset.dstResLock === '1';
   }
 
   for (const [opId, items] of byOp) {
@@ -930,13 +966,13 @@ function _injectDamagePills(message, root) {
         span.type = 'button';
         span.className = `dsct-source-pill dsct-dmg-pill dsct-dpill-${p.kind}${it.inert ? ' dsct-dpill-inert' : ''}${p.enabled === false ? ' dsct-pill-disabled' : ''}`;
         styleTypePill(span, p);
-        span.innerHTML = `<span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : ''}`;
+        const full = `<span class="dsct-pip">${foundry.utils.escapeHTML(damagePillText(p))}</span>${p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : ''}`;
+        span.innerHTML = compactPillHTML(foundry.utils.escapeHTML(p.kind === 'note' ? damagePillText(p) : damagePillAmtStr(p)), full);
         if (p.srcTokenId) span.dataset.srcTokenId = p.srcTokenId;
         if (p.lineFrom)   span.dataset.lineFrom   = p.lineFrom;
         if (p.lineStyle)  span.dataset.lineStyle  = p.lineStyle;
-        let tooltip = it.inert
-          ? (p.kind === 'type' ? L('typeOverridden') : L('inert'))
-          : damagePillEffect(p);
+        const lines = [it.inert ? (p.kind === 'type' ? L('typeOverridden') : L('inert')) : damagePillEffect(p)];
+        if (p.src) lines.push(game.i18n.format('DSCT.tip.pillFrom', { source: p.src }));
         if (it.toggleable && canRemove) {
           span.classList.add('dsct-dmg-pill-live');
           span.dataset.dpillOp = opId;
@@ -945,12 +981,13 @@ function _injectDamagePills(message, root) {
           if (it.custom) {
             span.classList.add('dsct-pill-custom');
             span.dataset.dpillCustom = '1';
-            tooltip += `<br>${L('sessionPill')}`;
+            lines.push(L('sessionPill'));
           } else {
-            tooltip += `<br>${L('toggleTooltip')}`;
+            lines.push(L('toggleTooltip'));
           }
         }
-        span.dataset.tooltip = tooltip;
+        const esc = foundry.utils.escapeHTML;
+        setTip(span, richTip({ ...tipFor('damagePill', { title: damagePillText(p) }), html: lines.filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join('') }));
         rowEl.appendChild(span);
       }
     }
@@ -988,7 +1025,7 @@ document.addEventListener('contextmenu', async (ev) => {
 
 document.addEventListener('click', (ev) => {
   const btn = ev.target?.closest?.('button[data-dstd-action="editDamage"]');
-  if (!btn || !game.modules.get(DSTD)?.active || !getSetting('pillDamageEditor')) return;
+  if (!btn || !game.modules.get(DSTD)?.active || !getSetting('modifierEditors')) return;
   const msgId = btn.closest('[data-message-id]')?.dataset?.messageId;
   const message = msgId ? game.messages.get(msgId) : null;
   if (!message) return;
@@ -998,8 +1035,22 @@ document.addEventListener('click', (ev) => {
   _openPillDamageEditor(message, btn, ev.shiftKey).catch((err) => console.error('DSCT | pill damage editor:', err));
 }, { capture: true });
 
+const GLOBAL_DAMAGE = 'damageGlobalPills';
+
+export async function addGlobalDamagePills(message, pills) {
+  const list = message.getFlag(M, GLOBAL_DAMAGE);
+  await safeUpdate(message, { [`flags.${M}.${GLOBAL_DAMAGE}`]: [...(Array.isArray(list) ? list : []), ...pills] });
+}
+
 export function registerDstdDamagePills() {
   if (!game.modules.get(DSTD)?.active) return;
+
+  registerDamagePillProvider((message) => {
+    const list = message.getFlag(M, GLOBAL_DAMAGE);
+    if (!Array.isArray(list) || !list.length) return [];
+    const targets = message.getFlag(DSTD, 'state')?.targets ?? [];
+    return targets.filter((t) => t.tokenUuid).flatMap((t) => list.map((pill) => ({ targetUuid: t.tokenUuid, pill: { ...pill, dstTarget: t.tokenUuid } })));
+  });
 
   registerPanelDecorator({
     id: 'combat-tools-damage-pills',

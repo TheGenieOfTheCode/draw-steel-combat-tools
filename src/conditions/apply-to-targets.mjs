@@ -1,7 +1,10 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
+import { richTip, setTip, tipFor } from '../chat-tips.mjs';
 import { executeAsDirector } from '../ctlib.mjs';
 import { SOURCED_STATUSES, resolveStatusSource, notePendingSource, effectSourceUuids, toActor } from './statuses.mjs';
+import { createExpiryReminder } from '../ability-automation/flat-special-effects.mjs';
 
+const M = 'draw-steel-combat-tools';
 const LINK = 'enriched-content[enricher="ds.apply"] a.roll-link';
 const enabled = () => getSetting('applyToTargets') !== false;
 
@@ -20,17 +23,24 @@ export async function applyEnricherPayload(payload) {
   const keepInitiative = !game.combats.isDefaultInitiativeMode;
   const origin = payload.origin ? fromUuidSync(payload.origin) : null;
   const originActor = origin?.documentName === 'Actor' ? origin : origin?.actor;
+  if (originActor && temp.getFlag(M, 'casterValues')) temp.updateSource({ 'system.changes': casterValues(temp.system.changes, originActor, origin) });
+  const reminder = originActor && payload.type === 'custom' ? temp.getFlag(M, 'expiryReminder') : null;
   let combatant = payload.originDuration ? game.combat?.getCombatantsByActor(originActor)[0] ?? '' : null;
   const toDelete = [];
   const toCreate = [];
+  const held = new Map();
   const seen = new Set();
   for (const uuid of payload.actorUuids ?? []) {
     const actor = await fromUuid(uuid);
     if (!actor || seen.has(actor)) continue;
     seen.add(actor);
+    held.set(actor, new Set(actor.effects.keys()));
     combatant ??= game.combat?.getCombatantsByActor(actor)[0];
     const updates = { start: AE.getEffectStart(), transfer: true, origin: payload.origin };
-    if (payload.end) updates.duration = { expiry: ds.CONFIG.effectEnds[payload.end]?.expiryEvent };
+    if (reminder) {
+      updates.duration = { value: null, units: 'seconds', expiry: null, expired: false };
+      updates.flags = { [M]: { expiryReminderOwner: originActor.uuid } };
+    } else if (payload.end) updates.duration = { expiry: ds.CONFIG.effectEnds[payload.end]?.expiryEvent };
     if (combatant) {
       updates.start.combatant = combatant;
       if (keepInitiative) updates.start.initiative = combatant.initiative;
@@ -41,8 +51,23 @@ export async function applyEnricherPayload(payload) {
   }
   await foundry.documents.modifyBatch(toDelete);
   await foundry.documents.modifyBatch(toCreate);
+  if (reminder) {
+    for (const [actor, before] of held) {
+      const made = actor.effects.find((e) => (!before.has(e.id) || e.id === temp.id) && e.getFlag(M, 'expiryReminderOwner') === originActor.uuid && e.name === temp.name);
+      if (made) await createExpiryReminder(originActor, made, reminder, actor);
+    }
+  }
   return toCreate.length;
 }
+
+const casterValues = (changes, actor, item) => {
+  const rollData = actor.getRollData?.() ?? {};
+  return changes.map((c) => {
+    if (!String(c.value ?? '').includes('@')) return c;
+    try { return { ...c, value: String(ds.utils.evaluateFormula(String(c.value), rollData, { contextName: item?.uuid ?? actor.uuid })) }; }
+    catch { return c; }
+  });
+};
 
 const sourcedStatusOf = async (d) => {
   if (d.type !== 'custom') return SOURCED_STATUSES.has(d.status) ? d.status : null;
@@ -58,6 +83,12 @@ const originActor = (d) => {
 async function applyToTargets(link) {
   const tokens = [...game.user.targets].filter((t) => t.actor);
   if (!tokens.length) return void ui.notifications.warn(game.i18n.localize('DSCT.applyToTargets.noTargets'));
+  await applyLinkTo(link, tokens);
+}
+
+export async function applyLinkTo(link, tokens) {
+  tokens = tokens.filter((t) => t?.actor);
+  if (!tokens.length) return false;
   const d = link.dataset;
   const payload = {
     type: d.type, uuid: d.uuid, status: d.status, origin: d.origin, end: d.end,
@@ -72,7 +103,8 @@ async function applyToTargets(link) {
     const source = await resolveStatusSource(sourced, { known, victims });
     if (!source) {
       const condition = game.i18n.localize(CONFIG.statusEffects.find(st => st.id === sourced)?.name ?? sourced);
-      return void ui.notifications.info(game.i18n.format('DSCT.notice.status.cancelled', { condition }));
+      ui.notifications.info(game.i18n.format('DSCT.notice.status.cancelled', { condition }));
+      return false;
     }
     payload.source = source.uuid;
   }
@@ -86,6 +118,7 @@ async function applyToTargets(link) {
         { fill: 'white', fontSize: 32, stroke: 0x000000, strokeThickness: 4 });
     }
   }
+  return true;
 }
 
 function addTooltipLine() {
@@ -99,8 +132,10 @@ function addTooltipLine() {
       const el = await inner.call(this, match, options);
       const a = el?.matches?.('a') ? el : el?.querySelector?.('a');
       if (a && enabled()) {
-        const line = game.i18n.localize('DSCT.applyToTargets.tooltip');
-        a.dataset.tooltip = a.dataset.tooltip ? `${a.dataset.tooltip}<br>${line}` : line;
+        const esc = foundry.utils.escapeHTML;
+        const before = a.dataset.tooltip ? game.i18n.localize(a.dataset.tooltip) : '';
+        const lines = [before, game.i18n.localize('DSCT.applyToTargets.tooltip')].filter(Boolean);
+        setTip(a, richTip({ ...tipFor('applyToTargets', { title: a.textContent.trim() }), html: lines.map((l) => `<p>${esc(l)}</p>`).join('') }));
       }
       return el;
     },

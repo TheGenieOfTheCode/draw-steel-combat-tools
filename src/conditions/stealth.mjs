@@ -2,7 +2,7 @@ import { services, isPrimaryGM } from '../ctlib.mjs';
 import { getSetting, safeDelete, safeUpdate, safeCreateEmbedded, hasSightToToken, getModuleApi , dropKey, noLogFlag } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
 import { playDetected } from './detected-flash.mjs';
-import { stealthTraits, observerBlocksHiding, coverCountingCreatures, widestCover, forbiddenToHide } from './stealth-traits.mjs';
+import { stealthTraits, observerBlocksHiding, coverCountingCreatures, widestCover, forbiddenToHide, exposedNow } from './stealth-traits.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -100,7 +100,7 @@ export const CONCEALED = ['dsctConcMagic', 'dsctConcMundane'];
 
 export const isConcealed = (token) => {
   const statuses = token?.actor?.statuses;
-  if (!statuses) return false;
+  if (!statuses || exposedNow(token)) return false;
   return statuses.has('invisible') || CONCEALED.some(id => statuses.has(id));
 };
 

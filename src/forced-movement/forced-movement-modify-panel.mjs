@@ -1,5 +1,7 @@
 import { safeUpdate } from '../ctlib.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
+import { compactPillHTML } from '../compat/pill-compact.mjs';
+import { richTip, setTip, tipAttrs, tipFor } from '../chat-tips.mjs';
 ﻿import { getModuleApi } from '../helpers.mjs';
 
 export const replayModifiers = (baseStates, stack, states) => {
@@ -16,6 +18,7 @@ export const replayModifiers = (baseStates, stack, states) => {
     st.noMoverCollisionDamage   = base.noMoverCollisionDamage;
     st.noObstacleCollisionDamage = base.noObstacleCollisionDamage;
     st.ignoreStability          = base.ignoreStability;
+    st.safely                   = !!base.safely;
     st.fastMove                 = base.fastMove;
     st.sourceTokenId            = base.sourceTokenId ?? null;
     for (const entry of stack) {
@@ -32,6 +35,7 @@ export const replayModifiers = (baseStates, stack, states) => {
       st.noMoverCollisionDamage     = m.noMoverCollisionDamage;
       st.noObstacleCollisionDamage   = m.noObstacleCollisionDamage;
       st.ignoreStability            = m.ignoreStability;
+      st.safely                     = m.safely ?? st.safely;
       st.fastMove                   = m.fastMove;
       st.sourceTokenId              = m.sourceTokenId ?? st.sourceTokenId;
     }
@@ -75,6 +79,7 @@ const _buildModTooltip = (entry, baseStates) => {
     if (m.noObstacleCollisionDamage && !base?.noObstacleCollisionDamage)           parts.push('No obstacle damage');
     if (_guardsAnyDamage(base) && !_guardsAnyDamage(m))                            parts.push('All take damage');
     if (m.ignoreStability && !base?.ignoreStability)                               parts.push('Ignore stability');
+    if (m.safely && !base?.safely)                                                 parts.push('Safely');
     if (m.fastMove && !base?.fastMove)                                             parts.push('Fast path');
     if (m.sourceTokenId)                                    parts.push(`Source: ${canvas.tokens?.get(m.sourceTokenId)?.name ?? '?'}`);
     return parts.join(', ');
@@ -85,7 +90,7 @@ const _buildModTooltip = (entry, baseStates) => {
   return summary ? `${summary}\n${'_'.repeat(24)}\n${hint}` : hint;
 };
 
-const _modEffectSummary = (entry, baseStates) => {
+export const _modEffectSummary = (entry, baseStates) => {
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const m = entry.modState[0];
   const base = baseStates[0];
@@ -101,6 +106,7 @@ const _modEffectSummary = (entry, baseStates) => {
   if (m.noObstacleCollisionDamage && !base?.noObstacleCollisionDamage)       parts.push('No Obstacle Dmg');
   if (_guardsAnyDamage(base) && !_guardsAnyDamage(m))                        parts.push('All Take Damage');
   if (m.ignoreStability && !base?.ignoreStability)                           parts.push('Ignore Stability');
+  if (m.safely && !base?.safely)                                             parts.push('Safely');
   if (m.fastMove && !base?.fastMove)                                         parts.push('Fast Path');
   if (m.sourceTokenId)                                parts.push(`Source → ${canvas.tokens?.get(m.sourceTokenId)?.name ?? '?'}`);
   return parts.join(', ');
@@ -136,6 +142,7 @@ const _pillCategories = (entry, baseStates) => {
   if ((m.noFallDamage && !base?.noFallDamage) || (m.noCollisionDamage && !base?.noCollisionDamage)
     || (m.noMoverCollisionDamage && !base?.noMoverCollisionDamage) || (m.noObstacleCollisionDamage && !base?.noObstacleCollisionDamage)
     || (_guardsAnyDamage(base) && !_guardsAnyDamage(m))
+    || (m.safely && !base?.safely)
     || m.fallReduction !== (base?.fallReduction ?? 0)) cats.push('guard');
   if ((m.ignoreStability && !base?.ignoreStability) || (m.fastMove && !base?.fastMove) || m.sourceTokenId) cats.push('tweak');
   return cats;
@@ -153,9 +160,9 @@ export const createModifierNoteDiv = (entry, modifierStack, baseStates, states, 
   if (entry.srcTokenId) pillBtn.dataset.srcTokenId = entry.srcTokenId;
   const effectStr = _modEffectSummary(entry, baseStates);
   const fromStr = entry.noteSrc ? `<span class="dsct-pill-from">from ${esc(entry.noteSrc)}</span>` : '';
-  pillBtn.innerHTML = `<span class="dsct-pip">${effectStr ? `${esc(effectStr)} &middot; ${esc(noteName)}` : esc(noteName)}</span>${fromStr}`;
-  const descLine = noteDesc ? `${noteDesc}\n` : '';
-  pillBtn.title = `${descLine}${_buildModTooltip(entry, baseStates)}`;
+  pillBtn.innerHTML = compactPillHTML(esc(effectStr || noteName), `<span class="dsct-pip">${effectStr ? `${esc(effectStr)} &middot; ${esc(noteName)}` : esc(noteName)}</span>${fromStr}`);
+  const tipLines = [noteDesc, ...String(_buildModTooltip(entry, baseStates) ?? '').split('\n')].filter(Boolean);
+  setTip(pillBtn, richTip({ ...tipFor('fmPill', { title: noteName }), html: tipLines.map((l) => `<p>${esc(l)}</p>`).join('') }));
 
   
   
@@ -264,6 +271,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
         noMoverCollisionDamage:    tmp.noMoverCollisionDamage,
         noObstacleCollisionDamage:  tmp.noObstacleCollisionDamage,
         ignoreStability:           tmp.ignoreStability,
+        safely:                    tmp.safely,
         fastMove:                  tmp.fastMove,
         sourceTokenId:             tmp.sourceTokenId ?? null,
       };
@@ -317,6 +325,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
     st.noMoverCollisionDamage   = colDmgVal === 'no-mover';
     st.noObstacleCollisionDamage = colDmgVal === 'no-obstacle';
     st.ignoreStability          = root.querySelector(`[data-field="ignoreStab-${i}"]`)?.checked  ?? st.ignoreStability;
+    st.safely                   = root.querySelector(`[data-field="safely-${i}"]`)?.checked      ?? st.safely;
     st.fastMove          = root.querySelector(`[data-field="fast-${i}"]`)?.checked     ?? st.fastMove;
     const fmSrcRaw       = root.querySelector(`[data-field="fmSrc-${i}"]`)?.value?.trim() ?? '';
     st.sourceTokenId     = fmSrcRaw ? (canvas.tokens?.placeables.find(t => t.name === fmSrcRaw)?.id ?? null) : null;
@@ -337,10 +346,10 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
                 <option value="pull"  ${state.movement === 'pull'  ? 'selected' : ''}>Pull</option>
                 <option value="slide" ${state.movement === 'slide' ? 'selected' : ''}>Slide</option>
               </select>
-              <span class="dsct-fm-distance-display" title="Current effective distance">${state.distance}</span>
+              <span class="dsct-fm-distance-display" ${tipAttrs(tipFor('fmPanelDistance'))}>${state.distance}</span>
               <span style="font-size:11px;color:var(--dsct-textDim);">&#177;</span>
               <input type="number" data-field="distance-${i}" value="0" step="1"
-                style="width:31px;text-align:center;" title="Distance delta - adds to current effective distance">
+                style="width:31px;text-align:center;" ${tipAttrs(tipFor('fmPanelDelta'))}>
             </div>
           </div>
 
@@ -349,13 +358,13 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
               <input type="checkbox" data-field="vertical-${i}" ${state.vertical ? 'checked' : ''}> Vertical
             </label>
             <input type="number" data-field="vertDist-${i}" placeholder="${state.distance}" step="1"
-              style="width:48px;text-align:center;" title="Leave blank to match distance">
+              style="width:48px;text-align:center;" ${tipAttrs(tipFor('fmPanelVertical'))}>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div class="dsct-section-label" title="The token the movement originates from. Push moves away from it, pull toward it. Blank keeps the default source.">FM Source</div>
+            <div class="dsct-section-label" ${tipAttrs(tipFor('fmPanelSource'))}>FM Source</div>
             <div class="dsct-fm-src-wrap">
-              <button type="button" class="dsct-amw-target-fill dsct-fm-src-fill" data-fill-target="fmSrc-${i}" title="Use currently targeted token">
+              <button type="button" class="dsct-amw-target-fill dsct-fm-src-fill" data-fill-target="fmSrc-${i}" ${tipAttrs(tipFor('useTarget'))}>
                 <i class="fa-solid fa-bullseye-pointer"></i>
               </button>
               <input type="text" data-field="fmSrc-${i}" placeholder="Default" class="dsct-fm-name-input dsct-fm-src-input"
@@ -368,7 +377,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div class="dsct-section-label">Fall Reduction</div>
             <input type="number" data-field="fallRed-${i}" value="${state.fallReduction}" min="0" step="1"
-              style="width:36px;text-align:center;" title="Bonus on top of Agility">
+              style="width:36px;text-align:center;" ${tipAttrs(tipFor('fmPanelFall'))}>
           </div>
 
           <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -388,6 +397,8 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
               <input type="checkbox" data-field="ignoreStab-${i}" ${state.ignoreStability ? 'checked' : ''}> Ignore Stability</label>
             <label style="color:var(--dsct-accent-text, var(--dsct-accent));font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;">
               <input type="checkbox" data-field="fast-${i}" ${state.fastMove ? 'checked' : ''}> Fast Path</label>
+            <label style="color:var(--dsct-accent-text, var(--dsct-accent));font-size:10px;font-weight:bold;display:flex;align-items:center;gap:4px;cursor:pointer;" ${tipAttrs(tipFor('fmPanelSafely'))}>
+              <input type="checkbox" data-field="safely-${i}" ${state.safely ? 'checked' : ''}> Safely</label>
           </div>
         </div>
       `;
@@ -436,6 +447,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
         setChk('noFall', m.noFallDamage ?? false);
         setVal('colDmg', m.noCollisionDamage ? 'none' : m.noMoverCollisionDamage ? 'no-mover' : m.noObstacleCollisionDamage ? 'no-obstacle' : 'all');
         setChk('ignoreStab', m.ignoreStability ?? false);
+        setChk('safely',     m.safely             ?? false);
         setChk('fast',       m.fastMove           ?? false);
       }
     };
@@ -447,7 +459,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
     const saveBtnEl = this.element.querySelector('[data-action="save-preset"]');
     const updateSaveShift = (held) => {
       saveBtnEl.style.color = held ? 'var(--dsct-text-active)' : 'var(--dsct-text-dim)';
-      saveBtnEl.title = held ? 'Shift+Click to overwrite existing preset' : 'Save current inputs as a preset';
+      setTip(saveBtnEl, tipFor(held ? 'presetOverwrite' : 'presetSave'));
     };
     const onShiftDown = (e) => { if (e.key === 'Shift') updateSaveShift(true);  };
     const onShiftUp   = (e) => { if (e.key === 'Shift') updateSaveShift(false); };
@@ -507,6 +519,7 @@ export class FmModifyPanel extends FitsOnResize(ds.applications.api.DSApplicatio
             noMoverCollisionDamage:  colDmgV === 'no-mover',
             noObstacleCollisionDamage: colDmgV === 'no-obstacle',
             ignoreStability:         get('ignoreStab')?.checked       ?? false,
+            safely:                  get('safely')?.checked           ?? false,
             fastMove:                get('fast')?.checked             ?? false,
           };
         });

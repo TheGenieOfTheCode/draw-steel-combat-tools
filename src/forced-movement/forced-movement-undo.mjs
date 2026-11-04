@@ -3,7 +3,10 @@ import {
   getSetting, getTokenById,
 } from '../helpers.mjs';
 import { applyGrab } from '../conditions/grab.mjs';
+import { forcedMovementHandler } from './forced-movement-engine.mjs';
 import { addPreviewToken, removePreviewToken, activateTokenLayer, services } from '../ctlib.mjs';
+
+const L = (key) => game.i18n.localize(`DSCT.chat.fm.${key}`);
 
 const restoreGrabs = async (grabsToRestore) => {
   if (!grabsToRestore?.length) return;
@@ -109,7 +112,7 @@ const handleStaminaRevival = async (undoLog) => {
             const sg = await fromUuid(squadOp.squadGroupUuid);
             if (getSetting('debugMode')) console.log(`DSCT | FM UNDO | handleStaminaRevival sg found=${!!sg} currentStaminaValue=${sg?.system?.staminaValue} prevSquadHP=${squadOp.prevSquadHP}`);
             if (sg && sg.system.staminaValue < squadOp.prevSquadHP) {
-              await safeUpdate(sg, { 'system.staminaValue': squadOp.prevSquadHP });
+              await safeUpdate(sg, { 'system.staminaValue': squadOp.prevSquadHP }, { dsblUndo: true });
             }
           }
         }
@@ -217,7 +220,8 @@ const addFmUndoPreview = (btn, previews) => {
 
 export const registerForcedMovementHooks = () => {
   Hooks.on('renderChatMessageHTML', (msg, el) => {
-    if (!msg.getFlag('draw-steel-combat-tools', 'isFmUndo')) return;
+    if (!msg.getFlag('draw-steel-combat-tools', 'isFmUndo') || msg.getFlag('draw-steel-combat-tools', 'noMove')) return;
+    if (forcedMovementHandler()?.ownsMessage?.(msg)) return;
 
     const isUndone   = msg.getFlag('draw-steel-combat-tools', 'isUndone');
     const isCombined = msg.getFlag('draw-steel-combat-tools', 'isCombined');
@@ -236,11 +240,11 @@ export const registerForcedMovementHooks = () => {
       if (!isExpired) isExpired = entries.some(isEntryExpired);
 
       if (isUndone) {
-        btnArea.appendChild(makeStatusDiv(hadDamage ? '(Movements and Damage Undone)' : '(Movements Undone)'));
+        btnArea.appendChild(makeStatusDiv(L(hadDamage ? 'undoneAllDamage' : 'undoneAll')));
       } else if (isExpired) {
-        btnArea.appendChild(makeStatusDiv('(Undo Expired)'));
+        btnArea.appendChild(makeStatusDiv(L('undoExpired')));
       } else if (game.user.isGM || msg.isAuthor) {
-        const btn = makeUndoBtn('Undo All Movements', async () => {
+        const btn = makeUndoBtn(L('undoAll'), async () => {
           await safeUpdate(msg, { 'flags.draw-steel-combat-tools.isUndone': true });
           const allRevived = [];
           for (const entry of [...entries].reverse()) {
@@ -252,8 +256,8 @@ export const registerForcedMovementHooks = () => {
           }
           const unique = [...new Set(allRevived)];
           ui.notifications.info(unique.length > 0
-            ? `Forced movement reversed. Revived: ${unique.join(', ')}.`
-            : 'All forced movements undone.'
+            ? game.i18n.format('DSCT.notice.fm.reversedRevived', { names: unique.join(', ') })
+            : game.i18n.localize('DSCT.notice.fm.allUndone')
           );
         });
         addFmUndoPreview(btn, entries.map(e => ({
@@ -276,21 +280,21 @@ export const registerForcedMovementHooks = () => {
     }
 
     if (isUndone) {
-      btnArea.appendChild(makeStatusDiv(hadDamage ? '(Movement and Damage Undone)' : '(Movement Undone)'));
+      btnArea.appendChild(makeStatusDiv(L(hadDamage ? 'undoneDamage' : 'undone')));
     } else if (isExpired) {
-      btnArea.appendChild(makeStatusDiv('(Undo Expired)'));
+      btnArea.appendChild(makeStatusDiv(L('undoExpired')));
     } else if (game.user.isGM || msg.isAuthor) {
       const undoLog     = msg.getFlag('draw-steel-combat-tools', 'undoLog');
       const targetTokId = msg.getFlag('draw-steel-combat-tools', 'targetTokenId');
-      const btn = makeUndoBtn('Undo Movement', async () => {
+      const btn = makeUndoBtn(L('undo'), async () => {
         if (undoLog) {
           await safeUpdate(msg, { 'flags.draw-steel-combat-tools.isUndone': true });
           const revivedNames = await handleStaminaRevival(undoLog);
           await replayUndo(undoLog);
           await restoreGrabs(msg.getFlag('draw-steel-combat-tools', 'grabsToRestore'));
           ui.notifications.info(revivedNames.length > 0
-            ? `Forced movement reversed. Revived: ${[...new Set(revivedNames)].join(', ')}.`
-            : 'Forced movement undone.'
+            ? game.i18n.format('DSCT.notice.fm.reversedRevived', { names: [...new Set(revivedNames)].join(', ') })
+            : game.i18n.localize('DSCT.notice.fm.undone')
           );
         }
       });

@@ -6,7 +6,11 @@ import { preloadStickbug, rebuildSquadHuds } from '../squad-hud.mjs';
 import { refreshSquadTurnMarkers } from '../squad-turns.mjs';
 import { refreshHiddenMarkers } from '../conditions/hidden-markers.mjs';
 import { applyHealthEstimatePatch } from '../compat/health-estimate-compat.mjs';
+import { applyCompactPills } from '../compat/pill-compact.mjs';
+import { applyHideApplyWord } from '../compat/dstd-apply-word.mjs';
 import { InstallMacrosMenu, EnhancedAbilitiesMenu } from '../setup-macros.mjs';
+import { SettingsReportMenu } from '../settings-report.mjs';
+import { registerSettingsLayout, isPrimaryGM } from '../ctlib.mjs';
 import {
   ForcedMovementSettingsMenu,
   ConditionsSettingsMenu,
@@ -20,6 +24,15 @@ import {
   PartyToolsSettingsMenu,
   StealthSettingsMenu,
 } from './settings-menus.mjs';
+
+export const migrateMergedSettings = async () => {
+  const M = 'draw-steel-combat-tools';
+  const get = (key) => game.settings.get(M, key);
+  if (!isPrimaryGM() || get('mergedSettingsMigrated')) return;
+  await game.settings.set(M, 'modifierEditors', get('dstdRollEditor') && get('pillDamageEditor'));
+  await game.settings.set(M, 'judgementHoldSeconds', get('judgementBaneLock') ? get('judgementBaneLockDuration') : 0);
+  await game.settings.set(M, 'mergedSettingsMigrated', true);
+};
 
 export const registerSettings = () => {
   const M = 'draw-steel-combat-tools';
@@ -88,6 +101,11 @@ export const registerSettings = () => {
     default: 'ask',
   });
 
+  game.settings.register(M, 'neutralFoesHostile', {
+    name: L('neutralFoesHostile.name'), hint: L('neutralFoesHostile.hint'),
+    scope: 'world', config: true, type: Boolean, default: true,
+  });
+
   game.settings.register(M, 'dstdQuickFmButton', {
     name: L('dstdQuickFmButton.name'), hint: L('dstdQuickFmButton.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
@@ -127,15 +145,11 @@ export const registerSettings = () => {
   game.settings.registerMenu(M, 'homeRulesSettings', {
     name: L('homeRulesSettings.name'), label: L('homeRulesSettings.label'),
     hint: L('homeRulesSettings.hint'),
-    icon: 'fas fa-house-chimney', type: HomeRulesSettingsMenu, restricted: false,
-  });
-  game.settings.register(M, 'homeRulesEnabled', {
-    name: L('homeRulesEnabled.name'), hint: L('homeRulesEnabled.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
+    icon: 'fas fa-eye', type: HomeRulesSettingsMenu, restricted: false,
   });
   game.settings.register(M, 'homebrewOptions', {
     name: L('homebrewOptions.name'), hint: L('homebrewOptions.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
+    scope: 'world', config: true, type: Boolean, default: false,
   });
 
   game.settings.registerMenu(M, 'compatibilitySettings', {
@@ -147,7 +161,25 @@ export const registerSettings = () => {
   game.settings.registerMenu(M, 'forcedMovementSettings', {
     name: L('forcedMovementSettings.name'), label: L('forcedMovementSettings.label'),
     hint: L('forcedMovementSettings.hint'),
-    icon: 'fas fa-person-running', type: ForcedMovementSettingsMenu, restricted: true,
+    icon: 'fas fa-person-running', type: ForcedMovementSettingsMenu, restricted: false,
+  });
+  game.settings.register(M, 'fmAutoForOwnAbilities', {
+    name: L('fmAutoForOwnAbilities.name'), hint: L('fmAutoForOwnAbilities.hint'),
+    scope: 'client', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'rollDialogDodge', {
+    name: L('rollDialogDodge.name'), hint: L('rollDialogDodge.hint'),
+    scope: 'client', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'autoApplyOwnAbilities', {
+    name: L('autoApplyOwnAbilities.name'), hint: L('autoApplyOwnAbilities.hint'),
+    scope: 'client', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'potencyChecks', {
+    name: L('potencyChecks.name'), hint: L('potencyChecks.hint'),
+    scope: 'world', config: false, type: String, default: 'show',
+    choices: { off: L('potencyChecks.choice.off'), show: L('potencyChecks.choice.show'), apply: L('potencyChecks.choice.apply') },
+    onChange: () => ui.chat?.render?.(),
   });
   game.settings.register(M, 'forcedMovementEnabled', {
     name: L('forcedMovementEnabled.name'), hint: L('forcedMovementEnabled.hint'),
@@ -238,7 +270,6 @@ export const registerSettings = () => {
     onChange: safely(() => {
       refreshLoeCornerMode();
       canvas?.perception?.update({ initializeVision: true, refreshVision: true, refreshOcclusion: true });
-
 
       recheckNoLos();
       recheckCombatReveal();
@@ -344,6 +375,12 @@ export const registerSettings = () => {
     name: L('bleedingMode.name'), hint: L('bleedingMode.hint'),
     scope: 'world', config: false, type: String,
     choices: { 'auto': L('bleedingMode.choice.auto'), 'manual': L('bleedingMode.choice.manual') },
+    default: 'auto',
+  });
+  game.settings.register(M, 'recurringDamage', {
+    name: L('recurringDamage.name'), hint: L('recurringDamage.hint'),
+    scope: 'world', config: false, type: String,
+    choices: { 'auto': L('recurringDamage.choice.auto'), 'manual': L('recurringDamage.choice.manual'), 'off': L('recurringDamage.choice.off') },
     default: 'auto',
   });
   game.settings.register(M, 'areaDamageEnabled', {
@@ -476,7 +513,7 @@ export const registerSettings = () => {
   game.settings.registerMenu(M, 'abilityAutomationSettings', {
     name: L('abilityAutomationSettings.name'), label: L('abilityAutomationSettings.label'),
     hint: L('abilityAutomationSettings.hint'),
-    icon: 'fas fa-wand-magic-sparkles', type: AbilityAutomationSettingsMenu, restricted: true,
+    icon: 'fas fa-wand-magic-sparkles', type: AbilityAutomationSettingsMenu, restricted: false,
   });
 
   game.settings.registerMenu(M, 'flatEffectsSettings', {
@@ -594,6 +631,10 @@ export const registerSettings = () => {
     name: L('judgementBaneLockDuration.name'), hint: L('judgementBaneLockDuration.hint'),
     scope: 'world', config: false, type: Number, default: 10,
   });
+  game.settings.register(M, 'judgementHoldSeconds', {
+    name: L('judgementHoldSeconds.name'), hint: L('judgementHoldSeconds.hint'),
+    scope: 'world', config: false, type: Number, default: 10,
+  });
   game.settings.register(M, 'markAutomation', {
     name: L('markAutomation.name'), hint: L('markAutomation.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
@@ -646,16 +687,64 @@ export const registerSettings = () => {
     name: L('applyToTargets.name'), hint: L('applyToTargets.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'advancedEnrichers', {
+    name: L('advancedEnrichers.name'), hint: L('advancedEnrichers.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'advancedEnricherMessages', {
+    name: L('advancedEnricherMessages.name'), hint: L('advancedEnricherMessages.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'compactEnrichers', {
+    name: L('compactEnrichers.name'), hint: L('compactEnrichers.hint'),
+    scope: 'client', config: false, type: Boolean, default: false, requiresReload: true,
+  });
   game.settings.register(M, 'neutralizeEnrichers', {
     name: L('neutralizeEnrichers.name'), hint: L('neutralizeEnrichers.hint'),
-    scope: 'world', config: false, type: Boolean, default: true,
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'alwaysRepickTargets', {
     name: L('alwaysRepickTargets.name'), hint: L('alwaysRepickTargets.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'sortTargetsNearest', {
+    name: L('sortTargetsNearest.name'), hint: L('sortTargetsNearest.hint'),
+    scope: 'world', config: false, type: String, default: 'all',
+    choices: {
+      all:     L('sortTargetsNearest.choice.all'),
+      ability: L('sortTargetsNearest.choice.ability'),
+    },
+  });
   game.settings.register(M, 'autoConfirmSelection', {
     name: L('autoConfirmSelection.name'), hint: L('autoConfirmSelection.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'areaPicker', {
+    name: L('areaPicker.name'), hint: L('areaPicker.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'areaPickerTurnStep', {
+    name: L('areaPickerTurnStep.name'), hint: L('areaPickerTurnStep.hint'),
+    scope: 'client', config: false, type: String, default: '5',
+    choices: { 5: '5°', 15: '15°', 30: '30°', 45: '45°', 90: '90°' },
+  });
+  game.settings.register(M, 'areaPickerOrigin', {
+    name: L('areaPickerOrigin.name'), hint: L('areaPickerOrigin.hint'),
+    scope: 'client', config: false, type: String, default: 'auto',
+    choices: { auto: L('areaPickerOrigin.auto'), manual: L('areaPickerOrigin.manual') },
+  });
+  game.settings.register(M, 'areaPickerOriginForce', {
+    name: L('areaPickerOriginForce.name'), hint: L('areaPickerOriginForce.hint'),
+    scope: 'world', config: false, type: String, default: 'players',
+    choices: { players: L('areaPickerOriginForce.players'), auto: L('areaPickerOriginForce.auto'), manual: L('areaPickerOriginForce.manual') },
+  });
+  game.settings.register(M, 'areaCoverFrom', {
+    name: L('areaCoverFrom.name'), hint: L('areaCoverFrom.hint'),
+    scope: 'world', config: false, type: String, default: 'caster',
+    choices: { caster: L('areaCoverFrom.caster'), origin: L('areaCoverFrom.origin') },
+  });
+  game.settings.register(M, 'areaPickerPlayerExclude', {
+    name: L('areaPickerPlayerExclude.name'), hint: L('areaPickerPlayerExclude.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'rollDialogPillUI', {
@@ -682,6 +771,23 @@ export const registerSettings = () => {
     name: L('pillDamageEditor.name'), hint: L('pillDamageEditor.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'modifierEditors', {
+    name: L('modifierEditors.name'), hint: L('modifierEditors.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
+  game.settings.register(M, 'mergedSettingsMigrated', {
+    scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'compactChatPills', {
+    name: L('compactChatPills.name'), hint: L('compactChatPills.hint'),
+    scope: 'client', config: false, type: Boolean, default: false, onChange: applyCompactPills,
+  });
+  Hooks.once('ready', () => applyCompactPills(game.settings.get(M, 'compactChatPills')));
+  game.settings.register(M, 'hideApplyWord', {
+    name: L('hideApplyWord.name'), hint: L('hideApplyWord.hint'),
+    scope: 'client', config: false, type: Boolean, default: true, onChange: applyHideApplyWord,
+  });
+  Hooks.once('ready', () => applyHideApplyWord(game.settings.get(M, 'hideApplyWord')));
   game.settings.register(M, 'skipPillEditor', {
     name: L('skipPillEditor.name'), hint: L('skipPillEditor.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
@@ -697,6 +803,12 @@ export const registerSettings = () => {
   game.settings.register(M, 'noMultiplierStacking', {
     name: L('noMultiplierStacking.name'), hint: L('noMultiplierStacking.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
+  });
+  game.settings.register(M, 'extraDamageTypes', {
+    name: L('extraDamageTypes.name'), hint: L('extraDamageTypes.hint'),
+    scope: 'world', config: false, type: String, default: 'separate',
+    choices: { separate: L('extraDamageTypes.choice.separate'), convert: L('extraDamageTypes.choice.convert') },
+    onChange: () => ui.chat?.render?.(),
   });
   game.settings.register(M, 'highGroundEnabled', {
     name: L('highGroundEnabled.name'), hint: L('highGroundEnabled.hint'),
@@ -883,5 +995,37 @@ export const registerSettings = () => {
     name: L('distributeEnhanced.name'), label: L('distributeEnhanced.label'),
     hint: L('distributeEnhanced.hint'),
     icon: 'fas fa-book-sparkles', type: EnhancedAbilitiesMenu, restricted: true,
+  });
+  game.settings.registerMenu(M, 'settingsReport', {
+    name: L('settingsReport.name'), label: L('settingsReport.label'),
+    hint: L('settingsReport.hint'),
+    icon: 'fas fa-list-check', type: SettingsReportMenu, restricted: false,
+  });
+  game.settings.register(M, 'settingsReportSeen', { scope: 'client', config: false, type: String, default: '' });
+
+  const H = (key) => `DSCT.setting.tabHeaders.${key}`;
+  registerSettingsLayout(M, [
+    { label: H('abilities'), items: ['abilityAutomationSettings', 'flatEffectsSettings', 'triggeredActionsSettings', 'distributeEnhanced', 'enhancedPromptMode', 'enhancedAutoAdd', 'enhancedSwapMode'] },
+    { label: H('combat'), items: ['conditionsSettings', 'forcedMovementSettings', 'teleportEnabled', 'stealthSettings', 'homeRulesSettings', 'squadToolsSettings', 'completeEncounterMode', 'neutralFoesHostile'] },
+    { label: H('table'), items: ['partyToolsSettings', 'moduleButtonsSettings', 'compatibilitySettings', 'homebrewOptions'] },
+    { label: H('module'), items: ['installMacros', 'macroPromptMode', 'onlineNoticeCheck', 'settingsReport', 'debugMode', 'testFeaturesSettings'] },
+  ], {
+    wiki: {
+      base: 'https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/wiki/',
+      pages: {
+        abilityAutomationSettings: 'Target-Pickers',
+        flatEffectsSettings: 'Flat-Effects',
+        triggeredActionsSettings: 'Triggered-Actions',
+        distributeEnhanced: 'Enhanced-Abilities',
+        conditionsSettings: 'Damage-and-Conditions-Panel',
+        forcedMovementSettings: 'Overview',
+        teleportEnabled: 'Teleport',
+        stealthSettings: 'Stealth-Overview',
+        homeRulesSettings: 'Target-Pickers#true-line-of-effect',
+        squadToolsSettings: 'Squad-Labels',
+        partyToolsSettings: 'Party-Tools',
+        installMacros: 'Macro-Reference',
+      },
+    },
   });
 };

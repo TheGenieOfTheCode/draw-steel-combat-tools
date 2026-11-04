@@ -1,5 +1,6 @@
 import { getSetting } from './helpers.mjs';
 import { fireStartTurn, fireEndTurn } from './squad-turns.mjs';
+import { isPrimaryGM } from './ctlib.mjs';
 
 window._dsctActivePairLeaderId = window._dsctActivePairLeaderId ?? null;
 window._dsctActivePairIds = window._dsctActivePairIds ?? new Set();
@@ -59,7 +60,7 @@ export function registerPairTurnHooks() {
       _clearPairState();
       for (const pid of oldPartnerIds) {
         const partner = combat.combatants.get(pid);
-        if (game.user.isGM && partner) await fireEndTurn(partner, combat, previous?.round ?? combat.round);
+        if (isPrimaryGM() && partner) await fireEndTurn(partner, combat, previous?.round ?? combat.round);
         partner?.token?.object?._refreshTurnMarker?.();
       }
       combat.combatants.get(oldLeaderId)?.token?.object?._refreshTurnMarker?.();
@@ -75,7 +76,7 @@ export function registerPairTurnHooks() {
     window._dsctActivePairLeaderId = cur.id;
     window._dsctActivePairIds = new Set(partners.map(p => p.id));
 
-    if (game.user.isGM) {
+    if (isPrimaryGM()) {
       for (const partner of partners) {
         await fireStartTurn(partner, combat);
         try { await partner.update({ initiative: partner.initiative - 1 }, { _dsctPairBatch: true }); }

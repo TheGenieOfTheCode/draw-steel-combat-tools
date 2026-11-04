@@ -32,7 +32,7 @@ export const registerMaliceInjectors = () => {
 
     const dsid = msg.getFlag(M, 'abilityDsid');
 
-    if (getSetting('abyssalEvolutionEnabled') && dsid === 'abyssal-evolution') {
+    if (getSetting('abyssalEvolutionEnabled') && dsid === 'abyssal-evolution' && game.user.isGM) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'dsct-abyssal-evo-btn';

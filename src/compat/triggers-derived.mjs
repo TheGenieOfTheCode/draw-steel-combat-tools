@@ -1,4 +1,4 @@
-import { ENHANCED_PACKS } from '../setup-macros.mjs';
+import { enhancedPackIds } from '../setup-macros.mjs';
 
 const M = 'draw-steel-combat-tools';
 const TRIGGERS = 'draw-steel-triggers';
@@ -6,7 +6,7 @@ const _entries = new Map();
 
 async function loadEntries() {
   _entries.clear();
-  for (const id of ENHANCED_PACKS) {
+  for (const id of enhancedPackIds()) {
     const pack = game.packs.get(id);
     if (!pack) continue;
     const index = await pack.getIndex({ fields: [`flags.${M}.derivedLine`] });

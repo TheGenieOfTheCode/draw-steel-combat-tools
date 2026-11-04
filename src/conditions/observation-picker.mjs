@@ -322,6 +322,7 @@ export function runObservationPicker(hider, observers) {
       showCancel: true,
       onConfirm: () => close(new Set(_active.observing)),
       onCancel: () => close(null),
+      controls: [{ input: 'CTLIB.picker.help.click', action: 'DSCT.picker.help.toggleObserver' }],
     });
 
     const onHover = (token, hovered) => {
@@ -337,6 +338,7 @@ export function runObservationPicker(hider, observers) {
       if (!_active) return;
       
       if (event.target?.closest?.('#dsct-picker-topbar, .dsct-obs-legend')) return;
+      if (event.button !== 0) return;
       const token = canvas.tokens.placeables.find(t => t.hover && _active.observers.includes(t));
       if (!token) return;
       event.preventDefault();
@@ -350,7 +352,14 @@ export function runObservationPicker(hider, observers) {
     const hooks = [['hoverToken', onHover], ['refreshToken', () => _paint()], ['canvasPan', onPan]];
     for (const [hook, fn] of hooks) Hooks.on(hook, fn);
 
-    const listeners = [[window, 'pointerdown', onClick, true]];
+    const onKey = (event) => {
+      if (!_active || (event.key !== 'Enter' && event.key !== 'Escape')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close(event.key === 'Enter' ? new Set(_active.observing) : null);
+    };
+
+    const listeners = [[window, 'pointerdown', onClick, true], [document, 'keydown', onKey, false]];
     for (const [el, type, fn, opts] of listeners) el.addEventListener(type, fn, opts);
 
     const saved = {

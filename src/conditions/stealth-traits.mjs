@@ -24,6 +24,7 @@ export function stealthTraits(subject) {
     cannotBeHiddenFrom: [],
     cannotHide: false,
     ignoresConcealmentBane: false,
+    ignoresCoverBane: false,
     concealmentBaneDoubled: false,
     any: false,
   };
@@ -40,15 +41,43 @@ export function stealthTraits(subject) {
   if (on(f.cannotBeHiddenFrom)) out.cannotBeHiddenFrom.push(Math.max(0, Number(f.cannotBeHiddenRange) || 0));
   if (on(f.cannotHide)) out.cannotHide = true;
   if (on(f.ignoresConcealmentBane)) out.ignoresConcealmentBane = true;
+  if (on(f.ignoresCoverBane)) out.ignoresCoverBane = true;
   if (on(f.concealmentBaneDoubled)) out.concealmentBaneDoubled = true;
 
   out.any = out.hideWhileObserved || out.keepsHidden || out.movementKeeps.size > 0
     || !!out.coverCounts || !!out.maintain || out.cannotBeHiddenFrom.length > 0
-    || out.cannotHide || out.ignoresConcealmentBane || out.concealmentBaneDoubled;
+    || out.cannotHide || out.ignoresConcealmentBane || out.ignoresCoverBane || out.concealmentBaneDoubled;
   return out;
 }
 
-export const forbiddenToHide = (subject) => stealthTraits(subject).cannotHide;
+export const forbiddenToHide = (subject) => stealthTraits(subject).cannotHide || exposedNow(subject);
+
+const _changesOf = (effect) => [...(effect.system?.changes ?? []), ...(effect.changes ?? [])];
+
+
+const _applierToken = (effect) => {
+  const tokenId = effect.getFlag?.(M, 'flatAppliedSource')?.tokenId;
+  if (tokenId && canvas.tokens?.get(tokenId)) return canvas.tokens.get(tokenId);
+  const origin = effect.origin ? fromUuidSync(effect.origin, { strict: false }) : null;
+  const actor = origin?.documentName === 'Actor' ? origin : origin?.actor ?? origin?.parent?.actor ?? null;
+  return actor?.getActiveTokens?.()?.[0] ?? null;
+};
+
+
+export function exposedNow(subject) {
+  const actor = _actorOf(subject);
+  const token = subject?.actor ? subject : actor?.getActiveTokens?.()?.[0];
+  for (const effect of actor?.effects ?? []) {
+    if (effect.disabled) continue;
+    const changes = _changesOf(effect);
+    if (!changes.some(c => String(c?.key ?? '').endsWith(`${TRAIT_KEY}.exposed`) && on(c.value))) continue;
+    const range = Math.max(0, Number(changes.find(c => String(c?.key ?? '').endsWith(`${TRAIT_KEY}.exposedRange`))?.value) || 0);
+    if (!range) return true;
+    const applier = _applierToken(effect);
+    if (applier && token && tokFootprintDist(applier, token) < range * canvas.grid.distance) return true;
+  }
+  return false;
+}
 
 export function huntedBy(hider) {
   const actor = _actorOf(hider);
@@ -65,6 +94,7 @@ export function huntedBy(hider) {
 
 export function observerBlocksHiding(observer, hider) {
   if (observer?.id && huntedBy(hider).includes(observer.id)) return true;
+  if (exposedNow(hider)) return true;
 
   const ranges = stealthTraits(observer).cannotBeHiddenFrom;
   if (!ranges.length) return false;
@@ -141,7 +171,7 @@ export function coverCountingCreatures(observer, hider, mode) {
 const FLAGS = [
   'hideWhileObserved', 'keepsHidden', 'moveFreely', 'moveThroughOccupied',
   'alliesAreCover', 'creaturesAreCover', 'staysHiddenAnywhere', 'cannotBeHiddenFrom',
-  'cannotHide', 'ignoresConcealmentBane', 'concealmentBaneDoubled', 'observedBy',
+  'cannotHide', 'ignoresConcealmentBane', 'ignoresCoverBane', 'concealmentBaneDoubled', 'observedBy', 'exposed',
 ];
 
 export function registerStealthTraits() {
@@ -155,4 +185,7 @@ export function registerStealthTraits() {
   });
   for (const name of FLAGS) registerEffectFlag('actor', def(name));
   registerEffectFlag('actor', def('cannotBeHiddenRange', { type: 'override', value: '2' }));
+  registerEffectFlag('actor', def('exposedRange', { type: 'override', value: '20' }));
+  registerEffectFlag('actor', def('searchBanes', { type: 'add', value: '1' }));
+  registerEffectFlag('actor', def('searchEdges', { type: 'add', value: '1' }));
 }

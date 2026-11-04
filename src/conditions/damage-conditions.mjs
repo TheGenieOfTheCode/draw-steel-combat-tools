@@ -1,13 +1,15 @@
 import {
   getSetting, getWindowById, getSquadGroup, applyDamage, damageBatch, withDamageSource,
-  safeToggleStatusEffect, safeCreateEmbedded, safeDelete, getItemDsid,
-  tokFootprintDist, confirmRangeOverride,
+  safeCreateEmbedded, safeDelete, getItemDsid,
+  tokFootprintDist, confirmRangeOverride, effectStartFor,
 } from '../helpers.mjs';
 import { applyFrightened, applyTaunted } from './conditions.mjs';
+import { applyStatus } from './statuses.mjs';
 import { applyGrab, buildGrabListHTML, handleGrabListClick, grabUiState } from './grab.mjs';
 import { DAMAGE_TYPES as DMG, damageTypeLabel } from '../ctlib.mjs';
 import { runSourcePicker, runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
+import { setTip, tipAttrs, tipFor } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -73,6 +75,7 @@ export const applyJudgedEffect = async (targetToken, sourceActor, sourceTokenId,
     type: 'base',
     system: end?.systemEnd ? { end: end.systemEnd } : {},
     duration: end?.duration ?? {},
+    ...(end ? { start: effectStartFor(actor) } : {}),
     changes: [],
     flags: { [M]: { judgement: { userId: game.user.id, actorId: sourceActor.id } } },
   }]);
@@ -88,30 +91,14 @@ export const applyMarkedEffect = async (targetToken, sourceActor, sourceTokenId,
     type: 'base',
     system: end?.systemEnd ? { end: end.systemEnd } : {},
     duration: end?.duration ?? {},
+    ...(end ? { start: effectStartFor(actor) } : {}),
     changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
     flags: { [M]: { mark: { userId: game.user.id, actorId: sourceActor.id, dsid: 'other', isMarkAbility: false } } },
   }]);
 };
 
-const applyNativeCondition = async (actor, condId, endStr) => {
-  const end = resolveEnd(endStr);
-  if (!end) {
-    await safeToggleStatusEffect(actor, condId, { active: true, overlay: false });
-    return;
-  }
-  const statusCfg = CONFIG.statusEffects?.find(e => e.id === condId);
-  await safeCreateEmbedded(actor, 'ActiveEffect', [{
-    name:     statusCfg?.name ?? condId,
-    img:      statusCfg?.img ?? 'icons/svg/mystery-man.svg',
-    type:     'base',
-    system:   end.systemEnd ? { end: end.systemEnd } : {},
-    duration: end.duration,
-    statuses: [condId],
-    changes:  statusCfg?.changes ?? [],
-    flags:    statusCfg?.flags   ?? {},
-    disabled: false, transfer: false,
-  }]);
-};
+const applyNativeCondition = (actor, condId, endStr) =>
+  applyStatus(actor, condId, { end: endStr && endStr !== 'unlimited' ? endStr : null });
 
 export class DamageConditionsPanel extends FitsOnResize(ds.applications.api.DSApplication) {
   constructor() {
@@ -181,7 +168,7 @@ export class DamageConditionsPanel extends FitsOnResize(ds.applications.api.DSAp
 
     const slots  = cols * cols;
     const filled = targets.slice(0, slots).map(t =>
-      `<img src="${t.document.texture.src}" class="dsct-token-img" style="width:${cell}px;height:${cell}px;" title="${t.name}">`
+      `<img src="${t.document.texture.src}" class="dsct-token-img" style="width:${cell}px;height:${cell}px;" ${tipAttrs(tipFor('panelTarget', { title: t.name }))}>`
     ).join('');
     const empty  = Array(Math.max(0, slots - Math.min(count, slots))).fill(
       `<div class="dsct-token-placeholder" style="width:${cell}px;height:${cell}px;"></div>`
@@ -360,7 +347,7 @@ export class DamageConditionsPanel extends FitsOnResize(ds.applications.api.DSAp
       fist.type = 'button';
       fist.id = 'dc-grab-toggle';
       fist.className = 'header-control icon fa-solid fa-hand-fist dsct-dc-grab-fist';
-      fist.dataset.tooltip = game.i18n.localize('DSCT.panel.dc.activeGrabs');
+      setTip(fist, tipFor('activeGrabs', { title: game.i18n.localize('DSCT.panel.dc.activeGrabs') }));
       fist.addEventListener('click', () => this._setGrabsExpanded(!this._grabsExpanded));
       const kebab = header.querySelector('[data-action="toggleControls"]');
       header.insertBefore(fist, kebab ?? header.querySelector('[data-action="close"]'));

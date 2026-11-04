@@ -1,3 +1,5 @@
+import { setTip, tipFor } from './chat-tips.mjs';
+
 const M = 'draw-steel-combat-tools';
 
 const REGISTRY = { actor: [], ability: [] };
@@ -119,7 +121,7 @@ function _decorate(app, root) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dsct-flag-pick';
-    btn.dataset.tooltip = L('DSCT.effectFlags.button');
+    setTip(btn, tipFor('effectFlags', { title: L('DSCT.effectFlags.button') }));
     btn.setAttribute('aria-label', L('DSCT.effectFlags.button'));
     btn.innerHTML = '<i class="fas fa-toolbox"></i>';
     btn.addEventListener('click', async (ev) => {

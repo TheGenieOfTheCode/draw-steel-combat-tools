@@ -1,5 +1,5 @@
-import { isPrimaryGM } from "../ctlib.mjs";
-import { effectStartFor } from "../helpers.mjs";
+import { isPrimaryGM, safeUpdate, safeDelete, safeCreateEmbedded, safeToggleStatusEffect } from "../ctlib.mjs";
+import { effectStartFor, applyDamage, withDamageSource } from "../helpers.mjs";
 const M = 'draw-steel-combat-tools';
 const L = 'DSCT'; 
 const { RegionBehaviorType } = foundry.data.regionBehaviors;
@@ -18,7 +18,7 @@ function _dispositionField() {
   }), { initial: [], required: false });
 }
 
-function _passesDispositionFilter(behavior, event) {
+export function _passesDispositionFilter(behavior, event) {
   if (!behavior.dispositions?.size) return true;
   const disp = event.data?.token?.disposition;
   return [...behavior.dispositions].some(k => DISPOSITION_MAP[k] === disp);
@@ -46,24 +46,24 @@ async function _addEffect(actor, uuid, origin) {
   if (!source) return;
   const existing = actor.effects.find(e => e.origin === origin);
   if (existing) {
-    return existing.update({
+    return safeUpdate(existing, {
       disabled: false,
       start: effectStartFor(actor),
       'duration.expired': false,
     });
   }
-  return ActiveEffect.implementation.create({
+  return safeCreateEmbedded(actor, 'ActiveEffect', [{
     ...source.toObject(),
     disabled: false,
     transfer: false,
     origin,
     start: effectStartFor(actor),
-  }, { parent: actor });
+  }]);
 }
 
 async function _resetDuration(actor, uuid) {
   const existing = await _resolveEffect(actor, uuid);
-  if (existing) return existing.update({
+  if (existing) return safeUpdate(existing, {
     start: effectStartFor(actor),
     'duration.expired': false,
   });
@@ -71,7 +71,7 @@ async function _resetDuration(actor, uuid) {
 
 async function _enableEffect(actor, uuid) {
   const existing = await _resolveEffect(actor, uuid);
-  if (existing) return existing.update({
+  if (existing) return safeUpdate(existing, {
     disabled: false,
     start: effectStartFor(actor),
     'duration.expired': false,
@@ -80,12 +80,12 @@ async function _enableEffect(actor, uuid) {
 
 async function _disableEffect(actor, uuid) {
   const existing = await _resolveEffect(actor, uuid);
-  if (existing) return existing.update({ disabled: true });
+  if (existing) return safeUpdate(existing, { disabled: true });
 }
 
 async function _deleteEffect(actor, uuid) {
   const existing = await _resolveEffect(actor, uuid);
-  if (existing) return existing.delete();
+  if (existing) return safeDelete(existing);
 }
 
 class DSStatusRegionBehaviorType extends RegionBehaviorType {
@@ -107,7 +107,7 @@ class DSStatusRegionBehaviorType extends RegionBehaviorType {
     if (!actor || !this.statusId) return;
     if (!event.user.isSelf) return;
     if (!_passesDispositionFilter(this, event)) return;
-    actor.toggleStatusEffect(this.statusId, { active: true, overlay: this.overlay });
+    safeToggleStatusEffect(actor, this.statusId, { active: true, overlay: this.overlay });
   }
 
   static #onTokenExit(event) {
@@ -115,7 +115,7 @@ class DSStatusRegionBehaviorType extends RegionBehaviorType {
     if (!actor || !this.statusId) return;
     if (!event.user.isSelf) return;
     if (!_passesDispositionFilter(this, event)) return;
-    actor.toggleStatusEffect(this.statusId, { active: false, overlay: this.overlay });
+    safeToggleStatusEffect(actor, this.statusId, { active: false, overlay: this.overlay });
   }
 
   static events = {
@@ -223,7 +223,49 @@ class DSActiveEffectEventsRegionBehaviorType extends RegionBehaviorType {
   }
 }
 
-const EVENTS_TYPES = new Set([`${M}.statusEffectEvents`, `${M}.activeEffectEvents`]);
+const _damagedThisTurn = new Set();
+
+class DSDamageEventsRegionBehaviorType extends RegionBehaviorType {
+  static LOCALIZATION_PREFIXES = [`${L}.region.damageEvents`];
+
+  static defineSchema() {
+    return {
+      dispositions: _dispositionField(),
+      events: this._createEventsField({ events: TOKEN_EVENTS }),
+      formula: new StringField({ required: true, blank: false, initial: '@R' }),
+      damageType: new StringField({ required: true, blank: true, initial: '',
+        choices: () => ({ '': game.i18n.localize(`${L}.region.damageEvents.untyped`), ...Object.fromEntries(Object.entries(ds.CONFIG.damageTypes).map(([k, v]) => [k, v.label])) }) }),
+      oncePerTurn: new BooleanField({ initial: false }),
+    };
+  }
+
+  async _handleRegionEvent(event) {
+    const token = event.data?.token;
+    const actor = token?.actor;
+    if (!actor || !isPrimaryGM()) return;
+    if (!_passesDispositionFilter(this, event)) return;
+    if (this.oncePerTurn) {
+      const combat = game.combat;
+      const key = `${this.parent.parent?.id}:${token.id}:${combat?.round ?? 0}:${combat?.turn ?? 0}`;
+      if (_damagedThisTurn.has(key)) return;
+      _damagedThisTurn.add(key);
+    }
+    const region = this.parent.parent;
+    const item = await fromUuid(region?.getFlag?.('draw-steel', 'abilitySource') ?? '').catch(() => null);
+    const source = item?.actor ?? null;
+    let amount = 0;
+    try {
+      const roll = new Roll(this.formula, source?.getRollData?.() ?? {});
+      await roll.evaluate();
+      amount = Math.max(0, Math.floor(roll.total));
+    } catch (err) { console.warn('DSCT | damage region | bad formula', this.formula, err); }
+    if (!amount) return;
+    await withDamageSource({ actorUuid: source?.uuid ?? null, ability: item?.name ?? region?.name ?? '', abilityUuid: item?.uuid ?? null },
+      () => applyDamage(actor, amount, undefined, { damageType: this.damageType || 'untyped' }));
+  }
+}
+
+const EVENTS_TYPES = new Set([`${M}.statusEffectEvents`, `${M}.activeEffectEvents`, `${M}.damageEvents`]);
 const STATIC_TYPES = new Set([`${M}.statusEffect`,       `${M}.activeEffect`]);
 
 const STATIC_TYPE_EVENTS = {
@@ -261,6 +303,7 @@ export function registerRegionEffectBehaviors() {
     [`${M}.statusEffectEvents`, DSStatusEventsRegionBehaviorType],
     [`${M}.activeEffect`,       DSActiveEffectRegionBehaviorType],
     [`${M}.activeEffectEvents`, DSActiveEffectEventsRegionBehaviorType],
+    [`${M}.damageEvents`,       DSDamageEventsRegionBehaviorType],
   ];
 
   for (const [type, cls] of TYPES) {
@@ -272,6 +315,7 @@ export function registerRegionEffectBehaviors() {
     [`${M}.statusEffectEvents`]: 'fa-solid fa-person-burst',
     [`${M}.activeEffect`]:       'fa-solid fa-gears',
     [`${M}.activeEffectEvents`]: 'fa-solid fa-gears',
+    [`${M}.damageEvents`]:       'fa-solid fa-fire',
   });
 
   Hooks.on('renderRegionBehaviorConfig', _injectDispositionIntoEventsSection);

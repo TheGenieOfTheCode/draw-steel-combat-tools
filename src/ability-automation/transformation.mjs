@@ -1,5 +1,6 @@
 import { beginPickerOverlay } from './picker-overlay.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
+import { safeUpdate } from '../ctlib.mjs';
 
 const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
   const GS     = canvas.grid.size;
@@ -20,13 +21,15 @@ const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
     tokens: candidates,
     showConfirm: false,
     onCancel: () => { cleanup(); resolve(null); },
+    controls: [{ input: 'CTLIB.picker.help.click', action: 'CTLIB.picker.help.chooseToken' }],
+    cancelOnRightClick: true,
+    onRightClick: () => { cleanup(); resolve(null); },
   });
   const cleanup = () => {
     overlay.end();
     canvas.interface.grid.destroyHighlightLayer(hlName);
     canvas.stage.off('mousedown', onClick);
     document.removeEventListener('keydown', onKey);
-    document.removeEventListener('contextmenu', onCancel);
   };
   const onClick = (ev) => {
     if (ev.data.originalEvent.button !== 0) return;
@@ -41,10 +44,8 @@ const _pickCanvasToken = (candidates, color, hint) => new Promise(resolve => {
     resolve(hit);
   };
   const onKey    = (ev) => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); cleanup(); resolve(null); } };
-  const onCancel = (ev) => { ev.preventDefault(); cleanup(); resolve(null); };
   canvas.stage.on('mousedown', onClick);
   document.addEventListener('keydown', onKey);
-  document.addEventListener('contextmenu', onCancel);
 });
 
 
@@ -142,13 +143,13 @@ export const runTransform = async (target, actors, title = 'Transform', { color 
   if (!newActor) return;
 
   const protoImg = newActor.prototypeToken?.texture?.src ?? newActor.img;
-  await token.document.update({
+  await safeUpdate(token.document, {
     actorId:       newActor.id,
     name:          newActor.name,
     'texture.src': protoImg,
     actorLink:     newActor.prototypeToken?.actorLink ?? false,
   });
   const combatant = game.combat?.combatants.find(c => c.tokenId === token.id);
-  if (combatant) await combatant.update({ actorId: newActor.id, name: newActor.name, img: protoImg });
+  if (combatant) await safeUpdate(combatant, { actorId: newActor.id, name: newActor.name, img: protoImg });
   return token;
 };

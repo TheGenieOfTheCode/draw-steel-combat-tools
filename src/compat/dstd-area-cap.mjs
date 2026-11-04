@@ -1,4 +1,5 @@
 import { DSTD } from '../ctlib.mjs';
+import { setTip, tipAttrs, tipFor } from '../chat-tips.mjs';
 const AREA_TYPES = new Set(['aura', 'burst', 'cube', 'line', 'wall']);
 
 const L = (k, data) => data
@@ -36,7 +37,7 @@ export function markAreaCaps(message, root) {
 
   const tierLine = panel.querySelector(`.${DSTD}-tier-line`);
   if (tierLine && !tierLine.querySelector('.dsct-area-tag')) {
-    tierLine.insertAdjacentHTML('beforeend', ` <span class="dsct-area-tag" data-tooltip="${foundry.utils.escapeHTML(L('tagTooltip'))}">${foundry.utils.escapeHTML(L('tag'))}</span>`);
+    tierLine.insertAdjacentHTML('beforeend', ` <span class="dsct-area-tag" ${tipAttrs(tipFor('areaTag'))}>${foundry.utils.escapeHTML(L('tag'))}</span>`);
   }
 
   for (const row of panel.querySelectorAll(`.${DSTD}-target-row[data-target-key]`)) {
@@ -57,8 +58,8 @@ export function markAreaCaps(message, root) {
       const esc = foundry.utils.escapeHTML;
       span.innerHTML = `${esc(label.slice(0, match.index))}<s class="dsct-capped-from">${shown}</s> ${lands}${esc(label.slice(match.index + match[0].length))}`;
       span.dataset.dsctCapText = span.textContent;
-      if (btn.dataset.dsctTipBase == null) btn.dataset.dsctTipBase = btn.dataset.tooltip ?? '';
-      btn.dataset.tooltip = [btn.dataset.dsctTipBase, L('cappedTooltip', { cap })].filter(Boolean).join(' ');
+      if (btn.dataset.dsctTipBase == null) btn.dataset.dsctTipBase = btn.dataset.tooltip || label;
+      setTip(btn, tipFor('areaDamage', { title: btn.dataset.dsctTipBase, body: L('cappedTooltip', { cap }) }));
     }
   }
 }

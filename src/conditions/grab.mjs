@@ -3,7 +3,8 @@ import { getSetting, rangeEnforced, safeCreateEmbedded, safeDelete, safeUpdate, 
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
 import { stackedPrompt, tierFor } from '../ctlib.mjs';
-import { checkAndRunTargetPicker, checkAndRunBurstTargeting, clearRepickStamp, isTriggeredAbility } from '../ability-automation/target-picker.mjs';
+import { checkAndRunTargetPicker, clearRepickStamp, isTriggeredAbility } from '../ability-automation/target-picker.mjs';
+import { checkAndRunAreaPicker } from '../ability-automation/area-picker.mjs';
 import { toggleDamageConditionsPanel } from './damage-conditions.mjs';
 import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore, isNullSpeedExemptActive } from '../ability-automation/class-null/psionic-martial-arts.mjs';
@@ -207,6 +208,15 @@ export const registerGrabHooks = () => {
     values: 'DSCT.effectFlags.forcedMovement.noObjectCollisionDamage.values',
     type: 'override',
     value: 'true',
+  });
+  registerEffectFlag('actor', {
+    key: 'flags.draw-steel-combat-tools.forcedMovementTaken',
+    category: 'forcedMovement',
+    label: 'DSCT.effectFlags.forcedMovement.forcedMovementTaken.label',
+    description: 'DSCT.effectFlags.forcedMovement.forcedMovementTaken.description',
+    values: 'DSCT.effectFlags.forcedMovement.forcedMovementTaken.values',
+    type: 'add',
+    value: '2',
   });
 
   if (!getSetting('conditionsEnabled')) return;
@@ -423,6 +433,8 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
     hookId = Hooks.on('createChatMessage', async (msg) => {
       const parts = msg.system?.parts?.contents; if (!parts) return;
       if (!parts.some(p => p.type === 'abilityResult' || p.type === 'targetResult')) return;
+      const usedUuid = parts.find(p => p.abilityUuid)?.abilityUuid;
+      if (!msg.isAuthor || (usedUuid && usedUuid !== grabItem.uuid)) return;
       const tier = tierFor(msg, targetToken.document) ?? tierFor(msg, null);
       if (!tier) return;
       msg.setFlag(M, 'grabRoll', { grabberTokenId: grabberToken.id, targetTokenId: targetToken.id, appliedTier: tier }).catch(() => {});
@@ -673,6 +685,9 @@ function _checkAbilityRange(dialog, { warnOnly = false } = {}) {
   if (keywords?.has('area')) return null;
   if (isTriggeredAbility(ability)) return null;
   
+  if (ability.getFlag?.('draw-steel-combat-tools', 'areaFilter')?.carriers) return null;
+  if ((view?.distance ?? ability.system?.distance)?.type === 'special') return null;
+  
   if (isSelfAndSelf(ability, view)) return null;
 
   const _actor = ability.actor ?? ability.parent;
@@ -765,8 +780,11 @@ export function registerKnockbackGuard() {
     
     if (getSetting('abilityAutomationEnabled') && checkAndRunChoose(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && _checkMeleeRangedChoice(app) === 'block') return false;
-    if (getSetting('abilityAutomationEnabled')) checkAndRunBurstTargeting(app);
-    if (getSetting('abilityAutomationEnabled') && _checkAbilityRange(app) === 'block') return false;
+    if (getSetting('abilityAutomationEnabled') && checkAndRunAreaPicker(app) === 'block') return false;
+    if (getSetting('abilityAutomationEnabled') && _checkAbilityRange(app) === 'block') {
+      setTimeout(() => app.dispatchEvent(new Event('close')));
+      return false;
+    }
     if (getSetting('abilityAutomationEnabled') && checkAndRunSquadTargeting(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && checkAndRunTargetPicker(app) === 'block') return false;
   });

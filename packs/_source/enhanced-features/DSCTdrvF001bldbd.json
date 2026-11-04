@@ -1,0 +1,116 @@
+{
+ "folder": "DSCTfffDrvFeat01",
+ "name": "Bloodbound Band",
+ "type": "treasure",
+ "_id": "DSCTdrvF001bldbd",
+ "img": "icons/equipment/finger/ring-signet-copper.webp",
+ "system": {
+  "description": {
+   "value": "<p>Bonded creatures can each use the highest recovery value of any bonded creature in place of their own, and can spend each other's Recoveries as if they were their own.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools gives the creature's own Bloodbound Band this Bonded effect, which does both, and leaves its text alone. Apply it from the ring's text to each creature in the bond.</em></p></section>",
+   "enriched": ""
+  },
+  "_dsid": "treasure"
+ },
+ "effects": [
+  {
+   "name": "Bonded",
+   "img": "icons/equipment/finger/ring-signet-copper.webp",
+   "type": "base",
+   "origin": null,
+   "transfer": false,
+   "_id": "RSTGVD3iEuERHmYI",
+   "system": {
+    "end": {
+     "roll": "1d10 + @combat.save.bonus"
+    },
+    "changes": [
+     {
+      "key": "flags.draw-steel-combat-tools.bond.group",
+      "value": "bloodbound-band",
+      "priority": null,
+      "type": "override",
+      "phase": "initial"
+     },
+     {
+      "key": "flags.draw-steel-combat-tools.bond.shareRecoveryValue",
+      "value": "true",
+      "priority": null,
+      "type": "override",
+      "phase": "initial"
+     },
+     {
+      "key": "flags.draw-steel-combat-tools.bond.shareRecoveries",
+      "value": "true",
+      "priority": null,
+      "type": "override",
+      "phase": "initial"
+     }
+    ],
+    "project": {
+     "prerequisites": "",
+     "source": "",
+     "rollCharacteristic": [],
+     "yield": {
+      "kind": "weapon",
+      "amount": "1",
+      "display": ""
+     }
+    }
+   },
+   "disabled": false,
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": null,
+    "expired": false
+   },
+   "description": "<p>You are bonded through a Bloodbound Band. You can use the highest recovery value of any bonded creature in place of your own, and spend each other's Recoveries as if they were your own.</p>",
+   "tint": "#ffffff",
+   "statuses": [],
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "enhanced": true
+    }
+   },
+   "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.361",
+    "systemId": "draw-steel",
+    "systemVersion": "1.2.0",
+    "createdTime": 1764192847637,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+   },
+   "start": null,
+   "showIcon": 1,
+   "folder": null,
+   "_key": "!items.effects!DSCTdrvF001bldbd.RSTGVD3iEuERHmYI"
+  }
+ ],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "enhancedEffectsOnly": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14",
+  "systemId": "draw-steel",
+  "systemVersion": "1.2.0",
+  "createdTime": null,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTdrvF001bldbd"
+}

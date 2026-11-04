@@ -1,5 +1,6 @@
 import { getSetting } from './helpers.mjs';
 import { isPrimaryGM } from './ctlib.mjs';
+import { onCombatantTurnStart } from './conditions/recurring-damage.mjs';
 
 const _priorGroupInitiative = new Map();
 let _squadBatchInProgress = false;
@@ -42,6 +43,7 @@ export async function fireStartTurn(member, combat, { skipRegionEvents = false }
   const idx = combat.turns.findIndex(c => c === member);
   if (idx < 0) return;
   await member.actor?.system?._onStartTurn?.(member);
+  await onCombatantTurnStart(member);
   const ctx = { round: combat.round, turn: idx, skipped: false };
   const combatProxy = Object.create(combat, {
     combatant: { get: () => member, configurable: true }
@@ -85,7 +87,6 @@ export async function fireEndTurn(member, combat, round) {
   );
 }
 
-
 const _turnStarted = new Set();
 const _startKey = (member) => `${member.id}:${member.combat?.round}:${member.group?.initiative}`;
 
@@ -110,7 +111,6 @@ function _syncSquadMarkerState() {
   if (staleGroup) refreshSquadMarkers(staleGroup, null);
   if (actualGroup) refreshSquadMarkers(actualGroup, game.combat.combatant?.token?.object ?? null);
 }
-
 
 export function refreshSquadTurnMarkers() {
   for (const token of canvas?.tokens?.placeables ?? []) token._refreshTurnMarker?.();
@@ -323,6 +323,11 @@ export function registerSquadTurnHooks() {
   
   
   
+  Hooks.on('refreshToken', (token) => {
+    const wrapper = token._dsctMarkerWrapper ?? _markerWrappers.get(token.id);
+    if (_pixiAlive(wrapper)) wrapper.visible = token.visible;
+  });
+
   Hooks.on('drawToken', (token) => {
     if (_isPreview(token) || !_markerWrappers.has(token.id)) return;
     _mdbg('redraw re-establishing marker for', token.name);
@@ -373,7 +378,7 @@ export function registerSquadTurnHooks() {
 
   Hooks.on('updateCombatantGroup', async (group, changes) => {
     if (!getSetting('squadSimultaneousTurns')) return;
-    if (!game.user.isGM) return;
+    if (!isPrimaryGM()) return;
     if (_squadBatchInProgress) return;
     if (!('initiative' in changes)) return;
     if (group.type !== 'squad' && !(group.type === 'base' && group.members.size > 1)) return;
@@ -408,7 +413,7 @@ export function registerSquadTurnHooks() {
 
   Hooks.on('updateCombatant', async (combatant, changes, options) => {
     if (!getSetting('squadSimultaneousTurns')) return;
-    if (!game.user.isGM) return;
+    if (!isPrimaryGM()) return;
     if (!('initiative' in changes)) return;
     if (options?._dsctSquadBatch) return;
     if (_squadBatchInProgress) return;
@@ -452,7 +457,7 @@ export function registerSquadTurnHooks() {
 
   Hooks.on('combatTurnChange', async (combat, previous, current) => {
     if (!getSetting('squadSimultaneousTurns')) return;
-    if (!game.user.isGM) return;
+    if (!isPrimaryGM()) return;
 
     const prev = combat.combatants.get(previous?.combatantId);
     const prevGroup = getSquadGroup(prev);
@@ -597,13 +602,12 @@ export function registerSquadTurnHooks() {
               const wrapper = new PIXI.Container();
               const { x, y } = this.document;
               wrapper.position.set(x, y);
+              wrapper.visible = this.visible;
               canvas.tokens.addChildAt(wrapper, 0);
               wrapper.addChild(marker);
               _markerWrappers.set(this.id, wrapper);
               this._dsctMarkerWrapper = wrapper;
               this.turnMarker = marker;
-
-
 
               _drawMarker(this);
             } else _redrawIfRestyled(this);

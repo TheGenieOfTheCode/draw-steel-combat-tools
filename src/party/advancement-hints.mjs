@@ -1,5 +1,6 @@
 import { getSetting } from '../helpers.mjs';
 import { L, partyContributors, tallyHolders, markFor } from './overview.mjs';
+import { setTip, tipFor } from '../chat-tips.mjs';
 
 let _leveling = null;
 
@@ -44,14 +45,14 @@ function _annotateTraitPicks(root) {
     if (mark) {
       const icon = document.createElement('i');
       icon.className = `fa-solid ${mark === 'preferred' ? 'fa-star' : 'fa-ban'}`;
-      icon.dataset.tooltip = L(mark === 'preferred' ? 'DSCT.party.preferredTip' : 'DSCT.party.ignoredTip');
+      setTip(icon, tipFor(mark === 'preferred' ? 'partyPreferred' : 'partyIgnored', { body: L(mark === 'preferred' ? 'DSCT.party.preferredTip' : 'DSCT.party.ignoredTip') }));
       badge.append(icon);
     }
     if (holders.length) {
       const count = document.createElement('span');
       count.className = 'dsct-adv-count';
       count.textContent = String(holders.length);
-      count.dataset.tooltip = L('DSCT.party.alreadyHave', { names: holders.join(', ') });
+      setTip(count, tipFor('partyTaken', { body: L('DSCT.party.alreadyHave', { names: holders.join(', ') }) }));
       badge.append(count);
     }
     label.append(badge);

@@ -31,7 +31,7 @@ function _offenders(party) {
 }
 
 const _recentWarning = () =>
-  game.messages.contents.slice(-LOOKBACK).reverse().find(m => m.getFlag(M, FLAG));
+  game.messages.contents.slice(-LOOKBACK).reverse().find(m => m.isAuthor && m.getFlag(M, FLAG));
 
 async function _check() {
   if (game.user.isGM) return;

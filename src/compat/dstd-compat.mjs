@@ -1,18 +1,27 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed } from '../helpers.mjs';
-import { triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks } from '../ability-automation/flat-special-effects.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor, effectStartFor, spendBeyondCost } from '../helpers.mjs';
+import { isOthersEffect, othersSpec, triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks, modifyAttributeSafely } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
-import { runColoredTokenPicker } from '../ability-automation/target-picker.mjs';
-import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
+import { runColoredTokenPicker, runMultiTokenPicker, pickTargetsFor, setFoundryTargets } from '../ability-automation/target-picker.mjs';
+import { pickAreaTargetsFor } from '../ability-automation/area-picker.mjs';
+import { setTip, tipFor } from '../chat-tips.mjs';
+
+const _tip = (el, key, opts = {}) => setTip(el, tipFor(key, opts));
+const _appliedTip = (el, key, title) => setTip(el, tipFor(key, { title, body: game.i18n.localize('DSCT.tip.applied') }));
+import { runForcedMovement, forcedMovementTaken } from '../forced-movement/forced-movement-engine.mjs';
+import { takeRecovery } from '../bonds.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { applyGrab, runGrab, endGrab, grabChat } from '../conditions/grab.mjs';
 import { isNullGrabIntuitionActive, nullIntuitionScore } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { applyFrightened, applyTaunted } from '../conditions/conditions.mjs';
 import { applyStatus, SOURCED_STATUSES } from '../conditions/statuses.mjs';
-import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW, DAMAGE_TYPES, isPrimaryGM, safeUpdate } from '../ctlib.mjs';
+import { services, applicationSignature, registerPanelDecorator, DSTD, DSTD_PANEL, DSTD_ROW, DAMAGE_TYPES, isPrimaryGM, safeUpdate, safeCreateEmbedded, safeSetFlag, executeAsDirector } from '../ctlib.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/ability-automation.mjs';
 import { injectDamagePills, foldDamagePills } from './dstd-damage-pills.mjs';
+import { takesOver } from '../advanced-enrichers/flat-enrichers.mjs';
+import { cleanseMatches } from '../advanced-enrichers/ct-enrichers.mjs';
+import { recoverySpender } from '../ability-automation/recovery-spender.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
-import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords } from '../ability-automation/choose-effect.mjs';
+import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords, chooseAfterPending, settleCriticalChoice } from '../ability-automation/choose-effect.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
 const PANEL_ANCHOR = 'dsct-panel-anchor';
@@ -28,6 +37,14 @@ const _fmExecutingKeys = new Set();
 const _flatCondState = new Map();
 
 function _dmgIcon(type) { return (DAMAGE_TYPES[type] ?? DAMAGE_TYPES.untyped).icon; }
+
+const SPEND_HANDLER = 'dsct.dstdSpendResource';
+
+export async function _spendSourceResource(actor, cost) {
+  const local = actor.system.coreResource?.target === actor ? actor.isOwner : game.user.isGM;
+  if (local) return await actor.system.updateResource(-cost);
+  return await executeAsDirector(getModuleApi(false)?.socket, SPEND_HANDLER, actor.uuid, cost);
+}
 
 function _makeStatusIcon(iconSrc) {
   if (!iconSrc) {
@@ -146,9 +163,65 @@ function _creditPanelEffect(effect, data) {
   }
 }
 
+const NEAREST_FIRST = /starting with the (?:target|creature)s? nearest to you/i;
+
+const _abilitySaysNearest = (abilityUuid) => {
+  const ability = abilityUuid ? fromUuidSync(abilityUuid) : null;
+  return [...(ability?.system?.effects?.contents ?? [])].some((e) => NEAREST_FIRST.test(e.description ?? ''));
+};
+
+const _targetKey = (t) => t?.tokenUuid ?? t?.actorUuid ?? '';
+
+function _nearestFirst(state, targets) {
+  if (!Array.isArray(targets) || targets.length < 2) return null;
+  if (getSetting('sortTargetsNearest') !== 'all' && !_abilitySaysNearest(state?.abilityUuid)) return null;
+  const source = state?.sourceTokenUuid ? fromUuidSync(state.sourceTokenUuid)?.object : null;
+  if (!source) return null;
+  const reach = (t) => {
+    const token = t?.tokenUuid ? fromUuidSync(t.tokenUuid)?.object : null;
+    if (!token) return Infinity;
+    const rise = Math.abs((source.document.elevation ?? 0) - (token.document.elevation ?? 0)) * canvas.grid.distance;
+    return Math.max(tokFootprintDist(source, token), rise);
+  };
+  const sorted = targets.map((t) => ({ t, d: reach(t) })).sort((a, b) => a.d - b.d).map((e) => e.t);
+  return sorted.some((t, i) => t !== targets[i]) ? sorted : null;
+}
+
+function _sortNewPanelTargets(message, _data, _options, userId) {
+  if (userId !== game.userId) return;
+  const state = message.flags?.[DSTD]?.state;
+  const sorted = _nearestFirst(state, state?.targets);
+  if (sorted) message.updateSource({ [`flags.${DSTD}.state.targets`]: sorted });
+}
+
+function _sortUpdatedPanelTargets(message, changes) {
+  const path = `flags.${DSTD}.state.targets`;
+  const flat = path in changes;
+  const next = flat ? changes[path] : foundry.utils.getProperty(changes, path);
+  if (!Array.isArray(next)) return;
+  const stored = message.flags?.[DSTD]?.state ?? {};
+  const had = new Set((stored.targets ?? []).map(_targetKey));
+  if (had.size === next.length && next.every((t) => had.has(_targetKey(t)))) return;
+  const sorted = _nearestFirst({ ...stored, ...(foundry.utils.getProperty(changes, `flags.${DSTD}.state`) ?? {}) }, next);
+  if (!sorted) return;
+  if (flat) changes[path] = sorted;
+  else foundry.utils.setProperty(changes, path, sorted);
+}
+
 export function registerDstdCompat() {
   const dbg = getSetting('debugMode');
+  const messageProto = foundry.documents.ChatMessage.prototype;
+  if (game.modules.get(DSTD)?.active && !('user' in messageProto)) {
+    Object.defineProperty(messageProto, 'user', { get() { return this.author; }, configurable: true });
+  }
   Hooks.on('preCreateActiveEffect', _creditPanelEffect);
+  Hooks.once('ready', () => getModuleApi(false)?.socket?.register(SPEND_HANDLER, async (uuid, cost) => {
+    const actor = await fromUuid(uuid);
+    if (actor) await actor.system.updateResource(-cost);
+  }));
+  
+  Hooks.once('ready', () => Hooks.on('preCreateChatMessage', _sortNewPanelTargets));
+  Hooks.on('preUpdateChatMessage', _sortUpdatedPanelTargets);
 
   
   registerPanelDecorator({ id: 'combat-tools-prelude', priority: 20, ignore: ['.dsct-dstd-fm-row', '.dsct-dstd-squad'], decorate: ({ message, panel }) => {
@@ -166,6 +239,15 @@ export function registerDstdCompat() {
     _lockSweptSquadUndos(panel, message);
   } });
   registerPanelDecorator({ id: 'combat-tools-forced-movement', priority: 100, decorate: ({ message, root }) => _injectFmButtons(message, root) });
+  registerPanelDecorator({ id: 'combat-tools-auto-apply', priority: 300, retry: [400], decorate: ({ message, panel }) => _autoApplyOwn(message, panel) });
+  registerPanelDecorator({ id: 'combat-tools-potency-deferred', priority: 310, retry: [400], decorate: ({ message, panel }) => _applyDeferredPotency(message, panel) });
+  Hooks.on('createChatMessage', (message, _options, userId) => {
+    if (userId === game.user.id && getSetting('autoApplyOwnAbilities')) _autoApplyEligible.add(message.id);
+  });
+  services.provide('abilityResolving', _abilityResolving);
+  services.provide('reapplyDamageRow', _reapplyDamageRow);
+  services.provide('redealDamageRow', _redealDamageRow);
+  services.provide('undoDamageRow', _undoDamageRow);
 
   
   
@@ -180,6 +262,7 @@ export function registerDstdCompat() {
     
     try { _seedPanelAnchor(message, root); }
     catch (err) { if (getSetting('debugMode')) console.warn('DSCT | panel anchor |', err); }
+    _watchUpdateTargets(message, root);
     const msgId = message.id;
     setTimeout(() => {
 
@@ -276,7 +359,8 @@ export function registerDstdCompat() {
     if (tp) {
       _tpUndoIndex.delete(msg.id);
       _syncTeleportRow(tp, { applied: false, undoMsgId: null, distance: null });
-      tp.message.setFlag(M, tp.tpKey, { applied: false, undoMsgId: null, distance: null }).catch(() => {});
+      if (isPrimaryGM() || (!game.users.activeGM && tp.message.isOwner))
+        tp.message.setFlag(M, tp.tpKey, { applied: false, undoMsgId: null, distance: null }).catch(() => {});
     }
     const entry = _fmUndoIndex.get(msg.id);
     if (!entry) return;
@@ -290,7 +374,7 @@ export function registerDstdCompat() {
     const newState = { ...cur, applied: false };
     _fmState.set(stateKey, newState);
     const eff = _effectiveState(baseState, newState.modStack);
-    _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, flatDisplayOverride || _makeLabel(eff), _stabInfo(tokenUuid, eff), !!flatDisplayOverride);
+    _syncRow(fmRow, applyBtn, undoBtn, modBtn, newState, _flatFmLabel(flatDisplayOverride, eff), _stabInfo(tokenUuid, eff), !!flatDisplayOverride);
     if (quickBtn) _syncQuickBtn(quickBtn, newState, movementType, eff.distance);
     if (flagEntry?.applied) _persistDstdState(message, subKey, newState);
   });
@@ -354,8 +438,300 @@ const _withOneToast = async (fn) => {
   }
 };
 
+const _autoApplyEligible = new Set();
+
+async function _reapplyDamageRow(message, targetKey) {
+  if (!message?.getFlag(M, 'autoApplied')) return false;
+  for (let i = 0; i < 20; i++) {
+    const row = document.querySelector(`#chat li.chat-message[data-message-id="${message.id}"]`)
+      ?.querySelector(DSTD_PANEL)?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(targetKey)}"]`);
+    const btn = row ? [...row.querySelectorAll('button[data-dstd-action="applyDamage"]')].find(b => !b.disabled && !b.closest('.is-applied')) : null;
+    if (btn) { btn.click(); return true; }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  return false;
+}
+
+const _damageRowOf = (message, targetKey) => document.querySelector(`#chat li.chat-message[data-message-id="${message?.id}"]`)
+  ?.querySelector(DSTD_PANEL)?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(targetKey)}"]`);
+
+async function _undoDamageRow(message, targetKey) {
+  const undo = [...(_damageRowOf(message, targetKey)?.querySelectorAll('button[data-dstd-action="undoDamage"]') ?? [])].find(b => !b.disabled);
+  if (!undo) return false;
+  undo.click();
+  return true;
+}
+
+async function _redealDamageRow(message, targetKey) {
+  const row = () => _damageRowOf(message, targetKey);
+  if (!await _undoDamageRow(message, targetKey)) return false;
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 150));
+    const btn = row() ? [...row().querySelectorAll('button[data-dstd-action="applyDamage"]')].find(b => !b.disabled && !b.closest('.is-applied')) : null;
+    if (btn) { btn.click(); return true; }
+  }
+  return false;
+}
+
+async function _autoApplyOwn(message, panel) {
+  if (!panel || !_autoApplyEligible.has(message.id)) return;
+  if (!getSetting('autoApplyOwnAbilities') || message.getFlag(M, 'autoApplied')) return void _autoApplyEligible.delete(message.id);
+  const rows = [...panel.querySelectorAll(DSTD_ROW)].filter(r => r.dataset.targetKey && r.dataset.targetKey !== 'selected-token');
+  const autoEnrichers = !!panel.closest('li.chat-message')?.querySelector('enriched-content.dsct-adv[data-adv-auto]');
+  if (!autoEnrichers && !rows.some(r => _effectRows(r).some(_autoButton))) return;
+  const abilityUuid = _getMessageParts(message).find(p => p.abilityUuid)?.abilityUuid ?? message.flags?.[DSTD]?.state?.abilityUuid;
+  const ability = abilityUuid ? fromUuidSync(abilityUuid) : null;
+  _autoApplyEligible.delete(message.id);
+  if (!isOwnAbilityActor(ability?.actor)) return;
+  await safeSetFlag(message, M, 'autoApplied', true);
+  if (getSetting('potencyChecks') === 'apply') _potencyWatch.set(message.id, new Set());
+  _autoRunning.add(message.id);
+  try {
+    await new Promise(r => setTimeout(r, AUTO_APPLY_SETTLE_MS));
+    const squadsOnCard = rows.map(r => _squadOfRow(r)?.id).filter(Boolean);
+    await _applyEffectsInOrder(message.id, panel.ownerDocument, { safe: true });
+    await _noteSquadsSwept(message, squadsOnCard);
+  } finally {
+    _autoRunning.delete(message.id);
+  }
+}
+
+const PROMPT_WAIT_MS = 120000;
+
+const _promptOpen = () => !!document.getElementById('dsct-picker-topbar')
+  || document.body.classList.contains('dsct-picker-lock')
+  || !!document.getElementById('dsct-vertical-popup')
+  || [...foundry.applications.instances.values()].some(a => a.rendered
+    && (a instanceof foundry.applications.api.DialogV2 || /^(TargetedConditionPrompt|DefeatedMinionSelection)$/.test(a.constructor.name)));
+
+const _sourceOnCanvas = (message) => {
+  const uuid = message?.flags?.[DSTD]?.state?.sourceTokenUuid;
+  return !!(uuid && fromUuidSync(uuid)?.object);
+};
+
+const _wouldPrompt = (actionRow, btn, message) => {
+  const targetRow = actionRow.closest(DSTD_ROW);
+  const status = (btn.dataset.dsctDstdCond ?? '').match(/:cond:([\w-]+)$/)?.[1]
+    ?? (btn.dataset.dsctEnrichKey ?? '').match(/:enrich:([\w-]+)$/)?.[1]
+    ?? btn.dataset.dsctStatus ?? null;
+  if (status && SOURCED_STATUSES.has(status)) {
+    if (!getSetting('conditionsEnabled')) return true;
+    const others = canvas.tokens.controlled.filter(t => t.document.uuid.replace(/\./g, '__') !== targetRow?.dataset.targetKey).length;
+    if ((btn.dataset.dsctStatus || !_sourceOnCanvas(message)) && others !== 1) return true;
+  }
+  if (actionRow.classList.contains('dsct-dstd-fm-row')) {
+    if (/\b(Vertical|Slide)\b/.test(btn.textContent) || targetRow?.dataset.targetKey === 'selected-token') return true;
+    if (!_sourceOnCanvas(message) && canvas.tokens.controlled.length !== 1) return true;
+  }
+  return false;
+};
+
+const AUTO_APPLY_SETTLE_MS = 600;
+const FM_SETTLE_MAX_MS = 15000;
+const NOT_APPLY = new Set(['undoDamage', 'undoStatus', 'editDamage', 'editRoll', 'updateTargets', 'rollReactive']);
+const TEXT_FREE_STRIKE = 'dstFreeStrike000';
+
+const _effectRows = (targetRow) => [...targetRow.querySelectorAll(`.${DSTD}-action-row`)].filter(r => !r.classList.contains('dsct-dstd-global-row'));
+
+const POTENCY_TEXT = /\{\{\s*potency\s*\}\}/i;
+
+const _tierHasPotency = (powerEffect, tier) => {
+  let display = '';
+  let characteristic = null;
+  for (let i = Number(tier); i >= 1; i--) {
+    const data = powerEffect?.applied?.[`tier${i}`];
+    display ||= String(data?.display ?? '').trim();
+    if (!characteristic && ds.CONFIG.characteristics?.[data?.potency?.characteristic]) characteristic = data.potency.characteristic;
+  }
+  return !!characteristic && POTENCY_TEXT.test(display);
+};
+
+const _tierEffectIds = (powerEffect, tier) => {
+  const effects = powerEffect?.applied?.[`tier${tier}`]?.effects;
+  return effects instanceof Map ? [...effects.keys()] : Object.keys(effects ?? {});
+};
+
+const _statusHasPotency = (btn, message) => {
+  const uuid = (message?.system?.parts?.contents ?? []).find(p => p.abilityUuid)?.abilityUuid;
+  const ability = uuid ? fromUuidSync(uuid) : null;
+  const tier = Number(btn.dataset.tier);
+  if (!ability || !tier) return false;
+  return (ability.system?.power?.effects ?? []).some(e => e.type === 'applied'
+    && _tierEffectIds(e, tier).includes(btn.dataset.effectId) && _tierHasPotency(e, tier));
+};
+
+const _rowMessage = (actionRow, message) => message ?? game.messages.get(actionRow.closest('li.chat-message')?.dataset.messageId);
+
+const TRIGGERS_ID = 'draw-steel-triggers';
+const HELD_KINDS = new Set(['held', 'damageHeld', 'resolutionHeld']);
+const HOLD_GRACE_MS = 150;
+const HOLD_WAIT_MS = 600000;
+
+const _heldNow = (msgId) => !!game.modules.get(TRIGGERS_ID)?.api?.getQueueMirror?.()?.some(e => HELD_KINDS.has(e.kind))
+  || Object.values(game.messages.get(msgId)?.flags?.[DSTD]?.state?.applications ?? {}).some(a => a?.dstHeld);
+
+const _waitForChoice = async (msgId) => {
+  const pending = () => { const m = game.messages.get(msgId); return !!m && chooseAfterPending(m); };
+  if (!pending()) return true;
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  const until = Date.now() + HOLD_WAIT_MS;
+  while (pending() && Date.now() < until) await wait(200);
+  if (pending()) return false;
+  await wait(AUTO_APPLY_SETTLE_MS);
+  return true;
+};
+
+export const _waitForHolds = async (msgId) => {
+  if (!game.modules.get(TRIGGERS_ID)?.active) return true;
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  await wait(HOLD_GRACE_MS);
+  const until = Date.now() + HOLD_WAIT_MS;
+  while (_heldNow(msgId) && Date.now() < until) await wait(200);
+  return !_heldNow(msgId);
+};
+
+const _damageHeld = (actionRow, message) => {
+  const opId = actionRow.closest(DSTD_ROW)?.querySelector('button[data-dstd-action="applyDamage"]')?.dataset.operationId;
+  return !!(opId && _rowMessage(actionRow, message)?.flags?.[DSTD]?.state?.applications?.[opId]?.dstHeld);
+};
+
+const _potencyWatch = new Map();
+const _autoRunning = new Set();
+
+const _autoButton = (actionRow, safe = false, message = null) => {
+  if (!actionRow || actionRow.matches('[data-dsct-manual]')) return null;
+
+  const verdict = getSetting('potencyChecks') === 'apply' ? actionRow.dataset.dsctPotencyVerdict ?? null : null;
+  if (verdict === 'resisted' || (verdict !== 'affected' && actionRow.matches('[data-dsct-potency]'))) return null;
+  if (verdict === 'affected' && _damageHeld(actionRow, message)) return null;
+  const btn = [...actionRow.children].find(c => c.tagName === 'BUTTON');
+  if (!btn || btn.disabled || NOT_APPLY.has(btn.dataset.dstdAction) || btn.classList.contains(`${DSTD}-undo-button`)) return null;
+  if (btn.dataset.partId === TEXT_FREE_STRIKE) return null;
+  if (btn.dataset.dstdAction === 'applyStatus' && verdict !== 'affected' && _statusHasPotency(btn, message)) return null;
+  if (actionRow.classList.contains('dsct-dstd-fm-row') && !/\bAuto\b/.test(btn.textContent)) return null;
+  if (safe && _wouldPrompt(actionRow, btn, message)) return null;
+  return btn;
+};
+
+const _rowKey = (actionRow) => {
+  const btn = [...actionRow.children].find(c => c.tagName === 'BUTTON');
+  return btn?.dataset.operationId ?? btn?.dataset.dsctFlatCondKey ?? btn?.dataset.dsctDstdCond ?? null;
+};
+
+async function _applyDeferredPotency(message, panel) {
+  const tried = _potencyWatch.get(message.id);  if (!panel || !tried || _autoRunning.has(message.id)) return;
+  if (getSetting('potencyChecks') !== 'apply') return void _potencyWatch.delete(message.id);
+  let waiting = false;
+  for (const row of panel.querySelectorAll(DSTD_ROW)) {
+    for (const actionRow of _effectRows(row)) {
+      const key = _rowKey(actionRow);
+      if (!key || tried.has(key)) continue;
+      if (actionRow.classList.contains('is-applied')) { tried.add(key); continue; }
+      const verdict = actionRow.dataset.dsctPotencyVerdict;
+      const first = [...actionRow.children].find(c => c.tagName === 'BUTTON');
+      const potencyRow = !!verdict || actionRow.matches('[data-dsct-potency]')
+        || (first?.dataset.dstdAction === 'applyStatus' && _statusHasPotency(first, message));
+      if (!potencyRow) continue;
+      if (!verdict || _damageHeld(actionRow, message)) { waiting = true; continue; }
+      if (verdict !== 'affected') continue;
+      const btn = _autoButton(actionRow, true, message);
+      if (!btn) continue;
+      tried.add(key);
+      return void btn.click();
+    }
+  }
+  if (!waiting) _potencyWatch.delete(message.id);
+}
+
+const _resolving = new Set();
+
+const _abilityResolving = (item) => {
+  const message = game.messages.contents.findLast(m => _getMessageParts(m).some(p => p.abilityUuid === item?.uuid));
+  return !!message && (_resolving.has(message.id) || !!services.get('areaEnrichersPending')?.(message));
+};
+
+const _applyEffectsInOrder = (msgId, msgDoc, opts) => {
+  _resolving.add(msgId);
+  return _applyInOrder(msgId, msgDoc, opts).finally(() => _resolving.delete(msgId));
+};
+
+const _applyInOrder = (msgId, msgDoc, { safe = false } = {}) => _withOneToast(async () => {
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  const panelNow = () => msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`)?.querySelector(DSTD_PANEL);
+  const rowOf = (key) => panelNow()?.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(key)}"]`);
+  const actionAt = (key, col) => (rowOf(key) ? _effectRows(rowOf(key))[col] : null);
+  let keys = [];
+  const targetsBefore = [...game.user.targets].map(t => t.id);
+  const runColumn = (col) => damageBatch(async () => {
+    let anyRow = false;
+    let damaged = false;
+    for (const key of keys) {
+      const actionRow = actionAt(key, col);
+      if (!actionRow) continue;
+      anyRow = true;
+      const message = game.messages.get(msgId);
+      const btn = _autoButton(actionRow, safe, message);
+      if (!btn) continue;
+      const isFm = actionRow.classList.contains('dsct-dstd-fm-row');
+      const before = applicationSignature(message);
+      if (btn.dataset.dstdAction === 'applyDamage') damaged = true;
+      btn.click();
+      if (isFm) {
+        await wait(150);
+        const until = Date.now() + FM_SETTLE_MAX_MS;
+        while ((window._dsctFMActive || actionAt(key, col)?.classList.contains('is-executing')) && !_promptOpen() && Date.now() < until) await wait(50);
+      } else if (btn.dataset.dstdAction) {
+        await _dstdRowLanded(btn);
+      } else {
+        const until = Date.now() + ROW_SETTLE_MAX_MS;
+        while (Date.now() < until && applicationSignature(game.messages.get(msgId)) === before
+          && _autoButton(actionAt(key, col))) await wait(25);
+      }
+      const promptUntil = Date.now() + PROMPT_WAIT_MS;
+      while (_promptOpen() && Date.now() < promptUntil) await wait(100);
+      if (_promptOpen()) return { stop: true };
+      if (!(await _waitForHolds(msgId))) return { stop: true };
+      await wait(ROW_REDRAW_MS);
+    }
+    return { anyRow, damaged };
+  });
+  
+  try {
+    if (!(await _waitForHolds(msgId))) return;
+    if (await settleCriticalChoice(game.messages.get(msgId))) await wait(AUTO_APPLY_SETTLE_MS);
+    if (!(await _waitForChoice(msgId))) return;
+    if (await services.get('settleChainTargets')?.(game.messages.get(msgId))) await wait(AUTO_APPLY_SETTLE_MS);
+    if (await _settleOthersPicks(msgId, msgDoc)) await wait(AUTO_APPLY_SETTLE_MS);
+    const apply =(phase) => services.get('applyAutoEnrichers')?.(game.messages.get(msgId), msgDoc, phase);
+    let damagedAny = !!(await damageBatch(() => apply('damage')));
+    if (damagedAny && !(await _waitForHolds(msgId))) return;
+    keys = [...(panelNow()?.querySelectorAll(DSTD_ROW) ?? [])].map(r => r.dataset.targetKey).filter(k => k && k !== 'selected-token');
+    for (let col = 0; ; col++) {
+      const { stop, anyRow, damaged } = await runColumn(col);
+      if (stop) return;
+      if (!anyRow) break;
+      damagedAny ||= damaged;
+      if (damaged && keys.some(key => actionAt(key, col + 1))) await services.get('settleDeaths')?.();
+    }
+    if (damagedAny) await services.get('settleDeaths')?.();
+    await apply('rest');
+  } finally {
+    if (canvas.ready) {
+      const keep = new Set(targetsBefore);
+      for (const t of [...game.user.targets]) if (!keep.has(t.id)) t.setTarget(false, { releaseOthers: false, groupSelection: true });
+      for (const id of keep) canvas.tokens.get(id)?.setTarget(true, { releaseOthers: false, groupSelection: true });
+    }
+  }
+});
+
 const ROW_SETTLE_MAX_MS = 500;
 const ROW_REDRAW_MS = 60;
+const ROW_LAND_MAX_MS = 10000;
+
+const _dstdRowLanded = async (btn) => {
+  const until = Date.now() + ROW_LAND_MAX_MS;
+  while (Date.now() < until && btn.isConnected && btn.disabled && !_promptOpen()) await new Promise(r => setTimeout(r, 25));
+};
 
 const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock = false) => damageBatch(() => _withOneToast(async () => {
   
@@ -378,6 +754,7 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock =
         const before = applicationSignature(game.messages.get(msgId));
         btn.click();
         clicked = true;
+        if (btn.dataset.dstdAction) await _dstdRowLanded(btn);
         const until = Date.now() + ROW_SETTLE_MAX_MS;
         while (Date.now() < until && applicationSignature(game.messages.get(msgId)) === before) {
           await new Promise(r => setTimeout(r, 25));
@@ -395,16 +772,29 @@ const _clickRowsSequentially = (msgId, msgDoc, getBtn, onlyKeys = null, unlock =
   }
 }));
 
+const _canUndoAll = (rows, message) => {
+  if (game.user.isGM) return true;
+  const damaged = rows.filter(r => r.querySelector(`.${DSTD}-damage-row.is-applied, .${DSTD}-damage-row.has-stack`));
+  const undoOf = (r) => r.querySelector('[data-dstd-action="undoDamage"]');
+  if (!damaged.every(r => undoOf(r) && !undoOf(r).disabled)) return false;
+  const uuid = (message?.system?.parts?.contents ?? []).find(p => p.abilityUuid)?.abilityUuid;
+  if (uuid && fromUuidSync(uuid)?.isOwner) return true;
+  const records = message?.flags?.[DSTD]?.state?.applications ?? {};
+  return damaged.every((r) => {
+    const record = records[undoOf(r).dataset.operationId];
+    return (record?.appliedByUserId ?? record?.stack?.at?.(-1)?.appliedByUserId) === game.user.id;
+  });
+};
+
 function _installGlobalDamageButtons(panel, message) {
   panel.querySelector('.dsct-dstd-global-row')?.remove();
 
   const targetRows = [...panel.querySelectorAll(DSTD_ROW)];
   if (targetRows.length <= 1) return;
 
-  const applyBtns = targetRows.map(r => r.querySelector('[data-dstd-action="applyDamage"]')).filter(Boolean);
   const undoBtns  = targetRows.map(r => r.querySelector('[data-dstd-action="undoDamage"]')).filter(Boolean);
-  const anyApplyEnabled = applyBtns.some(b => !b.disabled);
-  const anyUndoEnabled  = undoBtns.some(b => !b.disabled);
+  const anyApplyEnabled = targetRows.some(r => _effectRows(r).some(_autoButton));
+  const anyUndoEnabled  = undoBtns.some(b => !b.disabled) && _canUndoAll(targetRows, message);
   if (!anyApplyEnabled && !anyUndoEnabled) return;
 
   const msgId  = message.id;
@@ -416,14 +806,14 @@ function _installGlobalDamageButtons(panel, message) {
   applyAllBtn.type = 'button';
   applyAllBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
   applyAllBtn.disabled = !anyApplyEnabled;
-  applyAllBtn.dataset.tooltip = 'Apply damage to all targets';
+  _tip(applyAllBtn, 'applyAll');
   applyAllBtn.append(_makeIcon('fa-solid fa-check-double'), _makeSpan('Apply All'));
 
   const undoAllBtn = document.createElement('button');
   undoAllBtn.type = 'button';
   undoAllBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
   undoAllBtn.disabled = !anyUndoEnabled;
-  undoAllBtn.dataset.tooltip = 'Undo damage for all targets';
+  _tip(undoAllBtn, 'undoAll');
   undoAllBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
   applyAllBtn.addEventListener('click', async (e) => {
@@ -432,13 +822,13 @@ function _installGlobalDamageButtons(panel, message) {
     applyAllBtn.disabled = true;
 
     const squadsOnCard = targetRows.map(r => _squadOfRow(r)?.id).filter(Boolean);
-    await _clickSequentially(row => row.querySelector('[data-dstd-action="applyDamage"]'));
+    await _applyEffectsInOrder(msgId, msgDoc);
     await _noteSquadsSwept(message, squadsOnCard);
   });
 
   undoAllBtn.addEventListener('click', async (e) => {
     e.stopPropagation(); e.preventDefault();
-    if (undoAllBtn.disabled) return;
+    if (undoAllBtn.disabled || !_canUndoAll(targetRows, game.messages.get(msgId))) return;
     undoAllBtn.disabled = true;
     const squadsOnCard = targetRows.map(r => _squadOfRow(r)?.id).filter(Boolean);
     await _clickSequentially(row => row.querySelector('[data-dstd-action="undoDamage"]'), true);
@@ -529,7 +919,7 @@ const _guardLockedUndos = () => {
     if (!btn) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    ui.notifications.info(btn.dataset.tooltip || game.i18n.format('DSCT.tooltip.undoWholeSquad', { group: '' }));
+    ui.notifications.info(game.i18n.format('DSCT.tooltip.undoWholeSquad', { group: btn.dataset.dsctSquadName ?? '' }));
   }, true);
 };
 
@@ -542,7 +932,8 @@ function _lockSweptSquadUndos(panel, message) {
     if (!undo) continue;
     if (!squad || !swept.has(squad.id)) { undo.classList.remove('dsct-squad-undo-locked'); continue; }
     undo.classList.add('dsct-squad-undo-locked');
-    undo.dataset.tooltip = game.i18n.format('DSCT.tooltip.undoWholeSquad', { group: squad.name });
+    undo.dataset.dsctSquadName = squad.name;
+    _tip(undo, 'squadUndoLocked', { data: { group: squad.name } });
   }
 }
 
@@ -551,7 +942,7 @@ function _installSquadButtons(hdr, message, panel, squad) {
   const msgId = message.id;
   const msgDoc = panel.ownerDocument;
 
-  const enabled = (action) => squad.rows.some((r) => {
+  const enabled = (action) => (action !== 'undoDamage' || _canUndoAll(squad.rows, message)) && squad.rows.some((r) => {
     const b = r.querySelector(`[data-dstd-action="${action}"]`);
     return b && !b.disabled;
   });
@@ -560,7 +951,7 @@ function _installSquadButtons(hdr, message, panel, squad) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `${DSTD}-icon-button dsct-dstd-squad-btn ${cls} ${extra}`.trim();
-    btn.dataset.tooltip = game.i18n.format(tooltip, { group: squad.name });
+    _tip(btn, tooltip, { data: { group: squad.name } });
     btn.disabled = !enabled(action);
     btn.append(_makeIcon(icon));
     btn.addEventListener('click', async (e) => {
@@ -582,8 +973,8 @@ function _installSquadButtons(hdr, message, panel, squad) {
   };
 
   hdr.append(
-    make('dsct-dstd-squad-apply', 'fa-solid fa-check-double', 'DSCT.tooltip.squadApplyAll', 'applyDamage'),
-    make('dsct-dstd-squad-undo', 'fa-solid fa-rotate-left', 'DSCT.tooltip.squadUndoAll', 'undoDamage', `${DSTD}-undo-button`),
+    make('dsct-dstd-squad-apply', 'fa-solid fa-check-double', 'squadApply', 'applyDamage'),
+    make('dsct-dstd-squad-undo', 'fa-solid fa-rotate-left', 'squadUndo', 'undoDamage', `${DSTD}-undo-button`),
   );
 }
 
@@ -797,7 +1188,8 @@ function _syncResourceRow({ resRow, resBtn, undoBtn, label, compact }, state) {
   resRow.classList.toggle('is-applied', applied);
   if (compact) resBtn.dataset.dsctCompact = compact;
   const text = applied ? resourceAppliedLabel(state) : label;
-  resBtn.dataset.tooltip = text;
+  if (applied) _appliedTip(resBtn, 'resource', text);
+  else _tip(resBtn, 'resource', { title: text });
   const span = resBtn.querySelector('span');
   if (span) span.textContent = text;
   undoBtn.disabled = !applied;
@@ -811,7 +1203,8 @@ function _syncTeleportRow({ tpRow, tpBtn, undoBtn, label }, state) {
     : (state.distance == null
       ? game.i18n.localize('DSCT.FlatEffect.Teleport.applied')
       : game.i18n.format('DSCT.FlatEffect.Teleport.appliedDist', { distance: state.distance }));
-  tpBtn.dataset.tooltip = text;
+  if (applied) _appliedTip(tpBtn, 'teleport', text);
+  else _tip(tpBtn, 'teleport', { title: text });
   const span = tpBtn.querySelector('span');
   if (span) span.textContent = text;
   undoBtn.disabled = !applied || !state?.undoMsgId;
@@ -842,6 +1235,7 @@ function _buildBaseState(movementType, distance, properties, verticalDistance, f
     noMoverCollisionDamage:    properties.has('no-mover-collision-damage'),
     noObstacleCollisionDamage:  properties.has('no-obstacle-collision-damage'),
     ignoreStability:           properties.has('ignore-stability'),
+    safely:                    properties.has('safely'),
     fastMove:          properties.has('fast-auto-path'),
     sourceTokenId:     null,
   };
@@ -850,6 +1244,12 @@ function _buildBaseState(movementType, distance, properties, verticalDistance, f
 const _spendSuffix = (spend) => (spend?.enabled
   ? ` ${game.i18n.format('DSCT.FlatEffect.spend.costSuffix', { cost: spend.value ?? 1 })}`
   : '');
+
+function _flatFmLabel(override, state) {
+  if (!override) return _makeLabel(state);
+  const named = /\d/.test(override) ? override : `${override} ${state.distance}`;
+  return state.fastMove ? `Auto ${named}` : named;
+}
 
 function _makeLabel(state) {
   return [
@@ -889,23 +1289,24 @@ function _syncQuickBtn(btn, state, movementType, distance) {
   if (state.applied) {
     btn.disabled = true;
     btn.replaceChildren(_makeIcon('fa-solid fa-check'));
-    btn.dataset.tooltip = 'FM Applied';
+    _tip(btn, 'fmQuickApplied');
   } else {
     btn.disabled = false;
     btn.replaceChildren(_makeIcon(_fmQuickIcon(movementType)), _makeSpan(String(distance)));
-    btn.dataset.tooltip = `${movementType.charAt(0).toUpperCase() + movementType.slice(1)} ${distance}`;
+    _tip(btn, 'fmQuick', { title: `${movementType.charAt(0).toUpperCase() + movementType.slice(1)} ${distance}` });
   }
 }
 
 function _stabInfo(tokenUuid, effState) {
-  const stab = tokenUuid ? (fromUuidSync(tokenUuid)?.actor?.system?.combat?.stability ?? 0) : 0;
-  return { stab, ignores: !!effState?.ignoreStability };
+  const actor = tokenUuid ? fromUuidSync(tokenUuid)?.actor : null;
+  return { stab: actor?.system?.combat?.stability ?? 0, ignores: !!effState?.ignoreStability, taken: forcedMovementTaken(actor) };
 }
 
 function _stabSuffix(stabInfo, applied) {
-  if (!(stabInfo?.stab > 0)) return '';
-  if (stabInfo.ignores) return ' (Ignores Stability)';
-  return applied ? ` (Stability ${stabInfo.stab})` : ` (vs Stability ${stabInfo.stab})`;
+  const taken = stabInfo?.taken ? ` (+${stabInfo.taken} Moved Farther)` : '';
+  if (!(stabInfo?.stab > 0)) return taken;
+  if (stabInfo.ignores) return `${taken} (Ignores Stability)`;
+  return taken + (applied ? ` (Stability ${stabInfo.stab})` : ` (vs Stability ${stabInfo.stab})`);
 }
 
 function _setRowExecuting(fmRow, applyBtn, undoBtn, modBtn, quickBtn) {
@@ -913,7 +1314,7 @@ function _setRowExecuting(fmRow, applyBtn, undoBtn, modBtn, quickBtn) {
   fmRow.classList.remove('is-applied', 'is-undone');
   applyBtn.disabled = true;
   applyBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right fa-fade'), _makeSpan('Forced Movement in Progress'));
-  applyBtn.dataset.tooltip = 'Forced Movement in Progress';
+  _tip(applyBtn, 'fmRunning');
   undoBtn.disabled = true;
   modBtn.disabled  = true;
   if (quickBtn) quickBtn.disabled = true;
@@ -942,23 +1343,23 @@ function _syncRow(fmRow, applyBtn, undoBtn, modBtn, state, label, stabInfo = nul
   fmRow.classList.remove('is-executing');
   if (state.redirected) {
     applyBtn.replaceChildren(_makeIcon('fa-solid fa-shuffle'), _makeSpan(`Redirected: ${state.redirected.newTargetName || state.redirected.newTargetKey}`));
-    applyBtn.dataset.tooltip = state.redirected.modName || label;
+    _tip(applyBtn, 'fmRedirected', { title: state.redirected.modName || label });
     fmRow.classList.add('is-redirected');
     fmRow.classList.remove('is-applied', 'is-undone');
     applyBtn.disabled = true;
     undoBtn.disabled = false;
-    undoBtn.dataset.tooltip = 'Undo Redirect';
+    _tip(undoBtn, 'fmRedirectUndo');
     modBtn.disabled = true;
     return;
   }
   fmRow.classList.remove('is-redirected');
-  undoBtn.dataset.tooltip = 'Undo FM';
+  _tip(undoBtn, 'fmUndo');
   const suffix  = _stabSuffix(stabInfo, state.applied);
   const fmLabel = verbatim
     ? (state.applied ? `Applied: ${label}` : label) + suffix
     : (state.applied ? `Applied ${label}` : `Apply ${label}`) + suffix;
   applyBtn.replaceChildren(_makeIcon('fa-solid fa-person-walking-arrow-right'), _makeSpan(fmLabel));
-  applyBtn.dataset.tooltip = fmLabel;
+  _tip(applyBtn, state.applied ? 'fmApplied' : 'fm', { title: fmLabel });
   if (state.applied) {
     fmRow.classList.add('is-applied');
     fmRow.classList.remove('is-undone');
@@ -1123,6 +1524,38 @@ const _dstdLoc = (key, data) => {
   return out === full ? null : out;
 };
 
+const UPDATE_TARGETS = '[data-dstd-action="updateTargets"], [data-dsct-update-targets]';
+
+export async function _repickForMessage(message) {
+  const abilityUuid = _getMessageParts(message).find(p => p.abilityUuid)?.abilityUuid ?? message.flags?.[DSTD]?.state?.abilityUuid;
+  const ability = abilityUuid ? await fromUuid(abilityUuid).catch(() => null) : null;
+  if (!ability) return undefined;
+  const area = await pickAreaTargetsFor(ability);
+  return area !== undefined ? area : pickTargetsFor(ability);
+}
+
+function _watchUpdateTargets(message, root) {
+  if (root.dataset.dsctRepick) return;
+  root.dataset.dsctRepick = '1';
+  root.addEventListener('click', async (event) => {
+    const button = event.target.closest?.(UPDATE_TARGETS);
+    if (!button) return;
+    if (button.dataset.dsctRepicked) { delete button.dataset.dsctRepicked; return; }
+    if (!getSetting('abilityTargetingEnabled')) return;
+    if (game.user.targets.size && !getSetting('alwaysRepickTargets')) return;
+    if (!game.user.isGM && !message.isOwner && message.author?.id !== game.user.id) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const picked = await _repickForMessage(message);
+    if (picked === null) return;
+    if (picked) setFoundryTargets(picked);
+    const live = button.isConnected ? button
+      : document.querySelector(`li.chat-message[data-message-id="${message.id}"]`)?.querySelector(UPDATE_TARGETS) ?? button;
+    live.dataset.dsctRepicked = '1';
+    live.click();
+  }, true);
+}
+
 async function _updateSyntheticTargets(message) {
   let collect = null;
   try {
@@ -1167,7 +1600,7 @@ function _buildSyntheticHeader(message, ability) {
     btn.type = 'button';
     btn.className = `${DSTD}-icon-button ${DSTD}-update-targets`;
     btn.dataset.dsctUpdateTargets = '1';
-    btn.dataset.tooltip = label;
+    _tip(btn, 'updateTargets', { title: label });
     btn.append(_makeIcon('fa-solid fa-bullseye'), _makeSpan(label));
     btn.addEventListener('click', async (e) => {
       e.preventDefault(); e.stopPropagation();
@@ -1300,7 +1733,8 @@ function _allowSoloCollapse(message, panel) {
           if (!src || !quick.isConnected) return;
           const done = !!src.closest(`.${DSTD}-action-row`)?.classList.contains('is-applied');
           quick.disabled = src.disabled;
-          quick.dataset.tooltip = src.dataset.tooltip ?? '';
+          if (src.dataset.dsctTip) setTip(quick, src.dataset.dsctTip);
+          else _tip(quick, 'quickRow', { title: src.dataset.tooltip || src.textContent.trim() });
           quick.classList.toggle('is-applied', done);
           quick.replaceChildren(...[...src.childNodes].map((n) => n.cloneNode(true)));
           _compactify(quick, done);
@@ -1327,6 +1761,195 @@ function _allowSoloCollapse(message, panel) {
   }, { capture: true });
 }
 
+function _squadFreeStrikePills(message, root) {
+  const sq = message.getFlag(M, 'squadFreeStrike');
+  const state = message.flags?.[DSTD]?.state;
+  if (!(sq?.minions?.length > 0) || !state || !isPrimaryGM()) return;
+  const pills = sq.minions.map(id => ({
+    kind: 'delta', value: sq.value, label: 'Free Strike', src: canvas.tokens.get(id)?.name ?? null, srcTokenId: id, source: 'trigger', dstSquad: true,
+  }));
+  const type = sq.type ?? '';
+  const update = {};
+  for (const btn of root?.querySelectorAll(`${DSTD_PANEL} [data-dstd-action="applyDamage"][data-operation-id]`) ?? []) {
+    const operationId = btn.dataset.operationId;
+    const existing = state.damageOverrides?.[operationId];
+    if (existing?.dstPills?.some(p => p.dstSquad)) continue;
+    const baseAmount = 0;
+    const all = [...(existing?.dstPills ?? []), ...pills];
+    update[`flags.${DSTD}.state.damageOverrides.${operationId}`] = {
+      ...(existing ?? {}),
+      amount: foldDamagePills(baseAmount, all),
+      baseAmount,
+      bonus: 0,
+      additional: existing?.additional ?? '',
+      damageType: existing?.damageType ?? type,
+      typeLabel: existing?.typeLabel ?? (type ? type.charAt(0).toUpperCase() + type.slice(1) : ''),
+      surges: existing?.surges ?? 0,
+      surgeDamage: existing?.surgeDamage ?? 0,
+      surgeBonus: existing?.surgeBonus ?? 0,
+      dstPills: all,
+    };
+  }
+  if (Object.keys(update).length) message.update(update).catch(() => {});
+}
+
+function _syntheticTargetRow(token) {
+  const row = document.createElement('div');
+  row.className = `${DSTD}-target-row`;
+  row.dataset.targetKey = token.document.uuid.replace(/\./g, '__');
+  const head = document.createElement('div');
+  head.className = `${DSTD}-target-head`;
+  const img = document.createElement('img');
+  img.className = `${DSTD}-portrait`;
+  img.src = token.document.texture?.src ?? token.actor?.img ?? 'icons/svg/mystery-man.svg';
+  img.alt = token.name ?? '';
+  const nameDiv = document.createElement('div');
+  nameDiv.className = `${DSTD}-target-name`;
+  nameDiv.textContent = token.name ?? '';
+  head.append(img, nameDiv);
+  const body = document.createElement('div');
+  body.className = `${DSTD}-target-body`;
+  const acts = document.createElement('div');
+  acts.className = `${DSTD}-target-actions`;
+  body.append(acts);
+  row.append(head, body);
+  return row;
+}
+
+const OTHERS_FLAG = 'othersPicked';
+
+export function _areaOrigin(ability) {
+  const region = canvas.scene?.regions.contents.findLast(r => r.getFlag('draw-steel', 'abilitySource') === ability?.uuid);
+  const shape = region?.shapes?.[0];
+  if (!shape) return null;
+  const G = canvas.grid.size;
+  const cx = shape.type === 'rectangle' ? shape.x + (0.5 - (shape.anchorX ?? 0)) * shape.width : shape.x;
+  const cy = shape.type === 'rectangle' ? shape.y + (0.5 - (shape.anchorY ?? 0)) * shape.height : shape.y;
+  const x = Math.floor(cx / G) * G;
+  const y = Math.floor(cy / G) * G;
+  const bottom = region.elevation?.bottom;
+  return { id: `area-${region.id}`, name: ability.name, x, y, center: { x: x + G / 2, y: y + G / 2 }, actor: null,
+    document: { x, y, width: 1, height: 1, elevation: Number.isFinite(bottom) ? bottom : 0, uuid: null, texture: { src: ability.img } } };
+}
+
+const _recipientTarget = (tokenUuid) => {
+  const doc = tokenUuid ? fromUuidSync(tokenUuid) : null;
+  return doc ? { tokenUuid: doc.uuid, tokenId: doc.id, sceneId: doc.parent?.id ?? null, actorUuid: doc.actor?.uuid ?? null,
+    actorId: doc.actor?.id ?? null, name: doc.name, img: doc.texture?.src ?? doc.actor?.img ?? null } : null;
+};
+
+const _sideOf = (token, source) => {
+  const a = token.document.disposition;
+  const b = source?.document.disposition;
+  if (b == null) return 'neutral';
+  if (a === b) return 'ally';
+  return a * b < 0 ? 'enemy' : 'neutral';
+};
+
+const _squaresApart = (a, b) => Math.round(tokFootprintDist(a, b) / (canvas.grid.distance || 1)) + 1;
+
+export function _othersCandidates(spec, { sourceToken, targetTokens, ability }) {
+  const dead = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
+  const living = canvas.tokens.placeables.filter(t => t.actor && !t.document.hidden && !t.actor.statuses?.has(dead));
+  let pool;
+  if (spec.origin === 'area') {
+    const region = canvas.scene?.regions.contents.findLast(r => r.getFlag('draw-steel', 'abilitySource') === ability?.uuid);
+    const inside = new Set([...(region?.tokens ?? [])].map(d => d.id));
+    pool = living.filter(t => inside.has(t.id));
+  } else {
+    const origins = spec.origin === 'self' ? [sourceToken].filter(Boolean) : targetTokens;
+    pool = living.filter(t => !origins.includes(t) && origins.some(o => _squaresApart(o, t) <= Math.max(1, spec.range)));
+  }
+  if (spec.includeSelf && sourceToken && !pool.includes(sourceToken)) pool.push(sourceToken);
+  return pool.filter(t => (t === sourceToken ? spec.includeSelf : spec.disposition === 'any' || _sideOf(t, sourceToken) === spec.disposition));
+}
+
+function _othersPickRow(message, effect, spec, ctx, picked) {
+  const noun = spec.count === 1 ? { ally: 'ally', enemy: 'enemy', any: 'creature' } : { ally: 'allies', enemy: 'enemies', any: 'creatures' };
+  const who = game.i18n.localize(`DSCT.FlatEffect.Others.${noun[spec.disposition] ?? noun.any}`);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
+  const label = picked ? game.i18n.localize('DSCT.FlatEffect.Others.repick') : game.i18n.format('DSCT.FlatEffect.Others.pick', { count: spec.count, who });
+  btn.append(_makeIcon('fa-solid fa-hand-pointer'), _makeSpan(label));
+  _tip(btn, 'othersPick', { title: label, data: { name: effect.name || effect.label || '' } });
+  const pick = async () => {
+    const candidates = _othersCandidates(spec, ctx);
+    if (!candidates.length) return void ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.Others.noneInReach', { name: ctx.ability?.name ?? '' }));
+    const chosen = await runMultiTokenPicker({ candidates, maxTargets: spec.count,
+      hint: game.i18n.format('DSCT.FlatEffect.Others.pickHint', { count: spec.count, range: spec.range }) });
+    if (!chosen?.length) return false;
+    await safeSetFlag(message, M, `${OTHERS_FLAG}.${effect.id}`, { uuids: chosen.map(t => t.document.uuid) });
+    return true;
+  };
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await pick();
+  });
+  const row = document.createElement('div');
+  row.className = `${DSTD}-action-row dsct-dstd-others-pick`;
+  row.dataset.dsctOthersPick = effect.id;
+  if (picked) row.dataset.dsctPicked = '1';
+  row._dsctPick = pick;
+  row.append(btn);
+  return row;
+}
+
+async function _settleOthersPicks(msgId, msgDoc) {
+  let picked = !!(await services.get('settleOthersEnrichers')?.(game.messages.get(msgId), msgDoc));
+  const panel = msgDoc.querySelector(`li.chat-message[data-message-id="${msgId}"]`)?.querySelector(DSTD_PANEL);
+  for (const row of panel?.querySelectorAll('.dsct-dstd-others-pick:not([data-dsct-picked])') ?? []) {
+    if (await row._dsctPick?.()) picked = true;
+  }
+  return picked;
+}
+
+async function _addOthersRows(message, panel, effects, { sourceToken, ability }) {
+  const list = panel.querySelector(`.${DSTD}-target-list`) ?? panel;
+  const mainRows = [...panel.querySelectorAll(DSTD_ROW)].filter(r => !r.dataset.dsctSelfOnly && !r.dataset.dsctOthersOnly
+    && r.dataset.targetKey && r.dataset.targetKey !== 'selected-token');
+  const targetTokens = mainRows.map(r => fromUuidSync(r.dataset.targetKey.replace(/__/g, '.'))?.object).filter(Boolean);
+  const targetsSig = mainRows.map(r => r.dataset.targetKey).sort().join('|');
+  const stored = message.getFlag(M, OTHERS_FLAG) ?? {};
+  const ctx = { sourceToken, targetTokens, ability };
+  const freeze = {};
+  for (const effect of effects) {
+    const spec = othersSpec(effect);
+    if (!spec) continue;
+    const saved = stored[effect.id];
+    let uuids;
+    if (spec.mode === 'pick') {
+      uuids = saved?.uuids ?? null;
+      if (!panel.querySelector(`[data-dsct-others-pick="${effect.id}"]`)) list.append(_othersPickRow(message, effect, spec, ctx, !!uuids));
+      if (!uuids) continue;
+    } else if (saved?.targets === targetsSig) {
+      uuids = saved.uuids;
+    } else {
+      uuids = _othersCandidates(spec, ctx).map(t => t.document.uuid);
+      freeze[effect.id] = { uuids, targets: targetsSig };
+    }
+    for (const uuid of uuids) {
+      const token = fromUuidSync(uuid)?.object;
+      if (!token) continue;
+      const key = uuid.replace(/\./g, '__');
+      let row = panel.querySelector(`${DSTD_ROW}[data-target-key="${CSS.escape(key)}"]`);
+      if (!row) {
+        row = _syntheticTargetRow(token);
+        row.dataset.dsctOthersOnly = '1';
+        list.append(row);
+      }
+      const ids = new Set((row.dataset.dsctOthers ?? '').split(',').filter(Boolean));
+      ids.add(effect.id);
+      row.dataset.dsctOthers = [...ids].join(',');
+    }
+  }
+  const writer = message.author?.active ? message.author.isSelf : isPrimaryGM();
+  if (Object.keys(freeze).length && writer) {
+    await safeSetFlag(message, M, OTHERS_FLAG, { ...stored, ...freeze });
+  }
+}
+
 async function _injectFmButtons(message, root) {
   const panel = root?.querySelector(DSTD_PANEL);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons msgId=${message.id} hasPanel=${!!panel}`);
@@ -1335,7 +1958,7 @@ async function _injectFmButtons(message, root) {
   const abilityUuid = parts.find(p => p.abilityUuid)?.abilityUuid
                    ?? message.flags?.[DSTD]?.state?.abilityUuid;
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons abilityUuid=${abilityUuid}`);
-  if (!abilityUuid) return;
+  if (!abilityUuid) return _squadFreeStrikePills(message, root);
   const ability = await fromUuid(abilityUuid).catch(() => null);
   if (!ability) return;
 
@@ -1346,6 +1969,7 @@ async function _injectFmButtons(message, root) {
     ? Array.from(ability.system?.effects?.contents ?? [])
       .filter(e => e.type === type)
       .filter(e => !_chooseKeeps || _chooseKeeps(e))
+      .filter(e => !takesOver(ability, e))
     : [];
   const flatDamageEffects   = _flatOfType('dsct.flatDamage').filter(e => expendAllows(e, ability, message));
   const flatForcedEffects   = _flatOfType('dsct.flatForced');
@@ -1385,7 +2009,9 @@ async function _injectFmButtons(message, root) {
       if (!statusId || seen.has(statusId)) continue;
       seen.add(statusId);
       const displayLabel = label ?? game.i18n.localize(ds?.CONFIG?.conditions?.[statusId]?.name ?? statusId);
-      result.push({ statusId, endStr, label: displayLabel });
+      const lead = desc.slice(Math.max(0, match.index - 200), match.index).split(/[.!?](?:\s|<)|<\/p>|<br\s*\/?>/i).pop();
+      const potency = /\[\[\s*potency\b|\b(?:might|agility|reason|intuition|presence|[MARIP])\s*<\s*(?:\d|weak|average|strong|\[\[)/i.test(lead);
+      result.push({ statusId, endStr, label: displayLabel, potency });
     }
     return result;
   })());
@@ -1445,6 +2071,7 @@ async function _injectFmButtons(message, root) {
   const sourceDoc       = sourceTokenUuid ? await fromUuid(sourceTokenUuid).catch(() => null) : null;
   const sourceToken     = sourceDoc?.object ?? null;
   const sourceActor     = sourceToken?.actor ?? null;
+  const autoFm          = getSetting('fmAutoForOwnAbilities') && isOwnAbilityActor(ability.actor ?? sourceActor);
 
   const hasPurifyingFire = getSetting('purifyingFireEnabled') && !!sourceActor?.items?.some(i =>
     getItemDsid(i) === 'purifying-fire' || i.name.toLowerCase() === 'purifying fire'
@@ -1659,32 +2286,14 @@ async function _injectFmButtons(message, root) {
     if (!activePanel.querySelector(`${DSTD_ROW}[data-target-key="${selfKey}"]`)
       && !activePanel.querySelector('[data-dsct-self-only]')) {
       const list = activePanel.querySelector(`.${DSTD}-target-list`) ?? activePanel;
-      const row = document.createElement('div');
-      row.className = `${DSTD}-target-row`;
-      row.dataset.targetKey = selfKey;
+      const row = _syntheticTargetRow(sourceToken);
       row.dataset.dsctSelfOnly = '1';
-
-      const head = document.createElement('div');
-      head.className = `${DSTD}-target-head`;
-      const img = document.createElement('img');
-      img.className = `${DSTD}-portrait`;
-      img.src = sourceToken.document.texture?.src ?? sourceToken.actor?.img ?? 'icons/svg/mystery-man.svg';
-      img.alt = sourceToken.name ?? '';
-      const nameDiv = document.createElement('div');
-      nameDiv.className = `${DSTD}-target-name`;
-      nameDiv.textContent = sourceToken.name ?? '';
-      head.append(img, nameDiv);
-
-      const body = document.createElement('div');
-      body.className = `${DSTD}-target-body`;
-      const acts = document.createElement('div');
-      acts.className = `${DSTD}-target-actions`;
-      body.append(acts);
-
-      row.append(head, body);
       list.append(row);
     }
   }
+
+  const othersEffects = [...flatDamageEffects, ...flatHealEffects, ...flatResourceEffects].filter(isOthersEffect);
+  if (othersEffects.length) await _addOthersRows(message, activePanel, othersEffects, { sourceToken, ability });
 
   const targetRows = activePanel.querySelectorAll(DSTD_ROW);
   if (getSetting('debugMode')) console.log(`DSCT | _injectFmButtons found ${targetRows.length} target rows`);
@@ -1697,19 +2306,29 @@ async function _injectFmButtons(message, root) {
     const rowTier = _effectiveRowTier(message, targetKey, tokenUuid, tier);
     const rowTiered = _flatOn ? tieredAsFlat(ability, rowTier) : [];
     const selfOnlyRow = row.dataset.dsctSelfOnly === '1';
+    const othersOnlyRow = row.dataset.dsctOthersOnly === '1';
+    const othersHere = new Set((row.dataset.dsctOthers ?? '').split(',').filter(Boolean));
     const userRowKey = sourceToken ? sourceToken.document.uuid.replace(/\./g, '__') : null;
     const onUserRow = selfOnlyRow || (!!userRowKey && targetKey === userRowKey);
-    const fitsRow = (recipient) => (recipient === 'self' ? onUserRow : !selfOnlyRow);
-    const rowHealEffects    = [...flatHealEffects, ...rowTiered.filter(e => e.type === 'dsct.flatHeal')].filter(e => fitsRow(e.flatHeal?.recipient));
-    const rowCleanseEffects = flatCleanseEffects.filter(e => fitsRow(e.flatCleanse?.recipient));
-    const rowTeleportEffects = selfOnlyRow ? [] : [...flatTeleportEffects, ...rowTiered.filter(e => e.type === 'dsct.flatTeleport')];
+    const fitsRow = (recipient, effect) => (recipient === 'others' ? othersHere.has(effect.id)
+      : recipient === 'self' ? onUserRow : !selfOnlyRow && !othersOnlyRow);
+    const rowHealEffects    = [...flatHealEffects, ...rowTiered.filter(e => e.type === 'dsct.flatHeal')].filter(e => fitsRow(e.flatHeal?.recipient, e));
+    const rowCleanseEffects = flatCleanseEffects.filter(e => fitsRow(e.flatCleanse?.recipient, e));
+    const rowTeleportEffects = selfOnlyRow || othersOnlyRow ? [] : [...flatTeleportEffects, ...rowTiered.filter(e => e.type === 'dsct.flatTeleport')];
 
     const body = row.querySelector(`.${DSTD}-target-body`);
     if (!body) continue;
     const actions = body.querySelector(`.${DSTD}-target-actions`) ?? body;
+    if (onUserRow) {
+      for (const b of actions.querySelectorAll(`button[data-part-id="${TEXT_FREE_STRIKE}"]`)) {
+        const strikeRow = b.closest(`.${DSTD}-action-row`) ?? b;
+        strikeRow.style.display = 'none';
+        strikeRow.dataset.dsctManual = '1';
+      }
+    }
 
     for (const effect of fmEffects) {
-      if (!doFm || selfOnlyRow) break;
+      if (!doFm || selfOnlyRow || othersOnlyRow) break;
       const tierData = effect.forced?.[`tier${rowTier}`];
       if (!tierData) continue;
       const movementSet = tierData.movement instanceof Set ? tierData.movement : new Set(tierData.movement ?? []);
@@ -1736,6 +2355,7 @@ async function _injectFmButtons(message, root) {
         if (actions.querySelector(`[data-dsct-fm-key="${stateKey}"]`)) continue;
 
         const baseState = _buildBaseState(movementType, baseDistance, properties, verticalDistance, fallReduction);
+        if (autoFm && /^(push|pull)$/i.test(movementType)) baseState.fastMove = true;
 
         const _tgtDoc      = tokenUuid ? fromUuidSync(tokenUuid) : null;
         const _tgtIsFlying = !baseState.vertical && (_tgtDoc?.actor?.statuses?.has('fly') ?? false);
@@ -1751,6 +2371,7 @@ async function _injectFmButtons(message, root) {
             noMoverCollisionDamage:    baseState.noMoverCollisionDamage,
             noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
             ignoreStability:           baseState.ignoreStability,
+            safely:                    baseState.safely,
             fastMove:                  baseState.fastMove,
           }],
           noteName: 'Flying',
@@ -1774,6 +2395,7 @@ async function _injectFmButtons(message, root) {
             noMoverCollisionDamage:    baseState.noMoverCollisionDamage,
             noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
             ignoreStability:           baseState.ignoreStability,
+            safely:                    baseState.safely,
             fastMove:                  baseState.fastMove,
           }],
           noteName: 'Big vs Little',
@@ -1782,12 +2404,38 @@ async function _injectFmButtons(message, root) {
           srcTokenId: sourceToken.id,
         } : null;
 
+        const _spentN = spendBeyondCost(message, ability);
+        let _spendBonus = 0;
+        if (_spentN > 0 && /@spend\b/i.test(distanceRaw)) {
+          try { _spendBonus = (Number(ds.utils.evaluateFormula(distanceRaw, { ...rollData, spend: _spentN })) || 0) - baseDistance; }
+          catch { _spendBonus = 0; }
+        }
+        const _spendMod = _spendBonus > 0 ? {
+          modState: [{
+            distanceDelta:             _spendBonus,
+            movement:                  movementType,
+            vertical:                  baseState.vertical,
+            verticalDistance:          baseState.verticalDistance ?? '',
+            fallReduction:             baseState.fallReduction,
+            noFallDamage:              baseState.noFallDamage,
+            noCollisionDamage:         baseState.noCollisionDamage,
+            noMoverCollisionDamage:    baseState.noMoverCollisionDamage,
+            noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
+            ignoreStability:           baseState.ignoreStability,
+            safely:                    baseState.safely,
+            fastMove:                  baseState.fastMove,
+          }],
+          noteName: game.i18n.localize('DSCT.panel.modFm.spent'),
+          dsctSeeded: true,
+          noteDesc: '',
+        } : null;
+
         let quickBtn = null;
 
         let saved = _fmState.get(stateKey);
         if (!saved) {
           const fromFlags = savedFlagState[subKey];
-          const seeds = [...(_bvlMod ? [_bvlMod] : []), ...(_flyingMod ? [_flyingMod] : [])];
+          const seeds = [...(_bvlMod ? [_bvlMod] : []), ...(_spendMod ? [_spendMod] : []), ...(_flyingMod ? [_flyingMod] : [])];
 
           
           
@@ -1816,18 +2464,18 @@ async function _injectFmButtons(message, root) {
         const applyBtn = document.createElement('button');
         applyBtn.type         = 'button';
         applyBtn.className    = `${DSTD}-action-button ${DSTD}-stretch-button`;
-        applyBtn.dataset.tooltip = label;
+        _tip(applyBtn, 'fm', { title: label });
 
         const undoBtn = document.createElement('button');
         undoBtn.type         = 'button';
         undoBtn.className    = `${DSTD}-icon-button ${DSTD}-undo-button dsct-dstd-undo-btn`;
-        undoBtn.dataset.tooltip = 'Undo FM';
+        _tip(undoBtn, 'fmUndo');
         undoBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
         const modBtn = document.createElement('button');
         modBtn.type         = 'button';
         modBtn.className    = `${DSTD}-icon-button ${DSTD}-cog-button dsct-dstd-modify-btn`;
-        modBtn.dataset.tooltip = 'Modify FM';
+        _tip(modBtn, 'fmModify');
         modBtn.append(_makeIcon('fa-solid fa-gear'));
 
         const fmRow = document.createElement('div');
@@ -1881,6 +2529,7 @@ async function _injectFmButtons(message, root) {
             clickState.noObstacleCollisionDamage ? 'no-obstacle-collision-damage' : null,
             clickState.ignoreStability         ? 'ignore-stability'             : null,
             clickState.fastMove                ? 'fast-auto-path'               : null,
+            clickState.safely                  ? 'safely'                       : null,
           ].filter(Boolean));
           const vertDist = clickState.vertical
             ? (clickState.verticalDistance !== '' ? Number(clickState.verticalDistance) : clickState.distance)
@@ -1917,6 +2566,9 @@ async function _injectFmButtons(message, root) {
               source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null) ?? fmSource,
               contextMessageId: message.id,
               origin: "powerRoll",
+              modifierNotes: (cur.modStack ?? []).filter(e => e.enabled !== false && e.noteName)
+                .map(e => [Number(e.modState?.[0]?.distanceDelta) || 0, e.noteName]).filter(([n]) => n)
+                .map(([n, name]) => `${n > 0 ? '+' : ''}${n} ${name}`),
             });
           } catch {  }
 
@@ -2017,7 +2669,7 @@ async function _injectFmButtons(message, root) {
           
           for (const qdBtn of head.querySelectorAll(`.${DSTD}-quick-damage:not(.dsct-dstd-quick-fm-btn):not([data-dsct-condensed])`)) {
             const fullText = qdBtn.textContent.trim();
-            if (!qdBtn.dataset.tooltip) qdBtn.dataset.tooltip = fullText;
+            if (!qdBtn.dataset.dsctTip) _tip(qdBtn, 'quickDamage', { title: qdBtn.dataset.tooltip || fullText });
             const numMatch = fullText.match(/\d+/);
             const iconEls  = [...qdBtn.children].filter(c => c.tagName === 'I' || c.tagName === 'IMG');
             qdBtn.replaceChildren(...iconEls);
@@ -2039,7 +2691,7 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    if (doConditions) {
+    if (doConditions && !othersOnlyRow) {
       for (const effect of appliedEffects) {
         const tierData = effect.applied?.[`tier${rowTier}`];
         if (!tierData?.effects) continue;
@@ -2068,21 +2720,21 @@ async function _injectFmButtons(message, root) {
             grabBtn.type = 'button';
             grabBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
             grabBtn.dataset.dsctDstdCond = condKey;
-            grabBtn.dataset.tooltip = alreadyGrabbed ? 'Applied: Grabbed' : 'Holding Shift bypasses restrictions';
+            _tip(grabBtn, alreadyGrabbed ? 'grabApplied' : 'grab');
             grabBtn.disabled = alreadyGrabbed;
             grabBtn.append(grabImg, grabSpan);
 
             const undoGrabBtn = document.createElement('button');
             undoGrabBtn.type = 'button';
             undoGrabBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
-            undoGrabBtn.dataset.tooltip = 'End Grab';
+            _tip(undoGrabBtn, 'grabUndo');
             undoGrabBtn.disabled = !alreadyGrabbed;
             undoGrabBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
             const settingsGrabBtn = document.createElement('button');
             settingsGrabBtn.type = 'button';
             settingsGrabBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-cog-button`);
-            settingsGrabBtn.dataset.tooltip = 'Grab settings are in the Conditions menu';
+            _tip(settingsGrabBtn, 'grabSettings');
             settingsGrabBtn.disabled = true;
             settingsGrabBtn.append(_makeIcon('fa-solid fa-gear'));
 
@@ -2115,7 +2767,7 @@ async function _injectFmButtons(message, root) {
               grabBtn.disabled = true;
               undoGrabBtn.disabled = false;
               grabSpan.textContent = 'Applied: Grabbed';
-              grabBtn.dataset.tooltip = 'Applied: Grabbed';
+              _tip(grabBtn, 'grabApplied');
             });
 
             undoGrabBtn.addEventListener('click', async (e) => {
@@ -2127,11 +2779,12 @@ async function _injectFmButtons(message, root) {
               grabBtn.disabled = false;
               undoGrabBtn.disabled = true;
               grabSpan.textContent = 'Grabbed';
-              grabBtn.dataset.tooltip = 'Holding Shift bypasses restrictions';
+              _tip(grabBtn, 'grab');
             });
 
             const grabRow = document.createElement('div');
             grabRow.className = `${DSTD}-action-row dsct-dstd-condition-row`;
+            grabRow.dataset.dsctManual = '1';
             grabRow.append(grabBtn, undoGrabBtn, settingsGrabBtn);
             actions.appendChild(grabRow);
           }
@@ -2141,7 +2794,7 @@ async function _injectFmButtons(message, root) {
             condBtn.type      = 'button';
             condBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
             condBtn.dataset.dsctDstdCond = condKey;
-            condBtn.dataset.tooltip = 'Apply Frightened';
+            _tip(condBtn, 'frightened');
             condBtn.append(_makeIcon('fa-solid fa-skull'), _makeSpan('Apply Frightened'));
             condBtn.addEventListener('click', async (e) => {
               e.stopPropagation(); e.preventDefault();
@@ -2166,7 +2819,7 @@ async function _injectFmButtons(message, root) {
             condBtn.type      = 'button';
             condBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
             condBtn.dataset.dsctDstdCond = condKey;
-            condBtn.dataset.tooltip = 'Apply Taunted';
+            _tip(condBtn, 'taunted');
             condBtn.append(_makeIcon('fa-solid fa-skull'), _makeSpan('Apply Taunted'));
             condBtn.addEventListener('click', async (e) => {
               e.stopPropagation(); e.preventDefault();
@@ -2189,7 +2842,7 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    if (doPf && tokenUuid) {
+    if (doPf && tokenUuid && !othersOnlyRow) {
       const pfTargetDoc   = await fromUuid(tokenUuid).catch(() => null);
       const pfTargetActor = pfTargetDoc?.actor ?? null;
       if (pfTargetActor?.effects.some(ef => ef.changes?.some(c => c.key === 'system.damage.weaknesses.fire'))) {
@@ -2200,7 +2853,7 @@ async function _injectFmButtons(message, root) {
           pfBtn.type      = 'button';
           pfBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
           pfBtn.dataset.dsctDstdCond = pfKey;
-          pfBtn.dataset.tooltip = game.i18n.format('DSCT.button.purifyingFireDamage', { amount });
+          _tip(pfBtn, 'purifyingFire', { title: game.i18n.format('DSCT.button.purifyingFireDamage', { amount }) });
           pfBtn.append(_makeIcon('fa-solid fa-fire'), _makeSpan(game.i18n.format('DSCT.button.purifyingFireDamage', { amount })));
           pfBtn.addEventListener('click', async (e) => {
             e.stopPropagation(); e.preventDefault();
@@ -2209,13 +2862,14 @@ async function _injectFmButtons(message, root) {
           });
           const pfRow = document.createElement('div');
           pfRow.className = `${DSTD}-action-row dsct-dstd-condition-row`;
+          pfRow.dataset.dsctManual = '1';
           pfRow.append(pfBtn);
           actions.appendChild(pfRow);
         }
       }
     }
 
-    if (doMark) {
+    if (doMark && !othersOnlyRow) {
       const markKey = `${targetKey}:dsct-mark`;
       if (!actions.querySelector(`[data-dsct-mark-key="${markKey}"]`)) {
         for (const nativeRow of actions.querySelectorAll(`.${DSTD}-status-row`)) {
@@ -2237,7 +2891,8 @@ async function _injectFmButtons(message, root) {
         markBtn.type = 'button';
         markBtn.classList.add(`${DSTD}-action-button`, `${DSTD}-stretch-button`);
         markBtn.dataset.dsctMarkKey = markKey;
-        markBtn.dataset.tooltip     = markIsApplied ? appliedLbl : applyLbl;
+        if (markIsApplied) _appliedTip(markBtn, 'mark', appliedLbl);
+        else _tip(markBtn, 'mark', { title: applyLbl });
         markBtn.disabled            = markIsApplied;
         const markImg = document.createElement('img');
         markImg.src = 'icons/skills/targeting/crosshair-pointed-orange.webp';
@@ -2250,7 +2905,7 @@ async function _injectFmButtons(message, root) {
         const undoMarkBtn = document.createElement('button');
         undoMarkBtn.type = 'button';
         undoMarkBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
-        undoMarkBtn.dataset.tooltip = 'Undo Mark';
+        _tip(undoMarkBtn, 'markUndo');
         undoMarkBtn.disabled        = !markIsApplied;
         undoMarkBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
@@ -2262,7 +2917,7 @@ async function _injectFmButtons(message, root) {
           markBtn.disabled        = true;
           undoMarkBtn.disabled    = false;
           markSpan.textContent    = appliedLbl;
-          markBtn.dataset.tooltip = appliedLbl;
+          _appliedTip(markBtn, 'mark', appliedLbl);
         });
 
         undoMarkBtn.addEventListener('click', async (e) => {
@@ -2280,7 +2935,7 @@ async function _injectFmButtons(message, root) {
           markBtn.disabled        = false;
           undoMarkBtn.disabled    = true;
           markSpan.textContent    = applyLbl;
-          markBtn.dataset.tooltip = applyLbl;
+          _tip(markBtn, 'mark', { title: applyLbl });
         });
 
         const markRow = document.createElement('div');
@@ -2290,7 +2945,7 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    if (doJudgement) {
+    if (doJudgement && !othersOnlyRow) {
       const judgeKey = `${targetKey}:dsct-judgement`;
       if (!actions.querySelector(`[data-dsct-judge-key="${judgeKey}"]`)) {
         for (const nativeRow of actions.querySelectorAll(`.${DSTD}-status-row`)) {
@@ -2306,7 +2961,8 @@ async function _injectFmButtons(message, root) {
         judgeBtn.type = 'button';
         judgeBtn.classList.add(`${DSTD}-action-button`, `${DSTD}-stretch-button`);
         judgeBtn.dataset.dsctJudgeKey = judgeKey;
-        judgeBtn.dataset.tooltip      = judgeIsApplied ? 'Applied: Judgement' : 'Apply Judgement';
+        if (judgeIsApplied) _appliedTip(judgeBtn, 'judgement', 'Applied: Judgement');
+        else _tip(judgeBtn, 'judgement');
         judgeBtn.disabled             = judgeIsApplied;
         const judgeImg = document.createElement('img');
         judgeImg.src = 'icons/magic/death/skull-humanoid-white-red.webp';
@@ -2319,7 +2975,7 @@ async function _injectFmButtons(message, root) {
         const undoJudgeBtn = document.createElement('button');
         undoJudgeBtn.type = 'button';
         undoJudgeBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
-        undoJudgeBtn.dataset.tooltip = 'Undo Judgement';
+        _tip(undoJudgeBtn, 'judgementUndo');
         undoJudgeBtn.disabled        = !judgeIsApplied;
         undoJudgeBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
@@ -2331,7 +2987,7 @@ async function _injectFmButtons(message, root) {
           judgeBtn.disabled        = true;
           undoJudgeBtn.disabled    = false;
           judgeSpan.textContent    = 'Applied: Judgement';
-          judgeBtn.dataset.tooltip = 'Applied: Judgement';
+          _appliedTip(judgeBtn, 'judgement', 'Applied: Judgement');
         });
 
         undoJudgeBtn.addEventListener('click', async (e) => {
@@ -2348,7 +3004,7 @@ async function _injectFmButtons(message, root) {
           judgeBtn.disabled        = false;
           undoJudgeBtn.disabled    = true;
           judgeSpan.textContent    = 'Apply Judgement';
-          judgeBtn.dataset.tooltip = 'Apply Judgement';
+          _tip(judgeBtn, 'judgement');
         });
 
         const judgeRow = document.createElement('div');
@@ -2358,8 +3014,17 @@ async function _injectFmButtons(message, root) {
       }
     }
 
-    
-    for (const { statusId, endStr, label: enrichLabel } of descEnrichers) {
+    if (doConditions && !othersOnlyRow) {
+      for (const effect of appliedEffects) {
+        if (!_tierHasPotency(effect, rowTier)) continue;
+        for (const id of _tierEffectIds(effect, rowTier)) {
+          actions.querySelector(`[data-dsct-dstd-cond="${targetKey}:cond:${id}"]`)?.closest(`.${DSTD}-action-row`)?.setAttribute('data-dsct-potency', '1');
+        }
+      }
+    }
+
+    for (const { statusId, endStr, label: enrichLabel, potency: enrichPotency } of descEnrichers) {
+      if (othersOnlyRow) break;
       const enrichKey = `${targetKey}:enrich:${statusId}`;
       if (actions.querySelector(`[data-dsct-enrich-key="${enrichKey}"]`)) continue;
       if (actions.querySelector(`[data-dsct-dstd-cond*=":cond:${statusId}"]`)) continue;
@@ -2375,7 +3040,8 @@ async function _injectFmButtons(message, root) {
       enrichBtn.type = 'button';
       enrichBtn.classList.add(`${DSTD}-action-button`, `${DSTD}-stretch-button`);
       enrichBtn.dataset.dsctEnrichKey = enrichKey;
-      enrichBtn.dataset.tooltip = isApplied ? appliedLbl : applyLbl;
+      if (isApplied) _appliedTip(enrichBtn, 'enricher', appliedLbl);
+      else _tip(enrichBtn, 'enricher', { title: applyLbl });
       enrichBtn.disabled = isApplied;
       const enrichSpan = document.createElement('span');
       enrichSpan.textContent = isApplied ? appliedLbl : applyLbl;
@@ -2384,7 +3050,7 @@ async function _injectFmButtons(message, root) {
       const undoEnrichBtn = document.createElement('button');
       undoEnrichBtn.type = 'button';
       undoEnrichBtn.classList.add(`${DSTD}-icon-button`, `${DSTD}-undo-button`);
-      undoEnrichBtn.dataset.tooltip = `Undo ${enrichLabel}`;
+      _tip(undoEnrichBtn, 'conditionUndo', { title: `Undo ${enrichLabel}`, category: game.i18n.localize('DSCT.tip.enricher.category') });
       undoEnrichBtn.disabled = !isApplied;
       undoEnrichBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
@@ -2403,14 +3069,17 @@ async function _injectFmButtons(message, root) {
           const tmp = await CONFIG.ActiveEffect.documentClass.fromStatusEffect(statusId).catch(() => null);
           if (tmp) {
             const data = foundry.utils.mergeObject(tmp.toObject(), { transfer: true });
-            if (endStr && ds?.CONFIG?.effectEnds?.[endStr]) data.duration = { expiry: ds.CONFIG.effectEnds[endStr].expiryEvent };
-            if (targetToken.actor) await targetToken.actor.createEmbeddedDocuments('ActiveEffect', [data]);
+            if (endStr && ds?.CONFIG?.effectEnds?.[endStr]) {
+              data.duration = { expiry: ds.CONFIG.effectEnds[endStr].expiryEvent };
+              data.start = effectStartFor(targetToken.actor);
+            }
+            if (targetToken.actor) await safeCreateEmbedded(targetToken.actor, 'ActiveEffect', [data]);
           }
         }
         enrichBtn.disabled        = true;
         undoEnrichBtn.disabled    = false;
         enrichSpan.textContent    = appliedLbl;
-        enrichBtn.dataset.tooltip = appliedLbl;
+        _appliedTip(enrichBtn, 'enricher', appliedLbl);
       });
 
       undoEnrichBtn.addEventListener('click', async (e) => {
@@ -2425,17 +3094,19 @@ async function _injectFmButtons(message, root) {
         enrichBtn.disabled        = false;
         undoEnrichBtn.disabled    = true;
         enrichSpan.textContent    = applyLbl;
-        enrichBtn.dataset.tooltip = applyLbl;
+        _tip(enrichBtn, 'enricher', { title: applyLbl });
       });
 
       const enrichRow = document.createElement('div');
       enrichRow.className = `${DSTD}-action-row dsct-dstd-condition-row`;
       enrichRow.append(enrichBtn, undoEnrichBtn);
+      if (enrichPotency) enrichRow.dataset.dsctPotency = '1';
       actions.appendChild(enrichRow);
     }
 
     for (const { effect, amount } of flatDamageResolved) {
       if (!amount) continue;
+      if (isOthersEffect(effect) ? !othersHere.has(effect.id) : othersOnlyRow) continue;
 
       const chosenFlat = message.getFlag(M, 'flatDmgTypes')?.[effect.id] ?? null;
       const allTypes   = Array.from(effect.flatDamage.types);
@@ -2449,7 +3120,8 @@ async function _injectFmButtons(message, root) {
 
       const targetObj = targetKey === 'selected-token'
         ? { selectedToken: true, name: game.i18n.localize('DSTD.Chat.SelectedToken') || 'Apply to Selected Token', img: 'icons/svg/target.svg' }
-        : (dstdState?.targets ?? []).find(t => (t.tokenUuid?.replace(/\./g, '__') ?? '') === targetKey) ?? null;
+        : (dstdState?.targets ?? []).find(t => (t.tokenUuid?.replace(/\./g, '__') ?? '') === targetKey)
+          ?? (othersHere.has(effect.id) ? _recipientTarget(tokenUuid) : null);
       if (!targetObj) continue;
 
       const flatDmgAction = { partId: effect.id };
@@ -2492,7 +3164,8 @@ async function _injectFmButtons(message, root) {
       applyDmgBtn.dataset.dstdAction  = 'applyDamage';
       applyDmgBtn.dataset.target      = targetJSON;
       applyDmgBtn.dataset.operationId = operationId;
-      applyDmgBtn.dataset.tooltip     = fullLabel;
+      if (isApplied) _appliedTip(applyDmgBtn, 'damage', fullLabel);
+      else _tip(applyDmgBtn, 'damage', { title: fullLabel });
       applyDmgBtn.disabled = isApplied;
       Object.assign(applyDmgBtn.dataset, synDataset);
       const dmgLabel = isApplied ? `Applied ${appRecord?.amount ?? dispAmount}` : fullLabel;
@@ -2511,7 +3184,7 @@ async function _injectFmButtons(message, root) {
       undoDmgBtn.dataset.dstdAction  = 'undoDamage';
       undoDmgBtn.dataset.target      = targetJSON;
       undoDmgBtn.dataset.operationId = operationId;
-      undoDmgBtn.dataset.tooltip     = game.i18n.localize('DSTD.Chat.Undo') || 'Undo';
+      _tip(undoDmgBtn, 'damageUndo');
       undoDmgBtn.disabled = targetObj.selectedToken ? stackCount <= 0 : !isApplied;
       undoDmgBtn.append(_makeIcon('fa-solid fa-rotate-left'));
       if (targetObj.selectedToken && stackCount > 0) {
@@ -2527,7 +3200,7 @@ async function _injectFmButtons(message, root) {
       editDmgBtn.dataset.dstdAction  = 'editDamage';
       editDmgBtn.dataset.target      = targetJSON;
       editDmgBtn.dataset.operationId = operationId;
-      editDmgBtn.dataset.tooltip     = game.i18n.localize('DSTD.Chat.EditDamage') || 'Edit Damage';
+      _tip(editDmgBtn, 'damageEdit');
       Object.assign(editDmgBtn.dataset, synDataset);
       editDmgBtn.append(_makeIcon('fa-solid fa-gear'));
 
@@ -2546,20 +3219,30 @@ async function _injectFmButtons(message, root) {
         quickDmgBtn.className = `${DSTD}-action-button ${DSTD}-quick-damage dsct-dstd-quick-dmg-btn`;
         if (dispType) quickDmgBtn.classList.add(`${DSTD}-damage-type-${dispType}`);
         quickDmgBtn.disabled  = isApplied;
-        quickDmgBtn.dataset.tooltip = fullLabel;
+        _tip(quickDmgBtn, 'quickDamage', { title: fullLabel });
         quickDmgBtn.addEventListener('click', () => { if (!quickDmgBtn.disabled) applyDmgBtn.click(); });
         quickDmgBtn.append(_makeIcon(_dmgIcon(dispType)), _makeSpan(String(dispAmount)));
         head.insertBefore(quickDmgBtn, toggle);
       }
     }
 
-    for (const { effect, firstMov, dist, props } of flatForcedResolved) {
+    for (const { effect, firstMov, dist: baseDist, props } of flatForcedResolved) {
+      if (othersOnlyRow) break;
+      const rowActor = tokenUuid ? fromUuidSync(tokenUuid)?.actor : null;
+      const needs = effect.flatForced.requiresStatus;
+      if (needs && !rowActor?.statuses?.has(needs)) continue;
+      let dist = baseDist;
+      if (/@target\b/.test(effect.flatForced.distance) && rowActor) {
+        try { dist = ds.utils.evaluateFormula(effect.flatForced.distance, { ...(ability.actor?.getRollData?.() ?? {}), target: rowActor.getRollData() }, { contextName: ability.uuid }); }
+        catch { dist = baseDist; }
+      }
       const stateKey = `${message.id}:${targetKey}:flatFm:${effect.id}`;
       const subKey   = `${targetKey}:flatFm:${effect.id}`;
 
       if (actions.querySelector(`[data-dsct-fm-key="${stateKey}"]`)) continue;
 
       const baseState = _buildBaseState(firstMov, dist, props, 0, 0);
+      if (autoFm && /^(push|pull)$/i.test(firstMov)) baseState.fastMove = true;
 
       const _tgtDoc      = tokenUuid ? fromUuidSync(tokenUuid) : null;
       const _tgtIsFlying = !baseState.vertical && (_tgtDoc?.actor?.statuses?.has('fly') ?? false);
@@ -2570,7 +3253,7 @@ async function _injectFmButtons(message, root) {
           noCollisionDamage: baseState.noCollisionDamage,
           noMoverCollisionDamage: baseState.noMoverCollisionDamage,
           noObstacleCollisionDamage: baseState.noObstacleCollisionDamage,
-          ignoreStability: baseState.ignoreStability, fastMove: baseState.fastMove,
+          ignoreStability: baseState.ignoreStability, fastMove: baseState.fastMove, safely: baseState.safely,
         }],
         noteName: 'Flying', noteDesc: '',
       } : null;
@@ -2585,27 +3268,28 @@ async function _injectFmButtons(message, root) {
           : { applied: false, undoMsgId: null, modStack: _flyingMod ? [_flyingMod] : [] };
         _fmState.set(stateKey, saved);
       }
+      saved.redirected = savedFlagState[subKey]?.redirected ?? null;
 
       const _flatFmDisplayOverride = effect.flatForced.display || null;
       const effInitF       = _effectiveState(baseState, saved.modStack);
-      const label          = (_flatFmDisplayOverride || _makeLabel(effInitF)) + _spendSuffix(effect.flatForced.spend);
-      const rowLabelFlatFn = (st) => (_flatFmDisplayOverride || `Apply ${_makeLabel(st)}`) + _stabSuffix(_stabInfo(tokenUuid, st), false);
+      const label          = _flatFmLabel(_flatFmDisplayOverride, effInitF) + _spendSuffix(effect.flatForced.spend);
+      const rowLabelFlatFn = (st) => (_flatFmDisplayOverride ? _flatFmLabel(_flatFmDisplayOverride, st) : `Apply ${_makeLabel(st)}`) + _stabSuffix(_stabInfo(tokenUuid, st), false);
 
       const applyFlatBtn = document.createElement('button');
       applyFlatBtn.type      = 'button';
       applyFlatBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
-      applyFlatBtn.dataset.tooltip = label;
+      _tip(applyFlatBtn, 'fm', { title: label });
 
       const undoFlatBtn = document.createElement('button');
       undoFlatBtn.type      = 'button';
       undoFlatBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button dsct-dstd-undo-btn`;
-      undoFlatBtn.dataset.tooltip = 'Undo FM';
+      _tip(undoFlatBtn, 'fmUndo');
       undoFlatBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
       const modFlatBtn = document.createElement('button');
       modFlatBtn.type      = 'button';
       modFlatBtn.className = `${DSTD}-icon-button ${DSTD}-cog-button dsct-dstd-modify-btn`;
-      modFlatBtn.dataset.tooltip = 'Modify FM';
+      _tip(modFlatBtn, 'fmModify');
       modFlatBtn.append(_makeIcon('fa-solid fa-gear'));
 
       const fmRow = document.createElement('div');
@@ -2621,7 +3305,7 @@ async function _injectFmButtons(message, root) {
         _fmState.set(stateKey, newMods);
         if (!newMods.applied) {
           const effState = _effectiveState(baseState, newMods.modStack);
-          const effLabel = _flatFmDisplayOverride || _makeLabel(effState);
+          const effLabel = _flatFmLabel(_flatFmDisplayOverride, effState);
           _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newMods, effLabel, _stabInfo(tokenUuid, effState), !!_flatFmDisplayOverride);
           if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newMods, firstMov, effState.distance);
         }
@@ -2645,8 +3329,8 @@ async function _injectFmButtons(message, root) {
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.system.updateResource(-_spendCost);
-            await message.setFlag(M, _fmSpendKey, true);
+            await _spendSourceResource(sourceActor, _spendCost);
+            await safeSetFlag(message, M, _fmSpendKey, true);
           }
         }
 
@@ -2675,6 +3359,7 @@ async function _injectFmButtons(message, root) {
           clickState.noObstacleCollisionDamage ? 'no-obstacle-collision-damage' : null,
           clickState.ignoreStability         ? 'ignore-stability'             : null,
           clickState.fastMove                ? 'fast-auto-path'               : null,
+          clickState.safely                  ? 'safely'                       : null,
         ].filter(Boolean));
         const vertDist = clickState.vertical
           ? (clickState.verticalDistance !== '' ? Number(clickState.verticalDistance) : clickState.distance)
@@ -2685,9 +3370,11 @@ async function _injectFmButtons(message, root) {
             movement: clickState.movement, distance: String(clickState.distance),
             properties: clickProps, verticalDistance: vertDist, fallReduction: clickState.fallReduction,
             target: targetToken ?? undefined,
-            source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null) ?? sourceToken,
+            source: (clickState.sourceTokenId ? canvas.tokens.get(clickState.sourceTokenId) : null)
+              ?? (effect.flatForced?.origin === 'area' ? _areaOrigin(ability) : null) ?? sourceToken,
             contextMessageId: message.id,
             origin: "powerRoll",
+            fmKey: subKey,
           });
         } catch { }
 
@@ -2698,7 +3385,7 @@ async function _injectFmButtons(message, root) {
         if (!capturedMsgId) {
           const prevState = _fmState.get(stateKey) ?? saved;
           const prevEff   = _effectiveState(baseState, prevState.modStack);
-          _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, prevState, _flatFmDisplayOverride || _makeLabel(prevEff), _stabInfo(tokenUuid, prevEff), !!_flatFmDisplayOverride);
+          _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, prevState, _flatFmLabel(_flatFmDisplayOverride, prevEff), _stabInfo(tokenUuid, prevEff), !!_flatFmDisplayOverride);
           if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, prevState, firstMov, prevEff.distance);
           return;
         }
@@ -2706,7 +3393,7 @@ async function _injectFmButtons(message, root) {
         const newState = { ...cur, applied: true, undoMsgId: capturedMsgId };
         _fmState.set(stateKey, newState);
         _fmUndoIndex.set(capturedMsgId, { fmRow, applyBtn: applyFlatBtn, undoBtn: undoFlatBtn, modBtn: modFlatBtn, quickBtn: quickFlatBtn, stateKey, baseState, movementType: firstMov, message, subKey, tokenUuid, flatDisplayOverride: _flatFmDisplayOverride });
-        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _flatFmDisplayOverride || _makeLabel(clickState), _stabInfo(tokenUuid, clickState), !!_flatFmDisplayOverride);
+        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _flatFmLabel(_flatFmDisplayOverride, clickState), _stabInfo(tokenUuid, clickState), !!_flatFmDisplayOverride);
         if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newState, firstMov, clickState.distance);
         await _persistDstdState(message, subKey, newState);
       });
@@ -2731,7 +3418,7 @@ async function _injectFmButtons(message, root) {
         const newState = { ...cur, applied: false, undoMsgId: msgId };
         _fmState.set(stateKey, newState);
         const undoEff  = _effectiveState(baseState, newState.modStack);
-        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _flatFmDisplayOverride || _makeLabel(undoEff), _stabInfo(tokenUuid, undoEff), !!_flatFmDisplayOverride);
+        _syncRow(fmRow, applyFlatBtn, undoFlatBtn, modFlatBtn, newState, _flatFmLabel(_flatFmDisplayOverride, undoEff), _stabInfo(tokenUuid, undoEff), !!_flatFmDisplayOverride);
         if (quickFlatBtn) _syncQuickBtn(quickFlatBtn, newState, firstMov, undoEff.distance);
         await _persistDstdState(message, subKey, newState);
       });
@@ -2769,7 +3456,7 @@ async function _injectFmButtons(message, root) {
 
         for (const qdBtn of head.querySelectorAll(`.${DSTD}-quick-damage:not(.dsct-dstd-quick-fm-btn):not([data-dsct-condensed])`)) {
           const fullText = qdBtn.textContent.trim();
-          if (!qdBtn.dataset.tooltip) qdBtn.dataset.tooltip = fullText;
+          if (!qdBtn.dataset.dsctTip) _tip(qdBtn, 'quickDamage', { title: qdBtn.dataset.tooltip || fullText });
           const numMatch = fullText.match(/\d+/);
           const iconEls  = [...qdBtn.children].filter(c => c.tagName === 'I' || c.tagName === 'IMG');
           qdBtn.replaceChildren(...iconEls);
@@ -2793,6 +3480,7 @@ async function _injectFmButtons(message, root) {
     const _condTargetActor = _condTargetDoc?.actor ?? null;
 
     for (const effect of flatAppliedEffects) {
+      if (othersOnlyRow) break;
       const { statusId, display, potency } = effect.flatApplied;
       if (!statusId) continue;
       const userKey = sourceToken ? sourceToken.document.uuid.replace(/\./g, '__') : null;
@@ -2821,14 +3509,15 @@ async function _injectFmButtons(message, root) {
       condBtn.type      = 'button';
       condBtn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
       condBtn.dataset.dsctFlatCondKey = condStateKey;
-      condBtn.dataset.tooltip = applyLbl;
+      condBtn.dataset.dsctStatus = statusId;
+      _tip(condBtn, 'condition', { title: applyLbl });
       condBtn.disabled = condState.applied;
       condBtn.append(_makeCondIcon(), _makeSpan(applyLbl));
 
       const undoCondBtn = document.createElement('button');
       undoCondBtn.type      = 'button';
       undoCondBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      undoCondBtn.dataset.tooltip = `Undo ${baseName}`;
+      _tip(undoCondBtn, 'conditionUndo', { title: `Undo ${baseName}` });
       undoCondBtn.disabled = !condState.applied;
       undoCondBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
@@ -2836,13 +3525,15 @@ async function _injectFmButtons(message, root) {
       condRow.className = `${DSTD}-action-row ${DSTD}-status-row`;
       condRow.append(condBtn, undoCondBtn);
       if (condState.applied) condRow.classList.add('is-applied');
+      if (ds.CONFIG.characteristics?.[charKey]) condRow.dataset.dsctPotency = '1';
 
       const _syncCondRow = () => {
         const lbl = condState.applied ? `Applied: ${baseName}${potencyTag}` : applyLbl;
         condRow.classList.toggle('is-applied', condState.applied);
         condBtn.disabled = condState.applied;
         condBtn.replaceChildren(_makeCondIcon(), _makeSpan(lbl));
-        condBtn.dataset.tooltip = lbl;
+        if (condState.applied) _appliedTip(condBtn, 'condition', lbl);
+        else _tip(condBtn, 'condition', { title: lbl });
         undoCondBtn.disabled = !condState.applied;
       };
 
@@ -2863,15 +3554,15 @@ async function _injectFmButtons(message, root) {
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.system.updateResource(-_spendCost);
-            await message.setFlag(M, _condSpendKey, true);
+            await _spendSourceResource(sourceActor, _spendCost);
+            await safeSetFlag(message, M, _condSpendKey, true);
           }
         }
 
         const td    = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
         const actor = td?.actor ?? null;
         if (!actor) return;
-        await applyFlatAppliedEffect(actor, statusId, ability, flatAppliedSourceToken(ability, message), { stack: flatAppliedStacks(effect) });
+        await applyFlatAppliedEffect(actor, statusId, ability, flatAppliedSourceToken(ability, message), { stack: flatAppliedStacks(effect), end: effect.flatApplied.end });
         condState = { applied: true };
         _flatCondState.set(condStateKey, condState);
         _syncCondRow();
@@ -2926,7 +3617,8 @@ async function _injectFmButtons(message, root) {
       healBtn.dataset.dsctFlatHealKey = healFlagKey;
       const appliedHealAmt = isApplied ? (cur.granted?.[netUsed - 1] ?? cur.healed?.[netUsed - 1] ?? null) : null;
       const healLabel = appliedHealAmt != null ? `Applied ${appliedHealAmt}` : applyLbl;
-      healBtn.dataset.tooltip = healLabel;
+      if (appliedHealAmt != null) _appliedTip(healBtn, 'heal', healLabel);
+      else _tip(healBtn, 'heal', { title: healLabel });
       healBtn.dataset.dsctCompact = `${appliedHealAmt ?? amountStr} ${tempStamina ? 'Temp' : 'Healing'}`;
       healBtn.disabled = isApplied;
       const healIcon = tempStamina ? 'fa-solid fa-shield-halved' : 'fa-solid fa-heart-pulse';
@@ -2935,7 +3627,7 @@ async function _injectFmButtons(message, root) {
       const undoHealBtn = document.createElement('button');
       undoHealBtn.type      = 'button';
       undoHealBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      undoHealBtn.dataset.tooltip = `Undo ${applyLbl}${netUsed > 1 ? ` (${netUsed})` : ''}`;
+      _tip(undoHealBtn, 'healUndo', { title: `Undo ${applyLbl}${netUsed > 1 ? ` (${netUsed})` : ''}` });
       undoHealBtn.disabled = netUsed === 0;
       const undoIcon = _makeIcon('fa-solid fa-rotate-left');
       if (repeatable && netUsed > 0) {
@@ -2969,8 +3661,8 @@ async function _injectFmButtons(message, root) {
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.system.updateResource(-_spendCost);
-            await message.setFlag(M, _healSpendKey, true);
+            await _spendSourceResource(sourceActor, _spendCost);
+            await safeSetFlag(message, M, _healSpendKey, true);
           }
         }
 
@@ -2991,16 +3683,16 @@ async function _injectFmButtons(message, root) {
 
         let recoveryActorUuid = null;
         if (spendRecovery) {
-          const recovActor = recoverySource === "target" ? targetActor : sourceActor;
+          const recovActor = await recoverySpender(recoverySource, { targetActor, casterActor: sourceActor, ability,
+            range: Number(effect.flatHeal.allyRange) || 10 });
           if (!recovActor) { healBtn.disabled = false; return; }
-          const available = recovActor.system.recoveries?.value ?? 0;
-          if (available <= 0) {
+          const paid = await takeRecovery(recovActor);
+          if (!paid) {
             ui.notifications.warn(game.i18n.format("DSCT.FlatEffect.Heal.noRecoveries", { name: recovActor.name }));
             healBtn.disabled = false;
             return;
           }
-          await recovActor.update({ "system.recoveries.value": available - 1 });
-          recoveryActorUuid = recovActor.uuid;
+          recoveryActorUuid = paid.uuid;
         }
 
         let amount;
@@ -3020,12 +3712,12 @@ async function _injectFmButtons(message, root) {
           healedEntry = targetActor.system.stamina?.temporary ?? 0;
           await grantTempStamina(targetActor, amount, effect.flatHeal.tempStack ? ability.name : null);
         } else {
-          await targetActor.modifyTokenAttribute("stamina", amount, true);
+          await modifyAttributeSafely(targetActor, 'stamina', amount, true);
           healedEntry = (targetActor.system.stamina?.value ?? 0) - staminaBefore;
         }
 
         const freshCur = message.getFlag(M, healFlagKey) ?? { usedCount: 0, undoCount: 0, healed: [], recoveries: [] };
-        await message.setFlag(M, healFlagKey, {
+        await safeSetFlag(message, M, healFlagKey, {
           usedCount:  (freshCur.usedCount  ?? 0) + 1,
           undoCount:   freshCur.undoCount  ?? 0,
           
@@ -3052,18 +3744,18 @@ async function _injectFmButtons(message, root) {
         const recoveryActorUu = (freshCur.recoveries ?? [])[freshNet - 1] ?? null;
 
         if (tempStamina) {
-          await targetActor.update({ "system.stamina.temporary": healedAmount });
+          await safeUpdate(targetActor, { "system.stamina.temporary": healedAmount });
         } else if (healedAmount) {
-          await targetActor.modifyTokenAttribute("stamina", -healedAmount, true);
+          await modifyAttributeSafely(targetActor, 'stamina', -healedAmount, true);
         }
 
         if (recoveryActorUu) {
           const recovDoc   = await fromUuid(recoveryActorUu).catch(() => null);
           const recovActor = recovDoc?.actor ?? recovDoc ?? null;
-          if (recovActor) await recovActor.update({ "system.recoveries.value": (recovActor.system.recoveries?.value ?? 0) + 1 });
+          if (recovActor) await safeUpdate(recovActor, { "system.recoveries.value": (recovActor.system.recoveries?.value ?? 0) + 1 });
         }
 
-        await message.setFlag(M, healFlagKey, { ...freshCur, undoCount: (freshCur.undoCount ?? 0) + 1 });
+        await safeSetFlag(message, M, healFlagKey, { ...freshCur, undoCount: (freshCur.undoCount ?? 0) + 1 });
       });
 
       actions.appendChild(healRow);
@@ -3077,8 +3769,7 @@ async function _injectFmButtons(message, root) {
       const tpKey = `ftp_${effect.id}_${targetKey}`;
       if (actions.querySelector(`[data-dsct-flat-tp-key="${tpKey}"]`)) continue;
 
-      const spentMatch = message?.flavor?.match(/^Spent (\d+)/i);
-      const tpDist = teleportDistance(tv, ability, spentMatch ? parseInt(spentMatch[1]) : 0);
+      const tpDist = teleportDistance(tv, ability, spendBeyondCost(message, ability));
       const tpLabel = (tv.display || teleportAutoLabel(tv, tpDist)) + _spendSuffix(tv.spend);
 
       const tpBtn = document.createElement('button');
@@ -3091,11 +3782,12 @@ async function _injectFmButtons(message, root) {
       const undoTpBtn = document.createElement('button');
       undoTpBtn.type = 'button';
       undoTpBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      undoTpBtn.dataset.tooltip = `${game.i18n.localize('DSCT.FlatEffect.Teleport.undo')} ${tpLabel}`;
+      _tip(undoTpBtn, 'teleportUndo', { title: `${game.i18n.localize('DSCT.FlatEffect.Teleport.undo')} ${tpLabel}` });
       undoTpBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
       const tpRow = document.createElement('div');
       tpRow.className = `${DSTD}-action-row`;
+      tpRow.dataset.dsctManual = '1';
       tpRow.append(tpBtn, undoTpBtn);
 
       const tpHandle = { tpRow, tpBtn, undoBtn: undoTpBtn, label: tpLabel, message, tpKey };
@@ -3113,7 +3805,7 @@ async function _injectFmButtons(message, root) {
         _tpUndoIndex.delete(msgId);
         chatUndo.click();
         _syncTeleportRow(tpHandle, { applied: false, undoMsgId: null, distance: null });
-        await message.setFlag(M, tpKey, { applied: false, undoMsgId: null, distance: null });
+        await safeSetFlag(message, M, tpKey, { applied: false, undoMsgId: null, distance: null });
       });
 
       tpBtn.addEventListener('click', async (e) => {
@@ -3131,8 +3823,8 @@ async function _injectFmButtons(message, root) {
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost, resource: coreRes?.name ?? game.i18n.localize('DSCT.FlatEffect.spend.resource') }));
               return;
             }
-            await sourceActor.system.updateResource(-cost);
-            await message.setFlag(M, tpSpendKey, true);
+            await _spendSourceResource(sourceActor, cost);
+            await safeSetFlag(message, M, tpSpendKey, true);
           }
         }
         const td = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
@@ -3144,29 +3836,28 @@ async function _injectFmButtons(message, root) {
           capturedTpMsgId = msg.id;
           capturedTpDist = msg.getFlag(M, 'tpDistance') ?? null;
         });
-        try { await runTeleportEffect(tv, ability, { sourceActor, partnerToken: td?.object ?? null }); }
+        try { await runTeleportEffect(tv, ability, { sourceActor, partnerToken: td?.object ?? null, spent: spendBeyondCost(message, ability) }); }
         finally { Hooks.off('createChatMessage', tpHookId); }
         if (!capturedTpMsgId) return;
 
         const tpState = { applied: true, undoMsgId: capturedTpMsgId, distance: capturedTpDist };
         _tpUndoIndex.set(capturedTpMsgId, tpHandle);
         _syncTeleportRow(tpHandle, tpState);
-        await message.setFlag(M, tpKey, tpState);
+        await safeSetFlag(message, M, tpKey, tpState);
       });
 
       actions.appendChild(tpRow);
     }
 
     for (const effect of flatResourceEffects) {
-      if (selfOnlyRow) break;
+      const resOthers = isOthersEffect(effect);
+      if (resOthers ? !othersHere.has(effect.id) : selfOnlyRow || othersOnlyRow) continue;
       const { amount, type, display } = effect.flatResource ?? {};
       if (!amount) continue;
 
-      
-      
-      const toTarget = resourceRecipient(effect) === 'target';
+      const toTarget = resOthers || resourceRecipient(effect) === 'target';
       const perRow = toTarget && targetKey !== 'selected-token';
-      if (!perRow && activePanel.querySelector('[data-dsct-flat-res-key]')) break;
+      if (!perRow && activePanel.querySelector(`[data-dsct-flat-res-key="${resourceFlagKey(effect, null)}"]`)) continue;
       const resKey = resourceFlagKey(effect, perRow ? targetKey : null);
       if (actions.querySelector(`[data-dsct-flat-res-key="${resKey}"]`)) continue;
 
@@ -3184,7 +3875,7 @@ async function _injectFmButtons(message, root) {
       const undoResBtn = document.createElement('button');
       undoResBtn.type = 'button';
       undoResBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      undoResBtn.dataset.tooltip = game.i18n.localize('DSCT.FlatEffect.Resource.undo');
+      _tip(undoResBtn, 'resourceUndo');
       undoResBtn.append(_makeIcon('fa-solid fa-rotate-left'));
 
       const resRow = document.createElement('div');
@@ -3199,7 +3890,7 @@ async function _injectFmButtons(message, root) {
       
       if (perRow && resTargetActor && !canGainResource(resTargetActor, type)) {
         resBtn.disabled = true;
-        resBtn.dataset.tooltip = game.i18n.format('DSCT.notice.flatResource.noPool', { name: resTargetActor.name });
+        _tip(resBtn, 'resourceNoPool', { title: resLabel, data: { name: resTargetActor.name } });
       }
 
       resBtn.addEventListener('click', async (e) => {
@@ -3222,7 +3913,7 @@ async function _injectFmButtons(message, root) {
     }
 
     for (const effect of rowCleanseEffects) {
-      const { display, expiryFilter, statusFilter, repeatable } = effect.flatCleanse;
+      const { display, expiryFilter, statusFilter, keywordFilter, repeatable } = effect.flatCleanse;
       const cleanseFlagKey = `fclns_${effect.id}_${targetKey}`;
       if (actions.querySelector(`[data-dsct-flat-cleanse-key="${cleanseFlagKey}"]`)) continue;
 
@@ -3238,14 +3929,15 @@ async function _injectFmButtons(message, root) {
       cleanseBtn.dataset.dsctFlatCleanseKey = cleanseFlagKey;
       const appliedCleanseName = isApplied ? (cur.stack?.[0]?.name ?? applyLbl) : null;
       const cleanseLabel = appliedCleanseName != null ? `Removed: ${appliedCleanseName}` : applyLbl;
-      cleanseBtn.dataset.tooltip = cleanseLabel;
+      if (appliedCleanseName != null) _tip(cleanseBtn, 'cleanseApplied', { title: cleanseLabel });
+      else _tip(cleanseBtn, 'cleanse', { title: cleanseLabel });
       cleanseBtn.disabled = isApplied;
       cleanseBtn.append(_makeIcon('fa-solid fa-broom'), _makeSpan(cleanseLabel));
 
       const undoCleanseBtn = document.createElement('button');
       undoCleanseBtn.type      = 'button';
       undoCleanseBtn.className = `${DSTD}-icon-button ${DSTD}-undo-button`;
-      undoCleanseBtn.dataset.tooltip = `Undo ${applyLbl}`;
+      _tip(undoCleanseBtn, 'cleanseUndo', { title: `Undo ${applyLbl}` });
       undoCleanseBtn.disabled = stackLen === 0;
       const undoClsIcon = _makeIcon('fa-solid fa-rotate-left');
       if (stackLen > 1) {
@@ -3262,13 +3954,7 @@ async function _injectFmButtons(message, root) {
       cleanseRow.append(cleanseBtn, undoCleanseBtn);
       if (isApplied) cleanseRow.classList.add('is-applied');
 
-      const expiryFilterSet = new Set(Array.isArray(expiryFilter) ? expiryFilter : [...(expiryFilter ?? [])]);
-      const statusFilterSet = new Set(Array.isArray(statusFilter) ? statusFilter : [...(statusFilter ?? [])]);
-      const clsMatchesFilter = (ae) => {
-        if (expiryFilterSet.size > 0 && expiryFilterSet.has(ae.duration?.expiry)) return true;
-        if (statusFilterSet.size > 0 && [...(ae.statuses ?? [])].some(s => statusFilterSet.has(s))) return true;
-        return false;
-      };
+      const clsSpec = { expiry: new Set(expiryFilter ?? []), statuses: new Set(statusFilter ?? []), keywords: new Set(keywordFilter ?? []) };
 
       cleanseBtn.addEventListener('click', async (e) => {
         e.stopPropagation(); e.preventDefault();
@@ -3287,8 +3973,8 @@ async function _injectFmButtons(message, root) {
               ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.spend.insufficient', { name: sourceActor.name, cost: _spendCost, resource: _resName }));
               return;
             }
-            await sourceActor.system.updateResource(-_spendCost);
-            await message.setFlag(M, _clsSpendKey, true);
+            await _spendSourceResource(sourceActor, _spendCost);
+            await safeSetFlag(message, M, _clsSpendKey, true);
           }
         }
 
@@ -3301,7 +3987,7 @@ async function _injectFmButtons(message, root) {
         }
         if (!targetActor) return;
 
-        const cleansable = targetActor.effects.filter(clsMatchesFilter);
+        const cleansable = cleanseMatches(targetActor, clsSpec);
         if (!cleansable.length) {
           ui.notifications.warn(game.i18n.format('DSCT.FlatEffect.Cleanse.noMatch', { name: targetActor.name }));
           return;
@@ -3311,14 +3997,15 @@ async function _injectFmButtons(message, root) {
 
         if (effect.flatCleanse.all) {
           const all = cleansable.map(ae => ae.toObject());
-          await targetActor.deleteEmbeddedDocuments('ActiveEffect', cleansable.map(ae => ae.id), cleansed());
+          if (targetActor.isOwner) await targetActor.deleteEmbeddedDocuments('ActiveEffect', cleansable.map(ae => ae.id), cleansed());
+          else for (const ae of cleansable) await safeDelete(ae, cleansed());
           const cur = message.getFlag(M, cleanseFlagKey) ?? { stack: [] };
-          await message.setFlag(M, cleanseFlagKey, { stack: [...(cur.stack ?? []), { all }] });
+          await safeSetFlag(message, M, cleanseFlagKey, { stack: [...(cur.stack ?? []), { all }] });
           undoCleanseBtn.disabled = false;
           cleanseRow.classList.add('is-applied');
           const appliedName = game.i18n.format('DSCT.FlatEffect.Cleanse.removedAll', { n: all.length });
           cleanseBtn.replaceChildren(_makeIcon('fa-solid fa-broom'), _makeSpan(appliedName));
-          cleanseBtn.dataset.tooltip = appliedName;
+          _tip(cleanseBtn, 'cleanseApplied', { title: appliedName });
           return;
         }
 
@@ -3348,18 +4035,18 @@ async function _injectFmButtons(message, root) {
 
         if (!chosen) { cleanseBtn.disabled = false; return; }
         const removedData = chosen.toObject();
-        await chosen.delete(cleansed());
+        await safeDelete(chosen, cleansed());
 
         const freshCur = message.getFlag(M, cleanseFlagKey) ?? { stack: [] };
         const newStack = [...(freshCur.stack ?? []), removedData];
-        await message.setFlag(M, cleanseFlagKey, { stack: newStack });
+        await safeSetFlag(message, M, cleanseFlagKey, { stack: newStack });
 
         undoCleanseBtn.disabled = false;
         if (!repeatable) {
           cleanseRow.classList.add('is-applied');
           const appliedName = `Removed: ${removedData?.name ?? applyLbl}`;
           cleanseBtn.replaceChildren(_makeIcon('fa-solid fa-broom'), _makeSpan(appliedName));
-          cleanseBtn.dataset.tooltip = appliedName;
+          _tip(cleanseBtn, 'cleanseApplied', { title: appliedName });
         } else {
           cleanseBtn.disabled = false;
         }
@@ -3398,10 +4085,10 @@ async function _injectFmButtons(message, root) {
         const newStack = freshStack.slice(0, -1);
 
         if (removedData) {
-          await targetActor.createEmbeddedDocuments('ActiveEffect', Array.isArray(removedData.all) ? removedData.all : [removedData]);
+          await safeCreateEmbedded(targetActor, 'ActiveEffect', Array.isArray(removedData.all) ? removedData.all : [removedData]);
         }
 
-        await message.setFlag(M, cleanseFlagKey, { stack: newStack });
+        await safeSetFlag(message, M, cleanseFlagKey, { stack: newStack });
 
         if (newStack.length > 0) undoCleanseBtn.disabled = false;
         const countEl = undoCleanseBtn.querySelector('sup');

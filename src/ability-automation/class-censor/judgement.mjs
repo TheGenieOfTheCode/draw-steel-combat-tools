@@ -193,7 +193,7 @@ export const registerJudgementHooks = () => {
           notice.className = 'dsct-undo-status';
           notice.textContent = game.i18n.localize('DSCT.chat.tactical.judgementTriggerUsed');
           btnArea().appendChild(notice);
-        } else {
+        } else if (game.user.isGM || game.actors.get(t4flag.censorActorId)?.isOwner) {
           const { censorActorId, judgedActorId, judgedName, censorName } = t4flag;
           const btn = document.createElement('button');
           btn.type = 'button';
@@ -211,8 +211,9 @@ export const registerJudgementHooks = () => {
               return;
             }
             await censorActor.update({ 'system.hero.primary.value': censorActor.system.hero.primary.value - 1 });
-            await msg.update({ content: game.i18n.format('DSCT.chat.tactical.judgementPotencyUsed', { name: judgedName, censorName }) });
-            await msg.setFlag(M, 'judgementPotencyUsed', true);
+            const used = { content: game.i18n.format('DSCT.chat.tactical.judgementPotencyUsed', { name: judgedName, censorName }), [`flags.${M}.judgementPotencyUsed`]: true };
+            if (msg.isOwner) await msg.update(used);
+            else await safeUpdate(msg, used);
             if (judgedActorId) await flagJudgementTriggersUsed(judgedActorId);
           });
           btnArea().appendChild(btn);

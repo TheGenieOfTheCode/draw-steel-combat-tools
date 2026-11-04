@@ -1,0 +1,79 @@
+{
+  "folder": "DSCTfldDrvMons01",
+  "name": "Rupture",
+  "type": "ability",
+  "_id": "DSCTdrvGrant0007",
+  "img": "icons/magic/earth/projectile-stone-boulder-brown.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "freeTriggered",
+    "category": "",
+    "resource": null,
+    "trigger": "The mournling uses the Dig maneuver to breach the surface",
+    "distance": {
+      "type": "special",
+      "primary": "",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "special",
+      "custom": "",
+      "value": null
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "dsctDrvGrantAc01": {
+        "_id": "dsctDrvGrantAc01",
+        "type": "dsct.flatGrant",
+        "name": "",
+        "img": null,
+        "sort": 100000,
+        "description": "",
+        "before": false,
+        "flatGrant": {
+          "displayText": "Make a free strike against each adjacent enemy",
+          "display": "Free Strike",
+          "kind": "freestrike",
+          "ability": "",
+          "filter": "",
+          "recipient": "self",
+          "distance": ""
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": "rupture-the-mournling-uses-the-dig-maneuver-to-breach-the-surface"
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrvGrant0007"
+}

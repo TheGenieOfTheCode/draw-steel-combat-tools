@@ -1,0 +1,48 @@
+{
+ "folder": "DSCTfffMeloChc01",
+ "name": "Melodrama: More from a Long Fall",
+ "type": "feature",
+ "_id": "DSCTmeloRais0007",
+ "img": "icons/skills/ranged/arrow-strike-apple-orange.webp",
+ "system": {
+  "description": {
+   "value": "<p>The first time a hero unwillingly falls 5 or more squares, you [[/gain 3 heroic]]{gain 3 drama instead of 2}.</p><section class=\"secret\"><p><em>Granted by Draw Steel: Combat Tools' Melodrama.</em></p></section>",
+   "director": ""
+  },
+  "source": {
+   "book": "Heroes",
+   "page": "210",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "melodrama-more-long-fall",
+  "advancements": {},
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [],
+ "sort": 1700,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "createdTime": 1793347200000,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTmeloRais0007"
+}

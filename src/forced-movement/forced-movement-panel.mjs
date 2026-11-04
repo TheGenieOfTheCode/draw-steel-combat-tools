@@ -1,9 +1,10 @@
 import {
   getWindowById, getModuleApi, getSetting,
 } from '../helpers.mjs';
-import { pickTarget } from './forced-movement-engine.mjs';
+import { pickTarget, forcedMovementHandler } from './forced-movement-engine.mjs';
 import { runMultiTokenPicker, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
+import { tipAttrs, tipFor } from '../chat-tips.mjs';
 
 export class ForcedMovementPanel extends FitsOnResize(ds.applications.api.DSApplication) {
   constructor() {
@@ -55,7 +56,7 @@ export class ForcedMovementPanel extends FitsOnResize(ds.applications.api.DSAppl
 
     const slots  = cols * cols;
     const filled = targets.slice(0, slots).map(t =>
-      `<img src="${t.document.texture.src}" class="dsct-token-img" style="width:${cell}px;height:${cell}px;" title="${t.name}">`
+      `<img src="${t.document.texture.src}" class="dsct-token-img" style="width:${cell}px;height:${cell}px;" ${tipAttrs(tipFor('panelTarget', { title: t.name }))}>`
     ).join('');
     const empty  = Array(Math.max(0, slots - Math.min(count, slots))).fill(
       `<div class="dsct-token-placeholder" style="width:${cell}px;height:${cell}px;"></div>`
@@ -161,12 +162,18 @@ export class ForcedMovementPanel extends FitsOnResize(ds.applications.api.DSAppl
     const noObstacleCollisionDamage = juggernaut || colDmgVal === 'no-obstacle';
     const ignoreStability          = juggernaut || this.element.querySelector('#fm-ign-stab')?.checked;
     const fastMove          = this.element.querySelector('#fm-fast-move')?.checked;
+    const safely            = !!this.element.querySelector('#fm-safely')?.checked;
 
     const api = getModuleApi(false);
     if (api && api.forcedMovement) {
       const targetsToProcess = this._targetTokens.slice(0, 25);
-      const payload = { type, distance, sourceId: this._sourceToken?.id, verticalHeight, fallReduction, noFallDamage, noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, ignoreStability, fastMove, juggernaut };
+      const payload = { type, distance, sourceId: this._sourceToken?.id, verticalHeight, fallReduction, noFallDamage, noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, ignoreStability, fastMove, juggernaut, safely };
 
+      const fm = forcedMovementHandler();
+      if (fm) {
+        await fm.forcedMovement({ ...payload, targets: targetsToProcess });
+        return;
+      }
       if (targetsToProcess.length === 1) {
         await api.forcedMovement({ ...payload, targetId: targetsToProcess[0].id });
       } else {

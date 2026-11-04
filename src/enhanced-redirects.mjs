@@ -1,4 +1,4 @@
-import { ENHANCED_PACKS, enhancedDocKey, findEnhanced } from './setup-macros.mjs';
+import { enhancedPackIds, enhancedDocKey, findEnhanced } from './setup-macros.mjs';
 
 const M = 'draw-steel-combat-tools';
 const GATES = new Set([`${M}.enhancedAutoAdd`, `${M}.enhancedSwapMode`]);
@@ -11,7 +11,7 @@ const wanted = () => game.settings.get(M, 'enhancedAutoAdd') && game.settings.ge
 
 async function buildMap() {
   const index = new Map();
-  for (const id of ENHANCED_PACKS) {
+  for (const id of enhancedPackIds()) {
     const pack = game.packs.get(id);
     if (!pack) continue;
     for (const e of await pack.getIndex({ fields: ['system._dsid', `flags.${M}.enhancedByName`, `flags.${M}.enhancedEffectsOnly`] })) {

@@ -1,4 +1,4 @@
-import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, sightSamples, sightOriginPoints, messageDamageSource } from './helpers.mjs';
+import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, sightSamples, sightOriginPoints, messageDamageSource, isOwnAbilityActor, spendBeyondCost } from './helpers.mjs';
 import { chooseMessageFilter, chooseKeywords } from './ability-automation/choose-effect.mjs';
 import { applyGrab, runGrab, grabChat } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
@@ -7,6 +7,7 @@ import { withStatusSource, registerStatusSources } from './conditions/statuses.m
 import { runForcedMovement } from './forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv, persistStack } from './forced-movement/forced-movement-modify-panel.mjs';
 import { executeAsDirector, safeUpdate } from './ctlib.mjs';
+import { setTip, tipFor } from './chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -32,6 +33,7 @@ export function _fmBaseStateFromBtn(btn) {
     noMoverCollisionDamage:    props.has('no-mover-collision-damage'),
     noObstacleCollisionDamage:  props.has('no-obstacle-collision-damage'),
     ignoreStability:           props.has('ignore-stability'),
+    safely:                    props.has('safely'),
     fastMove:          props.has('fast-auto-path'),
   };
 }
@@ -53,7 +55,6 @@ export function registerSystemPatches() {
   _registerButtonHooks();
 }
 
-
 function _patchVisionOrigins() {
   libWrapper.register(
     M,
@@ -72,16 +73,17 @@ function _patchVisionOrigins() {
       const dest = test.point;
       const elevation = visionSource.origin?.elevation;
       
+      const levels = [visionSource.level, test.level].filter(Boolean);
       for (const o of sightOriginPoints(tok).slice(1)) {
         const origin = { x: o.x, y: o.y, elevation };
-        if (!backend.testCollision(origin, dest, { type: 'sight', mode: 'any', source: visionSource })) return true;
+        if (levels.some((level) => canvas.scene.testSurfaceCollision(origin, dest, { type: 'sight', mode: 'any', level }))) continue;
+        if (!backend.testCollision(origin, dest, { type: 'sight', mode: 'any', source: visionSource, level: visionSource.level })) return true;
       }
       return false;
     },
     'MIXED',
   );
 }
-
 
 function _patchVisionTestPoints() {
   libWrapper.register(
@@ -134,6 +136,7 @@ function _extendFMProperties() {
     forcedProps['no-mover-collision-damage']  = { label: 'DSCT.FM.Property.NoMoverCollisionDamage' };
     forcedProps['no-obstacle-collision-damage'] = { label: 'DSCT.FM.Property.NoObstacleCollisionDamage' };
     forcedProps['fast-auto-path']             = { label: 'DSCT.FM.Property.FastAutoPath' };
+    forcedProps['safely']                     = { label: 'DSCT.FM.Property.Safely' };
   }
   const appliedProps = ds?.CONFIG?.PowerRollEffect?.applied?.properties;
   if (appliedProps) {
@@ -190,6 +193,7 @@ function _patchFMConstructButtons() {
         btn.dataset.dsctAction       = 'dsct-fm';
         btn.dataset.movement         = movementType;
         btn.dataset.distance         = String(distance);
+        if (/@spend\b/i.test(distanceRaw)) btn.dataset.distanceFormula = distanceRaw;
         btn.dataset.properties       = JSON.stringify([...properties]);
         btn.dataset.verticalDistance = String(verticalDistance);
         btn.dataset.fallReduction    = String(fallReduction);
@@ -240,7 +244,7 @@ function _buildGrabButton(original, item, tier, properties = new Set()) {
   btn.dataset.dsctTier   = String(tier ?? 0);
   btn.dataset.maxGrabs   = String(maxGrabs);
   btn.dataset.properties = JSON.stringify([...properties]);
-  btn.dataset.tooltip    = 'Holding Shift bypasses restrictions';
+  setTip(btn, tipFor('grab'));
   return btn;
 }
 
@@ -326,7 +330,6 @@ function _patchDamageRollButton() {
   );
 }
 
-
 const _usedJudgementT3 = new Set();
 
 function _registerButtonHooks() {
@@ -403,8 +406,7 @@ function _registerButtonHooks() {
             fireBtn.className = btn.className;
             fireBtn.innerHTML = `<i class="fa-solid fa-fire"></i> ${game.i18n.format('DSCT.button.purifyingFireDamage', { amount: roll.total })}`;
             fireBtn.style.cssText = 'cursor:pointer;';
-            if (btn.dataset.tooltip)          fireBtn.dataset.tooltip          = btn.dataset.tooltip;
-            if (btn.dataset.tooltipDirection) fireBtn.dataset.tooltipDirection = btn.dataset.tooltipDirection;
+            setTip(fireBtn, tipFor('purifyingFire', { title: game.i18n.format('DSCT.button.purifyingFireDamage', { amount: roll.total }) }));
             fireBtn.dataset.dsctAction = 'dsct-purifying-fire';
             fireBtn.dataset.index      = btn.dataset.index;
             fireBtn.dataset.dsctArea   = btn.dataset.dsctArea ?? 'false';
@@ -477,6 +479,12 @@ function _registerButtonHooks() {
       const fmUuid   = normalizeCollection(_msg.system?.parts).find(p => p.type === 'abilityUse')?.abilityUuid;
       const fmItem   = fmUuid ? fromUuidSync(fmUuid) : null;
       const fmChosen = fmItem ? [...chooseKeywords(fmItem, _msg)] : null;
+      const fmSpent  = spendBeyondCost(_msg, fmItem);
+      for (const btn of fmBtns) {
+        if (!btn.dataset.distanceFormula || fmSpent <= 0) continue;
+        btn.dataset.distance = String(ds.utils.evaluateFormula(btn.dataset.distanceFormula,
+          { ...(fmItem?.getRollData?.() ?? {}), spend: fmSpent }) || btn.dataset.distance);
+      }
 
       const savedMods  = _msg.getFlag(M, 'fmModifiers') ?? [];
       const modStack   = savedMods.map(s => ({
@@ -486,6 +494,9 @@ function _registerButtonHooks() {
         ...(s.enabled === false ? { enabled: false } : {}),
       }));
       const baseStates = fmBtns.map(btn => _fmBaseStateFromBtn(btn));
+      if (getSetting('fmAutoForOwnAbilities') && isOwnAbilityActor(fmItem?.actor)) {
+        for (const st of baseStates) if (/^(push|pull)$/i.test(st.movement)) st.fastMove = true;
+      }
       const states     = baseStates.map(st => ({ ...st }));
 
       if (modStack.length > 0) replayModifiers(baseStates, modStack, states);
@@ -503,6 +514,7 @@ function _registerButtonHooks() {
             st.noObstacleCollisionDamage ? 'no-obstacle-collision-damage' : null,
             st.ignoreStability         ? 'ignore-stability'             : null,
             st.fastMove                ? 'fast-auto-path'               : null,
+            st.safely                  ? 'safely'                       : null,
           ].filter(Boolean));
           const vertDist = st.vertical
             ? (st.verticalDistance !== '' ? Number(st.verticalDistance) : st.distance)
@@ -534,7 +546,7 @@ function _registerButtonHooks() {
           const pencilBtn = document.createElement('button');
           pencilBtn.type = 'button';
           pencilBtn.className = 'dsct-fm-edit';
-          pencilBtn.title = 'Modify Forced Movement';
+          setTip(pencilBtn, tipFor('fmModify'));
           pencilBtn.innerHTML = '<i class="fa-solid fa-pencil"></i>';
           wrapper.appendChild(pencilBtn);
 
@@ -723,6 +735,7 @@ function _registerFMEditorFields() {
     if (pseudo?.type !== 'forced') return;
     const item = pseudo.item;
     if (!item) return;
+    const editable = item.isOwner && !item.compendium?.locked;
 
     const fallRed1 = item.getFlag(M, 'fmFallReduction1') ?? null;
 
@@ -760,6 +773,8 @@ function _registerFMEditorFields() {
 
       const vertInput = vertGroup.querySelector('input');
       const fallInput = fallGroup.querySelector('input');
+
+      if (!editable) vertInput.disabled = fallInput.disabled = true;
 
       vertInput.addEventListener('change', e => {
         const v = e.target.value.trim();

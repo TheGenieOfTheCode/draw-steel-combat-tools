@@ -1,0 +1,15 @@
+2026/10/31-00:22:07.800 67f8 Recovering log #4
+2026/10/31-00:22:07.805 67f8 Delete type=0 #4
+2026/10/31-00:22:07.805 67f8 Delete type=3 #2
+2026/10/31-00:22:07.810 61c4 Level-0 table #9: started
+2026/10/31-00:22:07.814 61c4 Level-0 table #9: 25729 bytes OK
+2026/10/31-00:22:07.816 61c4 Delete type=0 #7
+2026/10/31-00:22:07.816 61c4 Manual compaction at level-0 from '!folders!DSCTfffAncestry1' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhSoulsght1.dsctSoulsight001' @ 0 : 0; will stop at (end)
+2026/10/31-00:22:07.816 61c4 Manual compaction at level-1 from '!folders!DSCTfffAncestry1' @ 72057594037927935 : 1 .. '!items.effects!DSCTenhSoulsght1.dsctSoulsight001' @ 0 : 0; will stop at '!items.effects!DSCTenhSoulsght1.dsctSoulsight001' @ 96 : 1
+2026/10/31-00:22:07.816 61c4 Compacting 1@1 + 1@2 files
+2026/10/31-00:22:07.820 61c4 Generated table #10@1: 74 keys, 25729 bytes
+2026/10/31-00:22:07.820 61c4 Compacted 1@1 + 1@2 files => 25729 bytes
+2026/10/31-00:22:07.822 61c4 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/10/31-00:22:07.822 61c4 Delete type=2 #5
+2026/10/31-00:22:07.822 61c4 Delete type=2 #9
+2026/10/31-00:22:07.822 61c4 Manual compaction at level-1 from '!items.effects!DSCTenhSoulsght1.dsctSoulsight001' @ 96 : 1 .. '!items.effects!DSCTenhSoulsght1.dsctSoulsight001' @ 0 : 0; will stop at (end)

@@ -16,7 +16,7 @@ const _rebuild = () => {
 
 const _forced = (token) => {
   const id = token?.document?.id;
-  return !!id && _combatants.has(id) && getSetting('revealCombatantPositions');
+  return !!id && !token.document.hidden && _combatants.has(id) && getSetting('revealCombatantPositions');
 };
 
 function _viewers() {

@@ -1,4 +1,5 @@
-import { HANDED_TO_TRIGGERS, triggersHandlesClassTriggers } from './helpers.mjs';
+import { HANDED_TO_TRIGGERS, triggersHandlesClassTriggers, movesGranted } from './helpers.mjs';
+import { offersChoices, postEnhancedChoices } from './enhanced-choices.mjs';
 
 const MACRO_FOLDER_NAME = 'Draw Steel: Combat Tools';
 
@@ -134,14 +135,18 @@ const ENH_FLAG = 'draw-steel-combat-tools';
 
 export const ENHANCED_PACK = 'draw-steel-combat-tools.enhanced-abilities';
 
-export const ENHANCED_PACKS = [ENHANCED_PACK, 'draw-steel-combat-tools.enhanced-features'];
+const OWN_ENHANCED_PACKS = [ENHANCED_PACK, 'draw-steel-combat-tools.enhanced-features'];
 
-const enhancedPacks = () => ENHANCED_PACKS.map(id => game.packs.get(id)).filter(Boolean);
+export const enhancedPackIds = () => [...OWN_ENHANCED_PACKS, ...game.packs
+  .filter(p => p.metadata.packageName !== ENH_FLAG && p.metadata.flags?.[ENH_FLAG]?.enhanced === true)
+  .map(p => p.collection)];
+
+const enhancedPacks = () => enhancedPackIds().map(id => game.packs.get(id)).filter(Boolean);
 
 async function enhancedDocuments() {
   const out = [];
   for (const pack of enhancedPacks()) out.push(...await pack.getDocuments());
-  return out;
+  return movesGranted() ? out : out.filter((d) => !d.flags?.[ENH_FLAG]?.enhancedNeedsMoves);
 }
 
 export function enhancedStamp(data) {
@@ -210,17 +215,28 @@ const _retypeSafe = (item, system) => {
   return out;
 };
 
-const _overwriteLanded = (item, system) => {
+const _unlanded = (item, system) => {
   const held = item.toObject()?.system ?? {};
+  const out = [];
   for (const path of _typedMapPaths(system, '', [])) {
     const want = path ? foundry.utils.getProperty(system, path) : system;
     const have = path ? foundry.utils.getProperty(held, path) : held;
     if (!want || typeof want !== 'object') continue;
     for (const [id, entry] of Object.entries(want)) {
-      if (typeof entry?.type === 'string' && have?.[id]?.type !== entry.type) return false;
+      if (typeof entry?.type === 'string' && have?.[id]?.type !== entry.type) out.push({ key: path ? `${path}.${id}` : id, entry });
     }
   }
-  return true;
+  return out;
+};
+
+const _overwriteLanded = (item, system) => !_unlanded(item, system).length;
+
+const _retypeInTwoSteps = async (item, system) => {
+  const stale = _unlanded(item, system);
+  const ops = foundry.data?.operators;
+  if (!stale.length || !ops?.ForcedDeletion) return;
+  await item.update(Object.fromEntries(stale.map(({ key }) => [`system.${key}`, new ops.ForcedDeletion()])));
+  await item.update(Object.fromEntries(stale.map(({ key, entry }) => [`system.${key}`, entry])));
 };
 
 const _syncEffects = async (item, effects) => {
@@ -314,6 +330,21 @@ const _addEffects = async (item, effects) => {
   if (effects.length) await item.createEmbeddedDocuments('ActiveEffect', effects, { keepId: true });
 };
 
+const SPECIAL = 'enhancedSpecialEffects';
+
+const _mergeSpecialEffects = async (item, system) => {
+  const ops = foundry.data?.operators;
+  if (item.type !== 'ability' || !ops?.ForcedDeletion) return [];
+  const ours = Object.entries(system?.effects ?? {}).filter(([, e]) => String(e?.type ?? '').startsWith('dsct.'));
+  const keep = new Set(ours.map(([id]) => id));
+  const have = item.toObject()?.system?.effects ?? {};
+  const next = {};
+  for (const id of item.getFlag(ENH_FLAG, SPECIAL) ?? []) if (!keep.has(id) && have[id]) next[id] = new ops.ForcedDeletion();
+  for (const [id, entry] of ours) next[id] = have[id] ? ops.ForcedReplacement.create(entry) : entry;
+  if (Object.keys(next).length) await item.update({ system: { effects: next } });
+  return [...keep];
+};
+
 const GRANTED_BY = 'enhancedGrantedBy';
 
 export async function syncEnhancedGrants(item, doc) {
@@ -356,12 +387,14 @@ export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
   const flags = { ...(data.flags?.[ENH_FLAG] ?? {}), enhanced: true, enhancedHash: hash };
   if (effectsOnly) {
     await _addEffects(item, data.effects ?? []);
+    flags[SPECIAL] = await _mergeSpecialEffects(item, data.system);
     await item.update({ flags: { [ENH_FLAG]: flags } });
     return true;
   }
   if (!item.getFlag(ENH_FLAG, 'enhanced')) flags.enhancedSwapped = true;
 
   await item.update({ name: data.name, img: data.img, system: _retypeSafe(item, data.system) });
+  if (!_overwriteLanded(item, data.system)) await _retypeInTwoSteps(item, data.system);
 
   if (!_overwriteLanded(item, data.system)) {
     console.warn(`DSCT | enhanced | Foundry rejected the overwrite of "${item.name}" on ${item.parent?.name ?? 'the sidebar'}. Left unflagged so it is tried again rather than marked enhanced.`);
@@ -370,6 +403,9 @@ export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
 
   await _syncEffects(item, data.effects ?? []);
   await item.update({ flags: { [ENH_FLAG]: flags } });
+  if (flags.enhancedSwapped && offersChoices(data)) {
+    await postEnhancedChoices(item).catch((err) => console.warn(`DSCT | enhanced | could not offer the choices of ${item.name}:`, err));
+  }
   return true;
 };
 

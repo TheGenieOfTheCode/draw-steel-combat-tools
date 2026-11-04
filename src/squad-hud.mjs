@@ -1,4 +1,5 @@
 import { services } from './ctlib.mjs';
+import { setTip, tipFor } from './chat-tips.mjs';
 ﻿import { getSetting, monsterFilter as filter } from './helpers.mjs';
 import { runColoredTokenPicker } from './ability-automation/target-picker.mjs';
 import { assignSquadCaptain } from './squad-labels.mjs';
@@ -104,6 +105,23 @@ function _dims() {
   return { barW, barH, pad, nameH, numH, hudW, hudH, f };
 }
 
+const _seesToken = (t) => game.user.isGM || t.document.isOwner || t.visible;
+
+let _builtSeenKey = '';
+
+function _visibleSquadKey() {
+  if (game.user.isGM || !game.combat) return '';
+  const ids = [];
+  for (const group of game.combat.groups?.contents ?? []) {
+    if (group.type !== 'squad') continue;
+    for (const c of group.members) {
+      const t = c.token?.object;
+      if (t?.visible) ids.push(t.id);
+    }
+  }
+  return ids.sort().join();
+}
+
 function _squadDataList() {
   if (!game.combat || !canvas?.tokens) return [];
   const out = [];
@@ -115,14 +133,15 @@ function _squadDataList() {
     if (!living.length) continue;
     const tokens = living
       .map(c => canvas.tokens.placeables.find(t => t.id === c.tokenId))
-      .filter(Boolean);
+      .filter(t => t && _seesToken(t));
     if (!tokens.length) continue;
 
     const captainId        = group.system?.captainId;
     const captainCombatant = captainId ? game.combat.combatants.get(captainId) : null;
-    const captainToken     = (captainCombatant && !captainCombatant.isDefeated)
+    const captainPlaced    = (captainCombatant && !captainCombatant.isDefeated)
       ? (canvas.tokens.placeables.find(t => t.id === captainCombatant.tokenId) ?? null)
       : null;
+    const captainToken     = captainPlaced && _seesToken(captainPlaced) ? captainPlaced : null;
 
     const num      = parseInt(group.name.match(/^Group (\d+)/i)?.[1]) || 1;
     const indivMax = living[0]?.actor?.system?.stamina?.max ?? 0;
@@ -278,7 +297,7 @@ function _openHudEditor(entry) {
   const input = document.createElement('input');
   input.type = 'text';
   input.placeholder = `${entry.currHP ?? 0}`;
-  input.title = 'Enter value or delta (+3, -2)';
+  setTip(input, tipFor('squadStamina'));
   input.style.cssText = 'width:100%;background:transparent;color:#fff;border:none;outline:none;font-size:15px;text-align:center;';
   wrap.appendChild(input);
   document.body.appendChild(wrap);
@@ -636,6 +655,7 @@ function _restoreTokenBars(prevIds, newIds) {
 
 export function rebuildSquadHuds() {
   if (!canvas?.controls) return;
+  _builtSeenKey = _visibleSquadKey();
 
   
   const prevTokenIds = new Set();
@@ -1009,6 +1029,10 @@ export function registerSquadHudHooks() {
   });
   Hooks.on('createCombat',         _rebuild);
   Hooks.on('deleteCombat',         _rebuild);
+  Hooks.on('sightRefresh', () => {
+    if (game.user.isGM || !getSetting('squadHudEnabled')) return;
+    if (_visibleSquadKey() !== _builtSeenKey) _rebuild();
+  });
 
   
   Hooks.on('updateCombatantGroup', (group, changes) => {

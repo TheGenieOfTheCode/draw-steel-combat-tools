@@ -1,0 +1,103 @@
+{
+  "folder": "DSCTfldDrvMons01",
+  "name": "Death Frenzy",
+  "type": "ability",
+  "_id": "DSCTdrvGrant0005",
+  "img": "icons/creatures/mammals/wolf-howl-moon-forest-blue.webp",
+  "system": {
+    "_dsid": "",
+    "story": "",
+    "keywords": [],
+    "type": "freeTriggered",
+    "category": "",
+    "resource": null,
+    "trigger": "A non-minion ally within distance is reduced to 0 Stamina",
+    "distance": {
+      "type": "special",
+      "primary": "",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "special",
+      "custom": "",
+      "value": null
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "dsctDrvGrantMv01": {
+        "_id": "dsctDrvGrantMv01",
+        "type": "dsct.flatGrant",
+        "name": "",
+        "img": null,
+        "sort": 100000,
+        "description": "",
+        "before": false,
+        "flatGrant": {
+          "displayText": "Move up to their speed",
+          "display": "Move",
+          "kind": "move",
+          "ability": "",
+          "filter": "",
+          "recipient": "self",
+          "distance": "@movement.value"
+        }
+      },
+      "dsctDrvGrantAc01": {
+        "_id": "dsctDrvGrantAc01",
+        "type": "dsct.flatGrant",
+        "name": "",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatGrant": {
+          "displayText": "Then can make a melee free strike",
+          "display": "Free Strike",
+          "kind": "filter",
+          "ability": "",
+          "filter": "freestrike melee",
+          "recipient": "self",
+          "distance": ""
+        }
+      }
+    }
+  },
+  "effects": [],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true,
+      "derivedLine": [
+        "death-frenzy-a-non-minion-ally-within-5-squares-of-the-bonesplitter-is-reduced-t",
+        "death-frenzy-a-non-minion-ally-within-5-squares-of-the-cackler-is-reduced-to-0-s",
+        "death-frenzy-a-non-minion-ally-within-7-squares-of-the-marauder-is-reduced-to-0-",
+        "death-frenzy-a-non-minion-ally-within-7-squares-of-the-gnasher-is-reduced-to-0-s",
+        "death-frenzy-a-non-minion-ally-within-5-squares-of-the-abyssal-summoner-is-reduc"
+      ]
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.367",
+    "systemId": "draw-steel",
+    "systemVersion": "1.1.2",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTdrvGrant0005"
+}

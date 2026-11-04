@@ -1,6 +1,7 @@
 import { services, isPrimaryGM } from './ctlib.mjs';
 import { safeCreateEmbedded, safeDelete, getSetting, monsterFilter as filter, noLogFlag } from './helpers.mjs';
 import { runMultiTokenPicker, runColoredTokenPicker } from './ability-automation/target-picker.mjs';
+import { setTip, tipFor } from './chat-tips.mjs';
 
 const M         = 'draw-steel-combat-tools';
 const ICON_PATH = 'modules/draw-steel-combat-tools/assets/Icons';
@@ -152,7 +153,7 @@ const _applySquadLabels = async () => {
 
   if (dbg) console.log(`DSCT | SL | applySquadLabels done in ${(performance.now()-_t0).toFixed(0)}ms -- skipped=${skipped} updated=${updated}`);
 
-  if (!game.combat.started) {
+  if (game.combat && !game.combat.started) {
     ui.notifications.info(game.i18n.localize('DSCT.notice.squads.labelsApplied'));
   }
 };
@@ -376,7 +377,7 @@ export const registerSquadLabelHooks = () => {
     const btn = el?.querySelector('[data-action="startCombat"]');
     if (!btn || btn.dataset.dsctShiftBound) return;
     btn.dataset.dsctShiftBound = '1';
-    btn.dataset.tooltip = game.i18n.localize('DSCT.tooltip.shiftStartCombat');
+    setTip(btn, tipFor('startCombat', { title: game.i18n.localize('COMBAT.Begin') }));
     btn.addEventListener('click', e => { if (e.shiftKey) _shiftOverrideRename = true; });
   });
   Hooks.on('canvasReady', async () => {

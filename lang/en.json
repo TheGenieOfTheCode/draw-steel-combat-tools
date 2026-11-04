@@ -1,10 +1,35 @@
 {
   "DSCT": {
+    "grantAction": {
+      "freestrike": "a Free Strike",
+      "maneuver": "a Maneuver",
+      "main": "a Main Action",
+      "signature": "a Signature Ability",
+      "heroic": "a Heroic Ability",
+      "meleeFreestrike": "a Melee Free Strike",
+      "rangedFreestrike": "a Ranged Free Strike",
+      "moveText": { "shift": "Shift up to {n} squares", "move": "Move up to {n} squares", "jump": "Jump up to {n} squares" },
+      "filtered": "an Ability",
+      "label": "Use {name}",
+      "labelTarget": "Targets use {name}",
+      "tip": "Use {name} now without spending an action.",
+      "tipTarget": "Each targeted creature uses {name} now without spending an action.",
+      "pickTitle": "{name}: Choose One",
+      "none": "{name} has nothing to use for this.",
+      "noTargets": "Target the creatures that get this action first.",
+      "noMover": "Select the creature that acts first."
+    },
     "applyToTargets": {
       "tooltip": "Shift-click to apply to your targets instead.",
       "noTargets": "Target the tokens to apply this to."
     },
     "setting": {
+      "tabHeaders": {
+        "abilities": "Abilities",
+        "combat": "Combat",
+        "table": "Table and Interface",
+        "module": "Module"
+      },
       "testFeaturesSettings": {
         "name": "Test Features",
         "label": "Configure Test Features",
@@ -47,18 +72,22 @@
         "name": "Complete Encounter Window",
         "hint": "The system asks about victories and resets whenever a combat ends. Accepting answers it with its defaults (1 victory, temporary Stamina, heroic resources and surges reset) without showing it; skipping closes it and applies nothing.",
         "choice": {
-          "ask": "Show it (system default)",
-          "accept": "Accept the defaults without showing it",
-          "skip": "Close it and apply nothing"
+          "ask": "Show It (System Default)",
+          "accept": "Accept the Defaults Without Showing It",
+          "skip": "Close It and Apply Nothing"
         }
+      },
+      "neutralFoesHostile": {
+        "name": "Engaging in Hostilities",
+        "hint": "When combat starts or an NPC joins it, neutral NPCs turn Hostile and Noncombatants turn Neutral, with a whisper to switch any back. Rules that look for enemies, like ranged strike banes, skip neutral tokens."
       },
       "enhancedSwapMode": {
         "name": "Overwrite On Import",
         "hint": "What to do when you import something the Combat Tools compendiums carry an enhanced version of. Asking lists what would be overwritten before anything is written.",
         "choice": {
-          "ask": "Ask the first time",
-          "always": "Always overwrite",
-          "never": "Never overwrite"
+          "ask": "Ask the First Time",
+          "always": "Always Overwrite",
+          "never": "Never Overwrite"
         }
       },
       "distributeEnhanced": {
@@ -66,13 +95,39 @@
         "label": "Add to Every Actor",
         "hint": "Adds every ability from the DSCT: Enhanced Abilities compendium to every actor in the world that does not already have it. Hide and Search gather the scattered stealth rules into one action each."
       },
+      "settingsReport": {
+        "name": "Settings Report",
+        "label": "Show Report",
+        "hint": "Posts a chat message, only to you, listing every setting you can change that differs from its default, with buttons to restore them."
+      },
       "macroPromptMode": {
         "name": "Sample Macro Import Prompt",
         "hint": "When to offer the Director the sample macros on load.",
         "choice": {
-          "ask": "Ask on every initialization",
-          "skipUpdate": "Ask only when the module updates",
-          "never": "Don't ask again"
+          "ask": "Ask on Every Initialization",
+          "skipUpdate": "Ask Only When the Module Updates",
+          "never": "Don't Ask Again"
+        }
+      },
+      "fmAutoForOwnAbilities": {
+        "name": "Auto Path My Forced Movement",
+        "hint": "Forced movement from your own abilities starts with Auto, so the push or pull finds its own path when you apply it. For the Director, that is every creature no online player owns."
+      },
+      "rollDialogDodge": {
+        "name": "Roll Windows Stay Out of the Way",
+        "hint": "When a roll window opens, it moves off the creatures taking their turn and the ability's targets, staying as close to the middle of the screen as it can and clear of the sidebar, chat and other windows. It only moves when it opens."
+      },
+      "autoApplyOwnAbilities": {
+        "name": "Apply My Abilities Automatically",
+        "hint": "When you use one of your own abilities on targets, apply everything as soon as the result is in, one effect at a time. Grabs, teleports and pushes without Auto stay manual. For the Director, that is every creature no online player owns."
+      },
+      "potencyChecks": {
+        "name": "Potency Checks",
+        "hint": "Checks each condition with a potency against the target and marks it Affected or Resisted. With auto-apply, conditions the target is affected by are applied too and resisted ones are skipped.",
+        "choice": {
+          "off": "Off",
+          "show": "Show",
+          "apply": "Show and Auto-Apply"
         }
       },
       "dstdQuickFmButton": {
@@ -99,7 +154,7 @@
       "forcedMovementSettings": {
         "name": "Forced Movement Settings",
         "label": "Configure Forced Movement",
-        "hint": "Animation speed, the prompts before a fall or before hitting an ally, and who may change a move afterwards."
+        "hint": "How forced movement animates, the prompts before a fall or hitting an ally, the rules it follows, and who may change a move."
       },
       "animationStepDelay": {
         "name": "Animation Step Delay (ms)",
@@ -187,7 +242,7 @@
       },
       "tauntedEnabled": {
         "name": "Taunted",
-        "hint": "Adds an Apply Taunted button to Target Damage cards. The system handles the double bane."
+        "hint": "Adds an Apply Taunted button to Target Damage messages. The system handles the double bane."
       },
       "tauntedEffectIcon": {
         "name": "Taunted Effect Icon",
@@ -218,10 +273,19 @@
           "manual": "Manual (post roll to apply)"
         }
       },
+      "recurringDamage": {
+        "name": "Recurring Damage",
+        "hint": "Effects with recurring damage deal it at the start of the affected creature's turn: applied for you with an undo, posted for you to apply, or left alone.",
+        "choice": {
+          "auto": "Auto-Apply (with undo)",
+          "manual": "Manual (post damage to apply)",
+          "off": "Off"
+        }
+      },
       "squadToolsSettings": {
         "name": "Squad Tools Settings",
         "label": "Configure Squad Tools",
-        "hint": "Configure squad labels, simultaneous turns, and the squad HUD."
+        "hint": "Group actions, squad labels, turns taken together, the squad HUD and squads in damage panels."
       },
       "squadToolsEnabled": {
         "name": "Squad Tools",
@@ -258,9 +322,9 @@
       "squadLabelRenamePreference": {
         "name": "Auto-Rename Preference",
         "hint": "Whether to ask before renaming squads at the start of combat, or always do the same thing.",
-        "ask": "Ask every time",
-        "rename": "Always rename and apply",
-        "apply": "Always just apply labels"
+        "ask": "Ask Every Time",
+        "rename": "Always Rename and Apply",
+        "apply": "Always Just Apply Labels"
       },
       "squadSimultaneousTurns": {
         "name": "Squads Take Their Turn Together",
@@ -283,7 +347,7 @@
         "hint": "How much of the squad bar players see. The Director always sees all of it.",
         "choice": {
           "all": "Full (bar and Stamina numbers)",
-          "bar": "Bar only (no Stamina numbers)",
+          "bar": "Bar Only (No Stamina Numbers)",
           "none": "Hidden (individual token bars restored)"
         }
       },
@@ -324,7 +388,7 @@
       "abilityAutomationSettings": {
         "name": "Ability Automation Settings",
         "label": "Configure Ability Automation",
-        "hint": "Configure class ability automations for Censor, Tactician, and Shadow, plus ability range enforcement and malice features."
+        "hint": "Targeting, areas, applying results, the roll window, modifiers in chat, damage rules and enrichers, with class features in a window of their own."
       },
       "flatEffectsSettings": {
         "name": "Flat Effects Settings",
@@ -410,7 +474,7 @@
       "handedToTriggers": "Draw Steel: Triggers handles this while its Feature Triggers setting is on.",
       "judgementAutomation": {
         "name": "Judgement",
-        "hint": "Adds a button to the Judgement chat card to judge your target, then follows the judged creature: a reminder in chat each time Judgement can be used, and a prompt to judge someone new when the judged creature falls."
+        "hint": "Adds a button to the Judgement chat message to judge your target, then follows the judged creature: a reminder in chat each time Judgement can be used, and a prompt to judge someone new when the judged creature falls."
       },
       "judgedEffectIcon": {
         "name": "Judged Effect Icon",
@@ -424,9 +488,13 @@
         "name": "Seconds to Hold the Roll",
         "hint": "How long the roll is held when a Judgement bane reminder is posted."
       },
+      "judgementHoldSeconds": {
+        "name": "Seconds to Hold the Roll",
+        "hint": "When a judged creature makes a power roll, its roll buttons wait this long so the Censor can impose the bane or decline. 0 lets the roll go at once."
+      },
       "markAutomation": {
         "name": "Mark",
-        "hint": "Adds an Apply Mark button to every chat card that can mark, and prompts the Tactician to mark someone new within 10 squares when the marked creature falls. Knows which marks replace an earlier one and which do not."
+        "hint": "Adds an Apply Mark button to every chat message that can mark, and prompts the Tactician to mark someone new within 10 squares when the marked creature falls. Knows which marks replace an earlier one and which do not."
       },
       "markedEffectIcon": {
         "name": "Marked Effect Icon",
@@ -434,7 +502,7 @@
       },
       "aidAttackAutomation": {
         "name": "Aid Attack",
-        "hint": "Adds an Aid Attack button to the Aid Attack chat card. It marks the enemy you targeted so the next ally ability roll against them has an edge, and clears the mark once someone rolls against them or combat ends."
+        "hint": "Adds an Aid Attack button to the Aid Attack chat message. It marks the enemy you targeted so the next ally ability roll against them has an edge, and clears the mark once someone rolls against them or combat ends."
       },
       "aidAttackEffectIcon": {
         "name": "Aid Attack Effect Icon",
@@ -442,7 +510,7 @@
       },
       "imNoThreatEnabled": {
         "name": "I'm No Threat",
-        "hint": "Adds a button to the I'm No Threat chat card for choosing what the illusion looks like. The token takes that look until the Shadow makes a strike."
+        "hint": "Adds a button to the I'm No Threat chat message for choosing what the illusion looks like. The token takes that look until the Shadow makes a strike."
       },
       "imNoThreatEffectIcon": {
         "name": "I'm No Threat Effect Icon",
@@ -450,7 +518,7 @@
       },
       "abyssalEvolutionEnabled": {
         "name": "Abyssal Evolution",
-        "hint": "Adds a button to the Abyssal Evolution chat card for turning an abyssal minion into a horde creature of the same level."
+        "hint": "Adds a button to the Abyssal Evolution chat message for turning an abyssal minion into a horde creature of the same level."
       },
       "squadAutoAssignStaminaPriority": {
         "name": "Auto-Assign Stamina Priority",
@@ -485,17 +553,68 @@
         "name": "Shift-Click Applies to Targets",
         "hint": "Shift-click an apply enricher (effects and conditions) to apply it to your targets instead of your selected tokens, even creatures you don't own. The enricher shows a crosshair while Shift is held."
       },
+      "advancedEnrichers": {
+        "name": "Advanced Enrichers",
+        "hint": "Enrichers in chat messages keep their own targets, roll once when the message posts, and apply straight from the text, with modifiers per target."
+      },
+      "advancedEnricherMessages": {
+        "name": "Post Roll Messages",
+        "hint": "When an advanced enricher rolls, also post the system's separate roll chat message. Off, the roll and its results live only on the original message."
+      },
+      "compactEnrichers": {
+        "name": "Super Compact Enrichers",
+        "hint": "Enrichers show an icon and a number instead of words, like an arrow and 2 for Push 2. The tooltip still has every detail. Only changes what you see."
+      },
       "neutralizeEnrichers": {
         "name": "Replace Apply Enrichers in Ability Text",
-        "hint": "Turn the apply enrichers written into an ability’s description into plain text, and offer this module’s own buttons instead."
+        "hint": "Turn the apply enrichers written into an ability’s description into plain text, and offer this module’s own buttons instead. Advanced Enrichers already handle these, so this is only useful with them off."
       },
       "alwaysRepickTargets": {
         "name": "Always Re-Pick Targets",
-        "hint": "Clear whatever you had targeted before an ability resolves, so you are always asked to pick again."
+        "hint": "Clear whatever you had targeted before an ability resolves, so you are always asked to pick again. Update Targets on a chat message asks again too."
+      },
+      "sortTargetsNearest": {
+        "name": "Sort Targets Nearest First",
+        "hint": "List the targets on a chat message from nearest to farthest from the creature using the ability, so Apply All and Auto Apply resolve the nearest first. Elsewhere they keep the order you targeted them in.",
+        "choice": {
+          "all": "All Abilities",
+          "ability": "When an Ability Says So"
+        }
       },
       "autoConfirmSelection": {
         "name": "Auto-Confirm Target Selection",
         "hint": "Confirm as soon as you have picked as many targets as the ability allows, with no need to press Enter. When there are no more valid targets than it allows, they are picked for you."
+      },
+      "areaPicker": {
+        "name": "Area Picker",
+        "hint": "Before the roll window, place an ability's burst, cube or line on the map and see who it catches. Turn it off to place areas yourself after the roll."
+      },
+      "areaPickerOrigin": {
+        "name": "Origin Square",
+        "hint": "Automatic uses the square of the area nearest you that you have line of effect to. Manual has you click that square first, then place the area around it. Everyone sets their own.",
+        "auto": "Automatic",
+        "manual": "Manual"
+      },
+      "areaPickerOriginForce": {
+        "name": "Origin Square for Everyone",
+        "hint": "Let each person choose Automatic or Manual for themselves, or set one for the whole table.",
+        "players": "Players Choose",
+        "auto": "Automatic for Everyone",
+        "manual": "Manual for Everyone"
+      },
+      "areaCoverFrom": {
+        "name": "Area Cover From",
+        "hint": "Whether cover against an area ability is judged from the caster, as written, or from the area's origin square, which many tables read as the intent.",
+        "caster": "The Caster",
+        "origin": "The Origin Square"
+      },
+      "areaPickerTurnStep": {
+        "name": "Line Turn Step",
+        "hint": "How far each Shift + scroll turns a line when the Area Picker opens. The Turn button changes it for that pick. Everyone sets their own."
+      },
+      "areaPickerPlayerExclude": {
+        "name": "Players Can Exclude Area Targets",
+        "hint": "Players can click a creature in an area they place to leave it out, even if the area would hit it. The Director always can."
       },
       "rollDialogPillUI": {
         "name": "Alternative Ability Roll UI",
@@ -503,7 +622,7 @@
       },
       "dstdSquadSections": {
         "name": "Group Squads in Damage Panels",
-        "hint": "Folds a damage panel's target rows into a collapsible section per squad, so a card that hits a whole minion squad reads as one line instead of eight. Targets outside a squad are left where they are."
+        "hint": "Folds a damage panel's target rows into a collapsible section per squad, so a message that hits a whole minion squad reads as one line instead of eight. Targets outside a squad are left where they are."
       },
       "dstdSquadSectionsOpen": {
         "name": "Open Squad Sections by Default",
@@ -517,9 +636,26 @@
         "name": "Modifier Roll Editor",
         "hint": "Replaces the edit roll window on an ability in chat with a compact editor in the Alternative Ability Roll UI style. What you add there is listed under the roll and can be taken off again."
       },
+      "modifierEditors": {
+        "name": "Modifier Editors",
+        "hint": "Replaces the edit roll and edit damage windows on an ability in chat with compact editors in the Alternative Ability Roll UI style. What you add is listed under the roll or the damage and can be taken off again."
+      },
+      "classFeaturesMenu": {
+        "name": "Class Features",
+        "label": "Configure Class Features",
+        "hint": "Aid Attack, Judgement, Mark, the Shadow's and the Null's features, and Abyssal Evolution."
+      },
       "pillDamageEditor": {
         "name": "Modifier Damage Editor",
         "hint": "Replaces the edit damage window on an ability in chat with an editor in the Alternative Ability Roll UI style, covering spent Surges, a change of damage type, and named changes listed under the damage button."
+      },
+      "hideApplyWord": {
+        "name": "Shorter Apply Buttons",
+        "hint": "Buttons on Target Damage rows drop the word Apply, so Apply 5 Fire Damage reads 5 Fire Damage. Applied rows keep their wording."
+      },
+      "compactChatPills": {
+        "name": "Compact Modifier Pills",
+        "hint": "Modifier pills in chat messages shrink to their amount and show their full detail on hover."
       },
       "skipPillEditor": {
         "name": "Cog Opens Add Modifier Directly",
@@ -532,6 +668,14 @@
       "noMultiplierStacking": {
         "name": "No Multiplier Stacking",
         "hint": "A second Half, or a second Double, has no effect and shows dimmed."
+      },
+      "extraDamageTypes": {
+        "name": "Extra Damage of Another Type",
+        "hint": "When a surge or a trigger adds damage of a different type, it can land as its own hit with that type's immunity and weakness, or turn the whole damage into that type. The rules don't settle this yet.",
+        "choice": {
+          "separate": "Its Own Hit",
+          "convert": "Converts the Damage"
+        }
       },
       "highGroundEnabled": {
         "name": "High Ground Edge",
@@ -695,17 +839,13 @@
         "hint": "A creature pushed into ground one square higher collides with it instead of climbing up. Steps down are unaffected."
       },
       "homeRulesSettings": {
-        "name": "Home Rules",
-        "label": "Configure Home Rules",
-        "hint": "Optional rule modifications for groups that prefer to run things differently."
-      },
-      "homeRulesEnabled": {
-        "name": "Home Rules",
-        "hint": "Unlock the house rules below. Each one still has its own switch, and they keep whatever you set them to."
+        "name": "Line of Effect",
+        "label": "Configure Line of Effect",
+        "hint": "Corner to corner line of effect, who shows through the fog, and peeking around corners."
       },
       "homebrewOptions": {
         "name": "Homebrew Options",
-        "hint": "Show the settings for third party supplements and homebrew, such as the Null and Shadow options in Ability Automation."
+        "hint": "Show the settings for third party supplements and homebrew, such as the Null and Shadow options in Class Features."
       },
       "compatibilitySettings": {
         "name": "Compatibility",
@@ -728,9 +868,9 @@
         "name": "Sneaking in Combat (House Rule)",
         "hint": "By the book, any movement during combat ends hiding. Either option lets a hidden creature move at half speed and stay hidden, checking cover or concealment along the whole path or only at each end of it.",
         "choice": {
-          "off": "Off, by the book",
-          "path": "Every square of the move",
-          "ends": "Start and end of the move"
+          "off": "Off, by the Book",
+          "path": "Every Square of the Move",
+          "ends": "Start and End of the Move"
         }
       },
       "stealthAutoReveal": {
@@ -765,6 +905,7 @@
         "NoMoverCollisionDamage": "No Mover Collision Damage",
         "NoObstacleCollisionDamage": "No Obstacle Collision Damage",
         "FastAutoPath": "Fast Auto-Path",
+        "Safely": "Safely",
         "IgnoreSize": "Ignore Size"
       }
     },
@@ -804,6 +945,13 @@
       "nobody": "{name} has nobody to hide from here.",
       "hiddenFrom": "{name} is now hidden from {count} creature(s)."
     },
+    "enhancedChoices": {
+      "title": "{name} Choices",
+      "body": "{actor} now has the enhanced {name}, which gives each of its choices as a feature of its own. Choose them here. To change them later, use the arrow button beside each choice on the feature's Advancement tab.",
+      "choose": "Choose",
+      "chosen": "Chosen",
+      "gone": "Feature Removed"
+    },
     "enhancedBadge": {
       "enhanced": {
         "label": "Combat Tools Enhanced",
@@ -841,13 +989,73 @@
         "stealth": "Stealth",
         "grab": "Grabbing",
         "forcedMovement": "Forced Movement",
-        "lineOfEffect": "Line of Effect"
+        "lineOfEffect": "Line of Effect",
+        "recurring": "Recurring Damage",
+        "duration": "Duration",
+        "bond": "Bonds",
+        "rolls": "Rolls"
+      },
+      "turnGainBonus": {
+        "label": "Extra Heroic Resource at turn start",
+        "description": "Heroic Resource a hero gains at the start of their turn, on top of what their class gains.",
+        "values": "An amount"
+      },
+      "reactiveTests": {
+        "edges": {
+          "label": "Edges on reactive tests",
+          "description": "Edges the bearer has on tests an ability calls for from its targets.",
+          "values": "A number of edges"
+        },
+        "banes": {
+          "label": "Banes on reactive tests",
+          "description": "Banes the bearer takes on tests an ability calls for from its targets.",
+          "values": "A number of banes"
+        }
+      },
+      "bond": {
+        "group": {
+          "label": "Bonded with",
+          "description": "Creatures whose effects name the same bond are bonded to each other (e.g. Bloodbound Band). The other bond flags only work among them.",
+          "values": "Any name; the same name joins the same bond"
+        },
+        "shareRecoveryValue": {
+          "label": "Use the bond's best recovery value",
+          "description": "The bearer's recovery value is the highest of anyone in their bond, wherever a recovery value is used.",
+          "values": "true"
+        },
+        "shareRecoveries": {
+          "label": "Spend bond-mates' Recoveries",
+          "description": "When the bearer spends a Recovery, they can spend one belonging to anyone in their bond instead, and are asked whose.",
+          "values": "true"
+        }
+      },
+      "consumeOn": {
+        "label": "Ends when used up",
+        "description": "The effect ends once the creature makes the roll it was for, so an edge \"on the next strike\" is used up by that strike. tempStamina ends it when their temporary Stamina runs out or is replaced by a new grant.",
+        "values": "powerRoll (any power roll, tests included), abilityRoll, strike, or tempStamina"
+      },
+      "recurring": {
+        "type": {
+          "label": "Recurring {type} damage",
+          "description": "The creature takes this much {type} damage at the start of each of their turns while the effect lasts.",
+          "values": "A number of damage"
+        },
+        "ignoresImmunity": {
+          "label": "Recurring damage ignores immunity",
+          "description": "This effect's recurring damage ignores damage immunity to its type.",
+          "values": "true"
+        }
       },
       "forcedMovement": {
         "noObjectCollisionDamage": {
           "label": "No damage from objects",
           "description": "The bearer takes no damage when force moved into objects, walls or terrain. Creature collisions still hurt (e.g. Corruptive Phasing).",
           "values": "true"
+        },
+        "forcedMovementTaken": {
+          "label": "Moved farther by forced movement",
+          "description": "Any forced movement that affects the bearer has its distance increased by this much, before stability (e.g. Unmooring).",
+          "values": "A number of squares"
         }
       },
       "grab": {
@@ -908,10 +1116,35 @@
           "description": "Strikes by this creature take no bane against a concealed target, so the Concealment pill never appears in its roll window (e.g. Foresight, a target of Fire Up the Night).",
           "values": "true"
         },
+        "ignoresCoverBane": {
+          "label": "Ignores the cover bane",
+          "description": "Damaging abilities used by this creature take no bane against a target in cover, so the Cover pill never appears in its roll window. Pair it with an effect that ends on the next strike for a one-strike benefit.",
+          "values": "true"
+        },
         "observedBy": {
           "label": "Always observed by whoever applied this",
           "description": "The creature that applied this effect is always observing the bearer, so the bearer cannot hide from that one creature. Everyone else is unaffected. Only works on an effect applied by an ability, which is what records who applied it (e.g. Apex Predator).",
           "values": "true"
+        },
+        "exposed": {
+          "label": "Exposed near whoever applied this",
+          "description": "While the creature that applied this effect is within Exposed Range, the bearer can't benefit from concealment, being hidden, or being invisible, against anyone.",
+          "values": "true"
+        },
+        "searchBanes": {
+          "label": "Banes on searching",
+          "description": "Banes the bearer takes on the Search for Hidden Creatures test.",
+          "values": "A number of banes"
+        },
+        "searchEdges": {
+          "label": "Edges on searching",
+          "description": "Edges the bearer has on the Search for Hidden Creatures test.",
+          "values": "A number of edges"
+        },
+        "exposedRange": {
+          "label": "Exposed range",
+          "description": "How close, in squares, the creature that applied the effect must be for Exposed to work. 0 means at any distance.",
+          "values": "A number of squares"
         },
         "concealmentBaneDoubled": {
           "label": "Doubles the cover and concealment bane",
@@ -938,6 +1171,11 @@
         "coverGrantsImmunity": {
           "label": "Cover From This Creature Grants Immunity",
           "description": "An ally who takes cover behind this creature, and the creature itself, gain damage immunity equal to this creature's highest characteristic score for that hit.",
+          "values": "Set it to true."
+        },
+        "grantsCoverBehind": {
+          "label": "Grants Cover Behind It",
+          "description": "Creatures standing behind this creature have cover, as if it were a low wall.",
           "values": "Set it to true."
         }
       }
@@ -983,6 +1221,15 @@
       "setupNoHeroes": "No player has a character assigned in their User Config, so there is nobody to add.",
       "ignoreDeadName": "Ignore Dead Languages",
       "ignoreDeadHint": "Dead languages start marked as ignored on the party Overview, since they're more niche. The Director can still right click to un-ignore them, or left click to make them preferred."
+    },
+    "consent": {
+      "awaiting": "(Waiting for an answer...)"
+    },
+    "turnGain": {
+      "notice": "{name}'s effects add {n} {resource} at the start of their turn."
+    },
+    "reactiveTests": {
+      "notice": "{name}'s effects add {edges} edge(s) and {banes} bane(s) to this reactive test."
     },
     "search": {
       "title": "Search",
@@ -1049,6 +1296,10 @@
       "Damage": {
         "defaultLabel": "Apply {value} {types}",
         "typeSelect": "{name} Type",
+        "recipient": {
+          "label": "Goes To",
+          "hint": "Who takes the damage. Each target is the default; Other Creatures is for lines like \"each enemy adjacent to the target takes 2 damage\"."
+        },
         "triggerDamage": {
           "title": "Triggering Damage",
           "label": "Damage that triggered this",
@@ -1124,11 +1375,16 @@
         "recoverySource": {
           "label": "Recovery Spent By"
         },
+        "allyRange": {
+          "label": "Ally Range",
+          "hint": "For \"An ally who agrees\": how many squares from the target the ally can be."
+        },
         "amountType": {
           "label": "Amount"
         },
         "amountFormula": {
-          "label": "Formula"
+          "label": "Formula",
+          "hint": "Roll data of the user. @dealt is the damage this chat message has dealt so far, so floor(@dealt / 2) is half the damage dealt."
         },
         "recoveryValueSource": {
           "label": "Recovery Value Of"
@@ -1143,7 +1399,18 @@
         },
         "Source": {
           "self": "Self",
-          "target": "Target"
+          "target": "Target",
+          "ally": "An ally who agrees"
+        },
+        "ally": {
+          "none": "No ally within {range} squares of {target} has a Recovery to spend.",
+          "pick": "Pick the ally within {range} squares of {target} who spends a Recovery. Escape to cancel.",
+          "ask": "<strong>{name}</strong>, will you lose a Recovery so that <strong>{target}</strong> regains Stamina ({ability})?",
+          "yes": "Lose a Recovery",
+          "no": "Decline",
+          "yesDone": "{name} lost a Recovery.",
+          "noDone": "{name} declined.",
+          "declined": "{name} declined to spend a Recovery."
         },
         "AmountType": {
           "recoveryValue": "Recovery Value",
@@ -1157,6 +1424,15 @@
           "label": "Goes To",
           "hint": "Who is healed. Each target is the default; the user heals themselves, for lines like \"you gain 10 temporary Stamina\"."
         }
+      },
+      "Grant": {
+        "kind": { "label": "Grants", "hint": "What the creature may use now without spending an action." },
+        "kinds": { "freestrike": "A free strike", "maneuver": "A maneuver", "main": "A main action", "signature": "A signature ability", "heroic": "A heroic ability", "ability": "A named ability", "filter": "Abilities matching a filter", "shift": "A shift", "move": "A move", "jump": "A jump" },
+        "ability": { "label": "Ability", "hint": "For a named ability: its name or identifier, like Stand Up or stand-up." },
+        "filter": { "label": "Filter", "hint": "For a filter: type=, category=, keyword= or tag= words, like keyword=melee category=signature. Add melee or ranged to a free strike, like freestrike ranged." },
+        "distance": { "label": "Distance", "hint": "For a shift, move or jump: how many squares, like 2, @R, @movement.value for the creature's speed, jump for its longest jump, or text for the number in the ability's own text." },
+        "noProvoke": { "label": "No Free Strikes", "hint": "For a move or jump: leaving an enemy's reach doesn't provoke a free strike." },
+        "recipient": { "label": "Goes To", "hint": "Who gets the action: the user, or each target." }
       },
       "Cleanse": {
         "defaultLabel": "Cleanse an Effect",
@@ -1175,6 +1451,12 @@
           "label": "Status Filter",
           "hint": "Remove effects associated with any of these status conditions. Leave empty to ignore status when filtering."
         },
+        "keywordFilter": {
+          "label": "Imposed By",
+          "hint": "Only effects imposed by an ability with one of these keywords, such as Magic or Psionic for supernatural effects. Alone, it matches every such effect."
+        },
+        "keywordLabel": "End one {sources} effect",
+        "keywordSuffix": "imposed by {sources}",
         "repeatable": {
           "label": "Repeatable",
           "hint": "When enabled, the cleanse button stays active after use."
@@ -1270,9 +1552,52 @@
         },
         "Recipient": {
           "self": "The User",
-          "target": "Each Target"
+          "target": "Each Target",
+          "others": "Other Creatures"
         }
+      },
+      "Forced": {
+        "origin": {
+          "label": "Away From",
+          "hint": "What the movement is measured from. The area's center is for lines like \"each target is pushed 2 squares away from the center of the area\".",
+          "source": "The User",
+          "area": "The Area's Center"
+        },
+        "requiresStatus": {
+          "label": "Only Targets That Are",
+          "hint": "Shows the movement only on targets with this condition, for lines like \"you can push each creature frightened this way\". The distance can read the target too, like @target.movement.value for their speed.",
+          "any": "Any Target"
+        }
+      },
+      "Others": {
+        "mode": { "label": "Who", "hint": "Everyone who fits, or a number of creatures the user picks.", "all": "Everyone in Reach", "pick": "Picked by the User" },
+        "origin": { "label": "Measured From", "hint": "Where the range is counted from. The area means creatures inside the ability's area.", "target": "Each Target", "self": "The User", "area": "The Area" },
+        "range": { "label": "Within (Squares)", "hint": "1 means adjacent. Ignored when measured from the area." },
+        "disposition": { "label": "Creatures", "hint": "Allies and enemies are judged from the user's side.", "any": "Any", "ally": "Allies", "enemy": "Enemies" },
+        "count": { "label": "How Many", "hint": "How many creatures the user picks. Only for Picked by the User." },
+        "includeSelf": { "label": "Can Include the User", "hint": "For lines like \"you can target yourself instead of one ally\"." },
+        "pick": "Pick {count} {who}",
+        "repick": "Pick Again",
+        "allies": "Allies",
+        "ally": "Ally",
+        "enemies": "Enemies",
+        "enemy": "Enemy",
+        "creatures": "Creatures",
+        "creature": "Creature",
+        "pickHint": "Pick up to {count} within {range} squares, then press Enter",
+        "noneInReach": "No creature fits {name} right now."
       }
+    },
+    "bond": {
+      "pickTitle": "{name}: Whose Recovery?",
+      "pickBody": "{name} is bonded and can spend a Recovery belonging to anyone in the bond.",
+      "pickOption": "{name} ({n} left)",
+      "spentFrom": "{name} spent one of {donor}'s Recoveries."
+    },
+    "chain": {
+      "pick": "Pick Chain Target ({n} of {total})",
+      "hint": "Chain target {n} of {total}: within {range} squares of {name}",
+      "none": "Nothing within {range} squares of {name} for the ability to leap to."
     },
     "picker": {
       "titleSource": "Pick a Token",
@@ -1281,9 +1606,91 @@
       "titleReposition": "Reposition",
       "repositionInstruction": "Choose a square adjacent to {grabber} for {name}",
       "pickCount": "Pick up to {max} target{s} · {n} selected",
-      "selectedCount": "{n} selected"
+      "selectedCount": "{n} selected",
+      "squad": {
+        "suggest": "Suggestions",
+        "suggestTip": "Assigns every minion to a suggested target. You can still rearrange them before confirming.",
+        "unselect": "Unselect All",
+        "unselectTip": "Clears every assignment so you can start over."
+      },
+      "help": {
+        "peek": "Peek from that square",
+        "clickMinion": "Click a minion's icon",
+        "pickUpMinion": "Pick that minion up",
+        "clickTarget": "Click a target",
+        "assignMinion": "Send the minion you are holding at it",
+        "rightClickHolding": "Right-click while holding a minion",
+        "putDownMinion": "Put it down",
+        "toggleObserver": "Switch whether that creature is observing",
+        "clickSquare": "Click a lit square",
+        "addStep": "Move one more square",
+        "clickStart": "Click the creature or a square already moved through",
+        "finishMove": "End the movement there",
+        "undoStep": "Take back the last square",
+        "undoStepOrCancel": "Take back the last square, or cancel once none are left",
+        "toggleSquare": "Add or remove that square",
+        "clickMap": "Click the map",
+        "placeArea": "Place the area",
+        "turnScroll": "Shift or Ctrl + scroll",
+        "turnLine": "Turn the line while placing it",
+        "clickEmpty": "Click empty map",
+        "moveArea": "Pick the area up and place it again",
+        "clickInArea": "Click a creature in the area",
+        "excludeTarget": "Leave it out, or put it back",
+        "rightClickTurn": "Right-click Turn",
+        "smallerStep": "Use a smaller turn step",
+        "shiftScroll": "Shift + scroll",
+        "ctrlScroll": "Ctrl + scroll",
+        "pageKeys": "Page Up / Page Down",
+        "raiseArea": "Raise or lower the area",
+        "tiltKeys": "[ and ]",
+        "tiltLine": "Tilt the line up or down",
+        "pickOrigin": "Choose the square the area starts from",
+        "escPlacing": "Esc while placing",
+        "repickOrigin": "Choose the starting square again"
+      }
+    },
+    "areaPicker": {
+      "detail": {
+        "burst": "{n} burst",
+        "cube": "{n} cube within {range}",
+        "line": "{l} x {w} line within {range}"
+      },
+      "placing": "Click to place the area",
+      "placingLine": "Click to place the line, Shift + scroll to turn it",
+      "empty": "Click the map to place the area, or double-click for a suggestion",
+      "count": "{n} target{s} in the area",
+      "countExcluded": "{n} target{s} in the area, {x} left out",
+      "excludeHint": "Click a target to leave it out",
+      "suggest": "Suggest",
+      "suggestTip": "Place the area where it covers the most targets, on the grid and within range.",
+      "move": "Move Area",
+      "moveTip": "Take the area away and place it again.",
+      "turn": "Turn {n}°",
+      "turnTip": "How far each Shift + scroll turns the line. Click for a bigger step, right-click for a smaller one.",
+      "noSuggestion": "No spot in range reaches a target.",
+      "raise": "Raise",
+      "lower": "Lower",
+      "raiseTip": "Move the area up or down one square. Page Up and Page Down do the same.",
+      "tiltUp": "Tilt Up",
+      "tiltDown": "Tilt Down",
+      "tiltTip": "Tilt the line so it climbs or drops as it goes. [ and ] do the same.",
+      "height": "Height {n}",
+      "tilt": "Tilted {n}°",
+      "pickOrigin": "Click the square the area starts from, within {range} of you",
+      "noSuggestionOrigin": "No placement around that origin square reaches a target.",
+      "barred": "{n} behind a barrier, click one to count it anyway",
+      "noOrigin": "No square within reach that you have line of effect to",
+      "noOriginWarn": "You need line of effect to a square of the area within {range} squares of you.",
+      "outOfRange": "The area has to be within {range} squares of you.",
+      "noArea": "Place the area first.",
+      "cancelled": "Area targeting cancelled."
     },
     "panel": {
+      "intro": {
+        "FlatEffectsSettings": "New flat effects start with these values.",
+        "CompatibilitySettings": "Each section shows only while that module is active."
+      },
       "title": {
         "ForcedMovement": "Forced Movement",
         "ModuleButtonsSettings": "Module Button Visibility",
@@ -1303,7 +1710,8 @@
         "ImNoThreatSettings": "I'm No Threat: Animal Settings",
         "DamageConditions": "Damage & Conditions",
         "VerticalDistance": "Vertical Distance",
-        "HomeRulesSettings": "Home Rules",
+        "HomeRulesSettings": "Line of Effect Settings",
+        "ClassFeaturesSettings": "Class Features Settings",
         "CompatibilitySettings": "Compatibility",
         "SquadToolsSettings": "Squad Tools Settings",
         "PartyToolsSettings": "Party Tools",
@@ -1326,6 +1734,7 @@
         "colNone": "No Collision Damage",
         "ignoreStability": "Ignore Stability",
         "fastAutoPath": "Fast Auto-Path",
+        "safely": "Safely",
         "juggernaut": "Juggernaut Mode",
         "executeMove": "Execute Move",
         "confirmVertical": "Confirm Vertical Distance",
@@ -1394,6 +1803,7 @@
         "activeGrabs": "Active Grabs"
       },
       "modFm": {
+        "spent": "Spent",
         "logEntry": "Log Entry",
         "name": "Name",
         "source": "Source",
@@ -1407,8 +1817,42 @@
       },
       "areaCap": {
         "tag": "Area",
-        "tagTooltip": "Area damage. A minion takes no more than its own Stamina from it.",
         "cappedTooltip": "Capped at {cap}: area damage to a minion is capped at its Stamina."
+      },
+      "potency": {
+        "Affected": "Affected",
+        "Resisted": "Resisted",
+        "TipPotency": "Potency",
+        "TipBase": "base {n}",
+        "TipTarget": "Target's {chr}",
+        "TipBelow": "{chr} of {resist} is lower than the potency of {potency}.",
+        "TipMeets": "{chr} of {resist} is not lower than the potency of {potency}."
+      },
+      "effectMods": {
+        "Edit": "Modify this effect",
+        "EditTitle": "Modify {name}",
+        "LowerPotency": "Lower Potency",
+        "RaisePotency": "Raise Potency",
+        "AlwaysLands": "Always Lands",
+        "NeverLands": "Never Lands",
+        "ResistWith": "Resist With Another Characteristic",
+        "Duration": "Change the Duration",
+        "SaveBonus": "Save Bonus",
+        "SavePenalty": "Save Penalty",
+        "Lasts": "Lasts until",
+        "Characteristic": "Characteristic",
+        "EndOriginTurn": "End of the source's turn",
+        "EndOriginNextStart": "Start of the source's next turn",
+        "RecurUp": "Recurring Up",
+        "RecurDown": "Recurring Down",
+        "RecurDouble": "Double Recurring",
+        "RecurHalf": "Halve Recurring",
+        "RecurType": "Recurring Type",
+        "RecurIgnore": "Ignore Immunity",
+        "DamageType": "Damage type",
+        "TooltipAlways": "A modifier makes this effect land whatever the potency.",
+        "TooltipNever": "A modifier stops this effect from landing.",
+        "Custom": "Custom"
       },
       "extraDamage": {
         "apply": "{name}: {amount} {type}",
@@ -1455,6 +1899,10 @@
         "effectType": "Damage becomes {type}",
         "surgeTooltip": "Spend a surge: +{damage} damage. {available} available. Spent when the damage is applied.",
         "surgeCapWarn": "Surge limit reached for this damage roll.",
+        "surgeTyped": "{type} Surge",
+        "surgeAmtTyped": "+{n} {type} Surge",
+        "surgeType": "Damage Type",
+        "surgeTypeSame": "The ability's damage",
         "noRoll": "No damage roll found for this button."
       },
       "rollEditor": {
@@ -1531,10 +1979,127 @@
       }
     },
     "tooltip": {
-      "shiftStartCombat": "Shift-Click to Override Saved Squad Labels Rename Preference",
-      "undoWholeSquad": "Damage was applied to all of {group} at once, so undo the squad rather than one of its members.",
-      "squadApplyAll": "Apply this damage to every member of {group}",
-      "squadUndoAll": "Undo this damage for every member of {group}"
+      "undoWholeSquad": "Damage was applied to all of {group} at once, so undo the squad rather than one of its members."
+    },
+    "tip": {
+      "reportReset": { "title": "Restore Default", "category": "Settings Report", "body": "Sets this one setting back to its default." },
+      "reportRestore": { "title": "Restore Section", "category": "Settings Report", "body": "Sets every setting listed in this section back to its default, after you confirm." },
+      "reportChanged": { "title": "Default Changed", "category": "Settings Report", "body": "Combat Tools {version} changed this setting's default. Your value may be the old default rather than a choice." },
+      "advRetarget": { "title": "Update Targets", "category": "Advanced Enricher", "body": "Picks new targets for this enricher only. Uses the ability's picker when it has one, otherwise your current targets." },
+      "advModify": { "title": "Modify", "category": "Advanced Enricher", "body": "Opens the modifiers for each target, one tab per target." },
+      "advAddModifier": { "title": "Add Modifier", "category": "Advanced Enricher", "body": "Adds a change for the target on this tab." },
+      "reportClient": { "title": "This Device Only", "category": "Settings Report", "body": "This setting is saved in this browser, so other devices and players keep their own." },
+      "manual": { "title": "Resolved by Hand", "category": "Not Automated", "body": "Combat Tools doesn't automate this part of the ability, so resolve it at the table." },
+      "applied": "Already applied. The undo button next to it reverses it.",
+      "applyAll": { "title": "Apply All", "category": "All Targets", "body": "Applies every effect on this chat message to every target, one effect at a time, in the order they're listed." },
+      "undoAll": { "title": "Undo All", "category": "All Targets", "body": "Undoes the damage on every target. Conditions and other effects keep their own undo buttons." },
+      "squadApply": { "title": "Apply to {group}", "category": "Squad", "body": "Applies this damage to every member of {group} at once." },
+      "squadUndo": { "title": "Undo for {group}", "category": "Squad", "body": "Undoes this damage for every member of {group}." },
+      "squadUndoLocked": { "title": "Undo the Squad", "category": "Squad", "body": "Damage was applied to all of {group} at once, so undo the squad rather than one of its members." },
+      "updateTargets": { "category": "Targets", "body": "Swaps this chat message's targets for the ones you have targeted. With nothing targeted, it opens the ability's picker." },
+      "quickRow": { "category": "Shortcut", "body": "The first button in this target's row, kept here while the target is collapsed." },
+      "quickDamage": { "category": "Damage", "body": "Applies this damage to the target, shortened while the target is collapsed." },
+      "damage": { "category": "Damage", "body": "Applies this damage to the target." },
+      "areaDamage": { "category": "Area Damage", "body": "Applies this damage to the target. Shift-click for half." },
+      "damageUndo": { "title": "Undo", "category": "Damage", "body": "Reverses this damage." },
+      "damageEdit": { "title": "Edit Damage", "category": "Damage", "body": "Change this damage before you apply it." },
+      "extraDamage": { "category": "Extra Damage", "body": "Damage this ability adds on top of its roll, applied on its own." },
+      "areaTag": { "title": "Area", "category": "Area Damage", "body": "Area damage. A minion takes no more than its own Stamina from it." },
+      "fm": { "category": "Forced Movement", "body": "Opens the path picker to move the target. Stability shortens the movement unless the effect ignores it." },
+      "fmApplied": { "category": "Forced Movement", "body": "Done. The undo button next to it moves the target back." },
+      "fmRunning": { "title": "Forced Movement in Progress", "category": "Forced Movement", "body": "Someone is choosing this movement's path right now." },
+      "fmRedirected": { "category": "Forced Movement", "body": "Another effect sent this movement to a different target. The undo button next to it reverses it." },
+      "fmUndo": { "title": "Undo Forced Movement", "category": "Forced Movement", "body": "Moves the target back to where it was before this movement." },
+      "fmRedirectUndo": { "title": "Undo Redirect", "category": "Forced Movement", "body": "Reverses the redirected movement." },
+      "fmModify": { "title": "Modify Forced Movement", "category": "Forced Movement", "body": "Adds a modifier to this movement, from a preset or your own, before you apply it." },
+      "fmDistance": { "category": "Forced Movement", "body": "Change how far this movement goes before you apply it." },
+      "fmQuick": { "category": "Forced Movement", "body": "The forced movement button, kept here while the target is collapsed." },
+      "fmQuickApplied": { "title": "Forced Movement Applied", "category": "Forced Movement", "body": "Done. Expand the target to undo it." },
+      "grab": { "title": "Grabbed", "category": "Grab", "body": "Grabs the target if the grabber's size and grab limit allow it. Hold Shift to skip those checks." },
+      "grabApplied": { "title": "Applied: Grabbed", "category": "Grab", "body": "The target is grabbed. The undo button next to it ends the grab." },
+      "grabUndo": { "title": "End Grab", "category": "Grab", "body": "Ends this grab." },
+      "grabSettings": { "title": "Grab Settings", "category": "Grab", "body": "Grab settings are in the Conditions & Damage menu." },
+      "frightened": { "title": "Apply Frightened", "category": "Condition", "body": "Makes the target frightened of this ability's user, ending as the ability says." },
+      "taunted": { "title": "Apply Taunted", "category": "Condition", "body": "Makes the target taunted by this ability's user, ending as the ability says." },
+      "purifyingFire": { "category": "Purifying Fire", "body": "The target has fire weakness, so this holy damage burns it as fire too. Shift-click for half." },
+      "mark": { "category": "Mark", "body": "Marks the target for this ability's user." },
+      "markUndo": { "title": "Undo Mark", "category": "Mark", "body": "Removes the mark this row applied." },
+      "judgement": { "title": "Apply Judgement", "category": "Judgement", "body": "Judges the target for this ability's user." },
+      "judgementUndo": { "title": "Undo Judgement", "category": "Judgement", "body": "Removes the judgement this row applied." },
+      "enricher": { "category": "Condition", "body": "Applies the condition named in the ability's text." },
+      "condition": { "category": "Effect", "body": "Applies this effect to the target." },
+      "conditionUndo": { "category": "Effect", "body": "Removes the effect this row applied." },
+      "heal": { "category": "Heal", "body": "Restores this Stamina to the target." },
+      "othersPick": { "category": "Recipients", "body": "Pick who {name} reaches besides its targets. Each one gets their own row below." },
+      "chainPick": { "category": "Chain", "body": "Pick the next creature or object the ability leaps to, within {range} squares of the last one. It uses the same power roll." },
+      "choosePick": { "category": "Choose", "body": "Picks this option. Its enrichers then act on the result already rolled." },
+      "healUndo": { "category": "Heal", "body": "Takes back the Stamina this row restored." },
+      "teleport": { "category": "Teleport", "body": "Opens the teleport picker for this target." },
+      "teleportRun": { "category": "Teleport", "body": "Runs the teleport with the settings above." },
+      "teleportUndo": { "category": "Teleport", "body": "Puts the target back where it was before the teleport." },
+      "resource": { "category": "Resource", "body": "Gives the resource named on the button." },
+      "resourceUndo": { "title": "Undo the Gain", "category": "Resource", "body": "Takes the resource back." },
+      "resourceNoPool": { "category": "Resource", "body": "{name} has no pool for that resource, so nothing was gained." },
+      "cleanse": { "category": "Cleanse", "body": "Removes effects from the target, as the ability says." },
+      "cleanseApplied": { "category": "Cleanse", "body": "Removed. The undo button next to it puts it back." },
+      "cleanseUndo": { "category": "Cleanse", "body": "Puts back what this row removed." },
+      "potencyEdit": { "title": "Modify Effect", "category": "Effect Modifiers", "body": "Change this effect's potency, duration, saving throw or recurring damage on this target." },
+      "rollEdit": { "title": "Edit the Roll", "category": "Power Roll", "body": "Add or change modifiers on this roll for every target." },
+      "rollLine": { "title": "Power Roll", "category": "Formula" },
+      "pillFrom": "From {source}.",
+      "damagePill": { "category": "Damage Modifier" },
+      "rollPill": { "category": "Roll Modifier" },
+      "effectPill": { "category": "Effect Modifier" },
+      "activeGrabs": { "category": "Damage & Conditions", "body": "Shows or hides the grabs in play." },
+      "postToChat": { "title": "Post to Chat", "category": "Damage & Conditions", "body": "Posts this damage and condition as a chat message with buttons, instead of applying them now." },
+      "useTarget": { "title": "Use Target", "category": "Token", "body": "Fills this in with the token you have targeted." },
+      "fmPill": { "category": "Forced Movement Modifier" },
+      "fmPanelSquares": { "title": "Distance", "category": "Forced Movement", "body": "How many squares the target moves." },
+      "fmPanelDistance": { "title": "Distance", "category": "Forced Movement", "body": "The distance after every modifier so far." },
+      "fmPanelDelta": { "title": "Change Distance", "category": "Forced Movement", "body": "Adds to or takes away from the distance next to it." },
+      "fmPanelVertical": { "title": "Vertical Distance", "category": "Forced Movement", "body": "Leave it blank to match the distance." },
+      "fmPanelSource": { "title": "FM Source", "category": "Forced Movement", "body": "The token the movement starts from. A push moves away from it and a pull toward it. Leave it blank for the usual source." },
+      "fmPanelFall": { "title": "Fall Reduction", "category": "Forced Movement", "body": "Shortens a fall, on top of the creature's Agility." },
+      "fmPanelSafely": { "title": "Safely", "category": "Forced Movement", "body": "The creature can only be moved where it takes no damage: no collisions, no harmful falls and no harmful areas." },
+      "presetSave": { "title": "Save Preset", "category": "Presets", "body": "Saves these inputs as a preset. Hold Shift to overwrite the selected one." },
+      "presetOverwrite": { "title": "Overwrite Preset", "category": "Presets", "body": "Replaces the selected preset with these inputs." },
+      "presetDelete": { "title": "Delete Preset", "category": "Presets", "body": "Deletes the selected preset." },
+      "surge": { "title": "Surge", "category": "Damage Modifier" },
+      "naturalRoll": { "title": "Natural Roll", "category": "Power Roll", "body": "The dice came up {natural} before any modifier." },
+      "teleportSquares": { "title": "Distance", "category": "Teleport", "body": "How many squares the teleport reaches." },
+      "effectFlags": { "category": "Effect", "body": "Pick a Combat Tools flag to fill in this change's key." },
+      "panelTarget": { "category": "Target", "body": "One of the tokens this will affect." },
+      "pickIcon": { "title": "Change Icon", "body": "Pick a new image for this row." },
+      "pickEmoji": { "title": "Pick Emoji", "category": "I'm No Threat", "body": "Pick the emoji shown on this animal's button." },
+      "removeAnimal": { "title": "Remove Animal", "category": "I'm No Threat", "body": "Removes this animal from the list." },
+      "removeMaterial": { "title": "Remove Material", "category": "Wall Builder", "body": "Removes this material from the list." },
+      "emoji": { "category": "Emoji" },
+      "squadStamina": { "title": "Squad Stamina", "category": "Squad HUD", "body": "Type a new value, or a change like +3 or -2." },
+      "wbColumn": { "category": "Wall Builder" },
+      "intColumn": { "category": "I'm No Threat" },
+      "statusIcon": { "category": "Status Icon" },
+      "statusIconReset": { "title": "Reset Icon", "category": "Status Icon" },
+      "chooseIcon": { "title": "Icon", "category": "Choose" },
+      "chooseRemove": { "title": "Remove Choice", "category": "Choose", "body": "Removes this choice from the ability." },
+      "partyPill": { "category": "Party" },
+      "partyPreferred": { "title": "Preferred", "category": "Party" },
+      "partyIgnored": { "title": "Ignored", "category": "Party" },
+      "partyTaken": { "title": "Already Taken", "category": "Party" },
+      "startCombat": { "category": "Squad Labels", "body": "Shift-click to be asked again about renaming squads, even if you saved a choice." },
+      "areaPicker": { "category": "Area Picker" },
+      "groupAction": { "category": "Group Action" },
+      "applyToTargets": { "category": "Apply" },
+      "enhancedBadge": { "category": "Enhanced Ability" },
+      "searchMod": { "category": "Search Roll", "body": "Adds {n} to this roll." },
+      "searchRerolled": { "title": "Rerolled", "category": "Search Roll" },
+      "searchHero": { "title": "Hero Token Reroll", "category": "Search Roll" },
+      "searchPing": { "category": "Creature" },
+      "pillCustom": "Click to turn it off or on. Right-click to remove it.",
+      "addModifier": { "title": "Add Modifier", "category": "Roll Modifier", "body": "Adds an edge, bane, bonus or other modifier to this roll." },
+      "addGlobalModifier": { "title": "Add Global Modifier", "category": "Roll Modifier", "body": "Adds a modifier to this roll for every target." },
+      "addDamageModifier": { "title": "Add Modifier", "category": "Damage Modifier", "body": "Adds a bonus, penalty, surge or other change to this damage." },
+      "pillOn": "Click to turn it off.",
+      "pillOff": "Off. Click to turn it back on."
     },
     "dialog": {
       "peek": {
@@ -1633,19 +2198,22 @@
         "duplicateMaterial": "Duplicate material name \"{name}\" - skipping.",
         "settingsReset": "Wall Builder settings reset to defaults.",
         "settingsSaved": "Wall Builder settings saved.",
-        "wallsConverted": "Converted {walls} wall{ws}: {tiles} tile{ts} created/linked, {stubs} stub{ss} disabled."
+        "wallsConverted": "Converted {walls} wall{ws}: {tiles} tile{ts} created/linked, {stubs} stub{ss} disabled.",
+        "wallsMerged": "Merged {count} wall segments into fewer walls."
       },
       "fm": {
         "noTarget": "You must target at least one token.",
         "grabbed": "A grabbed creature can't be force moved except by a creature, object, or effect that has them grabbed.",
         "restrained": "{name} is restrained and cannot be force moved.",
         "largerBonus": "+1 {type} {source} is larger than {target}.",
+        "takenBonus": "+{n} {type}: an effect on {target} increases forced movement against them.",
         "stabilityFullyResists": "{name}'s stability fully resists the forced movement.",
         "stabilityReduces": "{name}'s stability reduces forced movement by {amount} ({parts}).",
         "autoPathFailed": "DSCT | Auto-Path failed: Source and Target are in the exact same spot.",
         "fastMoveOnlyPushPull": "DSCT | Fast Move is only available for Push and Pull. Falling back to manual pathing.",
         "noValidPath": "No valid path to that square.",
         "invalidStepForType": "Invalid step for {type}.",
+        "unsafeEnd": "{name} can't safely end the move there.",
         "pathInstruction": "{type} {distance}{vert}: click squares to trace path. Right-click to undo. Enter to confirm. Escape to cancel.",
         "cancelled": "Forced movement cancelled.",
         "resolveInstruction": "Click a highlighted target to resolve their forced movement. Escape to cancel.",
@@ -1655,7 +2223,9 @@
         "invalidMovementType": "Invalid movement type.",
         "notInRange": "{name} is not within range.",
         "targetNotFound": "DSCT | Target token not found on canvas.",
-        "selfPushPull": "DSCT | {name} cannot {type} themselves, since there is no distance between a creature and itself. Use a slide or a teleport instead."
+        "undone": "Forced movement undone.",
+        "allUndone": "All forced movements undone.",
+        "reversedRevived": "Forced movement reversed. Revived: {names}."
       },
       "grab": {
         "noGrabber": "No grabber token specified.",
@@ -1692,6 +2262,7 @@
         "targetTooLarge": "{name} is too large to mimic (size {targetSize} vs {mySize}).",
         "illusionEnded": "{name}'s illusion ended.",
         "noTarget": "Select or target a token to open I'm No Threat.",
+        "notOwner": "Only the creature's owner or the Director can use I'm No Threat for it.",
         "noMimicTarget": "No target selected to mimic.",
         "illusionsEndedSettings": "I'm No Threat: ended {count} active illusion{s} due to settings change.",
         "animalsReset": "I'm No Threat animals reset to defaults.",
@@ -1866,6 +2437,7 @@
     },
     "templateLifetime": {
       "effectName": "{name} (Area)",
+      "noObject": "{ability} lays {name} over its area, but this world has no {name} object. The Director can add one, or place it by hand.",
       "ongoing": {
         "label": "Ongoing",
         "hint": "Keeps this ability’s area on the map until the moment below, rather than clearing it shortly after it is placed. Auras start out ongoing, until the end of the encounter."
@@ -1879,6 +2451,8 @@
       "acceptEscape": "Accept Escape",
       "stayGrabbed": "Stay Grabbed",
       "undoBleeding": "Undo Bleeding",
+      "undoRecurring": "Undo Recurring Damage",
+      "applyRecurring": "Apply Recurring Damage",
       "applyJudgement": "Apply Judgement",
       "aidAttack": "Aid Attack",
       "imNoThreat": "I'm No Threat",
@@ -1909,6 +2483,112 @@
       "configureTemplate": "Configure Template"
     },
     "chat": {
+      "fm": {
+        "summary": "<strong>{name}</strong> forced: {parts}.",
+        "summaryUnstoppable": "<strong>UNSTOPPABLE.</strong> <strong>{name}</strong> forced: {parts}.",
+        "noMove": "<strong>{name}</strong> forced: {type} 0. {why}",
+        "selfPush": "{name} is the source of the push, and nothing can be pushed away from itself.",
+        "selfPull": "{name} is the source of the pull, and nothing can be pulled toward itself.",
+        "stabilityToZero": "Stability reduced {type} {distance} to 0.",
+        "stabilityReduced": "Stability reduced {parts}.",
+        "reducedPart": "{type} {from} to {to}",
+        "verticalPart": "vertical {from} to {to}",
+        "friendlyFire": "Friendly fire reduced {type} {from} to {to}.",
+        "partMove": "{type} {n}",
+        "partVerticalOnly": "{type} {n} (vertical)",
+        "partVertical": "vertical {n}",
+        "partTaken": "+{n} moved farther",
+        "partCreatureBonus": "+{n} creature collision",
+        "partObjectBonus": "+{n} object collision",
+        "partFallReduction": "+{n} fall reduction",
+        "partNoFallDamage": "no fall damage",
+        "partNoCollision": "no collision damage",
+        "partNoMoverCollision": "no mover collision damage",
+        "partNoObstacleCollision": "no obstacle collision damage",
+        "partIgnoreStability": "ignores stability",
+        "partSafely": "safely",
+        "safelyNoMove": "{name} can't be moved safely.",
+        "safelyStops": "{name} stops short to stay safe.",
+        "partJuggernaut": "juggernaut mode",
+        "ncdAll": "(No Collision Damage)",
+        "ncdMover": "(No Mover Damage)",
+        "ncdObstacle": "(No Obstacle Damage)",
+        "takes": "takes <strong>{n} damage</strong>",
+        "wouldTake": "would take <strong>{n} damage</strong>",
+        "takesCap": "Takes <strong>{n} damage</strong>",
+        "wouldTakeCap": "Would take <strong>{n} damage</strong>",
+        "takesTail": " {damage}.",
+        "andDamage": " and {damage}",
+        "dealsNote": ", deals <strong>{n} damage</strong>",
+        "bonusNote": " ({n} + {bonus} bonus)",
+        "bothTake": "Both take <strong>{n} damage</strong>",
+        "wouldBothTake": "Would both take <strong>{n} damage</strong>",
+        "allTake": "All take <strong>{n} damage</strong>",
+        "wouldAllTake": "Would all take <strong>{n} damage</strong>",
+        "obstaclesTake": "Obstacles take, {name} would take <strong>{n} damage</strong>",
+        "moverTakes": "{name} takes, obstacles would take <strong>{n} damage</strong>",
+        "eachTakes": "{name} {damage}; {other} {otherDamage}",
+        "objectOne": "a {material} object",
+        "objectMany": "{n} {material} objects",
+        "wallOne": "a {material} wall",
+        "wallMany": "{n} {material} walls",
+        "blockedWall": "{name} is blocked by a wall and {damage}.",
+        "wallAtElevation": "{name} is blocked by a wall at elevation {elevation}{damage}.",
+        "steepElevation": "{name} is blocked by a steep elevation change{damage}.",
+        "underground": "{name} cannot be force-moved while underground{damage}.",
+        "burrowing": "{name} cannot be force-moved while burrowing{damage}.",
+        "hitsWall": "{name} hits a wall{damage}.",
+        "stoppedObstacle": "{name} is stopped by an obstacle{damage}.",
+        "stoppedObstacleNeeds": "{name} is stopped by an obstacle (needs {needs}, has {has}).",
+        "stoppedWallNeeds": "{name} is stopped by a wall it cannot break through (needs {needs}, has {has}).",
+        "lacksMomentum": "{name} hits {material} but lacks the momentum to break through (needs {needs}, has {has}).",
+        "smashCosts": "{name} smashes through {things} (costs {cost}{deals}).",
+        "smashThrough": "{name} smashes through {things}.",
+        "smashObjects": "{name} smashes through {things} (max {n} stamina).",
+        "smashObject": "{name} smashes through {other} ({n} stamina).",
+        "stoppedObjects": "{name} is stopped by {things} (needs {needs} stamina, has {has}).",
+        "cannotDestroy": "{name} crashes into {other} but cannot destroy it (needs {needs} stamina, has {has}).",
+        "objectTakes": "{other} {damage}.",
+        "moverAndObjectTake": "{damage}, {other} {otherDamage}.",
+        "stoppedCorpse": "{name} is stopped by the corpse of {things}.",
+        "stoppedCorpses": "{name} is stopped by the corpses of {things}.",
+        "corpseCrash": "<strong>Collision!</strong> {name} crashes into the corpse of {other}.",
+        "collisionHits": "<strong>Collision!</strong> {name} hits {other}. {damage}.",
+        "crashInto": "<strong>Collision!</strong> {name} crashes into {things} with {n} square{s} remaining. {damage}.",
+        "obliterates": "<strong>Unstoppable!</strong> {name} obliterates {things} and keeps going.",
+        "killedByImpact": "{name} is killed by the impact; continuing as a corpse.",
+        "crashThroughAll": "{name} crashes through the entire {material} object ({height} square{s}).",
+        "breakOffTop": "{name} breaks {count} square{s} off the top of the {material} object ({height} tall, now {left} remain).",
+        "objectSplits": "The {material} object splits at elevation {elevation}.",
+        "topCollapses": "The top of the {material} object collapses into the gap (now {height} square{s} tall).",
+        "stopsFall": "{name} stops their fall in the air.",
+        "caughtSafely": "{name} is caught and lands safely.",
+        "fallNoDamage": "{name} falls {dist} square{s} but takes no damage.",
+        "fallDamage": "{name} falls {dist} square{s} ({note}) and takes <strong>{dmg} damage</strong>, landing prone.",
+        "fallTooShort": "{name} falls {dist} square{s} ({note}). Less than 2 squares, no damage.",
+        "fallNoteAgility": "{effective} effective after Agility {agility}",
+        "fallNoteReduced": "{raw} raw, reduced by Agility {agility} + {extra}",
+        "launchedFlying": "{name} is launched into the air (elevation {elevation}). No fall damage since they can fly.",
+        "slammedNoDamage": "{name} is slammed {dist} square{s} downward but takes no fall damage.",
+        "slammedDamage": "{name} is slammed {dist} square{s} downward into the ground and takes <strong>{dmg} damage</strong> (Agility treated as 0), landing prone.",
+        "slammedShort": "{name} is slammed 1 square downward into the ground. Less than 2 squares, no fall damage.",
+        "slammedSurface": "{name} also takes <strong>{dmg} damage</strong> from being slammed into the surface (Agility treated as 0), landing prone.",
+        "slammedSurfaceShort": "{name} is slammed 1 square downward into the surface. Less than 2 squares, no fall damage.",
+        "impactDamage": "{name} takes <strong>{dmg} damage</strong> from the impact.",
+        "knockedProne": "{name} is knocked prone ({faller}'s size {size} exceeds their Might {might}).",
+        "landsNearby": "{name} lands in a nearby free space.",
+        "noFreeSpace": "{name} could not find a free space to land.",
+        "bothDefeated": "{name} and {other} are both defeated; no repositioning needed.",
+        "grabReleased": "{grabber} was force-moved out of reach and released {grabbed}.",
+        "totalDamage": "<strong>Total damage to {name}: {n}</strong>",
+        "undo": "Undo Movement",
+        "undoAll": "Undo All Movements",
+        "undone": "(Movement Undone)",
+        "undoneDamage": "(Movement and Damage Undone)",
+        "undoneAll": "(Movements Undone)",
+        "undoneAllDamage": "(Movements and Damage Undone)",
+        "undoExpired": "(Undo Expired)"
+      },
       "tactical": {
         "judged": "<strong>Judgement:</strong> {name} is judged.",
         "marked": "<strong>Mark:</strong> {names} {verb} marked.",
@@ -1949,6 +2629,21 @@
         "applying": "Bleeding: applying Stamina loss...",
         "rollTitle": "Bleeding: {name}",
         "rollCreated": "Bleeding Stamina loss rolled."
+      },
+      "recurring": {
+        "title": "Recurring Damage",
+        "line": "{n} {type} damage",
+        "ignores": "(ignores immunity)"
+      },
+      "hostileNeutrals": {
+        "title": "Engaging in Hostilities",
+        "nowHostile": "These neutral NPCs are now Hostile:",
+        "nowNeutral": "These Noncombatants are now Neutral:",
+        "undo": "Click a portrait to switch that token back.",
+        "secret": "Left as Secret, so some effects will not count them as enemies: {names}.",
+        "tipHostile": "Hostile. Click to make it Neutral.",
+        "tipNeutral": "Neutral. Click to make it Hostile.",
+        "gone": "This token no longer exists."
       },
       "squads": {
         "captainFell": "<strong>Captain fallen:</strong> {name} has fallen as captain of {group}.",
@@ -2015,6 +2710,170 @@
       "visExtraControlled": "Token Controlled",
       "visExtraHover": "Token Hovered"
     },
+    "ctEnricher": {
+      "forced": "{movement} {formula}",
+      "teleport": "Teleport {formula}",
+      "teleswap": "Teleswap {formula}",
+      "teleportAdjacent": "Teleport {formula} Adjacent",
+      "teleportDetail": "Teleports up to {n} squares.",
+      "teleswapDetail": "Swaps places with another creature up to {n} squares away.",
+      "teleportAdjacentDetail": "Teleports up to {n} squares to a space next to another creature.",
+      "forcedDetail": "{movement} up to {n} squares.",
+      "forcedProp": {
+        "vertical": "Can move up or down.",
+        "ignore-stability": "Ignores stability.",
+        "no-collision-damage": "No collision damage.",
+        "no-mover-collision-damage": "The moved creature takes no collision damage.",
+        "no-obstacle-collision-damage": "What it hits takes no collision damage.",
+        "fast-auto-path": "Picks the path automatically.",
+        "safely": "Can only be moved where it comes to no harm."
+      },
+      "cleanse": "Cleanse",
+      "cleanseAll": "Cleanse All",
+      "cleanseStatus": "End {status}",
+      "cleanseAllStatus": "End All {status}",
+      "cleanseStatuses": "End Condition",
+      "cleanseAllStatuses": "End Conditions",
+      "cleanseDetailStandard": "Ends one effect that a saving throw or the end of the creature's turn would end.",
+      "cleanseDetailAllStandard": "Ends every effect that a saving throw or the end of the creature's turn would end.",
+      "cleanseDetail": "Ends one effect: {what}.",
+      "cleanseDetailAll": "Ends every effect: {what}.",
+      "category": {
+        "forced": "Forced Movement",
+        "teleport": "Teleport",
+        "cleanse": "Cleanse"
+      },
+      "cleanseChoose": "End an Effect on {name}",
+      "needSelection": "Select the tokens to use this on first."
+    },
+    "advEnricher": {
+      "category": {
+        "damage": "Damage",
+        "heal": "Healing",
+        "gain": "Resource",
+        "apply": "Effect",
+        "forced": "Forced Movement",
+        "teleport": "Teleport",
+        "cleanse": "Cleanse"
+      },
+      "healAmount": "Regains {n} Stamina",
+      "healApplied": "Regained {n} Stamina",
+      "healTemp": "Gains {n} temporary Stamina",
+      "healTempApplied": "Gained {n} temporary Stamina",
+      "healMinion": "Minions can't regain Stamina or gain temporary Stamina.",
+      "healTempCapped": "Already has more temporary Stamina, which doesn't stack.",
+      "gainAmount": "Gains {n} {type}",
+      "gainApplied": "Gained {n} {type}",
+      "gainNotHero": "Only heroes have this resource.",
+      "stepRecoveryValue": "{name}'s recovery value",
+      "stepSpendsRecovery": "{name} spends a Recovery",
+      "healNoRecoveries": "{name} has no Recoveries left.",
+      "noteRecovery": "{name} spends a Recovery",
+      "applyResisted": "Resists {name}",
+      "potencyAffected": "{name} {score} against potency {potency}: affected",
+      "potencyResisted": "{name} {score} against potency {potency}: resisted",
+      "resisted": "Resisted",
+      "forcedNeedsStatus": "Only moves a creature that is {status}.",
+      "costLine": "Costs {n} {resource}.",
+      "sourceLine": "Acts for {name}.",
+      "applyAmount": "Gets {name}",
+      "applyApplied": "Got {name}",
+      "forcedAmount": "{movement} {n}",
+      "forcedApplied": "Moved by {movement} {n}",
+      "stepStability": "{n} from stability",
+      "stepTaken": "{n} from effects on them",
+      "replacedBySpend": "The Spend was paid, so its effect replaces this one.",
+      "stability": "Stability {n}",
+      "teleportAmount": "Teleports up to {n} squares",
+      "teleportApplied": "Teleported up to {n} squares",
+      "cleanseApplied": "Ended {names}",
+      "undoMissing": "The movement's undo chat message is no longer in the chat log.",
+      "howTo": "Click to apply to every target. Click a face to apply to that target alone, or click it again to undo. Shift-click to use your current targets instead.",
+      "shiftNoTargets": "Shift-click uses your current targets, and you have none.",
+      "howToEmpty": "No targets yet. Click to pick them, or Shift-click to use your current targets.",
+      "applied": "applied",
+      "faceAmount": "Takes {n} {type} damage",
+      "faceApplied": "Took {n} {type} damage",
+      "untyped": "untyped",
+      "gainOne": {
+        "surge": "Surge",
+        "victory": "Victory"
+      },
+      "fromAbility": "From: {ability} ({name})",
+      "fromName": "From: {name}",
+      "gameTerms": "edge, edges, bane, banes, double, reactive, test, tests, start, end, next, turn, turns, round, rounds, encounter, save, ends, damage, stamina, temporary, recovery, recoveries, surge, surges, heroic, resource, focus, potency, potencies, strike, strikes, push, pull, slide, teleport, shift, speed, stability, cover, concealment, fly, burrow, climb, swim",
+      "stepFrom": "from {src}",
+      "stepWeakness": "{n} from {type} weakness",
+      "stepImmunity": "{n} from {type} immunity",
+      "stepStamina": "Stamina {value} of {max}, {temp} temporary",
+      "notRolled": "Not rolled yet.",
+      "faceApplyHint": "Click to apply to this target alone.",
+      "faceUndoHint": "Click to undo for this target.",
+      "faceUndoLastHint": "Click to undo the last use for this target.",
+      "repeatUses": "Used {n} times.",
+      "teleportPartner": "Can't be the partner for this teleport.",
+      "categoryTarget": "Target",
+      "categoryApplied": "Applied",
+      "categoryDefeated": "Defeated",
+      "dieLabel": "d{faces} showing {n}",
+      "flatDamage": "{type} Damage",
+      "srcChr": "Characteristic",
+      "srcLevel": "Level",
+      "srcEchelon": "Echelon",
+      "srcRecoveryValue": "Recovery Value",
+      "srcScaling": "Scaling",
+      "srcTriggerDamage": "Triggering Damage",
+      "srcDealt": "Damage Dealt",
+      "srcSpend": "Spent",
+      "srcTriggerLevel": "Triggering Level",
+      "faceKilled": "Defeated by {n} damage",
+      "faceReviveHint": "Click to undo the damage and revive {names}.",
+      "cannotRevive": "Only the Director can undo damage that defeated a creature.",
+      "weakness": "Weakness {n}",
+      "immunity": "Immunity {n}",
+      "editorTitle": "Modify {name}",
+      "mods": {
+        "raise": "Increase",
+        "lower": "Decrease",
+        "double": "Double",
+        "halve": "Halve",
+        "doubled": "Doubled",
+        "halved": "Halved",
+        "unitHeal": "Stamina",
+        "unitDistance": "Distance",
+        "tpMode": "Mode",
+        "tpMover": "Who Moves",
+        "tpModePill": "Mode: {mode}",
+        "tpMoverPill": "Moves: {mover}",
+        "alsoEnd": "Also End",
+        "keep": "Keep",
+        "endEvery": "End Every Match",
+        "alsoEndPill": "Also Ends {status}",
+        "keepPill": "Keeps {status}",
+        "endEveryPill": "Ends Every Match",
+        "condition": "Condition",
+        "nothing": "Nothing to End",
+        "rightClick": "Right-click to remove it."
+      },
+      "noTargets": "This enricher has no targets yet.",
+      "notYours": "Only the Director or this chat message's author can apply it.",
+      "pickHint": "Pick the targets for this enricher."
+    },
+    "settingsReport": {
+      "title": "Combat Tools Settings Report",
+      "titleChanged": "Combat Tools Changed Some Defaults",
+      "blurb": "These settings differ from their defaults. Some may be defaults from an older version that never updated. Restore what you didn't choose on purpose.",
+      "blurbChanged": "This update changed the defaults below, and your settings still use the old values. Restore any you didn't choose on purpose.",
+      "none": "All your Combat Tools settings match their defaults.",
+      "general": "General",
+      "on": "On",
+      "off": "Off",
+      "empty": "Empty",
+      "default": "(default {value})",
+      "changedIn": "Changed in {version}",
+      "confirmTitle": "Restore Defaults",
+      "confirmBody": "Restore all {count} settings in {section} to their defaults?"
+    },
     "rangeConfirm": {
       "title": "Out of Range",
       "gmContent": "{source} is using {action} on {target} from {squares} squares away, beyond the allowed range. Allow it anyway?",
@@ -2038,12 +2897,20 @@
       "confirmed": "(Fall Confirmed)",
       "cancelled": "(Fall Cancelled)",
       "awaitingConfirm": "(Awaiting confirmation...)",
-      "fallsSquares": "<strong>{name}</strong> falls <strong>{dist}</strong> square{s}",
-      "noAgility": ", dealing <strong>{dmg}</strong> fall damage ({effective} effective).",
-      "tooShort": " but the fall is too short to deal damage.",
-      "withAgility": ", dealing <strong>{dmg}</strong> fall damage.",
-      "agilityNote": " (<strong>{effective}</strong> effective after Agility reduction)",
-      "agilityNotEnough": " - not enough to deal damage."
+      "fell": "<strong>{name}</strong> falls <strong>{dist}</strong> square{s}.",
+      "agility": "Agility reduces the fall by {n}.",
+      "reducedBy": "{source} reduces the fall by {n}.",
+      "increasedBy": "{source} increases the fall by {n}.",
+      "unknownSource": "A trigger",
+      "caught": "Caught: no fall damage.",
+      "damage": "{effective} squares after reductions: <strong>{dmg}</strong> fall damage.",
+      "tooShort": "{effective} squares after reductions: too short to deal damage.",
+      "prone": "{name} lands prone.",
+      "confirmPrompt": "<b><i class=\"fa-solid fa-chevrons-down\"></i> Fall:</b> <b>{name}</b> is about to fall <b>{dist}</b> square{s}{agility}{outcome}",
+      "confirmAgility": " ({effective} effective after Agility {agility})",
+      "confirmNoDamage": ". No fall damage will be taken.",
+      "confirmDamage": ", dealing <b>{dmg} damage</b> and landing prone.",
+      "confirmTooShort": ". Less than 2 effective squares; no damage."
     },
     "region": {
       "disposition": {
@@ -2123,6 +2990,27 @@
             "hint": "Only trigger for tokens matching these dispositions. Leave empty to trigger for all."
           }
         }
+      },
+      "damageEvents": {
+        "untyped": "Untyped",
+        "FIELDS": {
+          "formula": {
+            "label": "Damage",
+            "hint": "A formula, read from the creature that placed the area, so @R is their Reason score."
+          },
+          "damageType": {
+            "label": "Damage Type",
+            "hint": "The type of the damage. Untyped when left empty."
+          },
+          "oncePerTurn": {
+            "label": "Once per Turn",
+            "hint": "A creature takes this damage at most once on each turn, for lines like \"enters the area for the first time on a turn or starts their turn there\"."
+          },
+          "dispositions": {
+            "label": "Filter by Disposition",
+            "hint": "Only trigger for tokens matching these dispositions. Leave empty to trigger for all."
+          }
+        }
       }
     },
     "compat": {
@@ -2173,6 +3061,25 @@
         "after": "of the following:"
       },
       "counts": "one, two, three, four, five, six, seven, eight, nine, ten",
+      "timing": {
+        "label": "When to Choose",
+        "hint": "Before the use asks when the ability is used. After the roll puts the options on the chat message once the result is in.",
+        "before": "Before the Use",
+        "after": "After the Roll"
+      },
+      "critical": {
+        "label": "On a Critical Hit",
+        "hint": "For lines like \"on a critical hit, all four effects are chosen\".",
+        "none": "Choose as Usual",
+        "all": "Every Option Applies"
+      },
+      "after": {
+        "heading": "Choose one:",
+        "chosen": "Chosen: {name}",
+        "critical": "Critical hit: every option applies",
+        "noArea": "The area for {name} isn't on the scene, so only the targets you had stay.",
+        "notYours": "Only the chat message's owner can choose."
+      },
       "sameAsAbility": "Same as ability",
       "sameAsAbilityNamed": "Same as ability ({value})",
       "distance": "Distance",
@@ -2295,6 +3202,7 @@
         "flatHeal": "Heal",
         "flatCleanse": "Cleanse",
         "flatTeleport": "Teleport",
+        "flatGrant": "Grant Action",
         "choose": "Choose",
         "hide": "Hide"
       }
@@ -2307,7 +3215,8 @@
       "draw-steel-combat-tools.statusEffect": "[DSCT] Status Effect",
       "draw-steel-combat-tools.statusEffectEvents": "[DSCT] Status Effect (Events)",
       "draw-steel-combat-tools.activeEffect": "[DSCT] Active Effect",
-      "draw-steel-combat-tools.activeEffectEvents": "[DSCT] Active Effect (Events)"
+      "draw-steel-combat-tools.activeEffectEvents": "[DSCT] Active Effect (Events)",
+      "draw-steel-combat-tools.damageEvents": "[DSCT] Damage (Events)"
     }
   }
 }

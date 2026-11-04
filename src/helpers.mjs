@@ -34,6 +34,7 @@ const MASTER_TOGGLE = {
 };
 
 export const HANDED_TO_TRIGGERS = new Set(['judgementAutomation', 'markAutomation']);
+export const movesGranted = () => CONFIG.TextEditor.enrichers.some((e) => e.id === 'dsm.grant');
 export const triggersHandlesClassTriggers = () => !!game.modules.get('draw-steel-triggers')?.active
   && game.settings.settings.has('draw-steel-triggers.featureTriggers')
   && game.settings.get('draw-steel-triggers', 'featureTriggers') !== false;
@@ -54,6 +55,10 @@ export const getSetting = (key) => {
   if (master && !_read(master)) return false;
   return _read(key);
 };
+
+export const isOwnAbilityActor = (actor) => !!actor && (game.user.isGM
+  ? !game.users.some((u) => u.active && !u.isGM && actor.testUserPermission(u, 'OWNER'))
+  : actor.isOwner);
 
 export const effectStartFor = (actor) => {
   const start = CONFIG.ActiveEffect.documentClass.getEffectStart();
@@ -111,7 +116,20 @@ export const messageDamageSource = (message) => {
     tokenUuid: sp.scene && sp.token ? `Scene.${sp.scene}.Token.${sp.token}` : null,
     actorUuid: sp.actor ? `Actor.${sp.actor}` : null,
     ability: use?.abilityUuid ? (fromUuidSync(use.abilityUuid, { strict: false })?.name ?? null) : null,
+    abilityUuid: use?.abilityUuid ?? null,
   };
+};
+
+export const spentTotal = (message) => {
+  const rx = new RegExp(game.i18n.localize('DRAW_STEEL.Item.ability.ConfigureUse.SpentFlavor')
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{value\\}', '(\\d+)').replace('\\{name\\}', '.+'));
+  return Number(rx.exec(message?.flavor ?? '')?.[1]) || 0;
+};
+
+export const spendBeyondCost = (message, ability = null) => {
+  const use = message?.system?.parts?.contents?.find((p) => p.type === 'abilityUse');
+  ability ??= use?.abilityUuid ? fromUuidSync(use.abilityUuid, { strict: false }) : null;
+  return Math.max(0, spentTotal(message) - (Number(ability?.system?.resource) || 0));
 };
 
 export const applyDamage = async (actor, amount, squadGroupOverride = undefined, {
@@ -136,7 +154,10 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   const type = damageType || 'untyped';
   
   const ignoredImmunities = staminaLoss ? ['all'] : (ignoreImmunity ? [type] : []);
-  const effectiveAmt      = (isArea && squadGroup) ? Math.min(amount, actor.system.stamina.max ?? amount) : amount;
+  
+  
+  const lossWeakness      = staminaLoss ? (actor.system.calculateImmunityAndWeakness?.({ type, ignoredImmunities }).weakness ?? 0) : 0;
+  const effectiveAmt      = (isArea && squadGroup) ? Math.min(amount, actor.system.stamina.max ?? amount) : amount - lossWeakness;
 
   const take = () => safeTakeDamage(actor, effectiveAmt, { type, ignoredImmunities, staminaLoss, ...(fall ? { dsctFall: true } : {}), ...(forced ? { dsctForced: true } : {}), ...(source ? { dsbl: { source } } : {}) });
   await (staminaLoss ? asStaminaLoss(take) : take());
@@ -145,11 +166,12 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
 
 export const confirmFall = async (token, rawFall, effectiveFall, dmg, { noFallDamage = false } = {}) => {
   const agility = token.actor?.system?.characteristics?.agility?.value ?? 0;
-  let content = `<b><i class="fa-solid fa-chevrons-down"></i> Fall:</b> <b>${token.name}</b> is about to fall <b>${rawFall}</b> square${rawFall !== 1 ? 's' : ''}`;
-  if (agility > 0 && effectiveFall !== rawFall) content += ` (${effectiveFall} effective after Agility ${agility})`;
-  if (noFallDamage)     content += `. No fall damage will be taken.`;
-  else if (dmg > 0)     content += `, dealing <b>${dmg} damage</b> and landing prone.`;
-  else                  content += `. Less than 2 effective squares; no damage.`;
+  const L = (key, data = {}) => game.i18n.format(`DSCT.fall.${key}`, data);
+  const content = L('confirmPrompt', {
+    name: token.name, dist: rawFall, s: rawFall !== 1 ? 's' : '',
+    agility: agility > 0 && effectiveFall !== rawFall ? L('confirmAgility', { effective: effectiveFall, agility }) : '',
+    outcome: L(noFallDamage ? 'confirmNoDamage' : (dmg > 0 ? 'confirmDamage' : 'confirmTooShort'), { dmg }),
+  });
 
   const msg = await ChatMessage.create({
     content,
@@ -211,6 +233,29 @@ export const confirmRangeOverride = async (sourceToken, targetToken, squares, ac
       if (deletedMsg.id !== msg.id) return;
       finish(false);
     });
+  });
+};
+
+export const askConsent = async (actor, { content, yes, no, yesDone = yes, noDone = no }) => {
+  const whisper = game.users.filter(u => u.isGM || (u.active && actor?.testUserPermission(u, 3))).map(u => u.id);
+  const msg = await ChatMessage.create({
+    content, whisper,
+    speaker: ChatMessage.getSpeaker({ actor }),
+    flags: { [M]: { consent: { actorUuid: actor.uuid, yes, no, yesDone, noDone, answer: null } } },
+  });
+  return new Promise((resolve) => {
+    let hookId, deleteHookId;
+    const finish = (val) => {
+      Hooks.off('updateChatMessage', hookId);
+      Hooks.off('deleteChatMessage', deleteHookId);
+      resolve(val);
+    };
+    hookId = Hooks.on('updateChatMessage', (updated) => {
+      if (updated.id !== msg.id) return;
+      const answer = updated.getFlag(M, 'consent')?.answer;
+      if (answer) finish(answer === 'yes');
+    });
+    deleteHookId = Hooks.on('deleteChatMessage', (deleted) => { if (deleted.id === msg.id) finish(false); });
   });
 };
 
@@ -288,30 +333,41 @@ export const stepOffCatcher = async (token) => {
 };
 
 export const fallGate = async (token, height) => {
-  const ctx = { token, height, reduction: 0, cancel: false, safe: false, holds: [] };
+  const ctx = { token, height, reduction: 0, reasons: [], cancel: false, safe: false, holds: [] };
   if (!(height > 0)) return ctx;
   Hooks.callAll('dsct.preFall', ctx);
   for (const mods of await Promise.all(ctx.holds)) {
     if (!mods) continue;
     ctx.reduction += Number(mods.reduction) || 0;
+    ctx.reasons.push(...(mods.reasons ?? []));
     if (mods.cancel) ctx.cancel = true;
     if (mods.safe) ctx.safe = true;
   }
   return ctx;
 };
 
-export const applyFall = async (token, targetElev = 0, { silent = true, skipConfirm = false } = {}) => {
+export const knockProne = async (actor, undoOps = null) => {
+  await safeToggleStatusEffect(actor, 'prone', { active: true });
+  undoOps?.push({ op: 'status', uuid: actor.uuid, effectId: 'prone', active: false });
+};
+
+let _fallHandler = null;
+export const registerFallHandler = (fn) => { _fallHandler = typeof fn === 'function' ? fn : null; };
+
+export const applyFall = async (token, targetElev = 0, { silent = false, skipConfirm = false } = {}) => {
+  if (_fallHandler) return _fallHandler(token, targetElev, { silent, skipConfirm });
   const currentElev = token.document?.elevation ?? 0;
   if (currentElev <= targetElev) return { dmg: 0, fallDist: 0, effectiveFall: 0 };
 
   const canFly = canCurrentlyFly(token.actor);
-  let dmg = 0, fallDist = 0, effectiveFall = 0, caught = false;
+  let dmg = 0, fallDist = 0, effectiveFall = 0, caught = false, agility = 0, reasons = [];
   if (!canFly) {
     const gate = await fallGate(token, currentElev - targetElev);
     if (gate.cancel) return { dmg: 0, fallDist: 0, effectiveFall: 0, cancelled: true };
     caught = gate.safe;
+    reasons = gate.reasons;
     fallDist      = currentElev - targetElev;
-    const agility = token.actor?.system?.characteristics?.agility?.value ?? 0;
+    agility       = token.actor?.system?.characteristics?.agility?.value ?? 0;
     effectiveFall = Math.max(0, fallDist - agility - gate.reduction);
     const cap     = getSetting('fallDamageCap');
     dmg = caught || effectiveFall < 2 ? 0 : Math.min(effectiveFall * 2, cap);
@@ -322,9 +378,20 @@ export const applyFall = async (token, targetElev = 0, { silent = true, skipConf
     if (!confirmed) return { dmg: 0, fallDist: 0, effectiveFall: 0 };
   }
 
+  
   const tokenIsDead = token.actor?.statuses?.has(CONFIG.specialStatusEffects?.DEFEATED ?? 'dead') ?? false;
-  if (dmg > 0 && !tokenIsDead) await applyDamage(token.actor, dmg, undefined, { fall: true });
+  const hurt = dmg > 0 && !tokenIsDead;
+  if (!silent && fallDist > 0) {
+    await ChatMessage.create({
+      content: fallLines(token.name, { fallDist, effectiveFall, dmg, agility, reasons, caught, prone: hurt }).join('<br>'),
+      speaker: ChatMessage.getSpeaker({ token: token.document }),
+      flags: { [M]: { fallLog: { fell: fallDist, effective: effectiveFall, dmg, targetTokenId: token.id, targetSceneId: token.document.parent?.id ?? canvas.scene?.id } } },
+    });
+  }
+
+  if (hurt) await applyDamage(token.actor, dmg, undefined, { fall: true });
   await safeUpdate(token.document, { elevation: targetElev });
+  if (hurt) await knockProne(token.actor);
   if (caught) await stepOffCatcher(token);
 
   if (dmg > 0) {
@@ -335,7 +402,7 @@ export const applyFall = async (token, targetElev = 0, { silent = true, skipConf
       await applyDamage(landedOn.actor, dmg, undefined, { fall: true });
       const fallerSize   = token.actor?.system?.combat?.size?.value ?? 1;
       const blockerMight = landedOn.actor?.system?.characteristics?.might?.value ?? 0;
-      if (fallerSize > blockerMight) await safeToggleStatusEffect(landedOn.actor, 'prone', { active: true });
+      if (fallerSize > blockerMight) await knockProne(landedOn.actor);
       const fallerWouldDie  = (token.actor.system.stamina?.value ?? 1) <= 0;
       const blockerWouldDie = (landedOn.actor.system.stamina?.value ?? 1) <= 0;
       if (!fallerWouldDie || !blockerWouldDie) {
@@ -345,23 +412,19 @@ export const applyFall = async (token, targetElev = 0, { silent = true, skipConf
     }
   }
 
-  if (!silent) {
-    await ChatMessage.create({ content: buildFallMessage(token.name, fallDist, effectiveFall, dmg) });
-  }
   return { dmg, fallDist, effectiveFall };
 };
 
-const buildFallMessage = (name, fallDist, effectiveFall, dmg) => {
-  const distPart = game.i18n.format('DSCT.fall.fallsSquares', { name, dist: fallDist, s: fallDist !== 1 ? 's' : '' });
-  if (effectiveFall === fallDist) {
-    return dmg > 0
-      ? distPart + game.i18n.format('DSCT.fall.noAgility', { dmg, effective: effectiveFall * 2 })
-      : distPart + game.i18n.localize('DSCT.fall.tooShort');
-  }
-  const agilityNote = game.i18n.format('DSCT.fall.agilityNote', { effective: effectiveFall });
-  return dmg > 0
-    ? distPart + agilityNote + game.i18n.format('DSCT.fall.withAgility', { dmg })
-    : distPart + agilityNote + game.i18n.localize('DSCT.fall.agilityNotEnough');
+const fallLines = (name, { fallDist, effectiveFall, dmg, agility, reasons, caught, prone }) => {
+  const L = (key, data) => game.i18n.format(`DSCT.fall.${key}`, data);
+  const lines = [L('fell', { name, dist: fallDist, s: fallDist !== 1 ? 's' : '' })];
+  if (agility > 0) lines.push(L('agility', { n: agility }));
+  for (const r of reasons) lines.push(L(r.n > 0 ? 'reducedBy' : 'increasedBy', { source: r.name || L('unknownSource', {}), n: Math.abs(r.n) }));
+  if (caught) lines.push(L('caught', {}));
+  else if (dmg > 0) lines.push(L('damage', { dmg, effective: effectiveFall }));
+  else lines.push(L('tooShort', { effective: effectiveFall }));
+  if (prone) lines.push(L('prone', { name }));
+  return lines;
 };
 
 export const getModuleApi = (warn = true) => {

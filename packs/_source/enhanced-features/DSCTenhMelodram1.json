@@ -1,0 +1,145 @@
+{
+ "folder": "DSCTfffTroubL401",
+ "name": "Melodrama",
+ "type": "feature",
+ "_id": "DSCTenhMelodram1",
+ "img": "icons/skills/ranged/arrow-strike-apple-orange.webp",
+ "system": {
+  "description": {
+   "value": "<p>You have more ways of getting the most drama out of a situation. Choose two of the following events to add to the events that grant you drama during battle:</p><ul><li><p>A creature rolls a natural 2 on a power roll.</p></li><li><p>The Director deals damage to a hero using a Villain action or an ability that costs Malice.</p></li><li><p>A hero unwillingly falls 5 or more squares.</p></li><li><p>A hero deals damage with 3 surges.</p></li><li><p>A hero spends their last Recovery.</p></li></ul><p>Alternatively, you can forgo choosing a new event to choose one event you already have (including an event gained with this feature). That event grants you 1 more drama.</p><section class=\"secret\"><p><em>Draw Steel: Combat Tools gives each choice as its own feature, with the drama it grants. You pick them when you level up, or from the chat message posted when this feature arrives without them. To change them, use the arrow button beside each choice on this feature's Advancement tab.</em></p></section>",
+   "director": ""
+  },
+  "source": {
+   "book": "Heroes",
+   "page": "210",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "melodrama",
+  "advancements": {
+   "meloFirstEvent01": {
+    "name": "Melodrama: First Event",
+    "img": null,
+    "type": "itemGrant",
+    "requirements": {
+     "level": null
+    },
+    "_id": "meloFirstEvent01",
+    "description": "<p>Choose an event to add to the events that grant you drama.</p>",
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloEvnt0001"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloEvnt0002"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloEvnt0003"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloEvnt0004"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloEvnt0005"
+     }
+    ],
+    "sort": 0,
+    "repick": {},
+    "chooseN": 1,
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   },
+   "meloSecondPick01": {
+    "name": "Melodrama: Second Choice",
+    "img": null,
+    "type": "itemGrant",
+    "requirements": {
+     "level": null
+    },
+    "_id": "meloSecondPick01",
+    "description": "<p>Choose another event, or an event you already have to gain 1 more drama from it.</p>",
+    "pool": [
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloEvnt0001"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloEvnt0002"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloEvnt0003"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloEvnt0004"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloEvnt0005"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloRais0001"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloRais0002"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloRais0003"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloRais0004"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloRais0005"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloRais0006"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloRais0007"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloRais0008"
+     },
+     {
+      "uuid": "Compendium.draw-steel-combat-tools.enhanced-features.Item.DSCTmeloRais0009"
+     }
+    ],
+    "sort": 1000,
+    "repick": {},
+    "chooseN": 1,
+    "additional": {
+     "type": "",
+     "perkType": []
+    }
+   }
+  },
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "enhancedChoices": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.367",
+  "systemId": "draw-steel",
+  "systemVersion": "1.1.2",
+  "createdTime": 1793347200000,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhMelodram1"
+}

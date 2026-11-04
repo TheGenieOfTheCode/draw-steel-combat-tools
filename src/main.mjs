@@ -1,9 +1,9 @@
-import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHooks, bypassNextFmGate } from './forced-movement/forced-movement.mjs';
-import { runColoredTokenPicker, _getValidTargets, burstTargetsAround } from './ability-automation/target-picker.mjs';
+import { runForcedMovement, toggleForcedMovementPanel, registerForcedMovementHooks, bypassNextFmGate, registerForcedMovementHandler } from './forced-movement/forced-movement.mjs';
+import { runColoredTokenPicker, _getValidTargets, burstTargetsAround, setTriggerSubject } from './ability-automation/target-picker.mjs';
 import { WallBuilderPanel, convertWalls, mergeSelectedWalls, registerWallDoorHooks } from './forced-movement/wall-builder.mjs';
 import { registerChatHooks, refreshChatInjections, rollBleeding } from './chat-integration.mjs';
-import { runGrab, toggleGrabPanel, endGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync, allowOutOfRange } from './conditions/grab.mjs';
-import { STEALTH_WORKFLOW_READY, applyFall, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, asStaminaLoss} from './helpers.mjs';
+import { runGrab, toggleGrabPanel, endGrab, applyGrab, registerGrabHooks, registerKnockbackGuard, registerGrabTierSync, allowOutOfRange } from './conditions/grab.mjs';
+import { STEALTH_WORKFLOW_READY, applyFall, registerFallHandler, getSetting, parsePowerRollState, applyRollMod, getWindowById, monsterFilter, sightLinesToToken, hasSightToToken, hasCover, visibleTargetCorners, asStaminaLoss, spendBeyondCost} from './helpers.mjs';
 import { applyJudgement, applyMark, applyAidAttack, registerTacticalHooks } from './ability-automation/tactical-effects.mjs';
 import { services, registerStatusGroup, clearPickerArrows, activateTokenLayer, stackedPrompt, isPrimaryGM } from './ctlib.mjs';
 import { applySquadLabels, autoRenameGroups, clearSquadLabels, registerSquadLabelHooks } from './squad-labels.mjs';
@@ -11,10 +11,11 @@ import { registerSquadHudHooks, getStickBugged } from './squad-hud.mjs';
 import { registerSquadTurnHooks } from './squad-turns.mjs';
 import { registerPairTurnHooks } from './pair-turns.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
+import { registerHostileNeutralHooks } from './hostile-neutrals.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
 import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities, swapEnhancedItem, removeEnhancedGrants } from './setup-macros.mjs';
-import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport } from './teleport.mjs';
+import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport, registerTeleportHandler } from './teleport.mjs';
 import { registerTargetDistance } from './ability-automation/target-distance.mjs';
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
 import { toggleDamageConditionsPanel, registerDCHooks } from './conditions/damage-conditions.mjs';
@@ -24,8 +25,11 @@ import { applyStatus, removeStatus, statusSourceUuids, migrateLegacyStatuses, cr
 import { registerJudgedMarked } from './conditions/judged-marked.mjs';
 import { registerTriggersDerived } from './compat/triggers-derived.mjs';
 import { registerApplyToTargets, applyEnricherPayload } from './conditions/apply-to-targets.mjs';
+import { registerAdvancedEnrichers, registerEnricherKind } from './advanced-enrichers/advanced-enrichers.mjs';
+import { useGranted } from './advanced-enrichers/grant-enricher.mjs';
 import { registerStealthSystem, hide, reveal, hiddenFrom, isHiddenFrom, proposeHide, setHiddenFrom, recheckHidden, enforceBlockedObservers, moveLog, pendingSpots, confirmSpot, stealthActive, clearStealthEffects, markRevealed, clearRevealPending, revealPendingReasons, isObserving, observingEnemies } from './conditions/stealth.mjs';
 import { registerBurrowRendering } from './conditions/burrow.mjs';
+import { registerAreaLineRendering } from './ability-automation/area-picker.mjs';
 import { registerSearch, pointOut, runSearch, spendHeroToken } from './conditions/search.mjs';
 import { registerHiddenMarkers } from './conditions/hidden-markers.mjs';
 import { registerPartyOverview } from './party/overview.mjs';
@@ -39,17 +43,24 @@ import { openImNoThreatPanel } from './ability-automation/ability-automation.mjs
 import { openTransformPicker, runTransform } from './ability-automation/transformation.mjs';
 import { triggerAbyssalEvolution, registerMaliceInjectors } from './ability-automation/malice/malice-features.mjs';
 import { registerCrossfadeHooks } from './ability-automation/class-shadow/crossfade.mjs';
-import { registerSquadTargetingHooks, _pendingSquadMap } from './ability-automation/squad-targeting.mjs';
+import { registerSquadTargetingHooks, _pendingSquadMap, runSquadFreeStrike, useSquadAbility } from './ability-automation/squad-targeting.mjs';
 import { registerStartupNotice, showStartupNotice } from './startup-notice.mjs';
+import { registerSettingsReport, showSettingsReport } from './settings-report.mjs';
 import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-shadow/hesitation.mjs';
 import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
-import { registerSettings } from './settings/register-settings.mjs';
+import { registerSettings, migrateMergedSettings } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
-import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
+import { registerBonds } from './bonds.mjs';
+import { registerRollDialogDodge } from './ability-automation/roll-dialog-dodge.mjs';
+import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, registerPowerRollDice, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
-import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
+import { registerDstdRollPills, addResultPill, addGlobalRollPills } from './compat/dstd-roll-pills.mjs';
 import { registerResultModifiers, resultModifiersApi } from './compat/result-modifiers.mjs';
 import { registerDstdExtraDamage } from './compat/dstd-extra-damage.mjs';
+import { registerDstdApplyWord } from './compat/dstd-apply-word.mjs';
+import { registerDstdAfterEffects } from './compat/dstd-after-effects.mjs';
+import { registerChatTips } from './chat-tips.mjs';
+import { registerDstdPotency, potencyVerdict, potencyEffectsOf } from './compat/dstd-potency.mjs';
 import { registerStatusSuppression } from './conditions/suppress-status.mjs';
 import { registerWindedEffects } from './conditions/winded-effects.mjs';
 import {
@@ -61,12 +72,19 @@ import { registerResourcesUiCompat } from './compat/resources-ui-compat.mjs';
 import { registerAbilityHudCompat } from './compat/ability-hud-compat.mjs';
 import { registerFlatEffects, setPendingTriggerDamage, registerExpiryReminders } from './ability-automation/flat-special-effects.mjs';
 import { registerTieredEffects } from './ability-automation/tiered-effects.mjs';
-import { registerChooseEffect } from './ability-automation/choose-effect.mjs';
+import { registerChooseEffect, presetChoose } from './ability-automation/choose-effect.mjs';
+import { registerChainTargets } from './ability-automation/chain-targets.mjs';
 import { registerHideEffect, runHideFor } from './ability-automation/hide-effect.mjs';
 import { registerStealthTraits, stealthTraits } from './conditions/stealth-traits.mjs';
 import { registerLineOfEffectFlags, registerCoverImmunity } from './conditions/line-of-effect.mjs';
 import { registerEffectFlagPicker } from './effect-flag-picker.mjs';
+import { registerRecurringDamage } from './conditions/recurring-damage.mjs';
+import { registerConsumeEffects } from './conditions/consume-effects.mjs';
+import { registerReactiveTests } from './conditions/reactive-tests.mjs';
+import { registerTurnGain } from './conditions/turn-gain.mjs';
 import { registerEnhancedBadge } from './enhanced-badge.mjs';
+import { registerEnhancedChoices } from './enhanced-choices.mjs';
+import { registerManualText } from './manual-text.mjs';
 import { registerEnhancedRedirects, enhancedRedirects } from './enhanced-redirects.mjs';
 import { beginPickerOverlay, endPickerOverlay } from './ability-automation/picker-overlay.mjs';
 import { handleObservationRequest } from './conditions/observation-picker.mjs';
@@ -100,10 +118,15 @@ const api = {
   reviveAll:         forwardToDeathTracker('reviveAll'),
   powerWordKill:     forwardToDeathTracker('powerWordKill'),
   cleanupPixi,
+  squadFreeStrike:   runSquadFreeStrike,
+  squadAttack:       useSquadAbility,
+  advancedEnrichers: { registerKind: registerEnricherKind },
   releasePickerLock: forwardToDeathTracker('releasePickerLock', { quiet: true }),
   forcedMovement:   runForcedMovement,
   bypassNextFmGate: bypassNextFmGate,
+  registerForcedMovementHandler,
   setTriggerDamage:  setPendingTriggerDamage,
+  setTriggerSubject: setTriggerSubject,
   colorTokenPicker: runColoredTokenPicker,
   
   getValidTargets:  _getValidTargets,
@@ -121,6 +144,8 @@ const api = {
   grabPanel:        toggleGrabPanel,
   endGrab:          endGrab,
   startupNotice:    showStartupNotice,
+  presetChoose:     presetChoose,
+  settingsReport:   showSettingsReport,
   judgement:        applyJudgement,
   mark:             applyMark,
   aidAttack:        applyAidAttack,
@@ -137,6 +162,9 @@ const api = {
   cleanupEnhancedAbilities,
   distributeAbilities:  distributeAbilities,
   fall:                 applyFall,
+  registerTeleportHandler,
+  registerFallHandler,
+  grabs:                { applyGrab },
   parsePowerRollState:  parsePowerRollState,
   applyRollMod:         applyRollMod,
   applyStatus,
@@ -176,6 +204,9 @@ const api = {
   enhancedRedirects,
   rollDialog: {
     addPill: addExternalRollPill,
+    addResultPill,
+    potencyVerdict,
+    potencyEffectsOf,
     applyTierMods,
     tierModsOf,
   },
@@ -194,6 +225,10 @@ Hooks.once('init', () => {
   registerSettings();
   registerChatHooks();
   registerGrabHooks();
+  registerRecurringDamage();
+  registerConsumeEffects();
+  registerReactiveTests();
+  registerTurnGain();
   registerKnockbackGuard();
   registerGrabTierSync();
   registerConditionHooks();
@@ -206,6 +241,7 @@ Hooks.once('init', () => {
   registerPeek();
   registerColorFields();
   registerBurrowRendering();
+  registerAreaLineRendering();
   registerHiddenMarkers();
   if (getSetting('partyToolsEnabled')) {
     registerPartyOverview();
@@ -218,6 +254,8 @@ Hooks.once('init', () => {
   registerCoverImmunity();
   registerEffectFlagPicker();
   registerEnhancedBadge();
+  registerEnhancedChoices();
+  registerManualText();
   registerEnhancedRedirects();
   if (STEALTH_WORKFLOW_READY) {
     registerStealthPath();
@@ -231,6 +269,7 @@ Hooks.once('init', () => {
   registerSquadTurnHooks();
   registerPairTurnHooks();
   registerTriggeredActionHooks();
+  registerHostileNeutralHooks();
   registerModuleButtons();
   registerForcedMovementHooks();
   registerWallDoorHooks();
@@ -241,27 +280,36 @@ Hooks.once('init', () => {
   registerHIWHooks();
   registerCompleteEncounterHooks();
   registerSystemPatches();
+  registerBonds();
   registerCornerVision();
   registerTierOutcomes();
+  registerPowerRollDice();
   registerRollDialogPillHooks();
   registerSquadTargetingHooks();
   registerStartupNotice();
+  registerSettingsReport();
   registerMaliceInjectors();
   registerFlatEffects();
   registerExpiryReminders();
   registerTieredEffects();
   registerChooseEffect();
+  registerChainTargets();
   registerHideEffect();
   registerDstdCompat();
   registerDstdRollPills();
   registerDstdDamagePills();
   registerDstdExtraDamage();
   registerResultModifiers();
+  registerDstdApplyWord();
+  registerDstdAfterEffects();
+  registerChatTips();
+  registerDstdPotency();
   registerStatusSuppression();
   registerWindedEffects();
   registerHealthEstimateCompat();
   registerResourcesUiCompat();
   registerAbilityHudCompat();
+  registerRollDialogDodge();
   
   
   if (game.modules.get('draw-steel-combat-tools')?.flags?.['draw-steel-combat-tools']?.testFeatures) {
@@ -324,8 +372,7 @@ Hooks.once('setup', () => {
           if (spent === null) {
             const msgEl = element.closest('[data-message-id]');
             const msg   = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
-            const m     = msg?.flavor?.match(/^Spent (\d+)/i);
-            spent = m ? parseInt(m[1]) : 0;
+            spent = msg ? spendBeyondCost(msg) : 0;
           }
           node.textContent = node.textContent
             .replace(/@spend/gi, String(spent))
@@ -337,6 +384,7 @@ Hooks.once('setup', () => {
 
   ['ds.roll', 'ds.apply'].forEach(patchDsEnricher);
   registerApplyToTargets();
+  registerAdvancedEnrichers();
 
   const lookupIdx = CONFIG.TextEditor.enrichers.findIndex(e => e.id === 'ds.lookup');
   if (lookupIdx !== -1) {
@@ -359,8 +407,7 @@ Hooks.once('setup', () => {
         if (!span) return;
         const msgEl = element.closest('[data-message-id]');
         const msg   = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
-        const m     = msg?.flavor?.match(/^Spent (\d+)/i);
-        span.innerText = String(m ? parseInt(m[1]) : 0);
+        span.innerText = String(msg ? spendBeyondCost(msg) : 0);
       },
     };
   }
@@ -371,6 +418,7 @@ Hooks.once('setup', () => applyStatusIcons());
 Hooks.once('ready', () => {
   applyStatusIcons();
   migrateLegacyIcons();
+  migrateMergedSettings();
   migrateLegacyStatuses();
   Hooks.on('canvasReady', () => migrateLegacyStatuses());
 });
@@ -514,6 +562,7 @@ Hooks.once('socketlib.ready', () => {
   const socket = socketlib.registerModule('draw-steel-combat-tools');
   api.socket = socket;
 
+  socket.register('dsct.useGranted',        (payload) => useGranted(payload));
   socket.register('dsct.detected',          (spotterId, hiderId) => playDetected(spotterId, hiderId));
   socket.register('dsct.applyToTargets',    (payload) => applyEnricherPayload(payload));
   socket.register('dsct.stealthPing',       (at, sceneId) => { if (game.user.isGM) pingStealthStop(at, sceneId); });

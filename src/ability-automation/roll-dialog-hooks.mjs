@@ -5,6 +5,8 @@ import { stealthTraits } from '../conditions/stealth-traits.mjs';
 import { sizeRankG } from '../conditions/grab.mjs';
 import { getStrikeType, isCrossfadeStrike, getCrossfadeEdgeForAbility } from './class-shadow/crossfade.mjs';
 import { chooseKeywords } from './choose-effect.mjs';
+import { areaOriginFor } from './area-picker.mjs';
+import { richTip, tipAttrs, tipFor } from '../chat-tips.mjs';
 
 let _pillIdCounter = 0;
 const mkId = (s) => `dsct-p-${++_pillIdCounter}-${s}`;
@@ -14,6 +16,10 @@ function pill(id, kind, amount, reason, src, scope, dsNative = false) {
 }
 
 export const TIER_KINDS = new Set(['tier', 'autoTier', 'tierFloor', 'tierCeiling']);
+
+export const EFFECT_PILL_KINDS = new Set(['potency', 'potencyForce', 'resistWith', 'effectEnd', 'saveMod', 'recurAmount', 'recurMult', 'recurType', 'recurIgnore']);
+
+export const EFFECT_END_LABELS = { originTurn: 'DSCT.panel.effectMods.EndOriginTurn', originNextStart: 'DSCT.panel.effectMods.EndOriginNextStart' };
 
 export function tierModsOf(pills) {
   const mods = { shift: 0, auto: [], floor: null, ceiling: null };
@@ -43,6 +49,17 @@ export function pillAmountLabel(p) {
   if (p.kind === 'autoTier') return `Tier ${n} Outcome`;
   if (p.kind === 'tierFloor') return `Tier ${n} or Higher`;
   if (p.kind === 'tierCeiling') return `Tier ${n} or Lower`;
+  if (p.kind === 'base') return `Base Roll ${p.dice?.length ? p.dice.join(' + ') : n}`;
+  if (p.kind === 'dice') return `+${Math.abs(n)} ${Math.abs(n) === 1 ? 'Die' : 'Dice'} (Drop ${n >= 0 ? 'Lowest' : 'Highest'})`;
+  if (p.kind === 'potency') return `${n >= 0 ? '+' : ''}${n} Potency`;
+  if (p.kind === 'saveMod') return `${n >= 0 ? '+' : ''}${n} Save`;
+  if (p.kind === 'potencyForce') return n >= 0 ? 'Always Lands' : 'Never Lands';
+  if (p.kind === 'recurAmount') return `${n >= 0 ? '+' : ''}${n} Recurring`;
+  if (p.kind === 'recurMult') return n < 1 ? 'Half Recurring' : 'Double Recurring';
+  if (p.kind === 'recurType') return `Recurring ${game.i18n.localize(ds.CONFIG.damageTypes?.[p.damageType]?.label ?? p.damageType ?? '')}`;
+  if (p.kind === 'recurIgnore') return 'Recurring Ignores Immunity';
+  if (p.kind === 'resistWith') return `Resists with ${ds.CONFIG.characteristics?.[p.characteristic]?.rollKey ?? p.characteristic}`;
+  if (p.kind === 'effectEnd') return `Lasts: ${EFFECT_END_LABELS[p.end] ? game.i18n.localize(EFFECT_END_LABELS[p.end]) : game.i18n.localize(ds.CONFIG.effectEnds?.[p.end]?.abbreviation ?? p.end)}`;
   const kindLabel = p.kind === 'edge' ? 'Edge' : p.kind === 'bane' ? 'Bane' : (n >= 0 ? 'Bonus' : 'Penalty');
   const plural = p.kind !== 'bonus' && Math.abs(n) !== 1 ? 's' : '';
   return `${n >= 0 ? '+' : ''}${n} ${kindLabel}${plural}`;
@@ -51,7 +68,43 @@ export function pillAmountLabel(p) {
 export function pillCss(p) {
   if (p.kind === 'tier') return (Number(p.amount) || 0) >= 0 ? 'edge dsct-pill-tier' : 'bane dsct-pill-tier';
   if (TIER_KINDS.has(p.kind)) return 'bonus dsct-pill-tier';
+  if (p.kind === 'base') return 'bonus dsct-pill-base';
+  if (p.kind === 'dice') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-dice`;
+  if (p.kind === 'potency') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-potency`;
+  if (p.kind === 'saveMod') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-effect`;
+  if (p.kind === 'potencyForce') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-effect`;
+  if (p.kind === 'recurAmount') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-effect`;
+  if (p.kind === 'recurMult') return `${(Number(p.amount) || 0) >= 1 ? 'edge' : 'bane'} dsct-pill-effect`;
+  if (EFFECT_PILL_KINDS.has(p.kind)) return 'bonus dsct-pill-effect';
   return p.kind;
+}
+
+export function diceModeOf(pills) {
+  const net = (pills ?? []).filter(p => p.enabled && p.kind === 'dice').reduce((n, p) => n + (Math.trunc(Number(p.amount)) || 0), 0);
+  return net > 0 ? `${net}kh` : net < 0 ? `${-net}kl` : null;
+}
+
+let _pendingDice = null;
+export const notePendingDice = (mode) => { _pendingDice = mode ? { mode, at: Date.now() } : null; };
+const _takePendingDice = () => {
+  const p = _pendingDice;
+  _pendingDice = null;
+  return p && Date.now() - p.at < 10000 ? p.mode : null;
+};
+
+export function registerPowerRollDice() {
+  if (!game.modules.get('lib-wrapper')?.active) return;
+  libWrapper.register('draw-steel-combat-tools', 'ds.rolls.PowerRoll.prototype.evaluate', function (wrapped, ...args) {
+    const term = this.terms?.[0];
+    if (!this._evaluated && term instanceof foundry.dice.terms.Die && !term._evaluated) {
+      const [, extra, keep] = String(this.options?.dsctDice ?? _takePendingDice() ?? '').match(/^(\d+)(kh|kl)$/) ?? [];
+      if (extra && term.faces === 10 && term.number === 2 && !term.modifiers?.length) {
+        term.number = 2 + Number(extra);
+        term.modifiers = [`${keep}2`];
+      }
+    }
+    return wrapped(...args);
+  }, 'WRAPPER');
 }
 
 export function registerTierOutcomes() {
@@ -113,13 +166,30 @@ export function _hasHighGround(casterToken, targetToken) {
   return casterElev === terrainElev;
 }
 
-function _buildGlobalPills(actor) {
+export const EXTRA_DICE_FLAG = 'flags.draw-steel-combat-tools.extraDice';
+
+function _effectDice(eff, keywords) {
+  const changes = (eff.system?.changes?.length ? eff.system.changes : eff.changes) ?? [];
+  let net = changes.filter(c => c.key === EXTRA_DICE_FLAG).reduce((n, c) => n + (Math.trunc(Number(c.value)) || 0), 0);
+  if (eff.type === 'abilityModifier' && [...(eff.system?.filters?.keywords ?? [])].every(k => keywords.has(k))) {
+    const number = changes.find(c => c.key === 'power.roll.dice.number');
+    const extra = Math.max(0, (Math.trunc(Number(number?.value)) || 2) - 2);
+    const low = changes.find(c => c.key === 'power.roll.dice.mode')?.value === 'kl';
+    net += low ? -extra : extra;
+  }
+  return net;
+}
+
+function _buildGlobalPills(actor, ability = null) {
   const pills = [];
-  
+
   if (actor.statuses?.has('weakened'))   pills.push(pill(mkId('wk'), 'bane', 1, 'Weakened',   null, 'global', true));
   if (actor.statuses?.has('restrained')) pills.push(pill(mkId('rs'), 'bane', 1, 'Restrained', null, 'global', true));
-  
+
+  const keywords = ability ? chooseKeywords(ability) : new Set();
   for (const eff of actor.appliedEffects ?? []) {
+    const dice = _effectDice(eff, keywords);
+    if (dice) pills.push(pill(mkId(`ae-d-${eff.id}`), 'dice', dice, eff.name, null, 'global'));
     if (eff.type !== 'abilityModifier') continue;
     for (const ch of eff.changes ?? []) {
       const amt = Math.abs(parseInt(ch.value) || 1);
@@ -320,16 +390,19 @@ function _buildTargetPills(app, tokenId) {
   
   const _doubled = stealthTraits(targetToken).concealmentBaneDoubled ? 2 : 1;
 
-  if (getSetting('coverBaneEnabled') && casterToken && _dealsDamage(ability)) {
+  const ignores = (what) => !!ability.getFlag?.('draw-steel-combat-tools', `ignores${what}`);
+  if (getSetting('coverBaneEnabled') && casterToken && _dealsDamage(ability) && !ignores('Cover')
+      && !stealthTraits(casterToken).ignoresCoverBane) {
     const p = pill(mkId(`cov-${tokenId}`), 'bane', _doubled, 'Cover', null, tokenId, false);
-    p.enabled = coverWithBurrow(casterToken, targetToken);
+    const fromOrigin = getSetting('areaCoverFrom') === 'origin' ? areaOriginFor(ability) : null;
+    p.enabled = coverWithBurrow(casterToken, targetToken, fromOrigin ? { origin: fromOrigin } : undefined);
     pills.push(p);
   }
 
   
   
   if (getSetting('stealthSystemEnabled') && casterToken && abilityKeywords.has('strike')
-      && !stealthTraits(casterToken).ignoresConcealmentBane) {
+      && !stealthTraits(casterToken).ignoresConcealmentBane && !ignores('Concealment')) {
     const p = pill(mkId(`conc-${tokenId}`), 'bane', _doubled, 'Concealment', null, tokenId, false);
     p.enabled = isConcealed(targetToken);
     pills.push(p);
@@ -354,7 +427,7 @@ function _buildModifierSources(app) {
                    ?? canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
   const targetEntries = Object.entries(app.options.context?.targets ?? {});
 
-  const pills = [..._buildGlobalPills(actor)];
+  const pills = [..._buildGlobalPills(actor, ability)];
 
   if (getSetting('grabEnabled') && casterToken && getItemDsid(ability) === 'escape-grab') {
     const grab = window._activeGrabs?.get(casterToken.id);
@@ -431,6 +504,9 @@ export function _recomputeAndSync(app) {
   const globalTier = tierModsOf(tierPills('global'));
   if (globalTier) ctx.modifiers.dsctTier = globalTier;
   else delete ctx.modifiers.dsctTier;
+  const dice = diceModeOf(app._dsctSources);
+  if (dice) ctx.modifiers.dsctDice = dice;
+  else delete ctx.modifiers.dsctDice;
 
   for (const [tokenId, target] of Object.entries(ctx.targets ?? {})) {
     const orig = origTs[tokenId] ?? { edges: 0, banes: 0, bonuses: 0 };
@@ -463,6 +539,8 @@ export function _recomputeAndSync(app) {
       const targetTier = tierModsOf([...tierPills('global'), ...tierPills(tokenId)]);
       if (targetTier) target.combinedModifiers.dsctTier = targetTier;
       else delete target.combinedModifiers.dsctTier;
+      if (dice) target.combinedModifiers.dsctDice = dice;
+      else delete target.combinedModifiers.dsctDice;
     }
   }
 }
@@ -477,12 +555,18 @@ function _pillHTML(p) {
   const fromStr      = p.src ? `<span class="dsct-pill-from">from ${p.src}</span>` : '';
   const disClass     = p.enabled ? '' : ' dsct-pill-disabled';
   const custClass    = p.custom ? ' dsct-pill-custom' : '';
-  const title        = p.custom ? 'Click to toggle · Right-click to remove' : (p.enabled ? 'Click to disable' : 'Click to enable');
+  const esc          = foundry.utils.escapeHTML;
+  const hint         = game.i18n.localize(p.custom ? 'DSCT.tip.pillCustom' : (p.enabled ? 'DSCT.tip.pillOn' : 'DSCT.tip.pillOff'));
+  const tip          = richTip({
+    title: [amtStr, p.reason].filter(Boolean).join(' · '),
+    category: game.i18n.localize(EFFECT_PILL_KINDS.has(p.kind) ? 'DSCT.tip.effectPill.category' : 'DSCT.tip.rollPill.category'),
+    html: [p.src ? game.i18n.format('DSCT.tip.pillFrom', { source: p.src }) : '', hint].filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join(''),
+  });
   const srcTokenAttr = (p.srcTokenIds?.length > 0
     ? ` data-src-token-ids="${p.srcTokenIds.join(',')}"`
     : (p.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : ''))
     + (p.lineFrom ? ` data-line-from="${p.lineFrom}"` : '');
-  return `<button type="button" class="dsct-source-pill dsct-pill-${pillCss(p)}${disClass}${custClass}"${srcTokenAttr} data-pill-id="${p.id}" title="${title}"><span class="dsct-pip">${amtStr} &middot; ${p.reason}</span>${fromStr}</button>`;
+  return `<button type="button" class="dsct-source-pill dsct-pill-${pillCss(p)}${disClass}${custClass}"${srcTokenAttr} data-pill-id="${p.id}" ${tipAttrs(tip)}><span class="dsct-pip">${amtStr} &middot; ${p.reason}</span>${fromStr}</button>`;
 }
 
 export function _injectPillUI(app) {
@@ -535,7 +619,7 @@ export function _injectPillUI(app) {
       const globalPills = app._dsctSources.filter(p => p.scope === 'global');
       const row = document.createElement('div');
       row.className = 'dsct-mod-pills-row dsct-rdp-pill-injection';
-      row.innerHTML = `<span class="dsct-pills-label">Global</span>${globalPills.map(_pillHTML).join('')}<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" data-scope="global" title="Add global modifier">+</button>`;
+      row.innerHTML = `<span class="dsct-pills-label">Global</span>${globalPills.map(_pillHTML).join('')}<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" data-scope="global" ${tipAttrs(tipFor('addGlobalModifier'))}>+</button>`;
       fg.after(row);
     }
   }
@@ -593,7 +677,7 @@ export function _injectPillUI(app) {
     const targetPills = app._dsctSources.filter(p => p.scope === tokenId);
     const row = document.createElement('div');
     row.className = 'dsct-mod-pills-row dsct-rdp-pill-injection';
-    row.innerHTML = `<span class="dsct-pills-label">Target</span>${targetPills.map(_pillHTML).join('')}<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" data-scope="${tokenId}" title="Add modifier">+</button>`;
+    row.innerHTML = `<span class="dsct-pills-label">Target</span>${targetPills.map(_pillHTML).join('')}<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" data-scope="${tokenId}" ${tipAttrs(tipFor('addModifier'))}>+</button>`;
     fg.after(row);
   }
 
@@ -772,7 +856,7 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
   }
 
   _syncValueField() {
-    if (this._valueGroup) this._valueGroup.style.display = (this._kind === 'bonus' || this._tierValued) ? '' : 'none';
+    if (this._valueGroup) this._valueGroup.style.display = (this._kind === 'bonus' || this._kind === 'dice' || this._tierValued) ? '' : 'none';
     if (!this._valueInput) return;
     if (this._tierValued) {
       this._valueInput.max = '3';
@@ -782,8 +866,8 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
 
   _readValueAmount() {
     if (this._tierValued) return Math.clamp(parseInt(this._valueInput?.value) || 3, 1, 3);
-    if (this._kind !== 'bonus') return this._negate ? -this._amount : this._amount;
-    const raw = Math.abs(parseFloat(this._valueInput?.value) || 1);
+    if (this._kind !== 'bonus' && this._kind !== 'dice') return this._negate ? -this._amount : this._amount;
+    const raw = this._kind === 'dice' ? Math.max(1, Math.abs(parseInt(this._valueInput?.value) || 1)) : Math.abs(parseFloat(this._valueInput?.value) || 1);
     return this._negate ? -raw : raw;
   }
 
@@ -895,23 +979,29 @@ export function registerRollDialogPillHooks() {
   
   
   if (game.modules.get('ds-terrain-designer')?.active) {
-    setTimeout(() => {
+    Hooks.once('ready', () => setTimeout(() => {
       const AbilitySystem = CONFIG.Item.dataModels?.ability;
       if (!AbilitySystem?.prototype?.getTargetModifiers) return;
-      const _prev = AbilitySystem.prototype.getTargetModifiers;
-      AbilitySystem.prototype.getTargetModifiers = function(target) {
-        const suppress = getSetting('rollDialogPillUI') && getSetting('highGroundEnabled');
-        const origInfo = suppress ? ui.notifications?.info?.bind(ui.notifications) : null;
-        if (origInfo) {
-          ui.notifications.info = (msg, ...rest) => {
+      const mute = function (wrapped, target) {
+        const notes = getSetting('rollDialogPillUI') && getSetting('highGroundEnabled') ? ui.notifications : null;
+        const own = notes && Object.prototype.hasOwnProperty.call(notes, 'info');
+        const info = notes?.info;
+        if (notes) {
+          notes.info = (msg, ...rest) => {
             if (typeof msg === 'string' && /high ground/i.test(msg)) return;
-            return origInfo(msg, ...rest);
+            return info.call(notes, msg, ...rest);
           };
         }
-        try { return _prev.call(this, target); }
-        finally { if (origInfo) ui.notifications.info = origInfo; }
+        try { return wrapped(target); }
+        finally { if (notes) { if (own) notes.info = info; else delete notes.info; } }
       };
-    }, 0);
+      if (game.modules.get('lib-wrapper')?.active) {
+        libWrapper.register(M_ID, 'CONFIG.Item.dataModels.ability.prototype.getTargetModifiers', mute, 'WRAPPER');
+        return;
+      }
+      const _prev = AbilitySystem.prototype.getTargetModifiers;
+      AbilitySystem.prototype.getTargetModifiers = function (target) { return mute.call(this, _prev.bind(this), target); };
+    }, 0));
   }
 
   Hooks.on('renderAbilityConfigurationDialog', (app) => {
@@ -950,5 +1040,6 @@ export function registerRollDialogPillHooks() {
 
   Hooks.on('closeAbilityConfigurationDialog', (app) => {
     if (app._dsctPillClickOff) { app._dsctPillClickOff(); app._dsctPillClickOff = null; }
+    notePendingDice(app.config != null ? app.options.context?.modifiers?.dsctDice ?? null : null);
   });
 }

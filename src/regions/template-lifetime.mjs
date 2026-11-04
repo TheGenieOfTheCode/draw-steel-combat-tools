@@ -1,5 +1,6 @@
 import { getSetting, safeDelete, safeCreateEmbedded, safeSetFlag, noLogFlag } from '../helpers.mjs';
-import { isPrimaryGM } from '../ctlib.mjs';
+import { isPrimaryGM, services } from '../ctlib.mjs';
+import { afterChoiceHoldsArea } from '../ability-automation/choose-effect.mjs';
 
 const M  = 'draw-steel-combat-tools';
 const DS = 'draw-steel';
@@ -7,6 +8,8 @@ const DS = 'draw-steel';
 export const ONGOING = 'templateOngoing';
 export const ENDS    = 'templateEnd';
 
+export const SPAWN = 'templateSpawn';
+const SPAWNED = 'spawnedBy';
 const EFFECT_REGION = 'ongoingRegionUuid';
 const REGION_EFFECT = 'ongoingEffectUuid';
 
@@ -65,13 +68,27 @@ function lifetimeMs() {
   return seconds * 1000;
 }
 
-async function _sweep(uuid) {
+const AREA_CHOICE_HOLD_MS = 600000;
+const _heldSince = new Map();
+
+
+async function _sweep(uuid, { force = false } = {}) {
   const timer = _pending.get(uuid);
   if (timer) clearTimeout(timer);
   _pending.delete(uuid);
 
   const region = await fromUuid(uuid).catch(() => null);
-  if (region) await safeDelete(region);
+  if (!region) return;
+  const item = fromUuidSync(abilityOf(region) ?? '');
+  const since = _heldSince.get(uuid) ?? Date.now();
+  const held = item && (afterChoiceHoldsArea(item) || services.get('abilityResolving')?.(item));
+  if (!force && held && Date.now() - since < AREA_CHOICE_HOLD_MS) {
+    _heldSince.set(uuid, since);
+    _scheduleSweep(region);
+    return;
+  }
+  _heldSince.delete(uuid);
+  await safeDelete(region);
 }
 
 function _scheduleSweep(region) {
@@ -119,23 +136,58 @@ async function _trackOngoing(region, item) {
   await safeSetFlag(region, M, REGION_EFFECT, effectUuid);
 }
 
-async function _onCreateRegion(region, _options, userId) {
+async function _onCreateRegion(region, options, userId) {
   if (userId !== game.user.id) return;
+  if (options?.dsctAreaHold) return;
+  await _startLifetime(region);
+}
+
+async function _startLifetime(region) {
   if (!getSetting('abilityTemplateCleanup')) return;
   if (!isPlacedTemplate(region)) return;
 
   const item = await fromUuid(abilityOf(region)).catch(() => null);
   if (!item) return;
 
+  await _spawnObject(region, item).catch(err => console.warn('DSCT | template lifetime | object not placed:', err));
   if (isOngoing(item, region)) await _trackOngoing(region, item);
   else _scheduleSweep(region);
 }
+
+
+async function _spawnObject(region, item) {
+  const spec = item.getFlag(M, SPAWN);
+  if (!spec?.name) return;
+  let actor = game.actors.find(a => a.type === 'object' && a.name === spec.name) ?? null;
+  if (!actor && spec.uuid && game.user.isGM) {
+    const source = await fromUuid(spec.uuid).catch(() => null);
+    if (source) actor = await Actor.implementation.create(source.toObject());
+  }
+  if (!actor) return void ui.notifications.warn(game.i18n.format('DSCT.templateLifetime.noObject', { name: spec.name, ability: item.name }));
+  const g = canvas.grid.size;
+  const b = region.object?.bounds ?? region.bounds;
+  if (!b?.width) return;
+  const size = Math.max(1, Math.round(b.width / g));
+  const data = foundry.utils.mergeObject(actor.prototypeToken.toObject(), {
+    actorId: actor.id, x: Math.round(b.x / g) * g, y: Math.round(b.y / g) * g, width: size, height: size,
+    hidden: true, flags: { 'draw-steel-ctlib': { notObstacle: true }, [M]: { [SPAWNED]: region.uuid } },
+  });
+  await safeCreateEmbedded(region.parent, 'Token', [data]);
+}
+
+export const releaseAreaHold = (region) => _startLifetime(region)
+  .catch(err => console.warn('DSCT | template lifetime | tracking failed:', err));
 
 async function _onDeleteRegion(region) {
   const uuid = region.uuid;
   const timer = _pending.get(uuid);
   if (timer) clearTimeout(timer);
   _pending.delete(uuid);
+
+  if (isPrimaryGM()) {
+    const spawned = (region.parent?.tokens ?? []).filter(t => t.getFlag(M, SPAWNED) === uuid).map(t => t.id);
+    if (spawned.length) await region.parent.deleteEmbeddedDocuments('Token', spawned).catch(() => {});
+  }
 
   const effectUuid = region.getFlag?.(M, REGION_EFFECT);
   if (!effectUuid || _tearing.has(effectUuid)) return;
@@ -200,7 +252,7 @@ export function registerTemplateLifetime() {
   
   Hooks.on('combatTurnChange', () => {
     for (const uuid of [..._pending.keys()]) {
-      _sweep(uuid).catch(err => console.warn('DSCT | template lifetime | turn sweep failed:', err));
+      _sweep(uuid, { force: true }).catch(err => console.warn('DSCT | template lifetime | turn sweep failed:', err));
     }
   });
 }

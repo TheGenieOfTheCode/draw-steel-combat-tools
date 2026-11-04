@@ -9,6 +9,7 @@ import { markRevealed } from './conditions/stealth.mjs';
 import { runSourcePicker } from './ability-automation/target-picker.mjs';
 import { beginPickerOverlay } from './ability-automation/picker-overlay.mjs';
 import { FitsOnResize } from './fit-window.mjs';
+import { setTip, tipFor } from './chat-tips.mjs';
 
 
 const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}) => new Promise((resolve) => {
@@ -173,7 +174,7 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}
   };
 
   const onClick = (e) => {
-    if (e.data.button === 2) { if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } return; }
+    if (e.data.button !== 0) return;
     const pos  = e.data.getLocalPosition(canvas.app.stage);
     const gpos = toGrid(pos);
     const chosen = candidates.find(g =>
@@ -215,6 +216,9 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}
     holeRects,
     showConfirm: false,
     onCancel: () => { cleanup(); resolve(null); },
+    controls: [{ input: 'CTLIB.picker.help.click', action: 'CTLIB.picker.help.chooseSquare' }],
+    cancelOnRightClick: !!getSetting('cancelOnRightClick'),
+    onRightClick: () => { if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } },
   });
 });
 
@@ -241,7 +245,18 @@ const _clearTravelState = async (token) => {
   return { removedGrabs, removedStatuses };
 };
 
+let _tpHandler = null;
+let _lastHandoff = null;
+export const registerTeleportHandler = (handler) => { _tpHandler = handler?.teleport ? handler : null; };
+export const teleportHandler = () => _tpHandler;
+export const takeTeleportHandoff = () => { const h = _lastHandoff; _lastHandoff = null; return h; };
+
 export const executeTeleport = async (token, distance, animate, colorHex, animDuration = 600, opts = {}) => {
+   if (_tpHandler && !opts.intoSpaceOf) {
+     const id = await _tpHandler.teleport(token.document, { distance, color: animate ? colorHex : null, duration: animDuration, adjacentTo: opts.adjacentTo ?? null });
+     _lastHandoff = id ? { movementId: id } : null;
+     return;
+   }
    const into = opts.intoSpaceOf?.document ?? opts.intoSpaceOf ?? null;
    const chosenGrid = into
      ? { ...toGrid(into), targetElev: into.elevation ?? 0, arrivalElev: into.elevation ?? 0, willFall: false, isOnTerrain: false }
@@ -353,6 +368,11 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
 };
 
 export const executeTeleswap = async (tokenA, tokenB, maxDist, animate, colorHex, animDuration = 600) => {
+  if (_tpHandler?.teleswap) {
+    const ids = await _tpHandler.teleswap(tokenA.document, tokenB.document, { distance: maxDist, color: animate ? colorHex : null, duration: animDuration });
+    _lastHandoff = ids?.[tokenA.id] ? { movementId: ids[tokenA.id] } : null;
+    return !!ids?.[tokenA.id];
+  }
   if (!tokenA || !tokenB || tokenA.id === tokenB.id) {
     ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sameToken'));
     return;
@@ -552,7 +572,9 @@ export class TeleportPanel extends FitsOnResize(ds.applications.api.DSApplicatio
     const execBtn = this.element.querySelector('[data-action="execute-tp"]');
     if (execBtn) {
       execBtn.innerHTML = `<i class="fas fa-magic"></i> ${this._executeLabel()}`;
-      execBtn.title = this._mode === 'normal' ? game.i18n.localize('DSCT.panel.tp.shiftHint') : '';
+      const runTip = tipFor('teleportRun', { title: this._executeLabel() });
+      if (this._mode === 'normal') runTip.body = `${runTip.body} ${game.i18n.localize('DSCT.panel.tp.shiftHint')}.`;
+      setTip(execBtn, runTip);
     }
   }
 
@@ -865,181 +887,6 @@ export const runBurstTeleport = async ({ sourceId, radius = 2, filter = 'all', e
 };
 
 export const registerTeleportHooks = () => {
-  const safeEval = (expr) => {
-    if (!/^[\d\s+\-*/().]+$/.test(expr)) return NaN;
-    try { return Function('"use strict"; return (' + expr + ')')(); } catch { return NaN; }
-  };
-
-  const resolveLabel = (tmpl, spent) => {
-    const s = tmpl.replace(/@spend/gi, String(spent));
-    return s.replace(/\d+(?:\s*[+\-*/]\s*(?:\([^)]*\)|\d+))+/g, sub => {
-      const val = safeEval(sub);
-      return Number.isFinite(val) ? String(Math.round(val)) : sub;
-    });
-  };
-
-  const tpIcon = (mode) => mode === 'swap' ? 'fa-solid fa-people-arrows' : 'fa-solid fa-person-through-window';
-
-  const defaultTpLabel = (mode, name, total) => {
-    const s = total !== 1 ? 's' : '';
-    if (mode === 'swap')     return `Teleswap ${total} square${s}`;
-    if (mode === 'adjacent') return `Teleport ${name ? `${name} ` : ''}${total} square${s} adjacent`;
-    return `Teleport ${name ? `${name} ` : ''}${total} square${s}`;
-  };
-
-  CONFIG.TextEditor.enrichers.push({
-    id:      'dsct.teleport',
-    pattern: /\[\[\/teleport(?<args>[^\]]*?)?\]\](?:\{(?<label>[^}]+)\})?/gi,
-    onRender: (element) => {
-      const a = element.querySelector('a.roll-link');
-      if (!a) return;
-
-      if (a.dataset.formula || a.dataset.labelTemplate) {
-        const msgEl = element.closest('[data-message-id]');
-        const msg   = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
-        const m     = msg?.flavor?.match(/^Spent (\d+)/i);
-        const spent = m ? parseInt(m[1]) : 0;
-        const base  = parseInt(a.dataset.dist);
-        if (a.dataset.formula) {
-          const val = safeEval(a.dataset.formula.replace(/@spend/gi, String(spent)));
-          if (Number.isFinite(val)) a.dataset.dist = String(Math.round(val));
-        }
-        const total = parseInt(a.dataset.dist);
-        if (a.dataset.labelTemplate) {
-          a.innerHTML = `<i class="${tpIcon(a.dataset.mode)}"></i> ${resolveLabel(a.dataset.labelTemplate, spent)}`;
-        } else if (total !== base) {
-          const name = a.dataset.fixedName ?? null;
-          a.innerHTML = `<i class="${tpIcon(a.dataset.mode)}"></i> ${defaultTpLabel(a.dataset.mode, name, total)}`;
-        }
-      }
-
-      a.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const saved  = game.user.getFlag('draw-steel-combat-tools', 'tpSettings') ?? { dist: 5, anim: true, color: '#a030ff', duration: 600 };
-        const fDist  = parseInt(a.dataset.dist)     || saved.dist;
-        const fAnim  = a.dataset.animate  !== undefined ? a.dataset.animate === 'true' : (saved.anim     ?? true);
-        const fColor = a.dataset.color    ?? saved.color   ?? '#a030ff';
-        const fDur   = a.dataset.duration !== undefined ? (parseInt(a.dataset.duration) || 600) : (saved.duration ?? 600);
-        const fSrcId = a.dataset.sourceId;
-        const fMode  = a.dataset.mode;
-
-        let token;
-        if (fSrcId) {
-          if (fSrcId.startsWith('Actor.')) {
-            const actor = game.actors.get(fSrcId.replace('Actor.', ''));
-            token = actor?.getActiveTokens()?.[0] ?? null;
-          } else {
-            token = getTokenById(fSrcId);
-          }
-          if (!token) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sourceNotFound')); return; }
-        } else if (e.shiftKey && !fMode) {
-          const targets = [...game.user.targets];
-          if (targets.length > 1) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.noShiftTarget')); return; }
-          token = targets[0] ?? null;
-          if (!token) {
-            if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.noShiftTarget')); return; }
-            token = await runSourcePicker();
-            if (!token) return;
-          }
-        } else {
-          const controlled = canvas.tokens.controlled;
-          if (controlled.length !== 1) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.mustSelectOne')); return; }
-          token = controlled[0];
-        }
-
-        if (fMode === 'swap' || fMode === 'adjacent') {
-          const targets = [...game.user.targets].filter(t => t.id !== token.id);
-          let partner = targets.length === 1 ? targets[0] : null;
-          if (!partner) {
-            if (!getSetting('abilityAutomationEnabled')) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.needTarget')); return; }
-            partner = await runSourcePicker();
-            if (!partner) return;
-            if (partner.id === token.id) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.sameToken')); return; }
-          }
-          if (fMode === 'swap') { await executeTeleswap(token, partner, fDist, fAnim, fColor, fDur); return; }
-          await executeTeleport(token, fDist, fAnim, fColor, fDur, { adjacentTo: partner });
-          return;
-        }
-
-        await executeTeleport(token, fDist, fAnim, fColor, fDur);
-      });
-    },
-    enricher: async (match, options) => {
-      const raw = (match.groups?.args ?? '').trim().split(/\s+/).filter(Boolean);
-
-      const CHAR_MAP = { '@r': 'reason', '@m': 'might', '@a': 'agility', '@i': 'intuition', '@p': 'presence', '@v': 'vitality' };
-      let dist = null, animate = undefined, colorHex = undefined, duration = undefined, sourceId = undefined, mode = undefined;
-      let distFormula = null;
-
-      for (const val of raw) {
-        if (/@/.test(val)) { distFormula = val; continue; }
-        if (val === 'true' || val === 'false') { animate = val === 'true'; continue; }
-        if (val.startsWith('#'))               { colorHex = val;           continue; }
-        const lower = val.toLowerCase();
-        if (lower === 'swap' || lower === 'teleswap') { mode = 'swap';     continue; }
-        if (lower === 'adjacent')                     { mode = 'adjacent'; continue; }
-        const num = parseInt(val);
-        if (!isNaN(num)) { if (dist === null) { dist = num; } else { duration = num; } continue; }
-        sourceId = val;
-      }
-
-      const actor = options?.relativeTo?.actor ?? null;
-      let resolvedFormula = null;
-      if (distFormula) {
-        resolvedFormula = distFormula.replace(/@([rmaiPv])/gi, (_, ch) => {
-          const key     = CHAR_MAP['@' + ch.toLowerCase()];
-          const charVal = key ? (actor?.system?.characteristics?.[key]?.value ?? null) : null;
-          return charVal != null ? String(charVal) : `@${ch}`;
-        });
-        const evaluated = safeEval(resolvedFormula.replace(/@spend/gi, '0'));
-        if (Number.isFinite(evaluated)) dist = Math.round(evaluated);
-      }
-
-      if (!dist) {
-        const span = document.createElement('span');
-        span.textContent = match[0];
-        return span;
-      }
-
-      let fixedName = null;
-      if (sourceId) {
-        if (sourceId.startsWith('Actor.')) {
-          fixedName = game.actors.get(sourceId.replace('Actor.', ''))?.name ?? null;
-        } else {
-          fixedName = canvas.scene?.tokens.get(sourceId)?.name ?? null;
-        }
-      }
-
-      const a = document.createElement('a');
-      a.className = 'roll-link';
-      a.dataset.dist = dist;
-      if (animate  !== undefined) a.dataset.animate   = String(animate);
-      if (colorHex !== undefined) a.dataset.color     = colorHex;
-      if (duration !== undefined) a.dataset.duration  = duration;
-      if (sourceId !== undefined) a.dataset.sourceId  = sourceId;
-      if (fixedName)              a.dataset.fixedName = fixedName;
-      if (mode !== undefined)     a.dataset.mode      = mode;
-      if (resolvedFormula && /@spend/i.test(resolvedFormula)) a.dataset.formula = resolvedFormula;
-
-      const customLabel = match.groups?.label?.trim() ?? null;
-      let labelTemplate = null;
-      if (customLabel) {
-        labelTemplate = customLabel.replace(/@([rmaiPv])/gi, (_, ch) => {
-          const key = CHAR_MAP['@' + ch.toLowerCase()];
-          const val = key ? (actor?.system?.characteristics?.[key]?.value ?? null) : null;
-          return val != null ? String(val) : `@${ch}`;
-        });
-        a.dataset.labelTemplate = labelTemplate;
-      }
-      const displayLabel = labelTemplate != null ? resolveLabel(labelTemplate, 0) : null;
-      a.innerHTML = `<i class="${tpIcon(mode)}"></i> ${displayLabel ?? defaultTpLabel(mode, fixedName, dist)}`;
-      if (mode) a.title = game.i18n.localize('DSCT.panel.tp.enricherHintPair');
-      else if (!fixedName) a.title = game.i18n.localize('DSCT.panel.tp.enricherHint');
-
-      return a;
-    },
-  });
-
   Hooks.on('renderChatMessageHTML', (msg, el) => {
     if (!msg.getFlag('draw-steel-combat-tools', 'isTpUndo')) return;
 

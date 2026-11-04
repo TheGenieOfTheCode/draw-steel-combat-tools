@@ -11,6 +11,7 @@ import {
 import { beginPickerOverlay } from '../ability-automation/picker-overlay.mjs';
 import { isPrimaryGM } from '../ctlib.mjs';
 import { FitsOnResize } from '../fit-window.mjs';
+import { tipAttrs, tipFor } from '../chat-tips.mjs';
 
 let _wbHideUi = false;
 
@@ -274,10 +275,10 @@ const mergeCollinearWalls = async (wallDocs) => {
 
 export const mergeSelectedWalls = async () => {
   const selected = canvas.walls.controlled.map(w => w.document ?? w);
-  if (!selected.length) { ui.notifications.warn('No walls selected.'); return; }
+  if (!selected.length) { ui.notifications.warn(game.i18n.localize('DSCT.notice.wb.selectWallFirst')); return; }
   const before = selected.length;
   await mergeCollinearWalls(selected);
-  ui.notifications.info(`Merged ${before} wall segments into fewer walls.`);
+  ui.notifications.info(game.i18n.format('DSCT.notice.wb.wallsMerged', { count: before }));
 };
 
 const splitBlockWallsAtTile = async (gx, gy, blockTag) => {
@@ -452,13 +453,11 @@ export const convertWalls = async (material = 'stone', heightBottom = '', height
   }
 
   const progressEl = document.createElement('div');
-  progressEl.style.cssText = 'position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;align-items:center;pointer-events:none;';
+  progressEl.className = 'dsct-progress';
   progressEl.innerHTML = `
-    <div style="background:var(--dsct-bg,#0e0c14);color:var(--dsct-text-active,#c0a8e8);padding:8px 20px 10px;border-radius:0 0 8px 8px;min-width:260px;text-align:center;border:1px solid var(--dsct-border-outer,#4a3870);border-top:none;box-shadow:0 4px 12px #0006;">
-      <div id="_dsct_prog_label" style="font-size:13px;margin-bottom:6px;">Converting walls...</div>
-      <div style="background:var(--dsct-border,#2a2040);border-radius:4px;height:5px;">
-        <div id="_dsct_prog_fill" style="background:var(--dsct-accent,#7a50c0);height:5px;border-radius:4px;width:0%;transition:width 0.1s;"></div>
-      </div>
+    <div class="dsct-progress-bar">
+      <div id="_dsct_prog_label" class="dsct-progress-label">Converting walls...</div>
+      <div class="dsct-progress-track"><div id="_dsct_prog_fill" class="dsct-progress-fill"></div></div>
     </div>`;
   document.body.appendChild(progressEl);
 
@@ -699,7 +698,7 @@ export class WallBuilderPanel extends FitsOnResize(ds.applications.api.DSApplica
 
       const onMove  = (e) => { hoverGrid = toGrid(e.data.getLocalPosition(canvas.app.stage)); redraw(hoverGrid); };
       const onClick = (e) => {
-        if (e.data.button === 2) { if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } return; }
+        if (e.data.button !== 0) return;
         const gpos = toGrid(e.data.getLocalPosition(canvas.app.stage));
         const idx  = selected.findIndex(g => g.x === gpos.x && g.y === gpos.y);
         if (idx >= 0) selected.splice(idx, 1); else selected.push(gpos);
@@ -742,6 +741,9 @@ export class WallBuilderPanel extends FitsOnResize(ds.applications.api.DSApplica
         onUiToggle: (hidden) => { _wbHideUi = hidden; },
         onConfirm: () => { cleanup(); resolve(selected); },
         onCancel: () => { cleanup(); resolve(null); },
+        controls: [{ input: 'CTLIB.picker.help.click', action: 'DSCT.picker.help.toggleSquare' }],
+        cancelOnRightClick: !!getSetting('cancelOnRightClick'),
+        onRightClick: () => { if (getSetting('cancelOnRightClick')) { cleanup(); resolve(null); } },
       });
     });
   }
@@ -1065,7 +1067,7 @@ const buildRow = (idx, origName, isBase, iconSrc, r, rs) => {
   return `
     <tr>
       <td>
-        <button type="button" class="dsct-wb-icon-pick" data-idx="${idx}" title="Click to change icon">
+        <button type="button" class="dsct-wb-icon-pick" data-idx="${idx}" ${tipAttrs(tipFor('pickIcon', { category: game.i18n.localize('DSCT.tip.wbColumn.category') }))}>
           <img src="${icon}" class="dsct-wb-icon-img">
         </button>
         <input type="hidden" name="icon-${idx}"     value="${icon}">
@@ -1091,7 +1093,7 @@ const buildRow = (idx, origName, isBase, iconSrc, r, rs) => {
       <td>${restrictSelect(`sound-${idx}`, rs.sound)}</td>
       <td>
         ${!isBase
-          ? `<button type="button" class="dsct-delete-mat dsct-delete-btn" title="Remove material">
+          ? `<button type="button" class="dsct-delete-mat dsct-delete-btn" ${tipAttrs(tipFor('removeMaterial'))}>
                <i class="fa-solid fa-trash-can"></i>
              </button>`
           : ''}
@@ -1102,7 +1104,7 @@ const buildRow = (idx, origName, isBase, iconSrc, r, rs) => {
 export class WallBuilderSettingsMenu extends ds.applications.api.DSApplication {
   static DEFAULT_OPTIONS = {
     id:       'dsct-wall-builder-settings',
-    classes:  ['draw-steel'],
+    classes:  ['draw-steel', 'ctlib-scroll-window'],
     window:   { title: 'Wall Builder Settings', minimizable: false, resizable: true },
     position: { width: 950, height: 'auto' },
   };
@@ -1178,6 +1180,7 @@ export class WallBuilderSettingsMenu extends ds.applications.api.DSApplication {
     });
 
     el.querySelector('#dsct-wb-reset-btn')?.addEventListener('click', async () => {
+      if (!game.user.isGM) return;
       await game.settings.set(M, 'materialRules',         foundry.utils.deepClone(MATERIAL_RULE_DEFAULTS));
       await game.settings.set(M, 'wallRestrictions',      foundry.utils.deepClone(WALL_RESTRICTION_DEFAULTS));
       await game.settings.set(M, 'customMaterials',       []);
@@ -1196,6 +1199,7 @@ export class WallBuilderSettingsMenu extends ds.applications.api.DSApplication {
   }
 
   async _doSave() {
+    if (!game.user.isGM) return;
     const el    = this.element;
     const intOr = (v, def) => { const n = parseInt(v); return isNaN(n) ? def : n; };
 

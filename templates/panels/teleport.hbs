@@ -24,7 +24,7 @@
 
     <div class="dsct-row">
       <div class="dsct-param-label">{{localize "DSCT.panel.tp.distance"}}</div>
-      <input type="number" id="tp-dist" value="{{dist}}" min="1" step="1" class="dsct-input-sm" title="Squares">
+      <input type="number" id="tp-dist" value="{{dist}}" min="1" step="1" class="dsct-input-sm" {{dsctTip "teleportSquares"}}>
     </div>
 
     <div class="dsct-divider"></div>
@@ -49,7 +49,7 @@
   </div>
 
   <button type="button" class="dsct-execute-btn sm" data-action="execute-tp"
-    title="{{#if modeNormal}}{{localize "DSCT.panel.tp.shiftHint"}}{{/if}}">
+    {{dsctTip "teleportRun" title=executeLabel}}>
     <i class="fas fa-magic"></i> {{executeLabel}}
   </button>
 

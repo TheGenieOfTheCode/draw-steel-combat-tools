@@ -16,7 +16,7 @@ export const {
   damageBatch, describePanelDecorators, disarmCoverImmunity, dropKey, dropKeyOverSocket, endPickerOverlay,
   footprintCoverCells, footprintDistFromBounds, fullCoverBlockersFor, getActingActor, getAllMaterials, getByTag,
   getCustomMaterials, getItemDsid, getItemRange, getMaterial, getMaterialAlpha, getMaterialIcon, getSquadGroup,
-  getTags, getTokenById, getValidTargets, hitToken, getWallBlockBottom, getWallBlockTileAt, getWallBlockTop, getWallBlockWalls,
+  getTags, getTokenById, getValidTargets, openingPath, setPickerPath, lightPickerPath, hitToken, getWallBlockBottom, getWallBlockTileAt, getWallBlockTop, getWallBlockWalls,
   getWindowById, grantsCoverBehind, grantsCoverImmunity, gridDist, gridEq, groundElevation, hasCover, hasFly,
   hasSightToSquare, hasSightToToken, hasTags, highestCharacteristic, initPalette, isBurrowing, isCompletelyBeneath,
   isOnGround, isOpenDoorWall, isPreviewToken, isRaisedDeadVisible, isSelfAndSelf, loeBlockersFor, loeRangeBlocked,
@@ -28,12 +28,14 @@ export const {
   setPickerTarget, setRaisedDeadVisible, sightBlockPoint, sightLinesToToken, sightOriginPoints, sightSamplePoints,
   sightSamples, sizeRank, snapStamina, spaceSamplePoints, squareIsConcealed, stackedPrompt, tierOf, tileAt,
   tileIsOpenDoor, toCenter, toGrid, toWorld, tokFootprintDist, tokenAt, tokenCoverMode, touchesGround, undoDamage,
-  visibleSquareCorners, visibleTargetCorners, wallBetween, wallBlocksMovement, wallGrantsCover
+  visibleSquareCorners, visibleTargetCorners, wallBetween, wallBlocksMovement, wallGrantsCover, wallHeight, SceneTerrain,
+  TIP_CLASS, richTip, tipFrom, setTip, tipAttrs, pillTip, faceFromToken, faceChainHTML, resourceTokenHTML
 } = lib;
 
 export const { tierFor, powerRollFor, rolledTargets, PRE_APPLY, APPLY, applyHooksMode, RESULT_MENU } = lib;
 
 export const SettingsSubmenu = lib.settingsSubmenu?.() ?? lib.SettingsSubmenu;
+export const registerSettingsLayout = lib.registerSettingsLayout ?? (() => {});
 
 export const primaryGM = lib.primaryGM ?? (() => game.users.activeGM ?? null);
 export const isPrimaryGM = lib.isPrimaryGM ?? (() => !!game.users.activeGM?.isSelf);

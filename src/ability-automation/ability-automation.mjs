@@ -1,4 +1,5 @@
-import { getSetting, getModuleApi } from '../helpers.mjs';
+import { getSetting, getModuleApi, effectStartFor } from '../helpers.mjs';
+import { safeCreateEmbedded } from '../ctlib.mjs';
 import { applyStatus, SOURCED_STATUSES } from '../conditions/statuses.mjs';
 import { registerImNoThreatHooks } from './class-shadow/im-no-threat.mjs';
 import { registerJudgementHooks } from './class-censor/judgement.mjs';
@@ -32,7 +33,10 @@ export const registerAbilityInjectors = () => {
     const dsid = msg.getFlag(M, 'abilityDsid');
 
     const hasDstd = !!game.modules.get('draw-steel-target-damage')?.active;
-    if (getSetting('neutralizeEnrichers') && (dsid || !hasDstd)) {
+    const replace = getSetting('neutralizeEnrichers');
+    const dsctOwnsAbility = (getSetting('judgementAutomation') && dsid === 'judgement')
+      || (getSetting('markAutomation') && dsid in MARK_ABILITY_CONFIG);
+    if ((replace && (dsid || !hasDstd)) || dsctOwnsAbility) {
       const srcTknId = msg.speaker?.token ?? null;
       const actor    = msg.speaker?.actor ? game.actors.get(msg.speaker.actor) : null;
       const seen     = new Set();
@@ -47,12 +51,8 @@ export const registerAbilityInjectors = () => {
           const endStr   = link?.dataset?.end ?? null;
           const label    = link?.textContent?.trim() ?? wrapper.textContent?.trim() ?? '';
 
-          if (!statusId) {
-            const dsctOwnsAbility =
-              (getSetting('judgementAutomation') && dsid === 'judgement') ||
-              (getSetting('markAutomation') && dsid in MARK_ABILITY_CONFIG);
-            if (!dsctOwnsAbility) continue;
-          }
+          if (statusId && (!replace || getSetting('advancedEnrichers') !== false)) continue;
+          if (!statusId && !dsctOwnsAbility) continue;
 
           if (statusId && !cached.some(e => e.statusId === statusId)) {
             cached.push({ statusId, endStr, label });
@@ -82,9 +82,11 @@ export const registerAbilityInjectors = () => {
                 const tmp = await CONFIG.ActiveEffect.documentClass.fromStatusEffect(statusId).catch(() => null);
                 if (tmp) {
                   const data = foundry.utils.mergeObject(tmp.toObject(), { transfer: true });
-                  if (endStr && ds?.CONFIG?.effectEnds?.[endStr])
+                  if (endStr && ds?.CONFIG?.effectEnds?.[endStr]) {
                     data.duration = { expiry: ds.CONFIG.effectEnds[endStr].expiryEvent };
-                  await t.actor.createEmbeddedDocuments('ActiveEffect', [data]);
+                    data.start = effectStartFor(t.actor);
+                  }
+                  await safeCreateEmbedded(t.actor, 'ActiveEffect', [data]);
                 }
               }
             }

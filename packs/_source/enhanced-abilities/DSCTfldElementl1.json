@@ -1,0 +1,23 @@
+{
+ "type": "Item",
+ "folder": "DSCTfldMonsters1",
+ "name": "Elementals",
+ "color": null,
+ "sorting": "m",
+ "_id": "DSCTfldElementl1",
+ "description": "",
+ "sort": 1200,
+ "flags": {},
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14",
+  "systemId": "draw-steel",
+  "systemVersion": "1.2.0",
+  "createdTime": null,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!folders!DSCTfldElementl1"
+}

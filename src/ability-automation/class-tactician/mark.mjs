@@ -1,4 +1,5 @@
 import { getSetting, getModuleApi, getItemDsid } from '../../helpers.mjs';
+import { safeUpdate } from '../../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -56,7 +57,8 @@ export const registerMarkHooks = () => {
             override   = true;
           }
           await getModuleApi(false)?.mark({ maxTargets, override, dsid: rDsid, sourceActorId });
-          await msg.setFlag('draw-steel-combat-tools', 'markReminderUsed', true);
+          if (msg.isOwner) await msg.setFlag(M, 'markReminderUsed', true);
+          else await safeUpdate(msg, { [`flags.${M}.markReminderUsed`]: true });
         });
         btnArea().appendChild(btn);
       }
