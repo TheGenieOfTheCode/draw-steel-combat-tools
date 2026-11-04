@@ -686,6 +686,10 @@ export const registerSettings = () => {
     name: L('skipPillEditor.name'), hint: L('skipPillEditor.hint'),
     scope: 'world', config: false, type: Boolean, default: true,
   });
+  game.settings.register(M, 'modifierBadge', {
+    name: L('modifierBadge.name'), hint: L('modifierBadge.hint'),
+    scope: 'client', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'multiplierOverride', {
     name: L('multiplierOverride.name'), hint: L('multiplierOverride.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

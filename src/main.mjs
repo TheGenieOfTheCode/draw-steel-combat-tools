@@ -48,6 +48,7 @@ import { registerSystemPatches } from './system-patches.mjs';
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
+import { registerResultModifiers, resultModifiersApi } from './compat/result-modifiers.mjs';
 import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
 import { registerStatusSuppression } from './conditions/suppress-status.mjs';
 import { registerWindedEffects } from './conditions/winded-effects.mjs';
@@ -175,6 +176,7 @@ const api = {
     add: addExtraDamage,
     setEnabled: setExtraDamageEnabled,
   },
+  resultModifiers: resultModifiersApi,
   hasHighGround:    (attacker, target) => _hasHighGround(attacker, target),
   flankingAlly,
   allowOutOfRange,
@@ -262,6 +264,7 @@ Hooks.once('init', () => {
   registerDstdRollPills();
   registerDstdDamagePills();
   registerDstdExtraDamage();
+  registerResultModifiers();
   registerStatusSuppression();
   registerWindedEffects();
   registerHealthEstimateCompat();
