@@ -27,6 +27,13 @@
       "reason": "[Combat Tools] Offers triggered actions on a stack the moment they trigger, and holds damage, rolls and forced movement until they're decided."
     },
     {
+      "id": "draw-steel-ctlib",
+      "title": "Draw Steel: CTLib",
+      "version": "1.5.1",
+      "url": "https://github.com/TheGenieOfTheCode/draw-steel-ctlib/releases/latest",
+      "reason": "[Combat Tools] The shared library the Combat Tools family runs on."
+    },
+    {
       "id": "tagger",
       "title": "Tagger",
       "reason": "[Compatible] Wall Builder tags the walls it makes through Tagger."
