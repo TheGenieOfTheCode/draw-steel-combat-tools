@@ -49,14 +49,12 @@ import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgem
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills } from './compat/dstd-roll-pills.mjs';
 import { registerResultModifiers, resultModifiersApi } from './compat/result-modifiers.mjs';
-import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
+import { registerDstdExtraDamage } from './compat/dstd-extra-damage.mjs';
 import { registerStatusSuppression } from './conditions/suppress-status.mjs';
 import { registerWindedEffects } from './conditions/winded-effects.mjs';
 import {
   registerDstdDamagePills, openDamageEditor, foldDamagePills, damagePillDisplayList,
   damagePillText, damagePillEffect, damagePillType, damageTypeLabel, styleTypePill,
-  registerDamagePillProvider,
-  setProviderPillEnabled,
 } from './compat/dstd-damage-pills.mjs';
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerResourcesUiCompat } from './compat/resources-ui-compat.mjs';
@@ -169,12 +167,6 @@ const api = {
     pillType: damagePillType,
     typeLabel: damageTypeLabel,
     styleTypePill,
-    registerProvider: registerDamagePillProvider,
-    setEnabled: setProviderPillEnabled,
-  },
-  extraDamage: {
-    add: addExtraDamage,
-    setEnabled: setExtraDamageEnabled,
   },
   resultModifiers: resultModifiersApi,
   hasHighGround:    (attacker, target) => _hasHighGround(attacker, target),
