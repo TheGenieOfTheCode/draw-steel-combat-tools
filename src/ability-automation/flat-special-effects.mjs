@@ -949,7 +949,7 @@ export async function askTriggerDamage(item) {
 const _staminaOf = (s) => Number(s?.value ?? 0) + Number(s?.temporary ?? 0);
 
 function _damageDealt(message) {
-  const apps = message?.getFlag?.('draw-steel-target-damage', 'state')?.applications ?? {};
+  const apps = message?.flags?.['draw-steel-target-damage']?.state?.applications ?? {};
   let total = 0;
   for (const app of Object.values(apps)) {
     if (app?.kind !== 'damage' || app.status !== 'applied') continue;

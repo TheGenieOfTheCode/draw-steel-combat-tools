@@ -48,7 +48,7 @@ const bonusPills = (message) => {
     return { kind: 'delta', value, label: e.name || e.flatDamage.display || e.label, source: 'flat', dsctFlat: e.id };
   }).filter((p) => p.value);
   if (!pills.length) return [];
-  const targets = message.getFlag?.(DSTD, 'state')?.targets ?? [];
+  const targets = message.flags?.[DSTD]?.state?.targets ?? [];
   return targets.filter((t) => t.tokenUuid).flatMap((t) => pills.map((pill) => ({ targetUuid: t.tokenUuid, pill: { ...pill, dstTarget: t.tokenUuid } })));
 };
 
