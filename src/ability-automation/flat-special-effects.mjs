@@ -1446,8 +1446,30 @@ export async function removeFlatAppliedEffect(actor, statusId, { stack = false }
   if (ids.length) await actor.deleteEmbeddedDocuments('ActiveEffect', ids);
 }
 
+const _boundBy = new WeakMap();
+const _unbound = (root, selector) => [...root.querySelectorAll(selector)].filter((el) => {
+  const seen = _boundBy.get(el) ?? new Set();
+  if (seen.has(selector)) return false;
+  seen.add(selector);
+  _boundBy.set(el, seen);
+  return true;
+});
+
+const _usedKey = (message, effectId, targetToken = null) => `${message.id}:${effectId}${targetToken?.document?.uuid ? `:${targetToken.document.uuid}` : ""}`;
+
+async function _withTarget(token, fn) {
+  if (!token) return fn();
+  const previous = [...game.user.targets];
+  token.setTarget(true, { user: game.user, releaseOthers: true });
+  try { return await fn(); }
+  finally {
+    for (const t of game.user.targets) t.setTarget(false, { user: game.user, releaseOthers: false });
+    for (const t of previous) t.setTarget(true, { user: game.user, releaseOthers: false });
+  }
+}
+
 export function addFlatEffectListeners(section, item, message, { targetToken = null } = {}) {
-  section.querySelectorAll(".dsct-flat-damage-btn").forEach(btn => {
+  _unbound(section, ".dsct-flat-damage-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       const formula = btn.dataset.formula;
       const typeList = btn.dataset.types ? btn.dataset.types.split(",").filter(Boolean) : [];
@@ -1480,7 +1502,7 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
     });
   });
 
-  section.querySelectorAll(".dsct-flat-forced-btn").forEach(applyBtn => {
+  _unbound(section, ".dsct-flat-forced-btn").forEach(applyBtn => {
     applyBtn.addEventListener("click", async () => {
       const controlled = canvas.tokens.controlled;
       const actorUuid = applyBtn.dataset.actorUuid;
@@ -1496,18 +1518,18 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
         : canvas.tokens.placeables.find(t => t.actor?.id === sourceActor?.id)
       ) ?? (controlled.length === 1 ? controlled[0] : null);
 
-      await runForcedMovement({
+      await _withTarget(targetToken, () => runForcedMovement({
         movement: applyBtn.dataset.movement,
         distance: applyBtn.dataset.distance,
         properties: new Set(applyBtn.dataset.properties ? applyBtn.dataset.properties.split(",").filter(Boolean) : []),
         source,
         contextMessageId: applyBtn.closest("li.chat-message")?.dataset?.messageId ?? null,
         origin: "flat",
-      });
+      }));
     });
   });
 
-  section.querySelectorAll(".dsct-flat-teleport-btn").forEach(btn => {
+  _unbound(section, ".dsct-flat-teleport-btn").forEach(btn => {
     btn.addEventListener("click", async (e) => {
       const sourceActor = btn.dataset.actorUuid ? fromUuidSync(btn.dataset.actorUuid) : item.actor;
       if (btn.dataset.spendEnabled === "true") {
@@ -1519,7 +1541,7 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
     });
   });
 
-  section.querySelectorAll(".dsct-flat-applied-btn").forEach(btn => {
+  _unbound(section, ".dsct-flat-applied-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       const statusId = btn.dataset.statusId;
       if (!statusId) return;
@@ -1539,7 +1561,7 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
     });
   });
 
-  section.querySelectorAll(".dsct-flat-heal-btn").forEach(btn => {
+  _unbound(section, ".dsct-flat-heal-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       const targets = _flatRecipients(btn, item, message, targetToken);
       if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
@@ -1605,12 +1627,12 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
 
       if (!repeatable && anyApplied) {
         btn.disabled = true;
-        if (message) _nonDstdHealUsed.add(`${message.id}:${effectId}`);
+        if (message) _nonDstdHealUsed.add(_usedKey(message, effectId, targetToken));
       }
     });
   });
 
-  section.querySelectorAll(".dsct-flat-resource-btn").forEach(btn => {
+  _unbound(section, ".dsct-flat-resource-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       if (btn.disabled) return;
       const effect = item.system.effects.get(btn.dataset.effectId);
@@ -1630,7 +1652,7 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
     });
   });
 
-  section.querySelectorAll(".dsct-flat-resource-undo-btn").forEach(btn => {
+  _unbound(section, ".dsct-flat-resource-undo-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       if (btn.disabled) return;
       const effect = item.system.effects.get(btn.dataset.effectId);
@@ -1639,7 +1661,7 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
     });
   });
 
-  section.querySelectorAll(".dsct-flat-cleanse-btn").forEach(btn => {
+  _unbound(section, ".dsct-flat-cleanse-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       const targets = _flatRecipients(btn, item, message, targetToken);
       if (!targets.length) { ui.notifications.warn(game.i18n.localize("DSCT.notice.noTargets")); return; }
@@ -1709,25 +1731,25 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
 
       if (!repeatable && anyApplied) {
         btn.disabled = true;
-        if (message) _nonDstdCleanseUsed.add(`${message.id}:${effectId}`);
+        if (message) _nonDstdCleanseUsed.add(_usedKey(message, effectId, targetToken));
       }
     });
   });
 }
 
-export function buildFlatEffectButtons(flatEffects, item, message) {
+export function buildFlatEffectButtons(flatEffects, item, message, { targetToken = null } = {}) {
   const chosenTypes = message?.getFlag(MODULE_ID, "flatDmgTypes") ?? {};
   const dmgButtons  = flatEffects.filter(e => e.type === "dsct.flatDamage" && expendAllows(e, item, message)).map(e => _buildDamageButton(e, item, chosenTypes[e.id] ?? null, message));
   const fmRows      = flatEffects.filter(e => e.type === "dsct.flatForced") .map(e => _buildForcedRow(e, item));
   const condButtons = flatEffects.filter(e => e.type === "dsct.flatApplied" && levelAllows(e, item, message)).map(e => _buildAppliedButton(e, item)).filter(Boolean);
   const healButtons = flatEffects.filter(e => e.type === "dsct.flatHeal").map(e => {
     const btn = _buildHealButton(e, item);
-    if (!e.flatHeal.repeatable && message && _nonDstdHealUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
+    if (!e.flatHeal.repeatable && message && _nonDstdHealUsed.has(_usedKey(message, e.id, targetToken))) btn.disabled = true;
     return btn;
   });
   const cleanseButtons = flatEffects.filter(e => e.type === "dsct.flatCleanse").map(e => {
     const btn = _buildCleanseButton(e, item);
-    if (!e.flatCleanse.repeatable && message && _nonDstdCleanseUsed.has(`${message.id}:${e.id}`)) btn.disabled = true;
+    if (!e.flatCleanse.repeatable && message && _nonDstdCleanseUsed.has(_usedKey(message, e.id, targetToken))) btn.disabled = true;
     return btn;
   });
   const teleButtons = flatEffects.filter(e => e.type === "dsct.flatTeleport").map(e => _buildTeleportButton(e, item, message));
@@ -1756,19 +1778,56 @@ function _installFlatEffectChatHook() {
 
     await runPreAppliedResources(flatEffects, item, message);
 
-    const buttons = buildFlatEffectButtons(flatEffects, item, message);
-    if (!buttons.length) return;
+    const sections = _targetSections(message, html);
+    const perTarget = sections.length ? flatEffects.filter(_actsOnTarget) : [];
+    const cardWide = flatEffects.filter((e) => !perTarget.includes(e));
 
-    let footer = partSection.querySelector("footer.message-part-buttons");
-    if (!footer) {
-      footer = document.createElement("footer");
-      footer.className = "message-part-buttons";
-      partSection.appendChild(footer);
+    for (const { section, token } of sections) {
+      const buttons = buildFlatEffectButtons(perTarget, item, message, { targetToken: token });
+      if (!buttons.length) continue;
+      const box = document.createElement("div");
+      box.className = "dsct-flat-section-buttons";
+      for (const btn of buttons) box.appendChild(btn);
+      _footerOf(section).appendChild(box);
+      addFlatEffectListeners(box, item, message, { targetToken: token });
     }
-    for (const btn of buttons) footer.appendChild(btn);
 
+    const buttons = buildFlatEffectButtons(cardWide, item, message);
+    if (!buttons.length) return;
+    const footer = _footerOf(partSection);
+    for (const btn of buttons) footer.appendChild(btn);
     addFlatEffectListeners(partSection, item, message);
   });
+}
+
+const _TARGET_TYPES = new Set(["dsct.flatDamage", "dsct.flatApplied", "dsct.flatForced", "dsct.flatTeleport"]);
+function _actsOnTarget(e) {
+  if (_TARGET_TYPES.has(e.type)) return true;
+  if (e.type === "dsct.flatHeal") return (e.flatHeal?.recipient ?? "target") === "target";
+  if (e.type === "dsct.flatCleanse") return (e.flatCleanse?.recipient ?? "target") === "target";
+  return false;
+}
+
+function _footerOf(section) {
+  let footer = section.querySelector("footer.message-part-buttons");
+  if (!footer) {
+    footer = document.createElement("footer");
+    footer.className = "message-part-buttons";
+    section.appendChild(footer);
+  }
+  return footer;
+}
+
+function _targetSections(message, html) {
+  const out = [];
+  for (const part of message.system.parts?.contents ?? []) {
+    if (part.type !== "targetResult") continue;
+    const section = html.querySelector(`section[data-message-part="${part.id}"]`);
+    const doc = part.tokenUuid ? fromUuidSync(part.tokenUuid, { strict: false }) : null;
+    const token = doc?.object ?? part.actorTarget?.getActiveTokens?.()?.[0] ?? null;
+    if (section && token) out.push({ section, token });
+  }
+  return out;
 }
 
 (function _earlyRegister() {
