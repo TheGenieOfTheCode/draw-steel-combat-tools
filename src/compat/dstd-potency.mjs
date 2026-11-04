@@ -263,10 +263,10 @@ const endChoices = () => [
 ];
 
 export class EffectModDialog extends DSCTAddModifierDialog {
-  constructor({ messageId, targetKey, effectId, name, hasPotency, hasRecurring }, options = {}) {
+  constructor({ messageId, targetKey, effectId, name, hasPotency, hasRecurring, onSubmit = null }, options = {}) {
     super({ rendered: true, options: { context: { targets: {} } }, _dsctSources: [], _dsctOrigTargets: {} }, targetKey,
       foundry.utils.mergeObject({ window: { title: E('EditTitle', { name }) } }, options));
-    Object.assign(this, { _messageId: messageId, _targetKey: targetKey, _effectId: effectId, _hasPotency: hasPotency, _hasRecurring: hasRecurring });
+    Object.assign(this, { _messageId: messageId, _targetKey: targetKey, _effectId: effectId, _hasPotency: hasPotency, _hasRecurring: hasRecurring, _onSubmit: onSubmit });
     this._kind = hasPotency ? 'potency' : 'effectEnd';
     this._negate = true;
   }
@@ -344,7 +344,8 @@ export class EffectModDialog extends DSCTAddModifierDialog {
     const reason = this._reasonInput?.value?.trim() || E('Custom');
     const src = this._sourceInput?.value?.trim() || null;
     const srcToken = src ? canvas.tokens?.placeables.find(t => t.name === src) ?? null : null;
-    addResultPill(this._messageId, this._targetKey, { ...this._pill(), reason, src, srcTokenId: srcToken?.id ?? null, custom: true })
+    const pill = { ...this._pill(), reason, src, srcTokenId: srcToken?.id ?? null, custom: true };
+    (this._onSubmit ? Promise.resolve(this._onSubmit(pill)) : addResultPill(this._messageId, this._targetKey, pill))
       .catch(err => console.error('DSCT | effect pill add failed', err));
     this.close();
   }
