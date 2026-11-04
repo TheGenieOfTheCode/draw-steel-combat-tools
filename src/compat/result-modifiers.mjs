@@ -261,7 +261,7 @@ async function toggleDamage(part, match, enabled) {
   for (const [i, entry] of Object.entries(modsOf(part).damage ?? {})) {
     let hit = false;
     const pills = (entry.pills ?? []).map((p) => {
-      if (p.label !== match.label || (match.src != null && p.src !== match.src) || (match.kind && p.kind !== match.kind)) return p;
+      if (p.label !== match.label || (match.src != null && p.src !== match.src) || (match.srcTokenId != null && p.srcTokenId !== match.srcTokenId) || (match.kind && p.kind !== match.kind)) return p;
       hit = true;
       const { enabled: _, ...rest } = p;
       return enabled ? rest : { ...rest, enabled: false };
@@ -299,7 +299,7 @@ async function toggleRoll(part, match, enabled) {
   const editor = new ResultRollEditor(part);
   let hit = false;
   editor._session = editor._session.map((p) => {
-    if (p.reason !== match.reason || (match.src != null && p.src !== match.src) || (match.kind && p.kind !== match.kind)) return p;
+    if (p.reason !== match.reason || (match.src != null && p.src !== match.src) || (match.srcTokenId != null && p.srcTokenId !== match.srcTokenId) || (match.kind && p.kind !== match.kind)) return p;
     hit = true;
     const { enabled: _, ...rest } = p;
     return enabled ? rest : { ...rest, enabled: false };
