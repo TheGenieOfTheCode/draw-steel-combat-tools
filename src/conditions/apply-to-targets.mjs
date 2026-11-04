@@ -1,7 +1,7 @@
 import { getSetting, getModuleApi } from '../helpers.mjs';
 import { richTip, setTip, tipFor } from '../chat-tips.mjs';
 import { executeAsDirector } from '../ctlib.mjs';
-import { SOURCED_STATUSES, resolveStatusSource, notePendingSource, effectSourceUuids, toActor } from './statuses.mjs';
+import { SOURCED_STATUSES, resolveStatusSource, notePendingSource, effectSourceUuids, toActor, existingStatusEffect } from './statuses.mjs';
 import { createExpiryReminder } from '../ability-automation/flat-special-effects.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -46,7 +46,8 @@ export async function applyEnricherPayload(payload) {
       if (keepInitiative) updates.start.initiative = combatant.initiative;
     }
     const createData = foundry.utils.mergeObject(temp.toObject(), updates);
-    if (actor.effects.get(temp.id)) toDelete.push({ action: 'delete', parent: actor, documentName: 'ActiveEffect', ids: [temp.id] });
+    const existing = payload.type === 'custom' ? actor.effects.get(temp.id) : existingStatusEffect(actor, payload.status);
+    if (existing) toDelete.push({ action: 'delete', parent: actor, documentName: 'ActiveEffect', ids: [existing.id] });
     toCreate.push({ action: 'create', parent: actor, documentName: 'ActiveEffect', data: [createData], keepId: noStack });
   }
   await foundry.documents.modifyBatch(toDelete);
