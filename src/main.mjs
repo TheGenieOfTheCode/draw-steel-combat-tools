@@ -55,7 +55,7 @@ import { registerRollDialogDodge } from './ability-automation/roll-dialog-dodge.
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, registerPowerRollDice, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills, addResultPill, addGlobalRollPills } from './compat/dstd-roll-pills.mjs';
-import { registerResultModifiers, resultModifiersApi } from './compat/result-modifiers.mjs';
+import { registerResultModifiers, resultModifiersApi, globalModifiersApi } from './compat/result-modifiers.mjs';
 import { registerDstdExtraDamage } from './compat/dstd-extra-damage.mjs';
 import { registerDstdApplyWord } from './compat/dstd-apply-word.mjs';
 import { registerDstdAfterEffects } from './compat/dstd-after-effects.mjs';
@@ -197,6 +197,7 @@ const api = {
     styleTypePill,
   },
   resultModifiers: resultModifiersApi,
+  globalModifiers: globalModifiersApi,
   hasHighGround:    (attacker, target) => _hasHighGround(attacker, target),
   flankingAlly,
   allowOutOfRange,

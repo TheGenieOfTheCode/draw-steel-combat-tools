@@ -1,11 +1,11 @@
-import { openDamageEditor, foldDamagePills, damagePillType, damagePillEffect, damagePillAmtStr, damagePillDisplayList, damageTypeLabel } from './dstd-damage-pills.mjs';
-import { RollEditorBase, rollPillAmount } from './dstd-roll-pills.mjs';
+import { openDamageEditor, foldDamagePills, damagePillType, damagePillEffect, damagePillAmtStr, damagePillDisplayList, damageTypeLabel, addGlobalDamagePills } from './dstd-damage-pills.mjs';
+import { RollEditorBase, rollPillAmount, addGlobalRollPills } from './dstd-roll-pills.mjs';
 import { applyTierMods } from '../ability-automation/roll-dialog-hooks.mjs';
-import { chooseKeywords } from '../ability-automation/choose-effect.mjs';
+import { chooseKeywords, chooseHiddenRollIndexes } from '../ability-automation/choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { _fmBaseStateFromBtn, _fmMakeLabel } from '../system-patches.mjs';
-import { RESULT_MENU, DAMAGE_TYPES } from '../ctlib.mjs';
+import { RESULT_MENU, DAMAGE_TYPES, addTargetResult } from '../ctlib.mjs';
 import { getSetting, getWindowById } from '../helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -233,7 +233,7 @@ const sameRollPill = (a, b) => a.kind === b.kind && (a.reason ?? '') === (b.reas
 const cleanDamagePill = (p) => ({
   kind: p.kind, value: p.value ?? null, label: p.label ?? '', src: p.src ?? null, srcTokenId: p.srcTokenId ?? null,
   source: p.source ?? 'manual', ...(p.enabled === false ? { enabled: false } : {}), ...(p.formula ? { formula: p.formula } : {}),
-  ...(p.splitBase ? { splitBase: true } : {}),
+  ...(p.splitBase ? { splitBase: true } : {}), ...(p.dealer ? { dealer: true } : {}),
 });
 
 async function addDamagePill(message, target, pill, { index = null } = {}) {
@@ -309,6 +309,77 @@ async function toggleRoll(part, match, enabled) {
   return true;
 }
 
+async function addPotencyPill(message, target, pill) {
+  const part = active() ? partFor(message, target) : null;
+  const amount = Number(pill?.amount) || 0;
+  const actor = part?.actorTarget;
+  if (part?.type !== 'targetResult' || !amount || !actor) return false;
+  return serial(part.id, async () => {
+    const list = modsOf(part).potency ?? [];
+    if (list.some((p) => (p.reason ?? '') === (pill.reason ?? '') && (p.src ?? null) === (pill.src ?? null))) return false;
+    const potencies = foundry.utils.deepClone(part._source.potencies ?? {});
+    let hit = false;
+    for (const pre of part.ability?.system?.power?.effects?.sortedContents ?? []) {
+      if ((pill.effectId && pre.id !== pill.effectId) || !pre.potencyOption?.(part.tier, actor)) continue;
+      potencies[pre.id] = (potencies[pre.id] ?? 0) + amount;
+      hit = true;
+    }
+    if (!hit) return false;
+    const entry = { amount, reason: pill.reason ?? '', src: pill.src ?? null, srcTokenId: pill.srcTokenId ?? null, source: pill.source ?? 'trigger',
+      ...(pill.effectId ? { effectId: pill.effectId } : {}) };
+    await part.message.update({ [`flags.${M}.${FLAG}.${part.id}.potency`]: [...list, entry] });
+    await part.update({ potencies });
+    return true;
+  });
+}
+
+function potencyEffects(message, target) {
+  const part = partFor(message, target);
+  const actor = part?.actorTarget;
+  if (part?.type !== 'targetResult' || !actor) return [];
+  return (part.ability?.system?.power?.effects?.sortedContents ?? [])
+    .filter((pre) => pre.potencyOption?.(part.tier, actor)).map((pre) => ({ effectId: pre.id, label: pre.name }));
+}
+
+
+async function addTargetPart(message, token) {
+  const all = Array.from(message?.system?.parts?.contents ?? []);
+  const template = all.find((p) => p.type === 'targetResult') ?? all.find((p) => p.type === 'abilityResult');
+  const mods = template ? modsOf(template) : {};
+  const bases = Object.entries(mods.damage ?? {}).filter(([, e]) => e?.base);
+  if (!mods.roll?.base && !bases.length) return addTargetResult(message, token);
+  const rolls = Array.from(template.rolls).map((r) => r.toJSON());
+  if (mods.roll?.base) rolls[0] = mods.roll.base;
+  for (const [i, e] of bases) rolls[Number(i)] = e.base;
+  return addTargetResult(message, token, { rolls, tier: mods.roll?.baseTier ?? template.tier });
+}
+
+const resultPartsOf = (message) => Array.from(message?.system?.parts?.contents ?? []).filter((p) => RESULT_TYPES.has(p.type));
+
+async function addGlobalDamage(message, pills) {
+  if (!active()) return addGlobalDamagePills(message, pills);
+  let added = 0;
+  for (const part of resultPartsOf(message)) {
+    if (!damageIndexes(part).length) continue;
+    for (const pill of pills ?? []) if (await addDamagePill(message, part.id, pill)) added++;
+  }
+  return added;
+}
+
+async function addGlobalRoll(message, pills) {
+  if (!active()) return addGlobalRollPills(message, pills);
+  let added = 0;
+  for (const part of resultPartsOf(message)) {
+    for (const pill of pills ?? []) {
+      const done = pill.kind === 'potency' ? await addPotencyPill(message, part.id, pill) : await addRollPill(message, part.id, pill);
+      if (done) added++;
+    }
+  }
+  return added;
+}
+
+export const globalModifiersApi = { addRoll: addGlobalRoll, addDamage: addGlobalDamage };
+
 function resultPills(message, target = null) {
   const part = partFor(message, target);
   if (!part) return null;
@@ -324,6 +395,8 @@ export const resultModifiersApi = {
   active, partFor, pills: resultPills,
   addDamage: addDamagePill, setDamageEnabled: setDamagePillEnabled,
   addRoll: addRollPill, setRollEnabled: setRollPillEnabled,
+  addPotency: addPotencyPill, potencyEffects, addTarget: addTargetPart,
+  addForced: addForcedMod, setForcedEnabled: setForcedModEnabled,
 };
 
 const FM_ICON = 'fa-solid fa-person-walking-arrow-right';
@@ -365,12 +438,12 @@ function fmRow(entry, base) {
 async function saveForced(part, index, base, stack) {
   const clean = stack.map((e) => ({
     modState: e.modState, noteName: e.noteName ?? '', noteDesc: e.noteDesc ?? '', noteSrc: e.noteSrc ?? null,
-    srcTokenId: e.srcTokenId ?? null, ...(e.enabled === false ? { enabled: false } : {}),
+    srcTokenId: e.srcTokenId ?? null, ...(e.enabled === false ? { enabled: false } : {}), ...(e.inert ? { inert: true } : {}),
   }));
   await part.message.update({ [`flags.${M}.${FLAG}.${part.id}.forced.${index}`]: { base, stack: clean } });
 }
 
-async function runForced(part, st, keywords) {
+async function runForced(part, st, keywords, index = 0) {
   const props = new Set([
     st.vertical ? 'vertical' : null,
     st.noCollisionDamage ? 'no-collision-damage' : null,
@@ -386,14 +459,23 @@ async function runForced(part, st, keywords) {
     movement: st.movement, distance: String(st.distance), properties: props,
     verticalDistance: st.vertical ? (st.verticalDistance !== '' ? Number(st.verticalDistance) : st.distance) : 0,
     fallReduction: st.fallReduction, target: target ?? undefined, source,
-    contextMessageId: part.message.id, origin: 'powerRoll', keywords,
+    contextMessageId: part.message.id, origin: 'powerRoll', keywords, fmKey: `part:${part.id}:${index}`,
   });
 }
 
 function addForcedRows(part, html) {
   const sec = html.querySelector(`section[data-message-part="${part.id}"]`);
-  const btns = [...(sec?.querySelectorAll('[data-dsct-action="dsct-fm"]') ?? [])];
-  if (!btns.length) return;
+  const hidden = chooseHiddenRollIndexes(part.message);
+  const btns = [...(sec?.querySelectorAll('[data-dsct-action="dsct-fm"]') ?? [])].filter((b) => {
+    if (!hidden?.has(b.dataset.dsctEffectId)) return true;
+    b.remove();
+    return false;
+  });
+  if (!btns.length) {
+    const footer = sec?.querySelector('footer.message-part-buttons');
+    if (footer && !footer.querySelector('button, a')) footer.remove();
+    return;
+  }
   const mods = modsOf(part);
   const host = sec.querySelector('.message-part-rolls') ?? sec;
   const item = part.ability;
@@ -401,6 +483,7 @@ function addForcedRows(part, html) {
     const base = fmEntry(mods, index)?.base ?? _fmBaseStateFromBtn(btn);
     const stack = fmStack(mods, index);
     const st = fmState(base, stack);
+    const runSt = stack.some((e) => e.inert) ? fmState(base, stack.filter((e) => !e.inert)) : st;
     const keywords = item ? [...chooseKeywords(item, part.message)] : (btn.dataset.dsctKeywords ?? '').split(',').filter(Boolean);
     const enabled = stack.filter((e) => e.enabled !== false);
     const typeEntry = st.movement !== base.movement ? enabled.findLast((e) => e.modState?.[0]?.movement === st.movement) : null;
@@ -426,7 +509,7 @@ function addForcedRows(part, html) {
     row.querySelector('.dsct-fm-go').addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      runForced(part, st, keywords).catch((err) => console.error('DSCT | result modifiers | forced movement', err));
+      runForced(part, runSt, keywords, index).catch((err) => console.error('DSCT | result modifiers | forced movement', err));
     });
     host.append(row);
     btn.remove();
@@ -443,6 +526,45 @@ function forcedBases(part) {
   const bases = [...fromDom];
   for (const [i, b] of fromFlags) bases[i] ??= b;
   return bases.map((b, i) => (b ? { index: i, base: b } : null)).filter(Boolean);
+}
+
+const FM_KEYS = ['movement', 'vertical', 'verticalDistance', 'fallReduction', 'noFallDamage', 'noCollisionDamage',
+  'noMoverCollisionDamage', 'noObstacleCollisionDamage', 'ignoreStability', 'safely', 'fastMove', 'sourceTokenId'];
+
+async function addForcedMod(message, target, mod, { index = 0 } = {}) {
+  const part = active() ? partFor(message, target) : null;
+  if (!part || !mod) return false;
+  return serial(part.id, async () => {
+    const base = forcedBases(part).find((b) => b.index === index)?.base;
+    if (!base) return false;
+    const stack = [...fmStack(modsOf(part), index)];
+    const now = fmState(base, stack);
+    const modState = [{ ...Object.fromEntries(FM_KEYS.map((k) => [k, now[k]])), distanceDelta: Number(mod.distance) || 0, ...(mod.changes ?? {}) }];
+    const entry = { modState, noteName: mod.label ?? '', noteDesc: mod.desc ?? '', noteSrc: mod.src ?? null, srcTokenId: mod.srcTokenId ?? null,
+      ...(mod.inert ? { inert: true } : {}) };
+    const same = JSON.stringify(modState);
+    if (stack.some((e) => e.noteName === entry.noteName && (e.noteSrc ?? null) === entry.noteSrc && JSON.stringify(e.modState) === same)) return false;
+    await saveForced(part, index, base, [...stack, entry]);
+    return true;
+  });
+}
+
+async function setForcedModEnabled(message, target, match, enabled, { index = 0 } = {}) {
+  const part = active() ? partFor(message, target) : null;
+  if (!part) return false;
+  return serial(part.id, async () => {
+    const base = forcedBases(part).find((b) => b.index === index)?.base;
+    if (!base) return false;
+    let hit = false;
+    const stack = fmStack(modsOf(part), index).map((e) => {
+      if (e.noteName !== match.label || (match.src != null && e.noteSrc !== match.src) || (e.enabled !== false) === enabled) return e;
+      hit = true;
+      const { enabled: _, ...rest } = e;
+      return enabled ? rest : { ...rest, enabled: false };
+    });
+    if (hit) await saveForced(part, index, base, stack);
+    return hit;
+  });
 }
 
 class ResultFmEditor extends ds.applications.api.DSApplication {

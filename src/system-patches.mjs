@@ -198,6 +198,7 @@ function _patchFMConstructButtons() {
         btn.dataset.verticalDistance = String(verticalDistance);
         btn.dataset.fallReduction    = String(fallReduction);
         btn.dataset.dsctKeywords     = [...(item?.system?.keywords ?? [])].join(',');
+        btn.dataset.dsctEffectId     = this.id;
         return btn;
       });
     },

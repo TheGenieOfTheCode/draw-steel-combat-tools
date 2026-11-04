@@ -1,5 +1,5 @@
-import { getSetting } from '../helpers.mjs';
-import { services, DSTD } from '../ctlib.mjs';
+import { getSetting, getModuleApi } from '../helpers.mjs';
+import { services, DSTD, isPrimaryGM, journal } from '../ctlib.mjs';
 import { registerDamagePillProvider } from '../compat/dstd-damage-pills.mjs';
 import { chooseMessageFilter, addPreviewRewrite, chooseClaimed } from '../ability-automation/choose-effect.mjs';
 import { levelAllows, expendAllows } from '../ability-automation/flat-special-effects.mjs';
@@ -37,19 +37,61 @@ export const bonusDamage = (ability, effect) => {
   return (f.recipient ?? 'target') === 'target' && plainFormula(f.value) && types.length === 1 && baseDamageTypes(ability).has(types[0]);
 };
 
+const abilityOfMessage = (message) => {
+  const uuid = Array.from(message.system?.parts?.contents ?? []).find((p) => p?.abilityUuid)?.abilityUuid;
+  return uuid ? fromUuidSync(uuid) : null;
+};
+
+const bonusEffects = (message, ability) => visibleFlatEffects(message, ability).filter((e) => bonusDamage(ability, e)).map((e) => {
+  let value = 0;
+  try { value = Number(ds.utils.evaluateFormula(String(e.flatDamage.value), ability.getRollData?.() ?? {})) || 0; } catch { value = 0; }
+  return { type: [...setOf(e.flatDamage.types)][0], pill: { kind: 'delta', value, label: e.name || e.flatDamage.display || e.label, source: 'flat', dsctFlat: e.id } };
+}).filter((b) => b.pill.value);
+
 const bonusPills = (message) => {
   if (!on()) return [];
-  const uuid = (message.system?.parts?.contents ?? []).find((p) => p?.abilityUuid)?.abilityUuid;
-  const ability = uuid ? fromUuidSync(uuid) : null;
+  const ability = abilityOfMessage(message);
   if (!ability) return [];
-  const pills = visibleFlatEffects(message, ability).filter((e) => bonusDamage(ability, e)).map((e) => {
-    let value = 0;
-    try { value = Number(ds.utils.evaluateFormula(String(e.flatDamage.value), ability.getRollData?.() ?? {})) || 0; } catch { value = 0; }
-    return { kind: 'delta', value, label: e.name || e.flatDamage.display || e.label, source: 'flat', dsctFlat: e.id };
-  }).filter((p) => p.value);
+  const pills = bonusEffects(message, ability).map((b) => b.pill);
   if (!pills.length) return [];
   const targets = message.flags?.[DSTD]?.state?.targets ?? [];
   return targets.filter((t) => t.tokenUuid).flatMap((t) => pills.map((pill) => ({ targetUuid: t.tokenUuid, pill: { ...pill, dstTarget: t.tokenUuid } })));
+};
+
+
+const RESULT_PARTS = new Set(['abilityResult', 'targetResult']);
+const _bonusSync = new Map();
+
+async function syncBonusPills(message) {
+  const api = getModuleApi(false)?.resultModifiers;
+  if (!api?.active() || !isPrimaryGM() || !message?.system?.parts) return;
+  const ability = abilityOfMessage(message);
+  if (!ability || !flatEffectsOf(ability).some((e) => bonusDamage(ability, e))) return;
+  const wanted = on() ? bonusEffects(message, ability) : [];
+  const applied = new Set(journal(message).filter((e) => e.action === 'applyDamage' && !e.undone).map((e) => e.partId));
+  for (const part of Array.from(message.system.parts.contents).filter((p) => RESULT_PARTS.has(p.type) && !applied.has(p.id))) {
+    const rolls = Array.from(part.rolls ?? []);
+    const damage = rolls.map((r, i) => (r instanceof ds.rolls.DamageRoll && !r.isHeal ? i : -1)).filter((i) => i >= 0);
+    if (!damage.length) continue;
+    const current = api.pills(message, part.id)?.damage ?? {};
+    const indexFor = (type) => damage.find((i) => rolls[i].type === type) ?? damage[0];
+    for (const { type, pill } of wanted) {
+      const index = indexFor(type);
+      const have = (current[index] ?? []).find((p) => p.source === 'flat' && p.label === pill.label);
+      if (!have) await api.addDamage(message, part.id, pill, { index });
+      else if (have.enabled === false) await api.setDamageEnabled(message, part.id, { label: pill.label, kind: 'delta' }, true);
+    }
+    const keep = new Set(wanted.map((b) => b.pill.label));
+    const stale = new Set(Object.values(current).flat().filter((p) => p.source === 'flat' && p.enabled !== false && !keep.has(p.label)).map((p) => p.label));
+    for (const lbl of stale) await api.setDamageEnabled(message, part.id, { label: lbl, kind: 'delta' }, false);
+  }
+}
+
+const queueBonusSync = (message) => {
+  const next = (_bonusSync.get(message.id) ?? Promise.resolve()).then(() => syncBonusPills(game.messages.get(message.id) ?? message))
+    .catch((err) => console.warn('DSCT | flat enrichers | bonus damage pills:', err));
+  _bonusSync.set(message.id, next);
+  next.finally(() => { if (_bonusSync.get(message.id) === next) _bonusSync.delete(message.id); });
 };
 
 export const flatEnricherText = (effect, ability) => {
@@ -288,6 +330,8 @@ export function registerFlatEnrichers() {
   CONFIG.TextEditor.enrichers.push(flat);
   addPreviewRewrite(previewEnrichers);
   registerDamagePillProvider(bonusPills);
+  Hooks.on('createChatMessage', queueBonusSync);
+  Hooks.on('updateChatMessage', queueBonusSync);
   services.provide('flatTakesOver', takesOver);
   Hooks.on('renderChatMessageHTML', (message, html) => {
     injectFallback(message, html).catch((err) => console.warn('DSCT | flat enrichers | fallback:', err));

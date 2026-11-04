@@ -1,6 +1,6 @@
 import { applyDamage, getSetting, getModuleApi, withDamageSource, messageDamageSource, cleansed, effectStartFor, movesGranted, spendBeyondCost } from '../helpers.mjs';
 import { applyStatus } from '../conditions/statuses.mjs';
-import { DAMAGE_TYPES, isPrimaryGM, safeCreateEmbedded, safeDelete, safeSetFlag, safeToggleStatusEffect, safeUpdate, services, rolledTargets } from '../ctlib.mjs';
+import { DAMAGE_TYPES, isPrimaryGM, safeCreateEmbedded, safeDelete, safeSetFlag, safeToggleStatusEffect, safeUpdate, services, rolledTargets, journal } from '../ctlib.mjs';
 import { chooseMessageFilter } from './choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement.mjs';
 import { executeTeleport, executeTeleswap } from '../teleport.mjs';
@@ -957,7 +957,13 @@ function _damageDealt(message) {
       total += rec?.before && rec?.after ? Math.max(0, _staminaOf(rec.before) - _staminaOf(rec.after)) : Number(rec?.amount) || 0;
     }
   }
-  
+  for (const entry of message ? journal(message) : []) {
+    if (entry.action !== 'applyDamage' || entry.undone) continue;
+    for (const t of entry.targets ?? []) {
+      total += Math.max(0, (Number(t.before) || 0) + (Number(t.tempBefore) || 0) - (Number(t.after) || 0) - (Number(t.tempAfter) || 0));
+    }
+  }
+
   for (const st of Object.values(message?.getFlag?.(MODULE_ID, 'adv') ?? {})) {
     if (st?.rolls?.[0]?.class !== 'DamageRoll' || st.rolls[0].options?.isHeal) continue;
     for (const rec of Object.values(st.applied ?? {})) total += Number(rec?.amount) || 0;

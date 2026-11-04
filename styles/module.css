@@ -3444,3 +3444,15 @@ button.dsct-hn-token.is-gone img {
   color: var(--color-text-secondary);
   font-style: italic;
 }
+
+.dsct-dstd-after-choice .dsct-after-choice-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0;
+}
+.dsct-dstd-after-choice .dsct-after-choice-line > button {
+  flex: 1 1 auto;
+  width: auto;
+}

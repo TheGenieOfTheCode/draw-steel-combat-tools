@@ -1,5 +1,5 @@
 import { normalizeCollection } from '../helpers.mjs';
-import { stackedPrompt, DSTD } from '../ctlib.mjs';
+import { stackedPrompt, DSTD, addTargetResult, journal } from '../ctlib.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -673,7 +673,49 @@ function _applyToCard(message, html) {
   if (!anyTier) embed.querySelector('section.powerResult')?.remove();
 }
 
+function _filterResultText() {
+  for (const type of ['abilityResult', 'targetResult']) {
+    const proto = globalThis.ds?.CONFIG?.MessagePart?.[type]?.documentClass?.prototype;
+    const original = proto?._prepareContext;
+    if (typeof original !== 'function') continue;
+    proto._prepareContext = async function (context) {
+      await original.call(this, context);
+      try {
+        _keepChosenText.call(this, type, context);
+      } catch (err) {
+        console.warn('DSCT | Choose | filtering the result text failed:', err);
+      }
+    };
+  }
+}
+
+function _keepChosenText(type, context) {
+  const item = this.ability;
+  const hidden = item && context.ctx?.foundItem ? chooseHiddenRollIndexes(this.message) : null;
+  if (!hidden) return;
+  const kept = item.system.power.effects.sortedContents.filter(e => !hidden.has(String(e.id)));
+  const resultHTML = kept.map(e => e.toText(this.tier)).filter(Boolean).join('; ');
+  const actor = type === 'targetResult' ? this.actorTarget : null;
+  const potency = [];
+  const text = [];
+  for (const pre of actor ? kept : []) {
+    const option = pre.potencyOption(this.tier, actor, { bonus: this.potencies?.[pre.id] });
+    if (option) potency.push(option);
+    else {
+      const line = pre.targetOption(this.tier, actor);
+      if (line) text.push(line);
+    }
+  }
+  context.ctx.resultHTML = resultHTML;
+  if (!actor) return;
+  context.ctx.potency = potency;
+  context.ctx.targetText = text.join('; ');
+}
+
 function _registerChooseMessageHooks() {
+  Hooks.once('setup', () => {
+    if (!game.modules.get(DSTD)?.active) _filterResultText();
+  });
   Hooks.on('preCreateChatMessage', (message, data) => {
     try {
       _stampMessage(message, data);
@@ -691,6 +733,7 @@ function _registerChooseMessageHooks() {
     try {
       _applyToCard(message, html);
       _filterSectionButtons(message, html);
+      _installAfterChoiceOnParts(message, html);
       _armTemplate(message, html);
     } catch (err) {
       console.warn('DSCT | Choose | applying choice to card failed:', err);
@@ -772,22 +815,41 @@ async function _reshapeArea(message, item, choice) {
     await region.update({ shapes: [{ ...shape, x: cx - (0.5 - ax) * w, y: cy - (0.5 - ay) * w, width: w, height: w }] });
   }
   const type = choice.target?.type || item.system.target?.type;
-  const source = fromUuidSync(message.flags?.[DSTD]?.state?.sourceTokenUuid ?? '')?.object ?? null;
+  const s = message.speaker ?? {};
+  const source = fromUuidSync(message.flags?.[DSTD]?.state?.sourceTokenUuid ?? '')?.object
+    ?? (s.token ? (game.scenes.get(s.scene) ?? canvas.scene)?.tokens.get(s.token)?.object : null) ?? null;
   const dead = CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
-  const inside = canvas.tokens.placeables.filter(t => t.actor && !t.document.hidden && !t.actor.statuses?.has(dead)
+  return canvas.tokens.placeables.filter(t => t.actor && !t.document.hidden && !t.actor.statuses?.has(dead)
     && t.document.testInsideRegion(region) && _targetTypeFits(type, t, source));
-  const { normalizeTargetToken } = await import('/modules/draw-steel-target-damage/src/target-utils.mjs');
-  return inside.map(t => normalizeTargetToken(t)).filter(Boolean);
+}
+
+async function _retarget(message, tokens) {
+  if (game.modules.get(DSTD)?.active) {
+    const { normalizeTargetToken } = await import('/modules/draw-steel-target-damage/src/target-utils.mjs');
+    return { [`flags.${DSTD}.state.targets`]: tokens.map(t => normalizeTargetToken(t)).filter(Boolean) };
+  }
+  const fresh = () => game.messages.get(message.id) ?? message;
+  const keep = new Set(tokens.map(t => t.document.uuid));
+  const before = Array.from(message.system?.parts?.contents ?? []);
+  let added = 0;
+  const add = game.modules.get(M)?.api?.resultModifiers?.addTarget ?? addTargetResult;
+  for (const t of tokens) if (await add(fresh(), t)) added++;
+  const applied = new Set(journal(fresh()).filter(e => !e.undone).map(e => e.partId));
+  for (const part of before) {
+    const leaves = part.type === 'targetResult' ? !keep.has(part.tokenUuid) : part.type === 'abilityResult' && added > 0;
+    if (leaves && !applied.has(part.id)) await fresh().system.parts.get(part.id)?.delete();
+  }
+  return {};
 }
 
 async function _chooseAfter(message, item, effect, index) {
   const choice = effect.choose.choices[index];
   const update = { [`flags.${M}.${FLAG}.${effect.id}`]: index };
   if (choice?.distance?.type || choice?.target?.type) {
-    const targets = await _reshapeArea(message, item, choice);
-    if (targets) update[`flags.${DSTD}.state.targets`] = targets;
+    const tokens = await _reshapeArea(message, item, choice);
+    if (tokens) Object.assign(update, await _retarget(message, tokens));
   }
-  await message.update(update);
+  await (game.messages.get(message.id) ?? message).update(update);
 }
 
 const _critSettled = new Map();
@@ -801,17 +863,18 @@ export function settleCriticalChoice(message) {
     if (!item) return false;
     const stored = message.getFlag(M, FLAG) ?? {};
     const update = {};
+    let tokens = null;
     for (const effect of _afterEffects(item)) {
       if (effect.id in stored || effect.choose.critical !== 'all') continue;
       update[`flags.${M}.${FLAG}.${effect.id}`] = effect.choose.choices.map((_, i) => i);
       for (const choice of effect.choose.choices) {
         if (!choice?.distance?.type && !choice?.target?.type) continue;
-        const targets = await _reshapeArea(message, item, choice);
-        if (targets) update[`flags.${DSTD}.state.targets`] = targets;
+        tokens = (await _reshapeArea(message, item, choice)) ?? tokens;
       }
     }
     if (!Object.keys(update).length) return false;
-    await message.update(update);
+    if (tokens) Object.assign(update, await _retarget(message, tokens));
+    await (game.messages.get(message.id) ?? message).update(update);
     return true;
   })();
   _critSettled.set(message.id, run);
@@ -923,7 +986,7 @@ const chooseEnricher = {
   },
 };
 
-function _installAfterChoice(message, panel) {
+function _installAfterChoice(message, panel, { native = false } = {}) {
   const found = _abilityUsePart(message);
   const item = found ? fromUuidSync(found.part.abilityUuid) : null;
   
@@ -942,7 +1005,7 @@ function _installAfterChoice(message, panel) {
   box.dataset.sig = sig;
   for (const effect of effects) {
     const line = document.createElement('div');
-    line.className = `${DSTD}-action-row`;
+    line.className = native ? 'dsct-after-choice-line' : `${DSTD}-action-row`;
     const note = (text) => {
       const span = document.createElement('span');
       span.className = 'dsct-after-choice-note';
@@ -959,7 +1022,7 @@ function _installAfterChoice(message, panel) {
       effect.choose.choices.forEach((choice, index) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = `${DSTD}-action-button`;
+        if (!native) btn.className = `${DSTD}-action-button`;
         btn.textContent = choice.name || game.i18n.format('DSCT.choose.unnamed', { n: index + 1 });
         btn.disabled = !message.isOwner;
         btn.addEventListener('click', async (event) => {
@@ -973,9 +1036,20 @@ function _installAfterChoice(message, panel) {
     }
     box.append(line);
   }
+  if (native) {
+    const footer = panel.querySelector(':scope > footer.message-part-buttons');
+    return void (footer ? footer.before(box) : panel.append(box));
+  }
   const list = panel.querySelector(`.${DSTD}-target-list`);
   if (list) list.before(box);
   else panel.prepend(box);
+}
+
+function _installAfterChoiceOnParts(message, html) {
+  if (game.modules.get(DSTD)?.active || !message.system?.parts) return;
+  const use = Array.from(message.system.parts.contents).find(p => p.type === 'abilityUse');
+  const section = use ? html.querySelector(`section[data-message-part="${use.id}"]`) : null;
+  if (section) _installAfterChoice(message, section, { native: true });
 }
 
 export function filterChooseDstdRows(message, panel) {

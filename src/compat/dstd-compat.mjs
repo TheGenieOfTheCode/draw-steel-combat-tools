@@ -245,9 +245,11 @@ export function registerDstdCompat() {
     if (userId === game.user.id && getSetting('autoApplyOwnAbilities')) _autoApplyEligible.add(message.id);
   });
   services.provide('abilityResolving', _abilityResolving);
-  services.provide('reapplyDamageRow', _reapplyDamageRow);
-  services.provide('redealDamageRow', _redealDamageRow);
-  services.provide('undoDamageRow', _undoDamageRow);
+  if (game.modules.get(DSTD)?.active) {
+    services.provide('reapplyDamageRow', _reapplyDamageRow);
+    services.provide('redealDamageRow', _redealDamageRow);
+    services.provide('undoDamageRow', _undoDamageRow);
+  }
 
   
   
