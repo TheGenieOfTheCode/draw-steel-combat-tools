@@ -55,6 +55,7 @@ import { registerRollDialogDodge } from './ability-automation/roll-dialog-dodge.
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, registerPowerRollDice, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills, addResultPill, addGlobalRollPills } from './compat/dstd-roll-pills.mjs';
+import { registerResultModifiers, resultModifiersApi, globalModifiersApi } from './compat/result-modifiers.mjs';
 import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
 import { registerDstdApplyWord } from './compat/dstd-apply-word.mjs';
 import { registerDstdAfterEffects } from './compat/dstd-after-effects.mjs';
@@ -65,9 +66,7 @@ import { registerWindedEffects } from './conditions/winded-effects.mjs';
 import {
   registerDstdDamagePills, openDamageEditor, foldDamagePills, damagePillDisplayList,
   damagePillText, damagePillEffect, damagePillType, damageTypeLabel, styleTypePill,
-  registerDamagePillProvider,
-  setProviderPillEnabled,
-  addGlobalDamagePills,
+  registerDamagePillProvider, setProviderPillEnabled,
 } from './compat/dstd-damage-pills.mjs';
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerResourcesUiCompat } from './compat/resources-ui-compat.mjs';
@@ -204,10 +203,8 @@ const api = {
     add: addExtraDamage,
     setEnabled: setExtraDamageEnabled,
   },
-  globalModifiers: {
-    addRoll: addGlobalRollPills,
-    addDamage: addGlobalDamagePills,
-  },
+  resultModifiers: resultModifiersApi,
+  globalModifiers: globalModifiersApi,
   hasHighGround:    (attacker, target) => _hasHighGround(attacker, target),
   flankingAlly,
   allowOutOfRange,
@@ -310,6 +307,7 @@ Hooks.once('init', () => {
   registerDstdRollPills();
   registerDstdDamagePills();
   registerDstdExtraDamage();
+  registerResultModifiers();
   registerDstdApplyWord();
   registerDstdAfterEffects();
   registerChatTips();

@@ -2,7 +2,7 @@ import { services, isPrimaryGM } from '../ctlib.mjs';
 import { getSetting, rangeEnforced, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf, noLogFlag } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
-import { stackedPrompt } from '../ctlib.mjs';
+import { stackedPrompt, tierFor } from '../ctlib.mjs';
 import { checkAndRunTargetPicker, clearRepickStamp, isTriggeredAbility } from '../ability-automation/target-picker.mjs';
 import { checkAndRunAreaPicker } from '../ability-automation/area-picker.mjs';
 import { toggleDamageConditionsPanel } from './damage-conditions.mjs';
@@ -432,10 +432,13 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
     };
     hookId = Hooks.on('createChatMessage', async (msg) => {
       const parts = msg.system?.parts?.contents; if (!parts) return;
-      const ar = parts.find(p => p.type === 'abilityResult'); if (!ar) return;
-      if (!msg.isAuthor || ar.abilityUuid !== grabItem.uuid) return;
-      msg.setFlag(M, 'grabRoll', { grabberTokenId: grabberToken.id, targetTokenId: targetToken.id, appliedTier: ar.tier }).catch(() => {});
-      await cleanup(ar.tier);
+      if (!parts.some(p => p.type === 'abilityResult' || p.type === 'targetResult')) return;
+      const usedUuid = parts.find(p => p.abilityUuid)?.abilityUuid;
+      if (!msg.isAuthor || (usedUuid && usedUuid !== grabItem.uuid)) return;
+      const tier = tierFor(msg, targetToken.document) ?? tierFor(msg, null);
+      if (!tier) return;
+      msg.setFlag(M, 'grabRoll', { grabberTokenId: grabberToken.id, targetTokenId: targetToken.id, appliedTier: tier }).catch(() => {});
+      await cleanup(tier);
     });
     timeoutId = setTimeout(async () => { ui.notifications.warn(game.i18n.localize('DSCT.notice.grab.rollNotDetected')); await cleanup(null); }, TIMEOUT_MS);
     ds.helpers.macros.rollItemMacro(grabItem.uuid);
@@ -448,14 +451,17 @@ export const runGrab = async (grabberToken, targetToken, { forceApply = false, i
 export const registerGrabTierSync = () => {
   Hooks.on('updateChatMessage', async (message, changes) => {
     if (!isPrimaryGM()) return;
-    if (!foundry.utils.hasProperty(changes, 'flags.draw-steel-target-damage')) return;
+    const viaDstd = foundry.utils.hasProperty(changes, 'flags.draw-steel-target-damage');
+    if (!viaDstd && !changes?.system?.parts) return;
     const gr = message.getFlag(M, 'grabRoll');
     if (!gr) return;
     const grabberTok = getTokenById(gr.grabberTokenId);
     const targetTok  = getTokenById(gr.targetTokenId);
     if (!grabberTok || !targetTok) return;
     const targetKey = targetTok.document.uuid.replace(/\./g, '__');
-    const newTier = _effectiveRowTier(message, targetKey, targetTok.document.uuid, gr.appliedTier);
+    const newTier = viaDstd
+      ? _effectiveRowTier(message, targetKey, targetTok.document.uuid, gr.appliedTier)
+      : (tierFor(message, targetTok.document) ?? tierFor(message, null) ?? gr.appliedTier);
     if (newTier === gr.appliedTier) return;
     await message.setFlag(M, 'grabRoll', { ...gr, appliedTier: newTier });
     if (getSetting('debugMode')) console.log(`DSCT | grab | roll tier ${gr.appliedTier} -> ${newTier} via pill edit, reconciling`);

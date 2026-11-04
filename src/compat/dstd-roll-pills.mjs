@@ -782,7 +782,7 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
     this._target   = target;
     this._roll     = roll;
     this._targetKey = this._global ? null : _targetKey(target);
-    const state    = message.getFlag(DSTD, 'state');
+    const state    = message.flags?.[DSTD]?.state ?? null;
     this._override = this._global ? null : (state?.tierOverrides?.[this._targetKey] ?? null);
     this._basis    = _rollBasis(roll, this._override);
     const prov     = message.getFlag(M, 'rollPills') ?? null;
@@ -1310,3 +1310,5 @@ function _onPillHoverOut(e) {
   const token = canvas.tokens.placeables.find(t => t.id === el.dataset.srcTokenId);
   token?._onHoverOut(e);
 }
+
+export { DstdRollEditor as RollEditorBase, _rollBasis as rollBasis, _effectiveFrom as effectiveRollFrom, _buildOverride as buildRollPreview, _pillAmtStr as rollPillAmount };

@@ -15,6 +15,9 @@ function pill(id, kind, amount, reason, src, scope, dsNative = false) {
   return { id, kind, amount, reason, src, srcTokenId: null, srcTokenIds: [], srcAbility: null, scope, enabled: true, custom: false, dsNative };
 }
 
+const _systemCounts = () => !!globalThis.ds?.CONFIG?.MessagePart?.targetResult;
+const _systemRollToken = (actor) => (_systemCounts() && canvas.tokens?.controlled[0]?.actor === actor ? canvas.tokens.controlled[0] : null);
+
 export const TIER_KINDS = new Set(['tier', 'autoTier', 'tierFloor', 'tierCeiling']);
 
 export const EFFECT_PILL_KINDS = new Set(['potency', 'potencyForce', 'resistWith', 'effectEnd', 'saveMod', 'recurAmount', 'recurMult', 'recurType', 'recurIgnore']);
@@ -198,7 +201,7 @@ function _buildGlobalPills(actor, ability = null) {
     }
   }
   
-  if (actor.statuses?.has('prone')) pills.push(pill(mkId('pr'), 'bane', 1, 'Prone', null, 'global', false));
+  if (actor.statuses?.has('prone') && keywords.has('strike')) pills.push(pill(mkId('pr'), 'bane', 1, 'Prone', null, 'global', _systemCounts()));
   return pills;
 }
 
@@ -343,7 +346,7 @@ function _buildTargetPills(app, tokenId) {
         if (adjEnemy) break;
       }
       if (adjEnemy) {
-        const p = pill(mkId(`rng-adj-${tokenId}`), 'bane', 1, 'Adjacent Enemy', adjEnemy.name, tokenId, false);
+        const p = pill(mkId(`rng-adj-${tokenId}`), 'bane', 1, 'Adjacent Enemy', adjEnemy.name, tokenId, !!_systemRollToken(actor));
         p.srcTokenId = adjEnemy.id;
         p.lineFrom = 'owner';
         pills.push(p);
@@ -370,7 +373,10 @@ function _buildTargetPills(app, tokenId) {
   if (getSetting('highGroundEnabled') && casterToken) {
     const dstdActive  = !!game.modules.get('ds-terrain-designer')?.active;
     const hasHighGrnd = _hasHighGround(casterToken, targetToken);
-    const p = pill(mkId(`hg-${tokenId}`), 'edge', 1, 'High Ground', null, tokenId, hasHighGrnd && dstdActive);
+    const sysToken = _systemRollToken(actor);
+    const systemSees = !!sysToken && !actor.statuses?.has('flying')
+      && ((sysToken.document.elevation ?? 0) - (targetToken.document.elevation ?? 0)) >= (targetToken.document.depth ?? 1);
+    const p = pill(mkId(`hg-${tokenId}`), 'edge', 1, 'High Ground', null, tokenId, hasHighGrnd && (dstdActive || systemSees));
     p.enabled = hasHighGrnd;
     pills.push(p);
   }
@@ -465,7 +471,7 @@ function _buildModifierSources(app) {
         && typeof casterToken.isAdjacentTo === 'function' && casterToken.isAdjacentTo(t);
     });
     if (adjEnemy) {
-      const p = pill(mkId('rng-adj'), 'bane', 1, 'Adjacent Enemy', adjEnemy.name, 'global', false);
+      const p = pill(mkId('rng-adj'), 'bane', 1, 'Adjacent Enemy', adjEnemy.name, 'global', !!_systemRollToken(actor));
       p.srcTokenId = adjEnemy.id;
       pills.push(p);
     }

@@ -1,7 +1,7 @@
 import { hasSightToToken, coveredInSquare, seenPlainlyInSquare, concealingRegions, getSetting } from '../helpers.mjs';
 import { coverWithBurrow as hasCover } from './burrow.mjs';
 import { isConcealed } from './stealth.mjs';
-import { isPrimaryGM } from '../ctlib.mjs';
+import { isPrimaryGM, rolledTargets } from '../ctlib.mjs';
 
 const GS = () => canvas.grid.size;
 
@@ -39,20 +39,16 @@ export function noteHarm(attacker, victim) {
 }
 
 function _rolledTargetTokens(message) {
-  const parts = Array.from(message?.system?.parts ?? []).map(p => (Array.isArray(p) ? p[1] : p));
-  const out = new Map();
-  for (const part of parts) {
-    for (const roll of Array.from(part?.rolls ?? [])) {
-      const uuid = roll?.options?.target;
-      if (!uuid || out.has(uuid)) continue;
-      const actor = fromUuidSync(uuid);
-      if (actor?.documentName !== 'Actor') continue;
-      const token = actor.getActiveTokens?.(true, false)?.[0]
-        ?? canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
-      if (token) out.set(uuid, token);
-    }
+  const out = [];
+  for (const t of rolledTargets(message)) {
+    const exact = t.tokenUuid ? fromUuidSync(t.tokenUuid)?.object : null;
+    const actor = exact ? null : fromUuidSync(t.actorUuid);
+    const token = exact ?? (actor?.documentName === 'Actor'
+      ? actor.getActiveTokens?.(true, false)?.[0] ?? canvas.tokens.placeables.find(p => p.actor?.id === actor.id)
+      : null);
+    if (token) out.push(token);
   }
-  return [...out.values()];
+  return out;
 }
 
 function _noteHarmFromMessage(message) {

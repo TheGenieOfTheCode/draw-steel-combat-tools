@@ -1,6 +1,6 @@
 import { registerEffectFlag } from '../effect-flag-picker.mjs';
 import { armCoverImmunity, disarmCoverImmunity, getSetting } from '../helpers.mjs';
-import { isPrimaryGM } from '../ctlib.mjs';
+import { isPrimaryGM, rolledTargets } from '../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG_ROOT = 'flags.draw-steel-ctlib.loe';
@@ -24,17 +24,7 @@ export function registerLineOfEffectFlags() {
 const ABILITY_PART = 'abilityUse'.padEnd(16, '0');
 
 function _rolledTargets(message) {
-  const parts = Array.from(message?.system?.parts ?? []).map(p => (Array.isArray(p) ? p[1] : p));
-  const actors = new Map();
-  for (const part of parts) {
-    for (const roll of Array.from(part?.rolls ?? [])) {
-      const uuid = roll?.options?.target;
-      if (!uuid || actors.has(uuid)) continue;
-      const actor = fromUuidSync(uuid);
-      if (actor?.documentName === 'Actor') actors.set(uuid, actor);
-    }
-  }
-  return [...actors.values()];
+  return rolledTargets(message).map(t => fromUuidSync(t.actorUuid)).filter(a => a?.documentName === 'Actor');
 }
 
 async function _armForMessage(message) {

@@ -4,6 +4,7 @@ import { beginPickerOverlay } from './picker-overlay.mjs';
 import { getStrikeType } from './class-shadow/crossfade.mjs';
 import { _recomputeAndSync, _injectPillUI } from './roll-dialog-hooks.mjs';
 import { chooseKeywords } from './choose-effect.mjs';
+import { resultModifiersApi } from '../compat/result-modifiers.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -624,6 +625,43 @@ async function _runSquadTargetingUI(eligibleMinions, allTargets, range, isRanged
   });
 }
 
+let _pendingSquadAbility = null;
+
+const _onSystemCards = () => !!globalThis.ds?.CONFIG?.MessagePart?.targetResult && !game.modules.get('draw-steel-target-damage')?.active;
+
+export async function applySquadMapToCard(message, targetMap) {
+  const store = resultModifiersApi;
+  if (!store?.active?.() || !targetMap?.size) return 0;
+  const parts = Array.from(message.system?.parts?.contents ?? []).filter(p => p.type === 'targetResult');
+  const stored = {};
+  let added = 0;
+  for (const part of parts) {
+    const tokenId = part.tokenUuid?.split('.').at(-1);
+    const entry = tokenId ? targetMap.get(tokenId) : null;
+    if (!entry) continue;
+    const primary = canvas.tokens.get(entry.primaryMinionId);
+    const freeStrike = Number(primary?.actor?.system?.monster?.freeStrike) || 0;
+    stored[part.tokenUuid.replace(/\./g, '__')] = { extraMinions: entry.extraMinions, freeStrike, minionIds: entry.minionIds, primaryMinionId: entry.primaryMinionId ?? null };
+    for (const minionId of entry.minionIds.filter(id => id !== entry.primaryMinionId)) {
+      const minion = canvas.tokens.get(minionId);
+      const ok = await store.addDamage(message, part.tokenUuid, { kind: 'delta', value: freeStrike, label: 'Free Strike', src: minion?.name ?? null, srcTokenId: minionId, source: 'trigger' });
+      if (ok) added++;
+    }
+  }
+  await message.setFlag(M, 'squadTargetMap', stored);
+  return added;
+}
+
+function _suppressSystemMinions() {
+  const cls = globalThis.ds?.applications?.apps?.AbilityConfigurationDialog;
+  const desc = cls && Object.getOwnPropertyDescriptor(cls.prototype, 'squad');
+  if (!desc?.get) return;
+  Object.defineProperty(cls.prototype, 'squad', {
+    configurable: true,
+    get() { return getSetting('groupActionsEnabled') ? null : desc.get.call(this); },
+  });
+}
+
 function _assignFreeStrikes(minionTokens, candidates, range) {
   const pref  = getSetting('squadAutoAssignStaminaPriority') ?? 'high';
   const reach = range * (canvas.grid?.distance ?? 5);
@@ -703,6 +741,18 @@ export async function runSquadFreeStrike(actor) {
 }
 
 export function registerSquadTargetingHooks() {
+  Hooks.once('setup', _suppressSystemMinions);
+
+  Hooks.on('createChatMessage', (message) => {
+    if (!_pendingSquadMap || !_pendingSquadAbility || !_onSystemCards()) return;
+    if (message.author?.id !== game.user.id) return;
+    const use = Array.from(message.system?.parts?.contents ?? []).find(p => p.type === 'abilityUse');
+    if (use?.abilityUuid !== _pendingSquadAbility) return;
+    const map = consumePendingSquadMap();
+    _pendingSquadAbility = null;
+    applySquadMapToCard(message, map).catch(err => console.warn('DSCT | group actions | pills failed', err));
+  });
+
   
   
   if (game.modules.get('lib-wrapper')?.active && !game.modules.get('draw-steel-triggers')?.active) {
@@ -779,7 +829,7 @@ export function checkAndRunSquadTargeting(dialog) {
 
   if (!getSetting('squadToolsEnabled')) return null;
   if (!getSetting('groupActionsEnabled')) return null;
-  if (!game.modules.get('draw-steel-target-damage')?.active) return null;
+  if (!game.modules.get('draw-steel-target-damage')?.active && !_onSystemCards()) return null;
 
   const actor = ability.actor ?? ability.parent;
   if (!actor?.system?.isMinion) return null;
@@ -821,6 +871,7 @@ export function checkAndRunSquadTargeting(dialog) {
     setFoundryTargets(targetTokens);
     _squadTargeted.set(ability.uuid, Date.now());
     _pendingSquadMap = targetMap;
+    _pendingSquadAbility = ability.uuid;
     ability.system.use();
   });
 

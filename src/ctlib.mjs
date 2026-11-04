@@ -32,6 +32,10 @@ export const {
   TIP_CLASS, richTip, tipFrom, setTip, tipAttrs, pillTip, faceFromToken, faceChainHTML, resourceTokenHTML
 } = lib;
 
+export const { tierFor, powerRollFor, rolledTargets, PRE_APPLY, APPLY, applyHooksMode, RESULT_MENU } = lib;
+export const addTargetResult = lib.addTargetResult ?? (async () => null);
+export const journal = lib.journal ?? (() => []);
+
 export const SettingsSubmenu = lib.settingsSubmenu?.() ?? lib.SettingsSubmenu;
 export const registerSettingsLayout = lib.registerSettingsLayout ?? (() => {});
 

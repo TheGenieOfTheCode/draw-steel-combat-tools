@@ -265,23 +265,29 @@ function _installChatHook() {
     if (!usePart?.abilityUuid) return;
     const item = fromUuidSync(usePart.abilityUuid);
     if (!item || !tieredEffectsOf(item).length) return;
-    const resultPart = parts.find(p => p.type === 'abilityResult');
-    const tier = Number(resultPart?.tier);
-    if (!(tier >= 1 && tier <= 3)) return;
-    const section = html.querySelector(`section[data-message-part="${resultPart.id}"]`);
-    if (!section) return;
-
-    const buttons = buildFlatEffectButtons(tieredAsFlat(item, tier), item, message);
-    if (!buttons.length) return;
-    let footer = section.querySelector('footer.message-part-buttons');
-    if (!footer) {
-      footer = document.createElement('footer');
-      footer.className = 'message-part-buttons';
-      section.appendChild(footer);
+    for (const resultPart of parts.filter(p => p.type === 'abilityResult' || p.type === 'targetResult')) {
+      const tier = Number(resultPart.tier);
+      if (!(tier >= 1 && tier <= 3)) continue;
+      const section = html.querySelector(`section[data-message-part="${resultPart.id}"]`);
+      if (!section) continue;
+      const buttons = buildFlatEffectButtons(tieredAsFlat(item, tier), item, message);
+      if (!buttons.length) continue;
+      let footer = section.querySelector('footer.message-part-buttons');
+      if (!footer) {
+        footer = document.createElement('footer');
+        footer.className = 'message-part-buttons';
+        section.appendChild(footer);
+      }
+      for (const btn of buttons) footer.appendChild(btn);
+      addFlatEffectListeners(section, item, message, { targetToken: _sectionToken(resultPart) });
     }
-    for (const btn of buttons) footer.appendChild(btn);
-    addFlatEffectListeners(section, item, message);
   });
+}
+
+function _sectionToken(part) {
+  if (part.type !== 'targetResult') return null;
+  const doc = part.tokenUuid ? fromUuidSync(part.tokenUuid, { strict: false }) : null;
+  return doc?.object ?? part.actorTarget?.getActiveTokens?.()?.[0] ?? null;
 }
 
 export function registerTieredEffects() {

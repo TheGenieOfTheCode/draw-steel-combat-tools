@@ -1,4 +1,4 @@
-import { services, registerPanelDecorator, DSTD, DSTD_PANEL, setPickerPath } from '../ctlib.mjs';
+import { services, registerPanelDecorator, DSTD, DSTD_PANEL, setPickerPath, rolledTargets, addTargetResult } from '../ctlib.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
 import { runMultiTokenPicker } from './target-picker.mjs';
 import { _othersCandidates } from '../compat/dstd-compat.mjs';
@@ -35,7 +35,11 @@ const canAct = (message) => game.user.isGM || message.isOwner || message.author?
 
 const stateOf = (message) => message.getFlag(M, FLAG) ?? { picked: [], done: false };
 
-const targetUuids = (message) => (message.flags?.[DSTD]?.state?.targets ?? []).map((t) => t.tokenUuid).filter(Boolean);
+const dstdOn = () => !!game.modules.get(DSTD)?.active;
+
+const targetUuids = (message) => (dstdOn()
+  ? (message.flags?.[DSTD]?.state?.targets ?? []).map((t) => t.tokenUuid)
+  : rolledTargets(message).map((t) => t.tokenUuid)).filter(Boolean);
 
 const speakerToken = (message) => {
   const s = message.speaker ?? {};
@@ -63,16 +67,17 @@ const pending = (message, spec) => {
 };
 
 const addTarget = async (message, token) => {
-  const { normalizeTargetToken } = await import('/modules/draw-steel-target-damage/src/target-utils.mjs');
-  const entry = normalizeTargetToken(token);
   const st = stateOf(message);
-  const targets = [...(message.flags?.[DSTD]?.state?.targets ?? []), entry];
   const picked = [...st.picked, token.document.uuid];
   const spec = chainSpec(abilityOf(message));
-  await message.update({
-    [`flags.${DSTD}.state.targets`]: targets,
-    [`flags.${M}.${FLAG}`]: { picked, done: picked.length >= (spec?.links ?? 0) },
-  });
+  const chain = { [`flags.${M}.${FLAG}`]: { picked, done: picked.length >= (spec?.links ?? 0) } };
+  if (!dstdOn()) {
+    await (game.modules.get(M)?.api?.resultModifiers?.addTarget ?? addTargetResult)(message, token);
+    return message.update(chain);
+  }
+  const { normalizeTargetToken } = await import('/modules/draw-steel-target-damage/src/target-utils.mjs');
+  const targets = [...(message.flags?.[DSTD]?.state?.targets ?? []), normalizeTargetToken(token)];
+  await message.update({ [`flags.${DSTD}.state.targets`]: targets, ...chain });
 };
 
 const stop = (message) => message.update({ [`flags.${M}.${FLAG}`]: { ...stateOf(message), done: true } });
@@ -122,6 +127,7 @@ export function settleChainTargets(message) {
 }
 
 const waitForRow = async (msgId, uuid, ms = 3000) => {
+  if (!dstdOn()) return;
   const key = CSS.escape(String(uuid ?? '').replace(/\./g, '__'));
   const until = Date.now() + ms;
   while (Date.now() < until) {
@@ -130,12 +136,11 @@ const waitForRow = async (msgId, uuid, ms = 3000) => {
   }
 };
 
-const pickRow = (message, spec) => {
+const pickButton = (message, spec) => {
   const st = stateOf(message);
   const label = L('pick', { n: st.picked.length + 1, total: spec.links });
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = `${DSTD}-action-button ${DSTD}-stretch-button`;
   const icon = document.createElement('i');
   icon.className = 'fa-solid fa-link';
   const span = document.createElement('span');
@@ -149,6 +154,12 @@ const pickRow = (message, spec) => {
     const run = pickNextLink(game.messages.get(message.id) ?? message).finally(() => _settled.delete(message.id));
     _settled.set(message.id, run);
   });
+  return btn;
+};
+
+const pickRow = (message, spec) => {
+  const btn = pickButton(message, spec);
+  btn.classList.add(`${DSTD}-action-button`, `${DSTD}-stretch-button`);
   const row = document.createElement('div');
   row.className = `${DSTD}-action-row dsct-dstd-chain-pick`;
   row.append(btn);
@@ -164,4 +175,21 @@ export function registerChainTargets() {
     if (!pending(message, spec)) return;
     (panel.querySelector(`.${DSTD}-target-list`) ?? panel).append(pickRow(message, spec));
   } });
+  Hooks.on('renderChatMessageHTML', (message, html) => {
+    if (dstdOn() || !message.system?.parts || !canAct(message)) return;
+    const spec = chainSpec(abilityOf(message));
+    if (!pending(message, spec)) return;
+    const use = Array.from(message.system.parts.contents).find((p) => p.type === 'abilityUse');
+    const section = (use && html.querySelector(`section[data-message-part="${use.id}"]`)) ?? html.querySelector('section[data-message-part]');
+    if (!section) return;
+    let footer = section.querySelector('footer.message-part-buttons');
+    if (!footer) {
+      footer = document.createElement('footer');
+      footer.className = 'message-part-buttons';
+      section.append(footer);
+    }
+    const btn = pickButton(message, spec);
+    btn.classList.add('dsct-chain-pick');
+    footer.append(btn);
+  });
 }

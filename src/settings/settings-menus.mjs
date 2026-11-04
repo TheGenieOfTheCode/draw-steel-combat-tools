@@ -150,6 +150,7 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       'compactChatPills',
       'modifierEditors',
       'skipPillEditor',
+      'modifierBadge',
       header('Damage Rules'),
       'multiplierOverride',
       'noMultiplierStacking',
