@@ -34,6 +34,7 @@ const localTitle = (id) => {
 const recommended = () => {
   const out = [];
   for (const rel of listed('recommends')) {
+    if (rel.id === 'draw-steel-target-damage' && globalThis.ds?.CONFIG?.MessagePart?.targetResult) continue;
     const installed = game.modules.get(rel.id);
     const behind = !!(installed?.active && rel.version && foundry.utils.isNewerVersion(rel.version, installed.version));
     out.push({

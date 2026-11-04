@@ -56,7 +56,7 @@ import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgem
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills, addResultPill, addGlobalRollPills } from './compat/dstd-roll-pills.mjs';
 import { registerResultModifiers, resultModifiersApi, globalModifiersApi } from './compat/result-modifiers.mjs';
-import { registerDstdExtraDamage } from './compat/dstd-extra-damage.mjs';
+import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
 import { registerDstdApplyWord } from './compat/dstd-apply-word.mjs';
 import { registerDstdAfterEffects } from './compat/dstd-after-effects.mjs';
 import { registerChatTips } from './chat-tips.mjs';
@@ -66,6 +66,7 @@ import { registerWindedEffects } from './conditions/winded-effects.mjs';
 import {
   registerDstdDamagePills, openDamageEditor, foldDamagePills, damagePillDisplayList,
   damagePillText, damagePillEffect, damagePillType, damageTypeLabel, styleTypePill,
+  registerDamagePillProvider, setProviderPillEnabled,
 } from './compat/dstd-damage-pills.mjs';
 import { registerHealthEstimateCompat } from './compat/health-estimate-compat.mjs';
 import { registerResourcesUiCompat } from './compat/resources-ui-compat.mjs';
@@ -195,6 +196,12 @@ const api = {
     pillType: damagePillType,
     typeLabel: damageTypeLabel,
     styleTypePill,
+    registerProvider: registerDamagePillProvider,
+    setEnabled: setProviderPillEnabled,
+  },
+  extraDamage: {
+    add: addExtraDamage,
+    setEnabled: setExtraDamageEnabled,
   },
   resultModifiers: resultModifiersApi,
   globalModifiers: globalModifiersApi,

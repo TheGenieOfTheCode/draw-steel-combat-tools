@@ -829,6 +829,7 @@ export function checkAndRunSquadTargeting(dialog) {
 
   if (!getSetting('squadToolsEnabled')) return null;
   if (!getSetting('groupActionsEnabled')) return null;
+  if (!game.modules.get('draw-steel-target-damage')?.active && !_onSystemCards()) return null;
 
   const actor = ability.actor ?? ability.parent;
   if (!actor?.system?.isMinion) return null;

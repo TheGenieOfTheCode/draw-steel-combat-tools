@@ -15,7 +15,8 @@ function pill(id, kind, amount, reason, src, scope, dsNative = false) {
   return { id, kind, amount, reason, src, srcTokenId: null, srcTokenIds: [], srcAbility: null, scope, enabled: true, custom: false, dsNative };
 }
 
-const _systemRollToken = (actor) => (canvas.tokens?.controlled[0]?.actor === actor ? canvas.tokens.controlled[0] : null);
+const _systemCounts = () => !!globalThis.ds?.CONFIG?.MessagePart?.targetResult;
+const _systemRollToken = (actor) => (_systemCounts() && canvas.tokens?.controlled[0]?.actor === actor ? canvas.tokens.controlled[0] : null);
 
 export const TIER_KINDS = new Set(['tier', 'autoTier', 'tierFloor', 'tierCeiling']);
 
@@ -200,7 +201,7 @@ function _buildGlobalPills(actor, ability = null) {
     }
   }
   
-  if (actor.statuses?.has('prone') && keywords.has('strike')) pills.push(pill(mkId('pr'), 'bane', 1, 'Prone', null, 'global', true));
+  if (actor.statuses?.has('prone') && keywords.has('strike')) pills.push(pill(mkId('pr'), 'bane', 1, 'Prone', null, 'global', _systemCounts()));
   return pills;
 }
 
