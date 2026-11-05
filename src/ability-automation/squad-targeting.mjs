@@ -652,13 +652,16 @@ export async function applySquadMapToCard(message, targetMap) {
   return added;
 }
 
+const _groupActionsLive = () => getSetting('squadToolsEnabled') && getSetting('groupActionsEnabled')
+  && (!!game.modules.get('draw-steel-target-damage')?.active || _onSystemCards());
+
 function _suppressSystemMinions() {
   const cls = globalThis.ds?.applications?.apps?.AbilityConfigurationDialog;
   const desc = cls && Object.getOwnPropertyDescriptor(cls.prototype, 'squad');
   if (!desc?.get) return;
   Object.defineProperty(cls.prototype, 'squad', {
     configurable: true,
-    get() { return getSetting('groupActionsEnabled') ? null : desc.get.call(this); },
+    get() { return getSetting('abilityAutomationEnabled') && _groupActionsLive() ? null : desc.get.call(this); },
   });
 }
 
@@ -827,9 +830,7 @@ export function checkAndRunSquadTargeting(dialog) {
   }
   _squadTargeted.delete(ability.uuid);
 
-  if (!getSetting('squadToolsEnabled')) return null;
-  if (!getSetting('groupActionsEnabled')) return null;
-  if (!game.modules.get('draw-steel-target-damage')?.active && !_onSystemCards()) return null;
+  if (!_groupActionsLive()) return null;
 
   const actor = ability.actor ?? ability.parent;
   if (!actor?.system?.isMinion) return null;

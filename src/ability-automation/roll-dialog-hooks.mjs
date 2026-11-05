@@ -173,14 +173,15 @@ export const EXTRA_DICE_FLAG = 'flags.draw-steel-combat-tools.extraDice';
 
 function _effectDice(eff, keywords) {
   const changes = (eff.system?.changes?.length ? eff.system.changes : eff.changes) ?? [];
-  let net = changes.filter(c => c.key === EXTRA_DICE_FLAG).reduce((n, c) => n + (Math.trunc(Number(c.value)) || 0), 0);
+  const own = changes.filter(c => c.key === EXTRA_DICE_FLAG).reduce((n, c) => n + (Math.trunc(Number(c.value)) || 0), 0);
+  let modifier = 0;
   if (eff.type === 'abilityModifier' && [...(eff.system?.filters?.keywords ?? [])].every(k => keywords.has(k))) {
     const number = changes.find(c => c.key === 'power.roll.dice.number');
     const extra = Math.max(0, (Math.trunc(Number(number?.value)) || 2) - 2);
     const low = changes.find(c => c.key === 'power.roll.dice.mode')?.value === 'kl';
-    net += low ? -extra : extra;
+    modifier = low ? -extra : extra;
   }
-  return net;
+  return { own, modifier };
 }
 
 function _buildGlobalPills(actor, ability = null) {
@@ -191,8 +192,11 @@ function _buildGlobalPills(actor, ability = null) {
 
   const keywords = ability ? chooseKeywords(ability) : new Set();
   for (const eff of actor.appliedEffects ?? []) {
-    const dice = _effectDice(eff, keywords);
-    if (dice) pills.push(pill(mkId(`ae-d-${eff.id}`), 'dice', dice, eff.name, null, 'global'));
+    const { own, modifier } = _effectDice(eff, keywords);
+    if (_systemCounts()) {
+      if (own) pills.push(pill(mkId(`ae-d-${eff.id}`), 'dice', own, eff.name, null, 'global'));
+      if (modifier) pills.push(pill(mkId(`ae-dn-${eff.id}`), 'dice', modifier, eff.name, null, 'global', true));
+    } else if (own + modifier) pills.push(pill(mkId(`ae-d-${eff.id}`), 'dice', own + modifier, eff.name, null, 'global'));
     if (eff.type !== 'abilityModifier') continue;
     for (const ch of eff.changes ?? []) {
       const amt = Math.abs(parseInt(ch.value) || 1);
