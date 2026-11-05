@@ -1,4 +1,4 @@
-import { getSetting, rangeEnforced, tokFootprintDist, getItemRange, hasSightToToken, sightLinesToToken, isSelfAndSelf } from '../helpers.mjs';
+import { getSetting, rangeEnforced, tokFootprintDist, getItemRange, reachBeforeDialog, hasSightToToken, sightLinesToToken, isSelfAndSelf } from '../helpers.mjs';
 import { chooseTargeting } from './choose-effect.mjs';
 import {
   setRaisedDeadVisible,
@@ -17,19 +17,14 @@ import { peekSpaces, wallAdjacent, peekTo, peekEffect, isPeeking, unpeek } from 
 import { beginPickerOverlay, setPickerArrow, setPickerTarget, removePickerArrow, removePickerTarget, clearPickerArrows } from './picker-overlay.mjs';
 import { chainSpec, chainColors, chainCell } from './chain-targets.mjs';
 
-
-
 const _dsctPreTargeted = new Set();
-
 
 const _repicked = new Set();
 
 export const clearRepickStamp = (uuid) => { if (uuid) _repicked.delete(uuid); };
 
-
 export const spendTargets = (ability) => ability?.getFlag?.('draw-steel-combat-tools', 'spendTargets') ?? null;
 const _extraTargets = (ability) => Math.max(0, Number(spendTargets(ability)?.max) || 0);
-
 
 const _reachesThroughOpening = (ability) => !!ability?.getFlag?.('draw-steel-combat-tools', 'openingReach') && !!openingPath;
 
@@ -50,7 +45,6 @@ Hooks.on('renderAbilityConfigurationDialog', (app) => {
   picker.dispatchEvent(new Event('change', { bubbles: true }));
 });
 
-
 export const isTriggeredAbility = (ability) =>
   !!ds.CONFIG?.abilities?.types?.[ability?.system?.type]?.triggered;
 
@@ -62,9 +56,6 @@ const _hasAnySightTo = (casterToken, targetToken, shift = null) => hasSightToTok
 const _defeatedStatus = () => CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
 const _isDefeated     = (t) => t.actor?.statuses?.has(_defeatedStatus()) ?? false;
 const _hidingDefeated = () => services.get('isHidingDefeated')?.() ?? false;
-
-
-
 
 function _isSelfOnly(ability, view) {
   if (!isSelfAndSelf(ability, view)) return false;
@@ -81,13 +72,12 @@ function _isSelfOnly(ability, view) {
 
 const _cancelTriggeredUse = (ability) => game.modules.get('draw-steel-triggers')?.api?.noteUseCancelled?.(ability.uuid);
 
-
 function _runTriggeredPicker(ability, view) {
   const casterToken = _getCasterToken(ability);
   if (!casterToken) return null;
   const target = view?.target ?? ability.system.target;
   const count  = Math.max(1, Number(target?.value) || 1) + _extraTargets(ability);
-  const range  = getItemRange(ability, view?.distance);
+  const range  = reachBeforeDialog(ability, view?.distance);
   const valid  = _getValidTargets(casterToken, target?.type ?? 'creature', range, { checkLOS: true, opening: _reachesThroughOpening(ability) });
   const validIds = new Set(valid.map(t => t.id));
   const chosen = [...game.user.targets];
@@ -110,7 +100,6 @@ function _runTriggeredPicker(ability, view) {
   });
   return 'block';
 }
-
 
 const SQUAD_SELF_ABILITIES = new Set(['do-not-hesitate-in-the-wode']);
 
@@ -341,7 +330,7 @@ async function _runTargetPicker(ability, casterToken, { maxTargets: maxOverride 
   
   const maxTargets  = (Number(target.value) || maxOverride || 1) + _extraTargets(ability);
   const targetType  = target.type;
-  const range       = getItemRange(ability, view?.distance);
+  const range       = reachBeforeDialog(ability, view?.distance);
   const isRangeEnforced = rangeEnforced();
   const needsReveal = /object/i.test(targetType);
   const isStrike    = keywords?.has('strike') ?? false;
@@ -726,9 +715,6 @@ export async function runMultiTokenPicker({ candidates = null, hint = null, maxT
   });
 }
 
-
-
-
 export function _addPickerReticle(token, color, alphaMult = 1) {
   setPickerArrow(token, color, alphaMult);
 }
@@ -749,8 +735,6 @@ export function _clearPickerReticles() {
   clearPickerArrows();
 }
 
-
-
 function _syncReticles(tokens, selectedIds, hoveredId) {
   for (const t of tokens) {
     if (selectedIds?.has(t.id)) { setPickerTarget(t); removePickerArrow(t); }
@@ -758,8 +742,6 @@ function _syncReticles(tokens, selectedIds, hoveredId) {
     else { removePickerArrow(t); removePickerTarget(t); }
   }
 }
-
-
 
 const EACH_TYPES = new Set(['creature', 'enemy', 'ally', 'object', 'creatureObject', 'enemyObject', 'selfAlly']);
 const _carries = (actor, name) => !!actor?.effects?.some(e => e.active && e.name === name);
@@ -790,7 +772,6 @@ function _restoreTargetsAfterUse(abilityUuid, previous) {
 }
 
 export const casterTokenFor = (ability) => _getCasterToken(ability);
-
 
 export async function pickTargetsFor(ability) {
   if (!_isPickerEligible(ability, chooseTargeting(ability))) return undefined;
@@ -909,7 +890,7 @@ export function checkAndRunTargetPicker(dialog) {
 
   const target   = view?.target ?? ability.system.target;
   const keywords = view?.keywords ?? ability.system?.keywords;
-  const range    = getItemRange(ability, view?.distance);
+  const range    = reachBeforeDialog(ability, view?.distance);
   const isStrike    = keywords?.has('strike') ?? false;
   const excludeSelf = isStrike || (keywords?.has('weapon') ?? false);
   const opening     = _reachesThroughOpening(ability);

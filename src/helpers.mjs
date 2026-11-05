@@ -1,5 +1,5 @@
 import { config, services, executeAsDirector } from './ctlib.mjs';
-import { GRID, canCurrentlyFly, chooseFreeSquare, getSquadGroup, safeToggleStatusEffect, safeUpdate, sizeRank, tierOf, toGrid, tokenAt } from './ctlib.mjs';
+import { GRID, canCurrentlyFly, chooseFreeSquare, getItemRange, getSquadGroup, safeToggleStatusEffect, safeUpdate, sizeRank, tierOf, toGrid, tokenAt } from './ctlib.mjs';
 
 export {
   BASE_MATERIALS, COVER_KEY, CTLIB_SCOPE, DELETE_MARKER, GRID, LEGACY_SCOPE, LOE_KEY, MATERIAL_ALPHA, MATERIAL_ICONS,
@@ -35,6 +35,16 @@ const MASTER_TOGGLE = {
 
 export const HANDED_TO_TRIGGERS = new Set(['judgementAutomation', 'markAutomation']);
 export const movesGranted = () => CONFIG.TextEditor.enrichers.some((e) => e.id === 'dsm.grant');
+
+export const systemSwapsMeleeRanged = () => !!globalThis.ds?.applications?.apps?.AbilityConfigurationDialog?.DEFAULT_OPTIONS?.actions?.swapMeleeRanged;
+
+export const reachBeforeDialog = (ability, distance = null) => {
+  const dist = distance ?? ability?.system?.distance;
+  if (dist?.type === 'meleeRanged' && systemSwapsMeleeRanged()) {
+    return Math.max(parseInt(dist.primary) || 0, parseInt(dist.secondary) || 0);
+  }
+  return getItemRange(ability, distance);
+};
 export const triggersHandlesClassTriggers = () => !!game.modules.get('draw-steel-triggers')?.active
   && game.settings.settings.has('draw-steel-triggers.featureTriggers')
   && game.settings.get('draw-steel-triggers', 'featureTriggers') !== false;

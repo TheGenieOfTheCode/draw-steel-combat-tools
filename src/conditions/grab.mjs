@@ -1,5 +1,5 @@
 import { services, isPrimaryGM } from '../ctlib.mjs';
-import { getSetting, rangeEnforced, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf, noLogFlag } from '../helpers.mjs';
+import { getSetting, rangeEnforced, reachBeforeDialog, systemSwapsMeleeRanged, safeCreateEmbedded, safeDelete, safeUpdate, canForcedMoveTarget, getTokenById, getWindowById, getItemDsid, tokFootprintDist, getItemRange, chooseFreeSquare, toWorld, confirmRangeOverride, isSelfAndSelf, noLogFlag } from '../helpers.mjs';
 import { triggerGrabberFreeStrike, resolveEscapeChatMessage, resolveGrabConfirmChatMessage } from '../chat-integration.mjs';
 import { checkAndRunChoose, clearChoicePicks, chooseTargeting } from '../ability-automation/choose-effect.mjs';
 import { stackedPrompt, tierFor } from '../ctlib.mjs';
@@ -15,7 +15,6 @@ import { createStatusEffect, effectSourceUuids, tokenOfActor, GRABBER_IMG } from
 const M = 'draw-steel-combat-tools';
 
 const TIMEOUT_MS = 60_000;
-
 
 export const sizeRankG = (size) =>
   size.value >= 2 ? size.value + 2 : ({ T: 0, S: 1, M: 2, L: 3 })[size.letter] ?? 2;
@@ -40,7 +39,6 @@ export const buildFreeStrikeButton = (actor, targetTokenId = null) => {
   const dmg = actor?.system.monster?.freeStrike;
   return dmg !== undefined ? `[[/damage ${dmg}]]{Free Strike (${dmg} damage)}` : `<em>(No Melee Free Strike found)</em>`;
 };
-
 
 export const grabUiState = { pendingConfirm: null, pendingEscape: null };
 
@@ -642,7 +640,6 @@ export const handleGrabListClick = async (e) => {
   return false;
 };
 
-
 export const toggleGrabPanel = () => {
   if (!getSetting('conditionsEnabled')) return;
   const existing = getWindowById('dsct-dc-panel');
@@ -664,7 +661,6 @@ function _isKnockbackGrabbed(dialog) {
   ui.notifications.warn(game.i18n.format('DSCT.notice.grab.knockbackWhileGrabbed', { name: casterToken.name }));
   return true;
 }
-
 
 const _rangeWarned = new WeakMap();
 const _rangeExempt = new Map();
@@ -693,7 +689,7 @@ function _checkAbilityRange(dialog, { warnOnly = false } = {}) {
   const _actor = ability.actor ?? ability.parent;
   if (_actor?.system?.isMinion && ability.system?.category === 'signature') return null;
 
-  const range = getItemRange(ability, view?.distance);
+  const range = warnOnly ? getItemRange(ability, view?.distance) : reachBeforeDialog(ability, view?.distance);
   if (!range || isNaN(range)) return null;
 
   const actor       = ability.actor ?? ability.parent;
@@ -732,6 +728,7 @@ function _checkMeleeRangedChoice(dialog) {
   const ability = dialog.options?.ability;
   if (!ability) return null;
   if (ability.system?.distance?.type !== 'meleeRanged') return null;
+  if (systemSwapsMeleeRanged()) return null;
   if (isTriggeredAbility(ability)) return null;
 
   const stamp = _mrChosen.get(ability.uuid);
@@ -761,6 +758,28 @@ function _checkMeleeRangedChoice(dialog) {
   return 'block';
 }
 
+function _preselectRangedIfNeeded(dialog) {
+  const ability = dialog.options?.ability;
+  const dist = ability?.system?.distance;
+  if (dist?.type !== 'meleeRanged' || !systemSwapsMeleeRanged()) return;
+  if ((ability.system.damageDisplay ?? 'melee') === 'ranged') return;
+  const melee = parseInt(dist.primary) || 0;
+  if (!melee) return;
+
+  const actor = ability.actor ?? ability.parent;
+  const caster = canvas.tokens?.controlled.find(t => t.actor?.id === actor?.id)
+              ?? canvas.tokens?.placeables.find(t => t.actor?.id === actor?.id);
+  if (!caster) return;
+  const reach = melee * canvas.grid.distance;
+  if (![...game.user.targets].some(t => t.id !== caster.id && tokFootprintDist(caster, t) >= reach)) return;
+
+  (async () => {
+    await ability.update({ 'system.damageDisplay': 'ranged' });
+    for (let i = 0; i < 20 && !dialog.rendered && !dialog.closing; i++) await new Promise(r => setTimeout(r, 50));
+    if (dialog.rendered) dialog.render({ parts: ['ability'] });
+  })();
+}
+
 export function registerKnockbackGuard() {
   Hooks.on('closeAbilityConfigurationDialog', (app) => {
     const uuid = app.options?.ability?.uuid;
@@ -787,6 +806,7 @@ export function registerKnockbackGuard() {
     }
     if (getSetting('abilityAutomationEnabled') && checkAndRunSquadTargeting(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && checkAndRunTargetPicker(app) === 'block') return false;
+    if (getSetting('abilityAutomationEnabled')) _preselectRangedIfNeeded(app);
   });
 }
 
