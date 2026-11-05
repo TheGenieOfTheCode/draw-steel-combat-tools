@@ -66,7 +66,7 @@
     "description": "",
     "before": false,
     "flatApplied": {
-     "displayText": "Cannot hide (EoT)",
+     "displayText": "Cannot hide until your next turn",
      "potency": {
       "characteristic": "",
       "strength": "",
@@ -74,8 +74,8 @@
      },
      "statusId": "dsctRevelator001",
      "exclusiveSelf": false,
-     "end": "turn",
-     "properties": [],
+     "end": "",
+     "properties": ["originDuration"],
      "spend": {
       "enabled": false,
       "value": 1
@@ -107,10 +107,10 @@
    "duration": {
     "value": null,
     "units": "seconds",
-    "expiry": "turnEnd",
+    "expiry": "turnStart",
     "expired": false
    },
-   "description": "<p>Each target cannot hide until the end of the turn. Revealing creatures that are already hidden is done from the Hide card.</p><p><em>Draw Steel: Heroes p. 84.</em></p>",
+   "description": "<p>Each target cannot hide until the start of the censor’s next turn. Revealing creatures that are already hidden is done from the Hide chat message.</p><p><em>Draw Steel: Heroes p. 84.</em></p>",
    "origin": null,
    "tint": "#ffffff",
    "transfer": false,

@@ -9,6 +9,7 @@ import { setTip, tipFor } from '../chat-tips.mjs';
 import { takeRecovery } from '../bonds.mjs';
 import { cleanseMatches } from '../advanced-enrichers/ct-enrichers.mjs';
 import { recoverySpender } from './recovery-spender.mjs';
+import { originRollChanges } from '../conditions/apply-to-targets.mjs';
 
 const { SchemaField, SetField, StringField, NumberField, BooleanField } = foundry.data.fields;
 const MODULE_ID = "draw-steel-combat-tools";
@@ -1186,8 +1187,11 @@ function _buildAppliedButton(effect, item) {
   btn.dataset.actorUuid    = item?.actor?.uuid ?? "";
   btn.dataset.spendEnabled = String(spend?.enabled ?? false);
   btn.dataset.spendValue   = String(spend?.value ?? 1);
-  btn.dataset.stack        = String(flatAppliedStacks(effect));
-  btn.dataset.end          = effect.flatApplied.end ?? "";
+  const opts = flatAppliedOptions(effect);
+  btn.dataset.stack          = String(opts.stack);
+  btn.dataset.end            = opts.end;
+  btn.dataset.originDuration = String(opts.originDuration);
+  btn.dataset.originRollData = String(opts.originRollData);
   btn.innerHTML = `${iconHtml} ${(label ?? statusId) + spendSuffix}`;
   return btn;
 }
@@ -1564,16 +1568,29 @@ export function flatAppliedSourceToken(item, message) {
   return item?.actor?.getActiveTokens?.()?.[0]?.id ?? null;
 }
 
+const flatAppliedProps = (effect) => new Set(effect?.flatApplied?.properties ?? []);
+
 export const flatAppliedStacks = (effect) => {
-  const props = effect?.flatApplied?.properties;
-  return !!(props?.has?.('stack') ?? Array.from(props ?? []).includes('stack'));
+  const props = flatAppliedProps(effect);
+  return props.has('stack') || props.has('stacking');
 };
 
-export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenId = null, { stack = false, end = '' } = {}) {
+export const flatAppliedOptions = (effect) => {
+  const props = flatAppliedProps(effect);
+  return {
+    stack: flatAppliedStacks(effect),
+    end: effect?.flatApplied?.end ?? '',
+    originDuration: props.has('originDuration'),
+    originRollData: props.has('originRollData'),
+  };
+};
+
+export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenId = null, { stack = false, end = '', originDuration = false, originRollData = false } = {}) {
   if (!actor || !statusId) return false;
   const endEvent = ds.CONFIG.effectEnds?.[end]?.expiryEvent ?? null;
+  const timer = originDuration && item?.actor ? item.actor : actor;
   if (isRegisteredStatus(statusId)) {
-    if (endEvent) await applyStatus(actor, statusId, { end });
+    if (endEvent) await applyStatus(actor, statusId, { end, data: timer !== actor ? { start: effectStartFor(timer) } : null });
     else await safeToggleStatusEffect(actor, statusId, { active: true });
     return true;
   }
@@ -1615,6 +1632,8 @@ export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenI
         try { change.value = String(ds.utils.evaluateFormula(String(change.value), rollData, { contextName: item.uuid })); } catch {}
       }
     }
+  } else if (originRollData && item && data.system?.changes) {
+    data.system.changes = await originRollChanges(data.system.changes, item);
   }
   const reminder = source.getFlag?.(MODULE_ID, 'expiryReminder');
   const giver = item?.actor ?? null;
@@ -1623,7 +1642,9 @@ export async function applyFlatAppliedEffect(actor, statusId, item, sourceTokenI
     foundry.utils.setProperty(data, `flags.${MODULE_ID}.expiryReminderOwner`, giver.uuid);
   } else if (endEvent) {
     data.duration = { expiry: endEvent };
-    data.start = effectStartFor(actor);
+    data.start = effectStartFor(timer);
+  } else if (data.duration?.expiry) {
+    data.start = effectStartFor(timer);
   }
   const [created] = (await safeCreateEmbedded(actor, 'ActiveEffect', [data])) ?? [];
   if (reminder && giver && created) await createExpiryReminder(giver, created, reminder, actor);
@@ -1798,7 +1819,10 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
 
       for (const target of targets) {
         if (!target.actor) continue;
-        await applyFlatAppliedEffect(target.actor, statusId, item, flatAppliedSourceToken(item, message), { stack: btn.dataset.stack === "true", end: btn.dataset.end });
+        await applyFlatAppliedEffect(target.actor, statusId, item, flatAppliedSourceToken(item, message), {
+          stack: btn.dataset.stack === "true", end: btn.dataset.end,
+          originDuration: btn.dataset.originDuration === "true", originRollData: btn.dataset.originRollData === "true",
+        });
       }
     });
   });

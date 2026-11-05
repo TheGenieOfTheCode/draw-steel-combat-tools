@@ -24,6 +24,7 @@ export async function applyEnricherPayload(payload) {
   const origin = payload.origin ? fromUuidSync(payload.origin) : null;
   const originActor = origin?.documentName === 'Actor' ? origin : origin?.actor;
   if (originActor && temp.getFlag(M, 'casterValues')) temp.updateSource({ 'system.changes': casterValues(temp.system.changes, originActor, origin) });
+  else if (origin && payload.originRollData) temp.updateSource({ 'system.changes': await originRollChanges(temp.system._source.changes, origin) });
   const reminder = originActor && payload.type === 'custom' ? temp.getFlag(M, 'expiryReminder') : null;
   let combatant = payload.originDuration ? game.combat?.getCombatantsByActor(originActor)[0] ?? '' : null;
   const toDelete = [];
@@ -61,6 +62,13 @@ export async function applyEnricherPayload(payload) {
   return toCreate.length;
 }
 
+export const originRollChanges = async (changes, origin) => {
+  const AE = CONFIG.ActiveEffect.documentClass;
+  if (typeof AE.forApplication === 'function') return AE.forApplication(changes, origin?.getRollData?.() ?? {});
+  const actor = origin?.documentName === 'Actor' ? origin : origin?.actor;
+  return actor ? casterValues(changes, actor, origin) : changes;
+};
+
 const casterValues = (changes, actor, item) => {
   const rollData = actor.getRollData?.() ?? {};
   return changes.map((c) => {
@@ -93,7 +101,7 @@ export async function applyLinkTo(link, tokens) {
   const d = link.dataset;
   const payload = {
     type: d.type, uuid: d.uuid, status: d.status, origin: d.origin, end: d.end,
-    stacking: d.stacking ?? '', originDuration: d.originDuration ?? '',
+    stacking: d.stacking ?? '', originDuration: d.originDuration ?? '', originRollData: d.originRollData ?? '',
     actorUuids: [...new Set(tokens.map((t) => t.actor.uuid))],
   };
   const sourced = await sourcedStatusOf(d);
