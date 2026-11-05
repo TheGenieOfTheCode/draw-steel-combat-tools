@@ -8,7 +8,7 @@ import { _fmBaseStateFromBtn, _fmMakeLabel } from '../system-patches.mjs';
 import { RESULT_MENU, APPLY, DAMAGE_TYPES, addTargetResult } from '../ctlib.mjs';
 import { hasRecurring } from '../conditions/recurring-damage.mjs';
 import { pillAmountLabel, pillCss, EFFECT_END_LABELS } from '../ability-automation/roll-dialog-hooks.mjs';
-import { getSetting, getWindowById } from '../helpers.mjs';
+import { getSetting, getWindowById, mentorOf } from '../helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG = 'resultMods';
@@ -26,8 +26,7 @@ const plural = (n, one, many, data = {}) => (n === 1 ? L(one, data) : L(many, { 
 
 function surgeSource(part) {
   let src = part.ability?.actor ?? null;
-  if (src?.type === 'retainer') src = src.system?.retainer?.mentor ?? null;
-  if (src?.type === 'draw-steel-companion.companion') src = src.system?.retainer?.mentor ?? null;
+  if (src && src.type !== 'hero') src = mentorOf(src);
   return src?.type === 'hero' ? src : null;
 }
 

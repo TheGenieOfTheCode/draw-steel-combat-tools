@@ -1,4 +1,4 @@
-import { getSetting } from './helpers.mjs';
+import { getSetting, mentorOf } from './helpers.mjs';
 import { fireStartTurn, fireEndTurn } from './squad-turns.mjs';
 import { isPrimaryGM } from './ctlib.mjs';
 
@@ -10,11 +10,11 @@ function getPairPartners(combatant, combat) {
   if (!actor) return [];
   
   
-  const ownMentorId = actor.system?.retainer?.mentor?.id ?? null;
+  const ownMentorId = mentorOf(actor)?.id ?? null;
   const mentorActorId = ownMentorId ?? actor.id;
   return combat.combatants.filter(c => {
     if (c.id === combatant.id) return false;
-    const theirMentorId = c.actor?.system?.retainer?.mentor?.id ?? null;
+    const theirMentorId = mentorOf(c.actor)?.id ?? null;
     if (theirMentorId && theirMentorId === mentorActorId) return true;
     return !!ownMentorId && c.actor?.id === ownMentorId;
   });
@@ -34,7 +34,7 @@ export function registerPairTurnHooks() {
     const el = html instanceof HTMLElement ? html : html[0];
     if (!el || !game.combat) return;
     for (const combatant of game.combat.combatants) {
-      const mentorId = combatant.actor?.system?.retainer?.mentor?.id ?? null;
+      const mentorId = mentorOf(combatant.actor)?.id ?? null;
       if (!mentorId) continue;
       if (!game.combat.combatants.some(c => c.actor?.id === mentorId)) continue;
       const row = el.querySelector(`.combatant[data-combatant-id="${combatant.id}"]`);

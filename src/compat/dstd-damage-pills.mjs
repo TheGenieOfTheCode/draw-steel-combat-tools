@@ -1,5 +1,5 @@
 import { DSTD, registerPanelDecorator, isPrimaryGM, safeUpdate } from '../ctlib.mjs';
-import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
+import { getSetting, getModuleApi , dropKeyOverSocket, mentorOf } from '../helpers.mjs';
 import { chooseMessageFilter } from '../ability-automation/choose-effect.mjs';
 import { markAreaCaps } from './dstd-area-cap.mjs';
 import { compactPillHTML } from './pill-compact.mjs';
@@ -639,8 +639,7 @@ async function _resolveSurgeContext(message, state) {
   let src = null;
   if (state.sourceActorUuid) src = await fromUuid(state.sourceActorUuid).catch(() => null);
   if (!src && state.abilityUuid) src = (await fromUuid(state.abilityUuid).catch(() => null))?.actor ?? null;
-  if (src?.type === 'retainer') src = src.system?.retainer?.mentor ?? null;
-  if (src?.type === 'draw-steel-companion.companion') src = src.system?.retainer?.mentor ?? null;
+  if (src && src.type !== 'hero') src = mentorOf(src);
   if (src?.type !== 'hero') return null;
   const types = String(foundry.utils.getProperty(src, `flags.${M}.surgeTypes`) ?? '').split(/[\s,|]+/)
     .filter((t) => t && t in (globalThis.ds?.CONFIG?.damageTypes ?? {}));

@@ -36,6 +36,8 @@ const MASTER_TOGGLE = {
 export const HANDED_TO_TRIGGERS = new Set(['judgementAutomation', 'markAutomation']);
 export const movesGranted = () => CONFIG.TextEditor.enrichers.some((e) => e.id === 'dsm.grant');
 
+export const mentorOf = (actor) => actor?.system?.retainer?.mentor ?? actor?.system?.companion?.master ?? null;
+
 export const systemSwapsMeleeRanged = () => !!globalThis.ds?.applications?.apps?.AbilityConfigurationDialog?.DEFAULT_OPTIONS?.actions?.swapMeleeRanged;
 
 export const reachBeforeDialog = (ability, distance = null) => {

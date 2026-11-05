@@ -1,4 +1,4 @@
-import { getSetting } from './helpers.mjs';
+import { getSetting, mentorOf } from './helpers.mjs';
 import { isPrimaryGM } from './ctlib.mjs';
 import { onCombatantTurnStart } from './conditions/recurring-damage.mjs';
 
@@ -213,7 +213,7 @@ const _GLOW_TINTS = {
 
 function _resolveGlowColor(combatant, groupId) {
   if (!getSetting('squadGlowMarkerColored')) return 0xffffff;
-  const colorActorId = combatant?.actor?.system?.retainer?.mentor?.id ?? combatant?.actor?.id;
+  const colorActorId = mentorOf(combatant?.actor)?.id ?? combatant?.actor?.id;
   const playerUser = game.users?.find(u => u.character?.id === colorActorId);
   if (playerUser) return Number(playerUser.color.valueOf?.() ?? playerUser.color);
   const grp = game.combat?.groups?.get(groupId);

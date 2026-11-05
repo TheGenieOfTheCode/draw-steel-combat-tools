@@ -1,10 +1,10 @@
-import { getSetting } from '../helpers.mjs';
+import { getSetting, mentorOf } from '../helpers.mjs';
 import { L, partyMembers } from './overview.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG = 'partySetup';
 const LOOKBACK = 15;
-const COMPANION = 'draw-steel-companion.companion';
+const COMPANIONS = new Set(['companion', 'draw-steel-companion.companion']);
 
 const _party = () => game.actors?.party ?? game.actors?.find(a => a.type === 'party') ?? null;
 
@@ -19,8 +19,8 @@ export function expectedMembers() {
   
   
   for (const actor of game.actors) {
-    if (actor.type !== COMPANION) continue;
-    const mentor = actor.system?.retainer?.mentor;
+    if (!COMPANIONS.has(actor.type)) continue;
+    const mentor = mentorOf(actor);
     if (mentor && out.has(mentor.id)) out.set(actor.id, actor);
   }
 
