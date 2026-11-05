@@ -2337,14 +2337,14 @@
         "gmOnlyDistribute": "Only the GM can distribute abilities.",
         "enhancedPackNotFound": "DSCT Enhanced Abilities compendium not found.",
         "enhancedFailed": "{failed} actor(s) could not take the Enhanced Abilities; see the console.",
-        "enhancedRefreshed": "{refreshed} actor(s) had an existing Enhanced Ability brought up to date.",
+        "enhancedSummary": "Enhanced Abilities: added to {added} actor(s), brought up to date on {refreshed}, already up to date on {current}.",
         "enhancedSwapped": "{swapped} item(s) were swapped for their enhanced version; see the console for the list.",
         "enhancedKeptCurrent": "Enhanced Abilities: {count} actor(s) brought up to date on load.",
         "enhancedRepaired": "Enhanced Abilities: repaired {count} actor(s) whose entries did not import correctly.",
         "abilitiesPackNotFound": "Could not find the draw-steel.abilities compendium.",
         "knockbackNotFound": "Could not find Knockback in the abilities pack.",
         "cancelled": "Cancelled.",
-        "updatedActors": "Done. Updated {added} actor{s}, skipped {skipped} (already complete)."
+        "updatedActors": "Done. Added the missing abilities to {added} actor{s}; {skipped} already had them all."
       },
       "chat": {
         "modifierAlreadyApplied": "A modifier named \"{name}\" is already applied. Remove the existing one first or use a different name.",

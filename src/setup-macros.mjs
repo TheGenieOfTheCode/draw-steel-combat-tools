@@ -558,13 +558,14 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
     return touched;
   };
 
-  let added = 0, skipped = 0, failed = 0, refreshed = 0;
+  let added = 0, skipped = 0, current = 0, failed = 0, refreshed = 0;
   for (const actor of targets) {
     const have = new Set(actor.items.map(i => i.system?._dsid));
     const missing = givenOut.filter(d => !have.has(d.system._dsid));
     try {
-      if (await refresh(actor)) refreshed++;
-      if (!missing.length) { skipped++; continue; }
+      const touched = await refresh(actor);
+      if (touched) refreshed++;
+      if (!missing.length) { skipped++; if (!touched) current++; continue; }
       await actor.createEmbeddedDocuments('Item', missing.map(_stamped));
       added++;
     } catch (err) {
@@ -589,8 +590,7 @@ export const distributeEnhancedAbilities = async ({ actors = null, silent = fals
 
   if (swapped.length) console.log('DSCT | enhanced | swapped for the enhanced version:', swapped);
   if (!silent) {
-    ui.notifications.info(game.i18n.format('DSCT.notice.macros.updatedActors', { added, s: added !== 1 ? 's' : '', skipped }));
-    if (refreshed) ui.notifications.info(game.i18n.format('DSCT.notice.macros.enhancedRefreshed', { refreshed }));
+    ui.notifications.info(game.i18n.format('DSCT.notice.macros.enhancedSummary', { added, refreshed, current }));
     if (swapped.length) ui.notifications.info(game.i18n.format('DSCT.notice.macros.enhancedSwapped', { swapped: swapped.length }));
     if (failed) ui.notifications.warn(game.i18n.format('DSCT.notice.macros.enhancedFailed', { failed }));
   }
