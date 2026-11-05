@@ -8,7 +8,7 @@ import { _fmBaseStateFromBtn, _fmMakeLabel } from '../system-patches.mjs';
 import { RESULT_MENU, APPLY, DAMAGE_TYPES, addTargetResult } from '../ctlib.mjs';
 import { hasRecurring } from '../conditions/recurring-damage.mjs';
 import { pillAmountLabel, pillCss, EFFECT_END_LABELS } from '../ability-automation/roll-dialog-hooks.mjs';
-import { getSetting, getWindowById, mentorOf } from '../helpers.mjs';
+import { getSetting, getWindowById, mentorOf, spendBeyondCost } from '../helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG = 'resultMods';
@@ -23,6 +23,18 @@ const modsOf = (part) => foundry.utils.deepClone(part.message.getFlag(M, `${FLAG
 const live = (pills) => (pills ?? []).filter((p) => p.enabled !== false && p.kind !== 'note');
 const stagedSurges = (pills) => (pills ?? []).filter((p) => p.kind === 'surge' && p.enabled !== false).length;
 const plural = (n, one, many, data = {}) => (n === 1 ? L(one, data) : L(many, { ...data, n }));
+
+function fmBaseForTarget(btn, part) {
+  const base = _fmBaseStateFromBtn(btn);
+  const spent = btn.dataset.distanceFormula ? spendBeyondCost(part.message, part.ability) : 0;
+  if (spent > 0) {
+    const value = Number(ds.utils.evaluateFormula(btn.dataset.distanceFormula, { ...(part.ability?.getRollData?.() ?? {}), spend: spent }));
+    if (value) base.distance = value + (Number(btn.dataset.distanceBonus) || 0);
+  }
+  const target = part.targetUuid ? fromUuidSync(part.targetUuid, { strict: false }) : null;
+  base.distance += Number(target?.system?.combat?.targetModifiers?.forcedMovement?.[base.movement] ?? 0) || 0;
+  return base;
+}
 
 function surgeSource(part) {
   let src = part.ability?.actor ?? null;
@@ -482,7 +494,7 @@ function addForcedRows(part, html) {
   const host = sec.querySelector('.message-part-rolls') ?? sec;
   const item = part.ability;
   btns.forEach((btn, index) => {
-    const base = fmEntry(mods, index)?.base ?? _fmBaseStateFromBtn(btn);
+    const base = fmEntry(mods, index)?.base ?? fmBaseForTarget(btn, part);
     const stack = fmStack(mods, index);
     const st = fmState(base, stack);
     const runSt = stack.some((e) => e.inert) ? fmState(base, stack.filter((e) => !e.inert)) : st;

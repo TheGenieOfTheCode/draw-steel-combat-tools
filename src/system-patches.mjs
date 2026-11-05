@@ -179,9 +179,10 @@ function _patchFMConstructButtons() {
 
       
       return types.map(movementType => {
+        const bonus = item?.actor ? Number(this.forced?.bonuses?.[movementType] ?? 0) || 0 : 0;
         const label = _fmMakeLabel({
           movement: movementType,
-          distance,
+          distance: distance + bonus,
           vertical:          properties.has('vertical'),
           verticalDistance:  verticalDistance > 0 ? verticalDistance : '',
           fastMove:          properties.has('fast-auto-path'),
@@ -192,7 +193,8 @@ function _patchFMConstructButtons() {
         btn.style.cssText = 'cursor:pointer;';
         btn.dataset.dsctAction       = 'dsct-fm';
         btn.dataset.movement         = movementType;
-        btn.dataset.distance         = String(distance);
+        btn.dataset.distance         = String(distance + bonus);
+        btn.dataset.distanceBonus    = String(bonus);
         if (/@spend\b/i.test(distanceRaw)) btn.dataset.distanceFormula = distanceRaw;
         btn.dataset.properties       = JSON.stringify([...properties]);
         btn.dataset.verticalDistance = String(verticalDistance);
@@ -483,8 +485,9 @@ function _registerButtonHooks() {
       const fmSpent  = spendBeyondCost(_msg, fmItem);
       for (const btn of fmBtns) {
         if (!btn.dataset.distanceFormula || fmSpent <= 0) continue;
-        btn.dataset.distance = String(ds.utils.evaluateFormula(btn.dataset.distanceFormula,
-          { ...(fmItem?.getRollData?.() ?? {}), spend: fmSpent }) || btn.dataset.distance);
+        const spentDistance = Number(ds.utils.evaluateFormula(btn.dataset.distanceFormula,
+          { ...(fmItem?.getRollData?.() ?? {}), spend: fmSpent }));
+        if (spentDistance) btn.dataset.distance = String(spentDistance + (Number(btn.dataset.distanceBonus) || 0));
       }
 
       const savedMods  = _msg.getFlag(M, 'fmModifiers') ?? [];
