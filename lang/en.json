@@ -621,8 +621,8 @@
         "hint": "A different roll window that lists every bane and edge by name, and often where it came from. It also offers the situational banes and edges the rules describe but nothing tracks for you, ready to tick on."
       },
       "dstdSquadSections": {
-        "name": "Group Squads in Damage Panels",
-        "hint": "Folds a damage panel's target rows into a collapsible section per squad, so a message that hits a whole minion squad reads as one line instead of eight. Targets outside a squad are left where they are."
+        "name": "Group Squads on Chat Messages",
+        "hint": "Folds a chat message's targets into a collapsible section per squad, so a message that hits a whole minion squad reads as one line instead of eight. Targets outside a squad are left where they are."
       },
       "dstdSquadSectionsOpen": {
         "name": "Open Squad Sections by Default",
@@ -1993,6 +1993,8 @@
       "applied": "Already applied. The undo button next to it reverses it.",
       "applyAll": { "title": "Apply All", "category": "All Targets", "body": "Applies every effect on this chat message to every target, one effect at a time, in the order they're listed." },
       "undoAll": { "title": "Undo All", "category": "All Targets", "body": "Undoes the damage on every target. Conditions and other effects keep their own undo buttons." },
+      "applyAll12": { "title": "Apply All", "category": "All Targets", "body": "Applies everything on this chat message to every target, one effect at a time, in the order they're listed. Anything that needs a choice is left for you, with a reminder." },
+      "undoAll12": { "title": "Undo All", "category": "All Targets", "body": "Undoes the damage, effects and resources applied from this chat message. Forced movement keeps its own undo." },
       "squadApply": { "title": "Apply to {group}", "category": "Squad", "body": "Applies this damage to every member of {group} at once." },
       "squadUndo": { "title": "Undo for {group}", "category": "Squad", "body": "Undoes this damage for every member of {group}." },
       "squadUndoLocked": { "title": "Undo the Squad", "category": "Squad", "body": "Damage was applied to all of {group} at once, so undo the squad rather than one of its members." },
@@ -3156,6 +3158,15 @@
       "z-scatter": "Z Scatter",
       "visual-active-effects": "Visual Active Effects",
       "smarttarget": "Smart Target"
+    },
+    "apply12": {
+      "applyAll": "Apply All",
+      "allApplied": "All Applied",
+      "choicesLeft": "Choices Left",
+      "undoAll": "Undo All",
+      "reminderTitle": "Left to Apply",
+      "reminderSpeaker": "Combat Tools",
+      "reminderIntro": "{ability} applied everything it could. These need a choice, so apply them from its chat message:"
     },
     "resultMods": {
       "title": "Modify Damage: {name}",

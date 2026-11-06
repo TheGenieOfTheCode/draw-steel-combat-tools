@@ -8,7 +8,7 @@ import { _fmBaseStateFromBtn, _fmMakeLabel } from '../system-patches.mjs';
 import { RESULT_MENU, APPLY, DAMAGE_TYPES, addTargetResult } from '../ctlib.mjs';
 import { hasRecurring } from '../conditions/recurring-damage.mjs';
 import { pillAmountLabel, pillCss, EFFECT_END_LABELS } from '../ability-automation/roll-dialog-hooks.mjs';
-import { getSetting, getWindowById, mentorOf, spendBeyondCost } from '../helpers.mjs';
+import { getSetting, getWindowById, mentorOf, spendBeyondCost, isOwnAbilityActor } from '../helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
 const FLAG = 'resultMods';
@@ -494,8 +494,10 @@ function addForcedRows(part, html) {
   const mods = modsOf(part);
   const host = sec.querySelector('.message-part-rolls') ?? sec;
   const item = part.ability;
+  const autoOwn = getSetting('fmAutoForOwnAbilities') && isOwnAbilityActor(item?.actor);
   btns.forEach((btn, index) => {
-    const base = fmEntry(mods, index)?.base ?? fmBaseForTarget(btn, part);
+    let base = fmEntry(mods, index)?.base ?? fmBaseForTarget(btn, part);
+    if (autoOwn && !base.fastMove && /^(push|pull)$/i.test(base.movement)) base = { ...base, fastMove: true };
     const stack = fmStack(mods, index);
     const st = fmState(base, stack);
     const runSt = stack.some((e) => e.inert) ? fmState(base, stack.filter((e) => !e.inert)) : st;
@@ -516,6 +518,8 @@ function addForcedRows(part, html) {
     row.className = 'dice-roll dsct-fm-roll';
     row.dataset.fmIndex = String(index);
     row.dataset.fmBase = JSON.stringify(base);
+    
+    row.dataset.fmAuto = runSt.fastMove && !runSt.vertical && /^(push|pull)$/i.test(runSt.movement) ? '1' : '';
     row.innerHTML = `<div class="dice-flavor">${esc(L('sectionForced'))}</div><div class="dice-result"><div class="inline-result">`
       + `<div class="dice-formula">${[baseLabel, ...terms].join(' ')}</div>`
       + `<button type="button" class="dice-total dsct-fm-go" data-tooltip="${esc(`${_fmMakeLabel(st)} · ${L('fmGo')}`)}"><i class="${FM_ICON}" inert></i> ${st.distance}</button>`
@@ -801,6 +805,7 @@ function addEffectRows(part, html) {
     const row = document.createElement('div');
     row.className = `dice-roll dsct-effect-roll${potency?.applies === false ? ' dsct-effect-resisted' : ''}`;
     row.dataset.effectId = effect.effectId;
+    row.dataset.dsctPotency = !potency ? 'none' : potency.applies == null ? 'unknown' : potency.applies ? 'affected' : 'resisted';
     row.innerHTML = `<div class="dice-flavor">${esc(L('sectionEffect'))}</div><div class="dice-result"><div class="inline-result">`
       + `<div class="dice-formula"><span>${formula}</span></div></div></div>`;
     const tip = effectTip(part, effect, effectStack(mods, effect.effectId));

@@ -57,6 +57,7 @@ import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgem
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills, addResultPill, addGlobalRollPills } from './compat/dstd-roll-pills.mjs';
 import { registerResultModifiers, resultModifiersApi, globalModifiersApi } from './compat/result-modifiers.mjs';
+import { registerApply12 } from './compat/apply-12.mjs';
 import { registerDstdExtraDamage, addExtraDamage, setExtraDamageEnabled } from './compat/dstd-extra-damage.mjs';
 import { registerDstdApplyWord } from './compat/dstd-apply-word.mjs';
 import { registerDstdAfterEffects } from './compat/dstd-after-effects.mjs';
@@ -310,6 +311,7 @@ Hooks.once('init', () => {
   registerDstdDamagePills();
   registerDstdExtraDamage();
   registerResultModifiers();
+  registerApply12();
   registerDstdApplyWord();
   registerDstdAfterEffects();
   registerChatTips();

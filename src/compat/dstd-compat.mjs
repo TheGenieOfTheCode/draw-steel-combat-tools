@@ -500,7 +500,7 @@ async function _autoApplyOwn(message, panel) {
 
 const PROMPT_WAIT_MS = 120000;
 
-const _promptOpen = () => !!document.getElementById('dsct-picker-topbar')
+export const _promptOpen = () => !!document.getElementById('dsct-picker-topbar')
   || document.body.classList.contains('dsct-picker-lock')
   || !!document.getElementById('dsct-vertical-popup')
   || [...foundry.applications.instances.values()].some(a => a.rendered
@@ -572,7 +572,7 @@ const HOLD_WAIT_MS = 600000;
 const _heldNow = (msgId) => !!game.modules.get(TRIGGERS_ID)?.api?.getQueueMirror?.()?.some(e => HELD_KINDS.has(e.kind))
   || Object.values(game.messages.get(msgId)?.flags?.[DSTD]?.state?.applications ?? {}).some(a => a?.dstHeld);
 
-const _waitForChoice = async (msgId) => {
+export const _waitForChoice = async (msgId) => {
   const pending = () => { const m = game.messages.get(msgId); return !!m && chooseAfterPending(m); };
   if (!pending()) return true;
   const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -645,7 +645,7 @@ async function _applyDeferredPotency(message, panel) {
   if (!waiting) _potencyWatch.delete(message.id);
 }
 
-const _resolving = new Set();
+export const _resolving = new Set();
 
 const _abilityResolving = (item) => {
   const message = game.messages.contents.findLast(m => _getMessageParts(m).some(p => p.abilityUuid === item?.uuid));

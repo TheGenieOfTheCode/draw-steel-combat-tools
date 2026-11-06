@@ -3492,3 +3492,30 @@ button.dsct-hn-token.is-gone img {
 .dsct-effect-roll.dsct-effect-resisted .dice-formula {
   opacity: 0.65;
 }
+
+.dsct-apply-all-row {
+  display: flex;
+  margin-top: 4px;
+}
+.dsct-apply-all-row > .ctlib-split.dsct-apply-all { flex: 1 1 auto; }
+.dsct-squad12 > .dsct-dstd-squad-rows > section[data-message-part] { margin: 0; }
+.dsct-squad12 .ctlib-split.dsct-squad12-btn {
+  flex: 0 0 auto;
+  height: 20px;
+}
+.dsct-squad12 .ctlib-split.dsct-squad12-btn > button {
+  height: 20px;
+  min-height: 0;
+  padding: 0 6px;
+  font-size: 0.68rem;
+  line-height: 1;
+}
+.dsct-squad12 .ctlib-split.dsct-squad12-btn > .ctlib-undo { min-width: 0; }
+button.dsct-applied12 { opacity: 0.7; }
+button.dsct-applied12::after {
+  content: "\f00c";
+  font-family: var(--font-awesome);
+  font-weight: 900;
+  font-size: 0.75em;
+  margin-left: 0.35em;
+}
