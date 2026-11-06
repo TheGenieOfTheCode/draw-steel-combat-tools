@@ -986,7 +986,10 @@ const _levelOf = (actor) => Number(actor?.system?.level ?? actor?.system?.detail
 export function messageTargetUuids(message) {
   const stored = message?.flags?.['draw-steel-target-damage']?.state?.targets;
   if (Array.isArray(stored) && stored.length) return stored.map(t => t?.tokenUuid ?? t?.actorUuid).filter(Boolean);
-  return message ? rolledTargets(message).map(t => t.tokenUuid ?? t.actorUuid).filter(Boolean) : [];
+  const rolled = message ? rolledTargets(message).map(t => t.tokenUuid ?? t.actorUuid).filter(Boolean) : [];
+  if (rolled.length) return rolled;
+  const used = message?.flags?.[MODULE_ID]?.useTargets;
+  return Array.isArray(used) ? used : [];
 }
 
 function _cardTargetTokens(message) {

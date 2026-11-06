@@ -1,7 +1,7 @@
 import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor, effectStartFor, spendBeyondCost } from '../helpers.mjs';
 import { isOthersEffect, othersSpec, triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks, flatAppliedOptions, modifyAttributeSafely } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
-import { runColoredTokenPicker, runMultiTokenPicker, pickTargetsFor, setFoundryTargets } from '../ability-automation/target-picker.mjs';
+import { runColoredTokenPicker, runMultiTokenPicker, pickTargetsFor, setFoundryTargets, carrierTargets, casterTokenFor } from '../ability-automation/target-picker.mjs';
 import { pickAreaTargetsFor } from '../ability-automation/area-picker.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
 
@@ -1532,6 +1532,12 @@ export async function _repickForMessage(message) {
   const abilityUuid = _getMessageParts(message).find(p => p.abilityUuid)?.abilityUuid ?? message.flags?.[DSTD]?.state?.abilityUuid;
   const ability = abilityUuid ? await fromUuid(abilityUuid).catch(() => null) : null;
   if (!ability) return undefined;
+  const carriers = ability.getFlag?.(M, 'areaFilter')?.carriers;
+  if (carriers) {
+    const tokens = carrierTargets(ability, casterTokenFor(ability), message.getFlag(M, 'useTargetsSkip'));
+    if (!tokens.length) ui.notifications.warn(game.i18n.format('DSCT.notice.targetPicker.noCarriers', { effect: carriers }));
+    return tokens.length ? tokens : null;
+  }
   const area = await pickAreaTargetsFor(ability);
   return area !== undefined ? area : pickTargetsFor(ability);
 }

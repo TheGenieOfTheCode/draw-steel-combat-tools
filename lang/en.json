@@ -2163,6 +2163,7 @@
       "targetPicker": {
         "instruction": "Select up to {max} target{s}. Enter or double-click to confirm. Escape to cancel.",
         "noValidTargets": "No valid targets in range.",
+        "noCarriers": "Nobody on the scene has {effect}. Apply it to everyone it covers, then update the targets.",
         "cancelled": "Target selection cancelled.",
         "maxTargets": "You can only select up to {max} target{s}.",
         "selectAtLeastOne": "Select at least one target before confirming.",

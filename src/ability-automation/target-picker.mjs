@@ -123,6 +123,7 @@ function _isPickerEligible(ability, view) {
   const keywords = view?.keywords ?? ability.system?.keywords;
   if (!target?.value) return false;
   if (target.type === 'self') return false;
+  if (ability.getFlag?.('draw-steel-combat-tools', 'areaFilter')?.carriers) return false;
   if (keywords?.has('area')) return false;
   return true;
 }
@@ -800,6 +801,32 @@ export function burstTargetsAround(ability, originToken) {
 
 let _triggerSubject = null;
 
+const _useTargets = new Map();
+Hooks.on('preCreateChatMessage', (message) => {
+  const use = Array.from(message.system?.parts?.contents ?? []).find(p => p?.type === 'abilityUse' && p.abilityUuid);
+  if (!use) return;
+  const held = _useTargets.get(use.abilityUuid);
+  _useTargets.delete(use.abilityUuid);
+  message.updateSource({
+    'flags.draw-steel-combat-tools.useTargets': held?.targets ?? [...game.user.targets].map(t => t.document.uuid),
+    ...(held?.skip ? { 'flags.draw-steel-combat-tools.useTargetsSkip': held.skip } : {}),
+  });
+});
+
+export function carrierTargets(ability, casterToken, skip = null) {
+  const filter = ability?.getFlag?.('draw-steel-combat-tools', 'areaFilter') ?? {};
+  if (!filter.carriers || !casterToken) return [];
+  const carries = (t) => !t.document.hidden && t.document.uuid !== skip && _carries(t.actor, filter.carriers);
+  const tokens = canvas.tokens.placeables.filter(t => t.id !== casterToken.id && carries(t));
+  if (filter.includeSelf && carries(casterToken)) tokens.unshift(casterToken);
+  return tokens;
+}
+Hooks.on('closeAbilityConfigurationDialog', (dialog) => {
+  const uuid = dialog.options?.ability?.uuid;
+  const entry = _useTargets.get(uuid);
+  if (entry) setTimeout(() => { if (_useTargets.get(uuid) === entry) _useTargets.delete(uuid); }, 5000);
+});
+
 export const setTriggerSubject = (tokenUuid) => {
   _triggerSubject = tokenUuid ? { uuid: tokenUuid, at: Date.now() } : null;
 };
@@ -824,7 +851,7 @@ export function checkAndRunBurstTargeting(dialog) {
   let skip = null;
   if (filter.carriers) {
     skip = filter.excludeTrigger ? takeTriggerSubject() : null;
-    tokens = canvas.tokens.placeables.filter(t => t.id !== casterToken.id && !t.document.hidden && t.document.uuid !== skip && _carries(t.actor, filter.carriers));
+    tokens = carrierTargets(ability, casterToken, skip);
     label = `every creature carrying ${filter.carriers}`;
   } else {
     if (distance?.type !== 'burst' || target?.value != null || !EACH_TYPES.has(target?.type)) return null;
@@ -834,8 +861,9 @@ export function checkAndRunBurstTargeting(dialog) {
       .filter(t => _inAreaFilter(ability, t) && !_isDefeated(t));
     label = `${radius} burst, ${target.type}`;
   }
-  if (filter.includeSelf && casterToken.document.uuid !== skip && !tokens.some(t => t.id === casterToken.id)) tokens.unshift(casterToken);
   const previous = [...game.user.targets];
+  if (filter.carriers) _useTargets.set(ability.uuid, { targets: tokens.map(t => t.document.uuid), skip });
+  else if (filter.includeSelf && !tokens.some(t => t.id === casterToken.id)) tokens.unshift(casterToken);
   setFoundryTargets(tokens);
   if (dialog.options?.context && ability.system?.power?.roll?.enabled) {
     dialog.options.context.targets = Object.fromEntries(tokens.map(t => [t.id, {
