@@ -85,19 +85,10 @@ function cardItems(root, message) {
 const labelOf = (it) => (it.row?.querySelector('.dice-formula')?.textContent || it.btn.dataset.tooltip || it.btn.textContent || it.kind)
   .replace(/\s+/g, ' ').trim();
 
-const DEFEATED = () => CONFIG.specialStatusEffects?.DEFEATED ?? 'dead';
-const targetActorOf = (message, partId) => {
-  const part = message?.system?.parts?.get?.(partId);
-  if (part?.type !== 'targetResult') return null;
-  return (part.tokenUuid ? fromUuidSync(part.tokenUuid, { strict: false })?.actor : null) ?? part.actorTarget ?? null;
-};
-
 function verdictOf(it, message, partId) {
   const { btn } = it;
   if (btn.disabled || btn.classList.contains('ctlib-applied') || btn.closest('.ctlib-split-applied')) return 'done';
   if (marksOf(message, partId).includes(it.key)) return 'done';
-  
-  if (it.kind !== 'damage' && targetActorOf(message, partId)?.statuses?.has(DEFEATED())) return 'done';
   switch (it.kind) {
     case 'damage':
     case 'resource':
