@@ -474,6 +474,7 @@ async function runForced(part, st, keywords, index = 0) {
     verticalDistance: st.vertical ? (st.verticalDistance !== '' ? Number(st.verticalDistance) : st.distance) : 0,
     fallReduction: st.fallReduction, target: target ?? undefined, source,
     contextMessageId: part.message.id, origin: 'powerRoll', keywords, fmKey: `part:${part.id}:${index}`,
+    targetModifierIncluded: true,
   });
 }
 
