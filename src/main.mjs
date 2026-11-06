@@ -50,6 +50,7 @@ import { executeHIWTurn, registerHIWHooks } from './ability-automation/class-sha
 import { registerCompleteEncounterHooks } from './complete-encounter.mjs';
 import { registerSettings, migrateMergedSettings } from './settings/register-settings.mjs';
 import { registerSystemPatches } from './system-patches.mjs';
+import { registerSystemFalls } from './forced-movement/system-falls.mjs';
 import { registerBonds } from './bonds.mjs';
 import { registerRollDialogDodge } from './ability-automation/roll-dialog-dodge.mjs';
 import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, _hasHighGround, registerTierOutcomes, registerPowerRollDice, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
@@ -288,6 +289,7 @@ Hooks.once('init', () => {
   registerHIWHooks();
   registerCompleteEncounterHooks();
   registerSystemPatches();
+  registerSystemFalls();
   registerBonds();
   registerCornerVision();
   registerTierOutcomes();

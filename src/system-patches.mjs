@@ -5,6 +5,7 @@ import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
 import { applyJudgedEffect, applyMarkedEffect } from './conditions/damage-conditions.mjs';
 import { withStatusSource, registerStatusSources } from './conditions/statuses.mjs';
 import { runForcedMovement } from './forced-movement/forced-movement-engine.mjs';
+import { landingSurfaceAt, footprintCells, sceneTerrain } from './forced-movement/forced-movement-collision.mjs';
 import { FmModifyPanel, replayModifiers, createModifierNoteDiv, persistStack } from './forced-movement/forced-movement-modify-panel.mjs';
 import { executeAsDirector, safeUpdate } from './ctlib.mjs';
 import { setTip, tipFor } from './chat-tips.mjs';
@@ -52,7 +53,28 @@ export function registerSystemPatches() {
   registerStatusSources();
   _patchVisionTestPoints();
   _patchVisionOrigins();
+  _patchSupportingSurface();
   _registerButtonHooks();
+}
+
+function _patchSupportingSurface() {
+  if (typeof CONFIG.Token.documentClass.prototype._findSupportingSurface !== 'function') return;
+  libWrapper.register(M, 'CONFIG.Token.documentClass.prototype._findSupportingSurface', function (wrapped, options = {}) {
+    const found = wrapped(options);
+    if (game.modules.get('draw-steel-forced-movement')?.active) return found;
+    const position = options.position ?? this._source;
+    const elevation = Number(position?.elevation ?? 0);
+    const size = canvas.grid.size;
+    const cells = footprintCells(Math.floor((position?.x ?? 0) / size), Math.floor((position?.y ?? 0) / size), Math.max(1, Math.round(this.width ?? 1)));
+    const terrain = sceneTerrain();
+    let ground = -Infinity;
+    for (const cell of cells) {
+      const { surface } = landingSurfaceAt(cell, elevation, Infinity, terrain);
+      if (surface <= elevation && surface > ground) ground = surface;
+    }
+    if (!Number.isFinite(ground) || (found && found.elevation >= ground)) return found;
+    return { elevation: ground, level: found?.level ?? null, region: found?.region ?? null };
+  }, 'WRAPPER');
 }
 
 function _patchVisionOrigins() {
