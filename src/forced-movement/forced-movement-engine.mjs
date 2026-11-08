@@ -86,19 +86,28 @@ const _postNoMove = async (targetToken, sourceToken, type, why, suppressMessage 
   return data;
 };
 
+let _lastResultData = null;
+
 const _runForcedMovement = async (...args) => {
   const doc = args[2]?.document;
   const from = doc ? { x: doc.x, y: doc.y, elevation: doc.elevation } : null;
   const source = args[3]?.document ?? args[3] ?? null;
-  const result = await withDamageSource({ tokenUuid: source?.uuid ?? null, actorUuid: source?.actor?.uuid ?? null }, () => _forcedMovementImpl(...args));
+  _lastResultData = null;
+  const returned = await withDamageSource({ tokenUuid: source?.uuid ?? null, actorUuid: source?.actor?.uuid ?? null }, () => _forcedMovementImpl(...args));
+  const result = returned ?? _lastResultData;
   if (from && (doc.x !== from.x || doc.y !== from.y || doc.elevation !== from.elevation)) {
     const squares = Math.max(Math.abs(doc.x - from.x), Math.abs(doc.y - from.y)) / canvas.grid.size;
     Hooks.callAll('dsct.forcedMovement', {
       type: args[0], distance: args[1], target: args[2], source: args[3] ?? null, keywords: args[11] ?? [],
       moved: Math.round(squares) || Math.abs(doc.elevation - from.elevation) || 1,
     });
+  } else if (from && result && !result.noMove && result.hadDamage) {
+    Hooks.callAll('dsct.forcedMovement', {
+      type: args[0], distance: args[1], target: args[2], source: args[3] ?? null, keywords: args[11] ?? [],
+      moved: 0, blocked: true,
+    });
   }
-  return result;
+  return returned;
 };
 
 const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bonusCreatureDmg = 0, bonusObjectDmg = 0, verticalHeight = 0, fallReduction = 0, noFallDamage = false, ignoreStability = false, noCollisionDamage = false, keywords = [], fastMove = false, suppressMessage = false, juggernaut = false, noMoverCollisionDamage = false, noObstacleCollisionDamage = false, contextMessageId = null, origin = null, modifierNotes = [], { safely = false } = {}) => {
@@ -1908,6 +1917,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         hadDamage:     collisionMsgs.length > 0,
       };
       vertResultData.fmLog = fmLog(vertResultData.finalPos);
+      _lastResultData = vertResultData;
       if (suppressMessage) return vertResultData;
       await ChatMessage.create({
         content: vertResultData.content,
@@ -2781,6 +2791,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       grabsToRestore: grabsEnded,
     };
     mainResultData.fmLog = fmLog(mainResultData.finalPos);
+    _lastResultData = mainResultData;
     if (suppressMessage) { window._dsctFMActive = false; await markRevealed(targetToken, 'forced'); return mainResultData; }
     await ChatMessage.create({
       content: mainResultData.content,
