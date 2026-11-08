@@ -76,14 +76,15 @@ Install via the Foundry module browser, or paste this manifest URL directly:
 https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest/download/module.json
 ```
 
-**Required dependencies:** [socketlib](https://foundryvtt.com/packages/socketlib), [color-picker](https://foundryvtt.com/packages/color-picker), [lib-wrapper](https://foundryvtt.com/packages/lib-wrapper), [Draw Steel: Target Damage](https://foundryvtt.com/packages/draw-steel-target-damage), [Draw Steel: CTLib](https://github.com/TheGenieOfTheCode/draw-steel-ctlib)
+**Required dependencies:** [socketlib](https://foundryvtt.com/packages/socketlib), [color-picker](https://foundryvtt.com/packages/color-picker), [lib-wrapper](https://foundryvtt.com/packages/lib-wrapper), [Draw Steel: CTLib](https://github.com/TheGenieOfTheCode/draw-steel-ctlib)
 
-Foundry offers to install all five alongside DSCT. They are requirements rather than suggestions: most of the module either patches something through libWrapper or presents itself inside the Target Damage panel, and CTLib holds the code the Combat Tools modules share.
+Foundry offers to install all four alongside DSCT. They are requirements rather than suggestions: most of the module patches something through libWrapper, and CTLib holds the code the Combat Tools modules share.
 
 ---
 
 ## Compatibility
 
+- [Draw Steel: Target Damage](https://foundryvtt.com/packages/draw-steel-target-damage): compatible and good to have on Draw Steel 1.1, but incompatible with Draw Steel 1.2 onwards. Leave it off there; the system does that job itself.
 - [Tagger](https://foundryvtt.com/packages/tagger): Wall Builder tags the walls it makes through Tagger.
 - [DS Terrain Designer](https://foundryvtt.com/packages/ds-terrain-designer): forced movement follows the terrain’s slopes and heights, and High Ground uses its edges.
 - [DS Token Override](https://github.com/nelizzy/ds-token-override): a squad’s Stamina bar follows its Squad Threshold Marks setting, and doubled up health labels are hidden.

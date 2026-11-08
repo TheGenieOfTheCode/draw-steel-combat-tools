@@ -12,15 +12,14 @@
   "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest/download/module.json",
   "download": "https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/download/v2.2.0/draw-steel-combat-tools.zip",
   "relationships": {
-    "systems": [{ "id": "draw-steel", "type": "system", "compatibility": {} }],
+    "systems": [{ "id": "draw-steel", "type": "system", "compatibility": { "verified": "1.2.1" } }],
     "requires": [
       { "id": "socketlib", "type": "module", "compatibility": { "minimum": "1.1.3" } },
       { "id": "color-picker", "type": "module", "compatibility": { "minimum": "1.7" } },
       { "id": "lib-wrapper", "type": "module", "compatibility": { "minimum": "1.12.0" } },
-      { "id": "draw-steel-ctlib", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-ctlib/releases/latest/download/module.json", "compatibility": { "minimum": "2.0.0" } }
+      { "id": "draw-steel-ctlib", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-ctlib/releases/latest/download/module.json", "compatibility": { "minimum": "2.1.0" } }
     ],
     "recommends": [
-      { "id": "draw-steel-target-damage", "type": "module", "reason": "[Compatible] Needed on Draw Steel 1.1: per-target damage, damage pills and Apply My Abilities run through it. Draw Steel 1.2 does this itself, so leave it off there.", "compatibility": { "minimum": "1.0.8" } },
       { "id": "draw-steel-death-tracker", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-death-tracker/releases/latest/download/module.json", "reason": "[Combat Tools] Keeps track of who falls: deaths announced in chat with an undo, the right minions taken from a squad, and the fallen left where they fell." },
       { "id": "draw-steel-battle-log", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-battle-log/releases/latest/download/module.json", "reason": "[Combat Tools] Draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat messages match the dark theme." },
       { "id": "draw-steel-triggers", "type": "module", "manifest": "https://github.com/TheGenieOfTheCode/draw-steel-triggers/releases/latest/download/module.json", "reason": "[Combat Tools] Offers triggered actions on a stack the moment they trigger, and holds damage, rolls and forced movement until they're decided." }
