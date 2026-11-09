@@ -1,7 +1,7 @@
 import { openDamageEditor, foldDamagePills, damagePillType, damagePillEffect, damagePillAmtStr, damagePillDisplayList, damageTypeLabel, addGlobalDamagePills } from './dstd-damage-pills.mjs';
 import { RollEditorBase, rollPillAmount, addGlobalRollPills } from './dstd-roll-pills.mjs';
 import { applyTierMods } from '../ability-automation/roll-dialog-hooks.mjs';
-import { chooseKeywords, chooseHiddenRollIndexes } from '../ability-automation/choose-effect.mjs';
+import { usedKeywords, chooseHiddenRollIndexes } from '../ability-automation/choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
 import { FmModifyPanel, replayModifiers } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { _fmBaseStateFromBtn, _fmMakeLabel } from '../system-patches.mjs';
@@ -501,7 +501,7 @@ function addForcedRows(part, html) {
     const stack = fmStack(mods, index);
     const st = fmState(base, stack);
     const runSt = stack.some((e) => e.inert) ? fmState(base, stack.filter((e) => !e.inert)) : st;
-    const keywords = item ? [...chooseKeywords(item, part.message)] : (btn.dataset.dsctKeywords ?? '').split(',').filter(Boolean);
+    const keywords = item ? [...usedKeywords(item, part.message)] : (btn.dataset.dsctKeywords ?? '').split(',').filter(Boolean);
     const enabled = stack.filter((e) => e.enabled !== false);
     const typeEntry = st.movement !== base.movement ? enabled.findLast((e) => e.modState?.[0]?.movement === st.movement) : null;
     const termTip = (e) => esc(tipHTML([[L('sectionForced'), [fmRow(e, base)]]]));

@@ -21,7 +21,7 @@ import { takesOver } from '../advanced-enrichers/flat-enrichers.mjs';
 import { cleanseMatches } from '../advanced-enrichers/ct-enrichers.mjs';
 import { recoverySpender } from '../ability-automation/recovery-spender.mjs';
 import { syncBaseRollTier } from './dstd-roll-pills.mjs';
-import { filterChooseDstdRows, chooseMessageFilter, chooseKeywords, chooseAfterPending, settleCriticalChoice } from '../ability-automation/choose-effect.mjs';
+import { filterChooseDstdRows, chooseMessageFilter, usedKeywords, chooseAfterPending, settleCriticalChoice } from '../ability-automation/choose-effect.mjs';
 import { _pendingSquadMap, consumePendingSquadMap } from '../ability-automation/squad-targeting.mjs';
 
 const PANEL_ANCHOR = 'dsct-panel-anchor';
@@ -2387,8 +2387,8 @@ async function _injectFmButtons(message, root) {
         } : null;
 
         const _bvlApplies = sourceToken?.actor && _tgtDoc?.actor
-          && chooseKeywords(ability, message).has('melee')
-          && chooseKeywords(ability, message).has('weapon')
+          && usedKeywords(ability, message).has('melee')
+          && usedKeywords(ability, message).has('weapon')
           && sizeRank(sourceToken.actor.system?.combat?.size ?? { value: 1, letter: 'M' })
              > sizeRank(_tgtDoc.actor.system?.combat?.size ?? { value: 1, letter: 'M' });
         const _bvlMod = _bvlApplies ? {

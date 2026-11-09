@@ -29,6 +29,26 @@ function _unrecognizedPills(scope, orig, sources) {
 const _systemCounts = () => !!globalThis.ds?.CONFIG?.MessagePart?.targetResult;
 const _systemRollToken = (actor) => (_systemCounts() && canvas.tokens?.controlled[0]?.actor === actor ? canvas.tokens.controlled[0] : null);
 
+function _rebuildTargetsOnModeSwap(app) {
+  const ability = app.options.ability;
+  const mode = ability?.system?.damageDisplay;
+  if (app._dsctMode === mode) return false;
+  app._dsctMode = mode;
+  const sig = (p) => `${p.kind}|${p.reason}|${p.src}`;
+  for (const [tokenId, t] of Object.entries(app.options.context.targets ?? {})) {
+    const token = fromUuidSync(t.tokenUuid)?.object;
+    if (!token) continue;
+    const off = new Set(app._dsctSources.filter(p => p.scope === tokenId && !p.enabled && !p.custom).map(sig));
+    const kept = app._dsctSources.filter(p => p.scope !== tokenId || p.custom);
+    app._dsctOrigTargets[tokenId] = { ...ability.system.getTargetModifiers(token) };
+    const fresh = _buildTargetPills(app, tokenId);
+    fresh.push(..._unrecognizedPills(tokenId, app._dsctOrigTargets[tokenId], fresh));
+    for (const p of fresh) if (off.has(sig(p))) p.enabled = false;
+    app._dsctSources = [...kept, ...fresh];
+  }
+  return true;
+}
+
 
 const _rangedForDistraction = (ability) => {
   const kw = ability?.system?.keywords;
@@ -1050,6 +1070,7 @@ export function registerRollDialogPillHooks() {
     if (!actor) return;
 
     if (!app._dsctSources) {
+      app._dsctMode = ability.system?.damageDisplay;
       app._dsctOrigGlobal  = { ...(app.options.context.modifiers  ?? { edges: 0, banes: 0, bonuses: 0 }) };
       app._dsctOrigTargets = {};
       for (const [id, t] of Object.entries(app.options.context.targets ?? {})) {
@@ -1062,6 +1083,11 @@ export function registerRollDialogPillHooks() {
       if (getSetting('debugMode')) console.log('DSCT | RollDialog | DSCT pills=', app._dsctSources.map(p => `${p.kind}:${p.reason}:scope=${p.scope}:dsNative=${p.dsNative}`).join(' | '));
       _recomputeAndSync(app);
     } else {
+      if (_rebuildTargetsOnModeSwap(app)) {
+        _recomputeAndSync(app);
+        app.render();
+        return;
+      }
       const existingScopes = new Set(app._dsctSources.map(p => p.scope));
       for (const [tokenId, t] of Object.entries(app.options.context.targets ?? {})) {
         if (existingScopes.has(tokenId)) continue;

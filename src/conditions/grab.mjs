@@ -774,9 +774,10 @@ function _preselectRangedIfNeeded(dialog) {
   if (![...game.user.targets].some(t => t.id !== caster.id && tokFootprintDist(caster, t) >= reach)) return;
 
   (async () => {
-    await ability.update({ 'system.damageDisplay': 'ranged' });
     for (let i = 0; i < 20 && !dialog.rendered && !dialog.closing; i++) await new Promise(r => setTimeout(r, 50));
-    if (dialog.rendered) dialog.render({ parts: ['ability'] });
+    if (!dialog.rendered) return ability.update({ 'system.damageDisplay': 'ranged' });
+    const swap = ds.applications.apps.AbilityConfigurationDialog.DEFAULT_OPTIONS.actions.swapMeleeRanged;
+    await swap.call(dialog, null, { dataset: { value: 'ranged' } });
   })();
 }
 

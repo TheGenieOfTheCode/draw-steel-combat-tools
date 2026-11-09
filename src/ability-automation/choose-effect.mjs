@@ -499,6 +499,14 @@ export function chooseKeywords(item, message = null) {
   return chooseResolved(item, message)?.keywords ?? item?.system?.keywords ?? new Set();
 }
 
+export function usedKeywords(item, message = null) {
+  const kw = new Set(chooseKeywords(item, message));
+  if (item?.system?.distance?.type === 'meleeRanged' && kw.has('melee') && kw.has('ranged')) {
+    kw.delete(item.system.damageDisplay === 'ranged' ? 'melee' : 'ranged');
+  }
+  return kw;
+}
+
 export function chooseTargeting(item) {
   const resolved = chooseResolved(item);
   if (!resolved) return null;

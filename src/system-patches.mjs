@@ -1,5 +1,5 @@
 import { getSetting, getItemDsid, canForcedMoveTarget, MULTI_GRAB_LIMITS, normalizeCollection, getModuleApi, getWindowById, getSquadGroup, applyDamage, sightSamples, sightOriginPoints, messageDamageSource, isOwnAbilityActor, spendBeyondCost } from './helpers.mjs';
-import { chooseMessageFilter, chooseKeywords } from './ability-automation/choose-effect.mjs';
+import { chooseMessageFilter, chooseKeywords, usedKeywords } from './ability-automation/choose-effect.mjs';
 import { applyGrab, runGrab, grabChat } from './conditions/grab.mjs';
 import { applyFrightened, applyTaunted } from './conditions/conditions.mjs';
 import { applyJudgedEffect, applyMarkedEffect } from './conditions/damage-conditions.mjs';
@@ -221,7 +221,7 @@ function _patchFMConstructButtons() {
         btn.dataset.properties       = JSON.stringify([...properties]);
         btn.dataset.verticalDistance = String(verticalDistance);
         btn.dataset.fallReduction    = String(fallReduction);
-        btn.dataset.dsctKeywords     = [...(item?.system?.keywords ?? [])].join(',');
+        btn.dataset.dsctKeywords     = [...usedKeywords(item)].join(',');
         btn.dataset.dsctEffectId     = this.id;
         return btn;
       });
@@ -462,7 +462,7 @@ function _registerButtonHooks() {
           const t3Au    = t3Parts.find(p => p.type === 'abilityUse');
           if (t3Au?.abilityUuid) {
             const t3Item = await fromUuid(t3Au.abilityUuid).catch(() => null);
-            if (chooseKeywords(t3Item, _msg).has('melee')) {
+            if (usedKeywords(t3Item, _msg).has('melee')) {
               root.querySelectorAll('.apply-damage').forEach(dmgBtn => {
                 dmgBtn.addEventListener('click', async () => {
                   if (_usedJudgementT3.has(_msg.id)) return;
@@ -503,7 +503,7 @@ function _registerButtonHooks() {
       
       const fmUuid   = normalizeCollection(_msg.system?.parts).find(p => p.type === 'abilityUse')?.abilityUuid;
       const fmItem   = fmUuid ? fromUuidSync(fmUuid) : null;
-      const fmChosen = fmItem ? [...chooseKeywords(fmItem, _msg)] : null;
+      const fmChosen = fmItem ? [...usedKeywords(fmItem, _msg)] : null;
       const fmSpent  = spendBeyondCost(_msg, fmItem);
       for (const btn of fmBtns) {
         if (!btn.dataset.distanceFormula || fmSpent <= 0) continue;
