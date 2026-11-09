@@ -974,6 +974,16 @@ export function addExternalRollPill(app, { kind, amount = 1, reason, src = null,
   return true;
 }
 
+export function removeExternalRollPill(app, { reason, src = null } = {}) {
+  if (!app?._dsctSources || !reason) return false;
+  const before = app._dsctSources.length;
+  app._dsctSources = app._dsctSources.filter(p => p.dsNative || p.custom || p.reason !== reason || (src != null && p.src !== src));
+  if (app._dsctSources.length === before) return false;
+  _recomputeAndSync(app);
+  if (app.rendered) app.render();
+  return true;
+}
+
 export function setBaneDialogLockWithOverlay(app, locked, reasons = []) {
   if (!app.element) return;
   if (!getSetting('rollDialogPillUI')) return;

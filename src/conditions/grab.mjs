@@ -773,11 +773,25 @@ function _meleeOutOfReach(ability) {
   return { melee, out: targets.filter(t => tokFootprintDist(caster, t) >= melee * canvas.grid.distance) };
 }
 
+const _handModes = new Map();
+const _targetsKey = () => [...game.user.targets].map(t => t.id).sort().join(',');
+
+function _handMode(ability) {
+  const hand = _handModes.get(ability?.uuid);
+  return hand && hand.targets === _targetsKey() && Date.now() - hand.at < 600000 ? hand.mode : null;
+}
+
 function _installMeleeRangedSettle() {
+  Hooks.on('renderAbilityConfigurationDialog', (app, element) => {
+    const uuid = app.options?.ability?.uuid;
+    for (const btn of element.querySelectorAll('[data-action="swapMeleeRanged"]')) {
+      btn.addEventListener('click', () => _handModes.set(uuid, { mode: btn.dataset.value, targets: _targetsKey(), at: Date.now() }), { capture: true });
+    }
+  });
   if (!game.modules.get('lib-wrapper')?.active) return;
   libWrapper.register(M, 'ds.data.Item.AbilityModel.prototype.use', async function (wrapped, ...args) {
     const reach = getSetting('abilityAutomationEnabled') ? _meleeOutOfReach(this.parent) : null;
-    const mode = reach && (reach.out.length ? 'ranged' : 'melee');
+    const mode = reach && (_handMode(this.parent) ?? (reach.out.length ? 'ranged' : 'melee'));
     if (mode && (this.damageDisplay ?? 'melee') !== mode) {
       await this.parent.update({ 'system.damageDisplay': mode });
       if (this.parent.system !== this) return this.parent.system.use(...args);
