@@ -663,6 +663,7 @@ function _isKnockbackGrabbed(dialog) {
 }
 
 const _rangeWarned = new WeakMap();
+const _meleeReminded = new WeakMap();
 const _rangeExempt = new Map();
 
 export function allowOutOfRange(abilityUuid, ms = 60000) {
@@ -758,30 +759,59 @@ function _checkMeleeRangedChoice(dialog) {
   return 'block';
 }
 
-function _preselectRangedIfNeeded(dialog) {
-  const ability = dialog.options?.ability;
+function _meleeOutOfReach(ability) {
   const dist = ability?.system?.distance;
-  if (dist?.type !== 'meleeRanged' || !systemSwapsMeleeRanged()) return;
-  if ((ability.system.damageDisplay ?? 'melee') === 'ranged') return;
+  if (dist?.type !== 'meleeRanged' || !systemSwapsMeleeRanged()) return null;
   const melee = parseInt(dist.primary) || 0;
-  if (!melee) return;
-
+  if (!melee) return null;
   const actor = ability.actor ?? ability.parent;
   const caster = canvas.tokens?.controlled.find(t => t.actor?.id === actor?.id)
               ?? canvas.tokens?.placeables.find(t => t.actor?.id === actor?.id);
-  if (!caster) return;
-  const reach = melee * canvas.grid.distance;
-  if (![...game.user.targets].some(t => t.id !== caster.id && tokFootprintDist(caster, t) >= reach)) return;
+  if (!caster) return null;
+  const targets = [...game.user.targets].filter(t => t.id !== caster.id);
+  if (!targets.length) return null;
+  return { melee, out: targets.filter(t => tokFootprintDist(caster, t) >= melee * canvas.grid.distance) };
+}
 
-  (async () => {
-    for (let i = 0; i < 20 && !dialog.rendered && !dialog.closing; i++) await new Promise(r => setTimeout(r, 50));
-    if (!dialog.rendered) return ability.update({ 'system.damageDisplay': 'ranged' });
-    const swap = ds.applications.apps.AbilityConfigurationDialog.DEFAULT_OPTIONS.actions.swapMeleeRanged;
-    await swap.call(dialog, null, { dataset: { value: 'ranged' } });
-  })();
+function _installMeleeRangedSettle() {
+  if (!game.modules.get('lib-wrapper')?.active) return;
+  libWrapper.register(M, 'ds.data.Item.AbilityModel.prototype.use', async function (wrapped, ...args) {
+    const reach = getSetting('abilityAutomationEnabled') ? _meleeOutOfReach(this.parent) : null;
+    const mode = reach && (reach.out.length ? 'ranged' : 'melee');
+    if (mode && (this.damageDisplay ?? 'melee') !== mode) {
+      await this.parent.update({ 'system.damageDisplay': mode });
+      if (this.parent.system !== this) return this.parent.system.use(...args);
+    }
+    return wrapped(...args);
+  }, 'MIXED');
+}
+
+function _remindMeleeOutOfReach(dialog) {
+  const ability = dialog.options?.ability;
+  if ((ability?.system?.damageDisplay ?? 'melee') !== 'melee') return;
+  const reach = _meleeOutOfReach(ability);
+  if (!reach?.out.length) return;
+  const reminded = _meleeReminded.get(dialog) ?? new Set();
+  _meleeReminded.set(dialog, reminded);
+  const fresh = reach.out.filter(t => !reminded.has(t.id));
+  if (!fresh.length) return;
+  for (const t of fresh) reminded.add(t.id);
+  const actor = ability.actor ?? ability.parent;
+  ChatMessage.create({
+    content: game.i18n.format('DSCT.chat.tactical.meleeOutOfReach', {
+      ability: ability.name,
+      names: fresh.map(t => t.name).join(', '),
+      verb: fresh.length === 1 ? 'is' : 'are',
+      range: reach.melee,
+      them: fresh.length === 1 ? 'it' : 'them',
+    }),
+    speaker: ChatMessage.getSpeaker({ actor }),
+    whisper: [...new Set([game.user.id, ...ChatMessage.getWhisperRecipients('GM').map(u => u.id)])],
+  });
 }
 
 export function registerKnockbackGuard() {
+  _installMeleeRangedSettle();
   Hooks.on('closeAbilityConfigurationDialog', (app) => {
     const uuid = app.options?.ability?.uuid;
     if (uuid) _mrChosen.delete(uuid);
@@ -792,7 +822,9 @@ export function registerKnockbackGuard() {
   Hooks.on('ds.canRenderAbilityConfigurationDialog', (app) => {
     
     if (app.rendered) {
-      if (getSetting('abilityAutomationEnabled')) _checkAbilityRange(app, { warnOnly: true });
+      if (!getSetting('abilityAutomationEnabled')) return;
+      if (_meleeOutOfReach(app.options?.ability) && (app.options.ability.system.damageDisplay ?? 'melee') === 'melee') _remindMeleeOutOfReach(app);
+      else _checkAbilityRange(app, { warnOnly: true });
       return;
     }
     if (getSetting('conditionsEnabled') && _isKnockbackGrabbed(app)) return false;
@@ -807,7 +839,6 @@ export function registerKnockbackGuard() {
     }
     if (getSetting('abilityAutomationEnabled') && checkAndRunSquadTargeting(app) === 'block') return false;
     if (getSetting('abilityAutomationEnabled') && checkAndRunTargetPicker(app) === 'block') return false;
-    if (getSetting('abilityAutomationEnabled')) _preselectRangedIfNeeded(app);
   });
 }
 

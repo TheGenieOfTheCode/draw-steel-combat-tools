@@ -2609,7 +2609,8 @@
         "judgementPotencyReminder": "<strong>Judgement:</strong> {name} used an ability with a potency that targets only one creature within 10 squares of {censorName}, which allows {censorName} to reduce its potency by 1 by spending 1 wrath.",
         "judgementPotencyUsed": "<strong>Judgement:</strong> {name} used an ability with a potency that targets only one creature within 10 squares of {censorName}, its potency is reduced by 1.",
         "markFallen": "<strong>{name} has fallen!</strong> You may use a free triggered action to mark a new target within 10 squares.<span class=\"dsct-hidden-enricher\">{enricher}</span>",
-        "aidAttack": "<strong>Aid Attack:</strong> The next ally ability roll against <strong>{name}</strong> has an edge."
+        "aidAttack": "<strong>Aid Attack:</strong> The next ally ability roll against <strong>{name}</strong> has an edge.",
+        "meleeOutOfReach": "<strong>{ability}:</strong> {names} {verb} out of reach of its melee use (melee {range}). Switch to ranged to reach {them}."
       },
       "grab": {
         "ended": "<strong>Grab ended:</strong> {grabber} releases {grabbed}.",
