@@ -10,6 +10,7 @@ import { takeRecovery } from '../bonds.mjs';
 import { cleanseMatches } from '../advanced-enrichers/ct-enrichers.mjs';
 import { recoverySpender } from './recovery-spender.mjs';
 import { originRollChanges } from '../conditions/apply-to-targets.mjs';
+import { beforeAbilityUse } from './ability-use-wrap.mjs';
 
 const { SchemaField, SetField, StringField, NumberField, BooleanField } = foundry.data.fields;
 const MODULE_ID = "draw-steel-combat-tools";
@@ -2367,11 +2368,7 @@ function _installFlatTypeSelection() {
 }
 
 function _installTriggerDamagePrompt() {
-  if (!game.modules.get('lib-wrapper')?.active) return;
-  libWrapper.register(MODULE_ID, 'ds.data.Item.AbilityModel.prototype.use', async function (wrapped, ...args) {
-    await askTriggerDamage(this.parent);
-    return wrapped(...args);
-  }, 'WRAPPER');
+  beforeAbilityUse(10, (system) => askTriggerDamage(system.parent));
 
   Hooks.on('preCreateChatMessage', (message) => {
     const amount = takePendingTriggerDamage();

@@ -10,6 +10,7 @@ import { checkAndRunSquadTargeting } from '../ability-automation/squad-targeting
 import { isNullGrabIntuitionActive, nullIntuitionScore, isNullSpeedExemptActive } from '../ability-automation/class-null/psionic-martial-arts.mjs';
 import { _effectiveRowTier } from '../compat/dstd-compat.mjs';
 import { registerEffectFlag } from '../effect-flag-picker.mjs';
+import { beforeAbilityUse, RESTART } from '../ability-automation/ability-use-wrap.mjs';
 import { createStatusEffect, effectSourceUuids, tokenOfActor, GRABBER_IMG } from './statuses.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -788,16 +789,13 @@ function _installMeleeRangedSettle() {
       btn.addEventListener('click', () => _handModes.set(uuid, { mode: btn.dataset.value, targets: _targetsKey(), at: Date.now() }), { capture: true });
     }
   });
-  if (!game.modules.get('lib-wrapper')?.active) return;
-  libWrapper.register(M, 'ds.data.Item.AbilityModel.prototype.use', async function (wrapped, ...args) {
-    const reach = getSetting('abilityAutomationEnabled') ? _meleeOutOfReach(this.parent) : null;
-    const mode = reach && (_handMode(this.parent) ?? (reach.out.length ? 'ranged' : 'melee'));
-    if (mode && (this.damageDisplay ?? 'melee') !== mode) {
-      await this.parent.update({ 'system.damageDisplay': mode });
-      if (this.parent.system !== this) return this.parent.system.use(...args);
-    }
-    return wrapped(...args);
-  }, 'MIXED');
+  beforeAbilityUse(0, async (system) => {
+    const reach = getSetting('abilityAutomationEnabled') ? _meleeOutOfReach(system.parent) : null;
+    const mode = reach && (_handMode(system.parent) ?? (reach.out.length ? 'ranged' : 'melee'));
+    if (!mode || (system.damageDisplay ?? 'melee') === mode) return;
+    await system.parent.update({ 'system.damageDisplay': mode });
+    if (system.parent.system !== system) return RESTART;
+  });
 }
 
 function _remindMeleeOutOfReach(dialog) {
