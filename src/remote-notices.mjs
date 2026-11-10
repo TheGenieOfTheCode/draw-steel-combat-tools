@@ -57,6 +57,8 @@ export const refreshRemoteNotices = async () => {
 
   try {
     
+    
+    await new Promise((resolve) => (globalThis.requestIdleCallback ?? setTimeout)(resolve, { timeout: 20000 }));
     const res = await fetch(`${SOURCE}?at=${Date.now()}`, {
       signal: AbortSignal.timeout(TIMEOUT_MS),
       cache: 'no-store',
