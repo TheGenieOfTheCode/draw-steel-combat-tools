@@ -14,6 +14,12 @@ const stateOf = (message, part) => {
   return raw === true ? { done: true } : raw ?? null;
 };
 const resolved = (state) => !!state?.done && !state.undone;
+const plain = (html) => { const t = document.createElement('template'); t.innerHTML = String(html ?? ''); return t.content.textContent.trim(); };
+const tipBody = (state, name = '') => {
+  const unnamed = (line) => (name && line.startsWith(`${name} `) ? line.charAt(name.length + 1).toUpperCase() + line.slice(name.length + 2) : line);
+  const lines = (state.lines ?? []).map(plain).filter(Boolean).map(unnamed);
+  return (lines.length > 1 ? lines.slice(1) : lines).map((l) => `<p>${foundry.utils.escapeHTML(l)}</p>`).join('');
+};
 
 const rollsOf = (part) => [...(part.rolls ?? [])];
 const editedHeight = (part) => {
@@ -27,18 +33,21 @@ async function takeSystemFall(message, part, { redo = false } = {}) {
   const token = doc?.object;
   const fresh = game.messages.get(message.id) ?? message;
   if (!token || (!redo && resolved(stateOf(fresh, part)))) return;
-  const autoEdit = !redo && rollsOf(part).length === 1;
+  let rollCount = rollsOf(part).length;
+  const autoEdit = !redo && rollCount === 1;
   if (autoEdit) {
     const agility = token.actor?.system?.combat?.fall?.agility === false ? 0 : Math.max(0, token.actor?.system?.characteristics?.agility?.value ?? 0);
     const height = Number(part.fallerDistance);
-    if (agility > 0 && Number.isFinite(height)) await part.createModifiedFallRoll(rollsOf(part)[0], Math.max(0, height - agility));
+    if (agility > 0 && Number.isFinite(height)) {
+      await part.createModifiedFallRoll(rollsOf(part)[0], Math.max(0, height - agility));
+      rollCount = 2;
+    }
   }
   const result = await applyFall(token, surfaceUnder(doc), { skipConfirm: true, silent: true, effective: autoEdit ? null : editedHeight(part) });
   if (!(result?.cancelled || result?.aloft || result?.fallDist > 0)) return;
   const lines = result.aloft ? [game.i18n.format('DSCT.fall.staysAloft', { name: token.name })] : result.lines ?? [];
   const state = { done: true, undone: false, lines, undoLog: result.undoLog ?? [], finalPos: result.finalPos ?? null,
-    tokenUuid: doc.uuid, canUndo: result.fallDist > 0,
-    rollCount: rollsOf(fallingParts(game.messages.get(message.id) ?? message).find((p) => p.id === part.id) ?? part).length };
+    tokenUuid: doc.uuid, canUndo: result.fallDist > 0, rollCount };
   const update = { [`flags.${M}.${FLAG}.${part.id}`]: state };
   if (result.fallDist > 0) Object.assign(update, { [`flags.${M}.fallLog`]: result.fallLog, [`flags.${M}.isUndone`]: false });
   await safeUpdate(fresh, update);
@@ -84,7 +93,7 @@ function splitFallButton(message, part, button) {
   }
   button.classList.toggle('ctlib-applied', done);
   wrap.classList.toggle('ctlib-split-applied', done);
-  if (done && state.lines?.length) setTip(button, { title: L('tipTitle'), html: state.lines.join('<br>') });
+  if (done && state.lines?.length) setTip(button, { title: button.textContent.trim(), category: part.token?.name ?? '', html: tipBody(state, part.token?.name ?? '') });
   wrap.querySelector(':scope > .ctlib-undo')?.remove();
   const back = document.createElement('button');
   back.type = 'button';
@@ -223,7 +232,8 @@ export function registerSystemFalls() {
       flags: (m) => (fallingParts(m).length && m.flags?.[M]?.fallLog ? m.flags[M] : null),
       html: (m) => {
         const part = fallingParts(m)[0];
-        return part ? stateOf(m, part)?.lines?.join('<br>') ?? null : null;
+        const state = part ? stateOf(m, part) : null;
+        return state?.lines?.length ? tipBody(state, part.token?.name ?? '') : null;
       },
       undo: (m) => {
         const part = fallingParts(m)[0];
