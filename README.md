@@ -80,6 +80,8 @@ https://github.com/TheGenieOfTheCode/draw-steel-combat-tools/releases/latest/dow
 
 Foundry offers to install all four alongside DSCT. They are requirements rather than suggestions: most of the module patches something through libWrapper, and CTLib holds the code the Combat Tools modules share.
 
+Foundry 13 tables can stay on Combat Tools 1.2.8; it no longer gets fixes.
+
 ---
 
 ## Compatibility
