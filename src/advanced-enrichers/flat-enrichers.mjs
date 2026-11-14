@@ -6,6 +6,7 @@ import { levelAllows, expendAllows } from '../ability-automation/flat-special-ef
 import { enricherSignatures, effectSignature } from './mirror.mjs';
 
 const DERIVED = 'dsctDrv';
+const DERIVED_LINE = 'dst-derived-line';
 const FLAT_TYPES = new Set(['dsct.flatDamage', 'dsct.flatHeal', 'dsct.flatResource', 'dsct.flatApplied', 'dsct.flatForced', 'dsct.flatCleanse', 'dsct.flatTeleport', 'dsct.flatGrant']);
 const GAIN_TYPES = new Set(['epic', 'heroic', 'renown', 'surge', 'victory', 'wealth']);
 const FORCED_WORDS = {
@@ -280,7 +281,7 @@ const injectFallback = async (message, html) => {
   const out = document.createElement('span');
   out.className = 'dsct-adv-fallback';
   out.innerHTML = await enrich(texts.join('; '), ability);
-  const effectText = [...embed.querySelectorAll('section.effect dd.effect')].at(-1);
+  const effectText = [...embed.querySelectorAll('section.effect dd.effect')].filter((dd) => !dd.querySelector(`.${DERIVED_LINE}`)).at(-1);
   const host = effectText?.querySelector('p:last-of-type') ?? effectText;
   if (host) {
     host.append(document.createTextNode(host.textContent.trim().match(/[.!?]$/) ? ' ' : '; '), out);
@@ -321,7 +322,8 @@ async function previewEnrichers(context) {
   const texts = fallbackTexts(ability, taken.filter((e) => !claimed.has((e.name ?? '').trim())));
   if (!texts.length) return;
   const extra = `<span class="dsct-adv-fallback">${await enrich(texts.join('; '), ability)}</span>`;
-  const host = context.afterEffects.at(-1) ?? context.beforeEffects.at(-1);
+  const notNote = (d) => !String(d.text ?? '').includes(DERIVED_LINE);
+  const host = context.afterEffects.filter(notNote).at(-1) ?? context.beforeEffects.filter(notNote).at(-1);
   if (host) host.text = appendInline(host.text, extra);
   else context.afterEffects.push({ label: game.i18n.localize('TYPES.SpecialEffect.base'), text: `<p>${extra}</p>` });
 }

@@ -20,6 +20,21 @@ async function loadEntries() {
   }
 }
 
+const FLAT_INLINE = /\[\[\/flat\s+[^\]]+]](?!])\{([^}]+)}/g;
+const escapeRx = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+
+function placeInline(spec, entry) {
+  const texts = Object.values(spec.system.effects ?? {}).filter((e) => e?.type === 'base' && e.description);
+  for (const own of Object.values(entry.system?.effects ?? {})) {
+    for (const m of String(own?.type === 'base' ? own.description ?? '' : '').matchAll(FLAT_INLINE)) {
+      const rx = new RegExp(`(^|>|[^\\w\\]}])(${escapeRx(m[1])})(?![\\w}])`, 'i');
+      const host = texts.find((e) => rx.test(e.description) && !e.description.includes(m[0]));
+      if (host) host.description = host.description.replace(rx, (_, lead, phrase) => `${lead}${m[0].replace(/\{[^}]+}$/, `{${phrase}}`)}`);
+    }
+  }
+}
+
 function enhance(spec, { line }) {
   const entry = _entries.get(line?.key);
   if (!entry || game.settings.get(M, 'enhancedAutoAdd') === false) return;
@@ -32,6 +47,7 @@ function enhance(spec, { line }) {
     spec.system.target = foundry.utils.deepClone(entry.system.target);
   }
   if (entry.effects?.length) spec.effects = foundry.utils.deepClone(entry.effects);
+  placeInline(spec, entry);
   const { derivedLine, ...flags } = entry.flags?.[M] ?? {};
   spec.flags[M] = { ...flags, enhanced: true, enhancedDerived: true };
 }
