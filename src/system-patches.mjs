@@ -69,10 +69,11 @@ function _patchSupportingSurface() {
     const terrain = sceneTerrain();
     let ground = -Infinity;
     for (const cell of cells) {
-      const { surface } = landingSurfaceAt(cell, elevation, Infinity, terrain);
-      if (surface <= elevation && surface > ground) ground = surface;
+      const { surface, solid } = landingSurfaceAt(cell, elevation, Infinity, terrain);
+      if (solid && surface <= elevation && surface > ground) ground = surface;
     }
-    if (!Number.isFinite(ground) || (found && found.elevation >= ground)) return found;
+    if (!Number.isFinite(ground)) return found ?? { elevation: Math.min(0, elevation), level: null, region: null };
+    if (found && found.elevation >= ground) return found;
     return { elevation: ground, level: found?.level ?? null, region: found?.region ?? null };
   }, 'WRAPPER');
 }

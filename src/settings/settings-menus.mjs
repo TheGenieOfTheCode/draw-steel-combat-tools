@@ -388,6 +388,7 @@ export class ForcedMovementSettingsMenu extends SettingsSubmenu {
     return { base: WIKI, pages: {
       Moving: 'Push-Pull-Slide',
       fallConfirmation: 'Vertical-Movement-and-Falls',
+      fallAutoResolve: 'Vertical-Movement-and-Falls',
       Rules: 'Collision-Rules',
       fallDamageCap: 'Vertical-Movement-and-Falls',
       'Wall Builder': 'Wall-Builder',
@@ -408,6 +409,7 @@ export class ForcedMovementSettingsMenu extends SettingsSubmenu {
       'fmAutoForOwnAbilities',
       header('Confirmations'),
       'fallConfirmation',
+      'fallAutoResolve',
       'friendlyFireConfirmation',
       'ignoreAllyEnabled',
       header('Rules'),

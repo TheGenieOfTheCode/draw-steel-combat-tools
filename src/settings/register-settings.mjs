@@ -198,6 +198,10 @@ export const registerSettings = () => {
     name: L('fallConfirmation.name'), hint: L('fallConfirmation.hint'),
     scope: 'world', config: false, type: Boolean, default: false,
   });
+  game.settings.register(M, 'fallAutoResolve', {
+    name: L('fallAutoResolve.name'), hint: L('fallAutoResolve.hint'),
+    scope: 'world', config: false, type: Boolean, default: true,
+  });
   game.settings.register(M, 'friendlyFireConfirmation', {
     name: L('friendlyFireConfirmation.name'), hint: L('friendlyFireConfirmation.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

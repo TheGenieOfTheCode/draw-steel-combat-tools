@@ -168,6 +168,10 @@
         "name": "Fall Confirmation",
         "hint": "Ask in chat before resolving a fall, rather than dropping the creature straight away."
       },
+      "fallAutoResolve": {
+        "name": "Resolve Falls Automatically",
+        "hint": "When a creature falls, drop it, deal the damage and knock it prone straight away, with an Undo button. Off leaves the Fall button to click."
+      },
       "friendlyFireConfirmation": {
         "name": "Friendly Fire Confirmation",
         "hint": "Ask in chat when a forced move would send an ally into something and hurt them."
@@ -2902,6 +2906,12 @@
       "cancelled": "(Fall Cancelled)",
       "awaitingConfirm": "(Awaiting confirmation...)",
       "fell": "<strong>{name}</strong> falls <strong>{dist}</strong> square{s}.",
+      "staysAloft": "<strong>{name}</strong> can fly and stays aloft.",
+      "undo": "Undo Fall",
+      "tipTitle": "Fall",
+      "edited": "Effective height set to {n} by hand.",
+      "undone": "(Fall Undone)",
+      "undoneNotice": "Fall reversed.",
       "agility": "Agility reduces the fall by {n}.",
       "reducedBy": "{source} reduces the fall by {n}.",
       "increasedBy": "{source} increases the fall by {n}.",

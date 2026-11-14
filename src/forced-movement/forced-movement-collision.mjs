@@ -24,7 +24,7 @@ const wallSpan = (w) => {
 
 const sceneTerrain = () => new SceneTerrain();
 
-const terrainTop = (terrain, grid, below, cap = Infinity) => {
+const terrainTopOrNull = (terrain, grid, below, cap = Infinity) => {
   let top = null;
   for (const s of terrain.slabsAt(grid)) {
     if (s.tile || s.liquid) continue;
@@ -33,8 +33,10 @@ const terrainTop = (terrain, grid, below, cap = Infinity) => {
     if (b >= below || t > cap) continue;
     top = Math.max(top ?? -Infinity, t);
   }
-  return top ?? 0;
+  return top;
 };
+
+const terrainTop = (terrain, grid, below, cap = Infinity) => terrainTopOrNull(terrain, grid, below, cap) ?? 0;
 
 const cornerCutsWall = (from, to, elev = 0) => {
   if (from.x === to.x || from.y === to.y) return false;
@@ -315,7 +317,8 @@ const fallNote = (rawFall, effectiveFall, agility, extra) => (extra > 0
   : L('fallNoteAgility', { effective: effectiveFall, agility }));
 
 const landingSurfaceAt = (grid, elev, terrainBelow = Infinity, terrain = sceneTerrain()) => {
-  const terrainSurface = terrainTop(terrain, grid, elev + 1, terrainBelow);
+  const rawTerrain = terrainTopOrNull(terrain, grid, elev + 1, terrainBelow);
+  const terrainSurface = rawTerrain ?? 0;
   const topTile = canvas.tiles.placeables
     .filter(t => {
       const tg = toGrid(t.document);
@@ -326,7 +329,7 @@ const landingSurfaceAt = (grid, elev, terrainBelow = Infinity, terrain = sceneTe
     })
     .sort((a, b) => (getWallBlockTop(b) ?? 0) - (getWallBlockTop(a) ?? 0))[0] ?? null;
   const tileSurface = topTile ? ((getWallBlockTop(topTile) ?? 1) - 1) : terrainSurface;
-  return { surface: Math.max(tileSurface, terrainSurface), topTile };
+  return { surface: Math.max(tileSurface, terrainSurface), topTile, solid: rawTerrain !== null || !!topTile };
 };
 
 const fallDamageFor = (height, agility, reduction = 0, { slam = false } = {}) => {
