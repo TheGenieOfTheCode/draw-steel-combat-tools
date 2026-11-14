@@ -1,0 +1,332 @@
+{
+  "folder": "DSCTfldNullCore1",
+  "name": "Null Field Effect",
+  "type": "ability",
+  "_id": "DSCTenhNullMode1",
+  "img": "icons/magic/defensive/barrier-shield-dome-pink.webp",
+  "system": {
+    "_dsid": "null-field-effect",
+    "story": "",
+    "keywords": [
+      "psionic"
+    ],
+    "type": "freeManeuver",
+    "category": "",
+    "resource": 1,
+    "trigger": "",
+    "distance": {
+      "type": "self",
+      "primary": "",
+      "secondary": "",
+      "tertiary": ""
+    },
+    "damageDisplay": "melee",
+    "target": {
+      "type": "self",
+      "custom": "",
+      "value": null
+    },
+    "power": {
+      "roll": {
+        "formula": "@chr",
+        "characteristics": [],
+        "reactive": false
+      },
+      "effects": {}
+    },
+    "effects": {
+      "specialOncePerT1": {
+        "_id": "specialOncePerT1",
+        "type": "base",
+        "name": "Special",
+        "img": null,
+        "sort": -1,
+        "before": true,
+        "description": "<p>You can use this ability only once on each of your turns.</p>"
+      },
+      "before0000000000": {
+        "_id": "before0000000000",
+        "type": "base",
+        "name": "",
+        "img": null,
+        "sort": 0,
+        "before": true,
+        "description": "<p>Give your @UUID[Compendium.draw-steel.abilities.Item.4e6uHozJPeiF4lMy]{Null Field} [[/choose dsctNullChoose01]]{one of the following additional effects until the start of your next turn:}</p>"
+      },
+      "dsctNullChoose01": {
+        "_id": "dsctNullChoose01",
+        "type": "dsct.choose",
+        "name": "",
+        "img": null,
+        "sort": 100000,
+        "description": "",
+        "before": false,
+        "choose": {
+          "count": 1,
+          "choices": [
+            {
+              "icon": "icons/magic/movement/pinwheel-turning-blue.webp",
+              "name": "Gravitic Disruption",
+              "preview": "<strong>Gravitic Disruption</strong>: The first time on a turn that a target takes damage, you can slide them up to 2 squares.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Gravitic Disruption"
+              ]
+            },
+            {
+              "icon": "icons/magic/control/debuff-chains-shackles-movement-blue.webp",
+              "name": "Inertial Anchor",
+              "preview": "<strong>Inertial Anchor</strong>: Any target who starts their turn in the area can’t shift.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Inertial Anchor"
+              ]
+            },
+            {
+              "icon": "icons/magic/control/hypnosis-mesmerism-swirl.webp",
+              "name": "Synaptic Break",
+              "preview": "<strong>Synaptic Break</strong>: Whenever you or any ally uses an ability against a target that has a potency effect, the potency is increased by 1.",
+              "story": "",
+              "keywords": [],
+              "distance": {
+                "type": "",
+                "primary": "",
+                "secondary": "",
+                "tertiary": ""
+              },
+              "target": {
+                "type": "",
+                "custom": "",
+                "value": null
+              },
+              "effects": [
+                "Synaptic Break"
+              ]
+            }
+          ]
+        }
+      },
+      "dsctNullApplyG01": {
+        "_id": "dsctNullApplyG01",
+        "type": "dsct.flatApplied",
+        "name": "Gravitic Disruption",
+        "img": null,
+        "sort": 200000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "You gain Gravitic Disruption",
+          "display": "Gravitic Disruption",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "dsctNullModeG001",
+          "exclusiveSelf": true,
+          "end": "",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      },
+      "dsctNullApplyI01": {
+        "_id": "dsctNullApplyI01",
+        "type": "dsct.flatApplied",
+        "name": "Inertial Anchor",
+        "img": null,
+        "sort": 300000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "You gain Inertial Anchor",
+          "display": "Inertial Anchor",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "dsctNullModeI001",
+          "exclusiveSelf": true,
+          "end": "",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      },
+      "dsctNullApplyS01": {
+        "_id": "dsctNullApplyS01",
+        "type": "dsct.flatApplied",
+        "name": "Synaptic Break",
+        "img": null,
+        "sort": 400000,
+        "description": "",
+        "before": false,
+        "flatApplied": {
+          "displayText": "You gain Synaptic Break",
+          "display": "Synaptic Break",
+          "potency": {
+            "characteristic": "",
+            "strength": "",
+            "custom": ""
+          },
+          "statusId": "dsctNullModeS001",
+          "exclusiveSelf": true,
+          "end": "",
+          "properties": [],
+          "spend": {
+            "enabled": false,
+            "value": 1
+          }
+        }
+      }
+    }
+  },
+  "effects": [
+    {
+      "_id": "dsctNullModeG001",
+      "name": "Gravitic Disruption",
+      "img": "icons/magic/movement/pinwheel-turning-blue.webp",
+      "type": "base",
+      "disabled": false,
+      "transfer": false,
+      "description": "<p>The first time on a turn that a target takes damage, you can slide them up to 2 squares.</p>",
+      "statuses": [],
+      "tint": "#ffffff",
+      "showIcon": 1,
+      "sort": 0,
+      "flags": {
+        "draw-steel-combat-tools": {
+          "enhanced": true
+        }
+      },
+      "duration": {
+        "value": null,
+        "units": "seconds",
+        "expiry": "turnStart",
+        "expired": false
+      },
+      "start": null,
+      "origin": null,
+      "folder": null,
+      "system": {
+        "changes": []
+      },
+      "changes": [],
+      "_key": "!items.effects!DSCTenhNullMode1.dsctNullModeG001"
+    },
+    {
+      "_id": "dsctNullModeI001",
+      "name": "Inertial Anchor",
+      "img": "icons/magic/control/debuff-chains-shackles-movement-blue.webp",
+      "type": "base",
+      "disabled": false,
+      "transfer": false,
+      "description": "<p>Any target who starts their turn in the area can’t shift.</p>",
+      "statuses": [],
+      "tint": "#ffffff",
+      "showIcon": 1,
+      "sort": 0,
+      "flags": {
+        "draw-steel-combat-tools": {
+          "enhanced": true
+        }
+      },
+      "duration": {
+        "value": null,
+        "units": "seconds",
+        "expiry": "turnStart",
+        "expired": false
+      },
+      "start": null,
+      "origin": null,
+      "folder": null,
+      "system": {
+        "changes": []
+      },
+      "changes": [],
+      "_key": "!items.effects!DSCTenhNullMode1.dsctNullModeI001"
+    },
+    {
+      "_id": "dsctNullModeS001",
+      "name": "Synaptic Break",
+      "img": "icons/magic/control/hypnosis-mesmerism-swirl.webp",
+      "type": "base",
+      "disabled": false,
+      "transfer": false,
+      "description": "<p>Whenever you or any ally uses an ability against a target that has a potency effect, the potency is increased by 1.</p>",
+      "statuses": [],
+      "tint": "#ffffff",
+      "showIcon": 1,
+      "sort": 0,
+      "flags": {
+        "draw-steel-combat-tools": {
+          "enhanced": true
+        }
+      },
+      "duration": {
+        "value": null,
+        "units": "seconds",
+        "expiry": "turnStart",
+        "expired": false
+      },
+      "start": null,
+      "origin": null,
+      "folder": null,
+      "system": {
+        "changes": []
+      },
+      "changes": [],
+      "_key": "!items.effects!DSCTenhNullMode1.dsctNullModeS001"
+    }
+  ],
+  "sort": 0,
+  "ownership": {
+    "default": 0
+  },
+  "flags": {
+    "draw-steel-combat-tools": {
+      "enhanced": true,
+      "enhancedSpecific": true
+    }
+  },
+  "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.370",
+    "systemId": "draw-steel",
+    "systemVersion": "1.2.1",
+    "lastModifiedBy": null,
+    "modifiedTime": null
+  },
+  "_key": "!items!DSCTenhNullMode1"
+}
