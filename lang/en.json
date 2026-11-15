@@ -900,7 +900,7 @@
       },
       "modifierBadge": {
         "name": "Modified Marker on Results",
-        "hint": "Shows a cog beside the target picture when modifiers changed a result. Hover it to list them by section, click it to open the result menu."
+        "hint": "When modifiers changed a result, the target's name is underlined. Hover the name or picture to list the modifiers by section."
       }
     },
     "FM": {
@@ -3206,7 +3206,6 @@
       "sectionDuration": "Duration",
       "modifyCount": "Modify {total} Damage ({n} modifiers)",
       "modifyCountOne": "Modify {total} Damage (1 modifier)",
-      "cogLabel": "Modified",
       "sectionDamage": "Damage",
       "modifyRoll": "Modify Power Roll",
       "modifyRollCountOne": "Modify Power Roll (1 modifier)",

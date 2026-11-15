@@ -3048,18 +3048,7 @@ body.dsbl-dark-chat.dsct-shift-targets .theme-dark .chat-message enriched-conten
 #dsct-tp-panel .dsct-token-col.dsct-tp-moving .dsct-token-img { box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-warm-2) 70%, transparent); }
 .application .dsct-wbs-content .dsct-name-input { font-weight: normal; }
 
-.chat-message .message-part-header .dsct-modified { position: relative; }
-.chat-message .message-part-header .dsct-mod-cog {
-  position: absolute;
-  left: 100%;
-  top: calc(50% - 0.7em);
-  margin-left: 2px;
-  font-size: 0.6em;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0.75;
-}
-.chat-message .message-part-header .dsct-mod-cog:hover { opacity: 1; }
+.chat-message :is(.targetName, .target-name).dsct-modified { text-decoration: underline dotted; text-underline-offset: 2px; }
 .chat-message .dice-formula .dsct-mod-term { text-decoration: underline dotted; text-underline-offset: 2px; cursor: help; }
 .dsct-tip { display: flex; flex-direction: column; gap: 4px; min-width: 190px; max-width: 290px; text-align: left; }
 .dsct-tip .dsct-tip-formula { font-family: var(--font-monospace, monospace); font-size: 0.9em; opacity: 0.85; padding-bottom: 4px; border-bottom: 1px solid color-mix(in srgb, currentColor 30%, transparent); }

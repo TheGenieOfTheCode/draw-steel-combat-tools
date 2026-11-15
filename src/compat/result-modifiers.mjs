@@ -1302,21 +1302,13 @@ function addBadges(message, html) {
     const sections = modifierSections(part);
     if (!sections.length) continue;
     const header = html.querySelector(`section[data-message-part="${part.id}"] ${SECTION.header}`);
-    if (!header || header.querySelector('.dsct-mod-cog')) continue;
-    const badge = document.createElement('a');
-    badge.className = 'dsct-mod-cog fa-fw fa-solid fa-gear';
-    badge.setAttribute('aria-label', L('cogLabel'));
-    bindTip(badge, tipHTML(sections));
-    badge.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const dots = header.querySelector('[data-action="resultPartContext"]');
-      const box = dots?.getBoundingClientRect();
-      dots?.dispatchEvent(new PointerEvent('click', { bubbles: true, clientX: box?.x ?? 0, clientY: box?.y ?? 0 }));
-    });
-    const name = header.querySelector(SECTION.name);
-    if (name) { name.classList.add('dsct-modified'); name.append(badge); }
-    else { header.classList.add('dsct-modified'); header.append(badge); }
+    if (!header || header.querySelector('.dsct-modified')) continue;
+    const tip = tipHTML(sections);
+    for (const el of [header.querySelector(SECTION.name), header.querySelector('img')].filter(Boolean)) {
+      el.classList.add('dsct-modified');
+      el.removeAttribute('data-tooltip');
+      bindTip(el, tip);
+    }
   }
 }
 
