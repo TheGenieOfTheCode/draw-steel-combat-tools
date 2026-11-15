@@ -786,7 +786,9 @@ export const registerSettings = () => {
     name: L('compactChatPills.name'), hint: L('compactChatPills.hint'),
     scope: 'client', config: false, type: Boolean, default: false, onChange: applyCompactPills,
   });
-  Hooks.once('ready', () => applyCompactPills(game.settings.get(M, 'compactChatPills')));
+  Hooks.once('ready', () => {
+    if (!game.modules.get('draw-steel-battle-log')?.active) applyCompactPills(game.settings.get(M, 'compactChatPills'));
+  });
   game.settings.register(M, 'hideApplyWord', {
     name: L('hideApplyWord.name'), hint: L('hideApplyWord.hint'),
     scope: 'client', config: false, type: Boolean, default: true, onChange: applyHideApplyWord,

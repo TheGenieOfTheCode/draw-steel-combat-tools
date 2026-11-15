@@ -147,7 +147,7 @@ export class AbilityAutomationSettingsMenu extends SettingsSubmenu {
       'rollDialogDodge',
       header('Modifiers in Chat'),
       'dstdRollPills',
-      'compactChatPills',
+      ...(game.modules.get('draw-steel-battle-log')?.active ? [] : ['compactChatPills']),
       'modifierEditors',
       'skipPillEditor',
       'modifierBadge',

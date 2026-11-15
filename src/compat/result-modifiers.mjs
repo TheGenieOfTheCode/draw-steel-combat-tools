@@ -405,8 +405,111 @@ function resultPills(message, target = null) {
   };
 }
 
+const toneOf = (kind, amount) => {
+  if (kind === 'edge' || kind === 'bane') return kind;
+  const n = Number(amount);
+  return Number.isFinite(n) && n !== 0 ? (n > 0 ? 'plus' : 'minus') : 'neutral';
+};
+const shown = (key, row, off, tone) => ({ key, text: [row.amt, row.name].filter(Boolean).join(' · '), short: row.amt || row.name, sub: [row.effect, row.from].filter(Boolean).join(' · '), off, tone });
+
+function sectionPills(message, target = null) {
+  const part = active() ? partFor(message, target) : null;
+  if (!part) return null;
+  const mods = modsOf(part);
+  const out = { partId: part.id, roll: [], damage: {}, forced: {}, effects: {} };
+  if (isPower(part.rolls[0])) {
+    const editor = new ResultRollEditor(part);
+    editor._basePills.forEach((p, i) => {
+      if (!p.removed) out.roll.push(shown(`rollBase:${i}`, rollRow(p), (p.enabled === false) !== editor._baseOff.has(i), toneOf(p.kind, p.amount)));
+    });
+    editor._session.forEach((p, i) => out.roll.push(shown(`roll:${i}`, rollRow(p), p.enabled === false, toneOf(p.kind, p.amount))));
+  }
+  for (const i of damageIndexes(part)) {
+    out.damage[i] = (mods.damage?.[i]?.pills ?? []).map((p, j) => (p.kind === 'note' ? null : shown(`damage:${i}:${j}`, damageRow(p), p.enabled === false, toneOf(p.kind, p.value)))).filter(Boolean);
+  }
+  for (const [i, f] of Object.entries(mods.forced ?? {})) {
+    out.forced[i] = (f.stack ?? []).map((e, j) => shown(`forced:${i}:${j}`, fmRow(e, f.base), e.enabled === false, toneOf(null, e.modState?.[0]?.distanceDelta)));
+  }
+  const named = Object.fromEntries((part.type === 'targetResult' ? appliedEffectsOf(part) : []).map((e) => [e.effectId, e]));
+  for (const [id, e] of Object.entries(mods.effects ?? {})) {
+    out.effects[id] = (e?.stack ?? []).map((p, j) => shown(`effect:${id}:${j}`, effectRow(p, named[id]), p.enabled === false, toneOf(p.kind, p.amount)));
+  }
+  return out;
+}
+
+async function togglePill(message, target, key, enabled = null) {
+  const part = active() ? partFor(message, target) : null;
+  const [section, a, b] = String(key ?? '').split(':');
+  if (!part || !section) return false;
+  const want = (current) => (enabled == null ? !current : !!enabled);
+  return serial(part.id, async () => {
+    const mods = modsOf(part);
+    if (section === 'rollBase' || section === 'roll') {
+      const editor = new ResultRollEditor(part);
+      const i = Number(a);
+      if (section === 'rollBase') {
+        const p = editor._basePills[i];
+        if (!p) return false;
+        const on = want((p.enabled === false) === editor._baseOff.has(i));
+        if (((p.enabled === false) !== !on)) editor._baseOff.add(i); else editor._baseOff.delete(i);
+      } else {
+        const p = editor._session[i];
+        if (!p) return false;
+        const { enabled: _, ...rest } = p;
+        editor._session[i] = want(p.enabled !== false) ? rest : { ...rest, enabled: false };
+      }
+      await editor._commit();
+      return true;
+    }
+    const flip = (list, j) => {
+      const p = list?.[Number(j)];
+      if (!p) return null;
+      const { enabled: _, ...rest } = p;
+      return list.map((x, k) => (k === Number(j) ? (want(p.enabled !== false) ? rest : { ...rest, enabled: false }) : x));
+    };
+    if (section === 'damage') {
+      const pills = flip(mods.damage?.[a]?.pills, b);
+      if (!pills) return false;
+      await rebake(part, { damage: { [a]: { pills } } });
+      return true;
+    }
+    if (section === 'forced') {
+      const stack = flip(mods.forced?.[a]?.stack, b);
+      const base = forcedBases(part).find((x) => x.index === Number(a))?.base ?? mods.forced?.[a]?.base;
+      if (!stack || !base) return false;
+      await saveForced(part, Number(a), base, stack);
+      return true;
+    }
+    if (section === 'effect') {
+      const stack = flip(mods.effects?.[a]?.stack, b);
+      if (!stack) return false;
+      await saveEffectStack(part, a, stack);
+      return true;
+    }
+    return false;
+  });
+}
+
+function openModifier(message, target, section, index = 0) {
+  const part = active() ? partFor(message, target) : null;
+  if (!part) return false;
+  if (section === 'roll' && isPower(part.rolls[0])) new ResultRollEditor(part).render({ force: true });
+  else if (section === 'damage') openDamage(part, Number(index));
+  else if (section === 'forced') {
+    const base = forcedBases(part).find((x) => x.index === Number(index))?.base;
+    if (!base) return false;
+    foundry.applications.instances.get('dsct-fm-editor')?.close();
+    new ResultFmEditor(part, Number(index), base).render({ force: true });
+  } else if (section === 'effect') {
+    const effect = appliedEffectsOf(part).find((e) => e.effectId === index);
+    if (!effect) return false;
+    new ResultEffectEditor(part, effect).render({ force: true });
+  } else return false;
+  return true;
+}
+
 export const resultModifiersApi = {
-  active, partFor, pills: resultPills,
+  active, partFor, pills: resultPills, sections: sectionPills, toggle: togglePill, open: openModifier,
   addDamage: addDamagePill, setDamageEnabled: setDamagePillEnabled,
   addRoll: addRollPill, setRollEnabled: setRollPillEnabled,
   addPotency: addPotencyPill, potencyEffects, addTarget: addTargetPart, addEffect: addEffectPill,
