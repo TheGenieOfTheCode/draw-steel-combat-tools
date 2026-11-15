@@ -435,13 +435,19 @@ function sectionPills(message, target = null) {
   for (const [id, e] of Object.entries(mods.effects ?? {})) {
     out.effects[id] = (e?.stack ?? []).map((p, j) => shown(`effect:${id}:${j}`, effectRow(p, named[id]), p.enabled === false, toneOf(p.kind, p.amount)));
   }
+  const applied = appliedIn(part);
+  const lock = (list, section, index) => { for (const p of list ?? []) p.locked = lockedSection(applied, section, index); };
+  lock(out.roll, 'roll');
+  for (const [i, list] of Object.entries(out.damage)) lock(list, 'damage', i);
+  for (const [i, list] of Object.entries(out.forced)) lock(list, 'forced', i);
+  for (const [id, list] of Object.entries(out.effects)) lock(list, 'effect', id);
   return out;
 }
 
 async function togglePill(message, target, key, enabled = null) {
   const part = active() ? partFor(message, target) : null;
   const [section, a, b] = String(key ?? '').split(':');
-  if (!part || !section) return false;
+  if (!part || !section || lockedSection(appliedIn(part), section, a)) return false;
   const want = (current) => (enabled == null ? !current : !!enabled);
   return serial(part.id, async () => {
     const mods = modsOf(part);
@@ -493,7 +499,7 @@ async function togglePill(message, target, key, enabled = null) {
 
 function openModifier(message, target, section, index = 0) {
   const part = active() ? partFor(message, target) : null;
-  if (!part) return false;
+  if (!part || lockedSection(appliedIn(part), section, index)) return false;
   if (section === 'roll' && isPower(part.rolls[0])) new ResultRollEditor(part).render({ force: true });
   else if (section === 'damage') openDamage(part, Number(index));
   else if (section === 'forced') {
@@ -630,11 +636,12 @@ function addForcedRows(part, html) {
     const moved = fmMessageState(moveMsg) === 'live';
     row.innerHTML = `<div class="dice-flavor">${esc(L('sectionForced'))}</div><div class="dice-result"><div class="inline-result">`
       + `<div class="dice-formula">${[baseLabel, ...terms].join(' ')}</div>`
-      + `<span class="ctlib-split${moved ? ' ctlib-split-applied' : ''}"><button type="button" class="dice-total dsct-fm-go${moved ? ' ctlib-applied' : ''}"><i class="${FM_ICON}" inert></i> ${st.distance}</button>`
+      + `<span class="ctlib-split${moved ? ' ctlib-split-applied' : ''}"><button type="button" class="dice-total dsct-fm-go${moved ? ' ctlib-applied' : ''}"${moved ? ' disabled' : ''}><i class="${FM_ICON}" inert></i> ${st.distance}</button>`
       + `<button type="button" class="ctlib-undo${moved ? '' : ' ctlib-undo-off'}" aria-label="${esc(L('fmUndo'))}"><i class="fa-solid fa-rotate-left" inert></i></button></span>`
       + `</div></div>`;
     for (const term of row.querySelectorAll('.dsct-mod-term')) bindTip(term, term.dataset.dsctTip);
     const go = row.querySelector('.dsct-fm-go');
+    if (moved) passHover(go.parentElement, go);
     bindTip(go, tipHTML([[L('sectionForced'), [{ amt: '', name: _fmMakeLabel(base), effect: L('fmGo') }, ...enabled.map((e) => fmRow(e, base))]]], _fmMakeLabel(st)));
     go.addEventListener('click', (event) => {
       event.preventDefault();
@@ -942,17 +949,24 @@ function addEffectRows(part, html) {
     delete btn.dataset.tooltip;
     bindTip(btn, tip);
     btn.classList.add('dice-total');
+    for (const node of [...btn.childNodes]) {
+      if (node.nodeType !== Node.TEXT_NODE || !node.textContent.trim()) continue;
+      const label = document.createElement('span');
+      label.className = 'dsct-btn-label';
+      label.textContent = node.textContent.trim();
+      node.replaceWith(label);
+    }
     row.querySelector('.inline-result').append(btn.closest('.ctlib-split') ?? btn);
     host.append(row);
   }
   hideAppliedPotencyLines(part, sec);
-  const footer = sec.querySelector('footer.message-part-buttons');
+  const footer = sec.querySelector(SECTION.buttons);
   if (footer && !footer.querySelector('button, a')) footer.remove();
 }
 
 function hideAppliedPotencyLines(part, sec) {
   const actor = part.actorTarget;
-  const lines = [...(sec.querySelectorAll('.message-part-potency > .flexrow') ?? [])];
+  const lines = [...(sec.querySelectorAll(SECTION.potencyLine) ?? [])];
   if (!actor || !lines.length) return;
   const hidden = chooseHiddenRollIndexes(part.message);
   const withPotency = (part.ability?.system?.power?.effects?.sortedContents ?? [])
@@ -1074,15 +1088,30 @@ async function applyEffectPills(part, context) {
   }
 }
 
+function appliedIn(part) {
+  const entries = (journal(part.message) ?? []).filter((e) => e.partId === part.id && !e.undone);
+  const damage = new Set(entries.filter((e) => e.action === 'applyDamage').map((e) => Number(e.index)));
+  const effects = new Set(entries.filter((e) => e.action === 'applyEffect' && e.effect).map((e) => e.effect));
+  const forced = new Set(Object.entries(part.message.getFlag(M, `fmMoves.${part.id}`) ?? {})
+    .filter(([, id]) => fmMessageState(game.messages.get(id)) === 'live').map(([i]) => Number(i)));
+  return { damage, effects, forced, any: damage.size + effects.size + forced.size > 0 };
+}
+
+const lockedSection = (applied, section, index) => (section === 'roll' || section === 'rollBase' ? applied.any
+  : section === 'damage' ? applied.damage.has(Number(index))
+    : section === 'forced' ? applied.forced.has(Number(index))
+      : section === 'effect' ? applied.effects.has(index) : false);
+
 function addMenuEntries(part, options) {
   if (!active() || !RESULT_TYPES.has(part.type)) return;
   const mods = modsOf(part);
+  const applied = appliedIn(part);
   const first = options.findIndex((o) => o.icon === 'fa-solid fa-dice-d6');
   for (let i = options.length - 1; i >= 0; i--) if (options[i].icon === 'fa-solid fa-dice-d6') options.splice(i, 1);
   const ours = [];
   const owner = () => part.message.isOwner;
   const fail = (err) => console.error('DSCT | result modifiers |', err);
-  if (isPower(part.rolls[0])) {
+  if (isPower(part.rolls[0]) && !applied.any) {
     const n = live(mods.roll?.pills).length + (mods.roll?.baseOff?.length ?? 0);
     ours.push({
       label: n ? plural(n, 'modifyRollCountOne', 'modifyRollCount') : L('modifyRoll'),
@@ -1091,6 +1120,7 @@ function addMenuEntries(part, options) {
     });
   }
   for (const index of damageIndexes(part)) {
+    if (applied.damage.has(index)) continue;
     const total = part.rolls[index].total;
     const n = live(mods.damage?.[index]?.pills).length;
     ours.push({
@@ -1100,6 +1130,7 @@ function addMenuEntries(part, options) {
     });
   }
   for (const { index, base } of forcedBases(part)) {
+    if (applied.forced.has(index)) continue;
     const n = live(fmStack(mods, index)).length;
     ours.push({
       label: n ? plural(n, 'modifyForcedCountOne', 'modifyForcedCount') : L('modifyForced'),
@@ -1111,6 +1142,7 @@ function addMenuEntries(part, options) {
   }
   if (part.type === 'targetResult') {
     for (const effect of appliedEffectsOf(part)) {
+      if (applied.effects.has(effect.effectId)) continue;
       const n = live(effectStack(mods, effect.effectId)).length;
       ours.push({
         label: n ? L('modifyEffectCount', { name: effect.name, n }) : L('modifyEffect', { name: effect.name }),
