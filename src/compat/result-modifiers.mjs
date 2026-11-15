@@ -688,6 +688,8 @@ function forcedBases(part) {
   return bases.map((b, i) => (b ? { index: i, base: b } : null)).filter(Boolean);
 }
 
+const FM_MENU_SLOTS = 4;
+
 const FM_KEYS = ['movement', 'vertical', 'verticalDistance', 'fallReduction', 'noFallDamage', 'noCollisionDamage',
   'noMoverCollisionDamage', 'noObstacleCollisionDamage', 'ignoreStability', 'safely', 'fastMove', 'sourceTokenId'];
 
@@ -1134,13 +1136,19 @@ function addMenuEntries(part, options) {
       onClick: () => openDamage(part, index).catch(fail),
     });
   }
-  for (const { index, base } of forcedBases(part)) {
-    if (applied.forced.has(index)) continue;
-    const n = live(fmStack(mods, index)).length;
+  const baseAt = (index) => forcedBases(part).find((b) => b.index === index)?.base ?? null;
+  const fmSlots = Math.max(FM_MENU_SLOTS, forcedBases(part).length);
+  for (let index = 0; index < fmSlots; index++) {
     ours.push({
-      label: n ? plural(n, 'modifyForcedCountOne', 'modifyForcedCount') : L('modifyForced'),
-      icon: FM_ICON, visible: owner,
+      get label() {
+        const n = live(fmStack(modsOf(part), index)).length;
+        return n ? plural(n, 'modifyForcedCountOne', 'modifyForcedCount') : L('modifyForced');
+      },
+      icon: FM_ICON,
+      visible: () => owner() && !!baseAt(index) && !appliedIn(part).forced.has(index),
       onClick: () => {
+        const base = baseAt(index);
+        if (!base) return;
         try { getWindowById('dsct-fm-editor')?.close(); new ResultFmEditor(part, index, base).render({ force: true }); } catch (err) { fail(err); }
       },
     });
