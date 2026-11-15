@@ -39,6 +39,7 @@ const typeName = (type) => {
 
 let _fmGateBypass = false;
 let _fmContextKey = null;
+let _fmResumeKey = null;
 
 let _handler = null;
 
@@ -120,16 +121,19 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     _fmContextKey = null;
     return post();
   }
+  let linkKey = null;
   if (_fmGateBypass) {
     _fmGateBypass = false;
     _fmContextKey = null;
+    linkKey = _fmResumeKey;
   } else {
-    
-    
-    
-    
+
+
+
+
     const fmKey = _fmContextKey;
     _fmContextKey = null;
+    linkKey = fmKey;
     const ctx = {
       type, distance, target: targetToken, source: sourceToken,
       messageId: contextMessageId, origin, fmKey, keywords: [...keywords],
@@ -137,6 +141,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       noCollisionDamage, noMoverCollisionDamage, noObstacleCollisionDamage, fastMove, safely,
       resume: (mods = {}) => {
         _fmGateBypass = true;
+        _fmResumeKey = fmKey;
         try {
           return _runForcedMovement(mods.type ?? ctx.type, mods.distance ?? ctx.distance, mods.target ?? targetToken, mods.source ?? sourceToken,
             mods.bonusCreatureDmg ?? ctx.bonusCreatureDmg, mods.bonusObjectDmg ?? ctx.bonusObjectDmg, mods.verticalHeight ?? ctx.verticalHeight,
@@ -145,6 +150,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             { safely: mods.safely ?? ctx.safely });
         } finally {
           _fmGateBypass = false;
+          _fmResumeKey = null;
         }
       },
     };
@@ -1921,7 +1927,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       if (suppressMessage) return vertResultData;
       await ChatMessage.create({
         content: vertResultData.content,
-        flags: { 'draw-steel-combat-tools': { isFmUndo: true, isUndone: false, ...vertResultData } }
+        flags: { 'draw-steel-combat-tools': { isFmUndo: true, isUndone: false, ...vertResultData, fmKey: linkKey, contextMessageId } }
       });
       return;
     }
@@ -2795,7 +2801,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     if (suppressMessage) { window._dsctFMActive = false; await markRevealed(targetToken, 'forced'); return mainResultData; }
     await ChatMessage.create({
       content: mainResultData.content,
-      flags: { 'draw-steel-combat-tools': { isFmUndo: true, isUndone: false, ...mainResultData } }
+      flags: { 'draw-steel-combat-tools': { isFmUndo: true, isUndone: false, ...mainResultData, fmKey: linkKey, contextMessageId } }
     });
     window._dsctFMActive = false;
     

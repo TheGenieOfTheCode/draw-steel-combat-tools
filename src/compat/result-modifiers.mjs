@@ -638,12 +638,7 @@ function addForcedRows(part, html) {
     go.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      let captured = null;
-      const hook = Hooks.on('createChatMessage', (m) => { if (!captured && m.getFlag(M, 'isFmUndo')) captured = m.id; });
-      runForced(part, runSt, keywords, index)
-        .then(() => (captured ? safeUpdate(part.message, { [`flags.${M}.fmMoves.${part.id}.${index}`]: captured }) : null))
-        .catch((err) => console.error('DSCT | result modifiers | forced movement', err))
-        .finally(() => Hooks.off('createChatMessage', hook));
+      runForced(part, runSt, keywords, index).catch((err) => console.error('DSCT | result modifiers | forced movement', err));
     });
     const undo = row.querySelector('.ctlib-undo');
     undo.addEventListener('click', async (event) => {
@@ -1275,6 +1270,12 @@ export function registerResultModifiers() {
     applyEffectPills(part, context).catch((err) => console.error('DSCT | result modifiers | effect modifiers', err));
   });
   Hooks.on('renderChatMessageHTML', addBadges);
+  Hooks.on('createChatMessage', (msg, _options, userId) => {
+    if (userId !== game.user.id || !active() || !msg.getFlag(M, 'isFmUndo')) return;
+    const key = /^part:([^:]+):(\d+)$/.exec(msg.getFlag(M, 'fmKey') ?? '');
+    const owner = key ? game.messages.get(msg.getFlag(M, 'contextMessageId')) : null;
+    if (owner) safeUpdate(owner, { [`flags.${M}.fmMoves.${key[1]}.${key[2]}`]: msg.id });
+  });
   Hooks.on('updateChatMessage', (msg, changed) => {
     if (!active() || !foundry.utils.hasProperty(changed, `flags.${M}.isUndone`) || !msg.getFlag(M, 'isFmUndo')) return;
     for (const owner of game.messages.contents.slice(-100)) {
