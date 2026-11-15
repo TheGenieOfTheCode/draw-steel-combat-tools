@@ -44,7 +44,7 @@ function itemsOf(section) {
   const items = [];
   section.querySelectorAll('button[data-action="applyDamage"]').forEach((btn, i) => items.push({ kind: 'damage', btn, key: `damage:${btn.dataset.index ?? i}` }));
   const rest = [];
-  for (const el of section.querySelectorAll('.dsct-effect-roll, .dsct-fm-roll, button[data-action="applyEffect"], button[data-action="gainResource"], button.dsct-grab-btn, [data-dsct-action="dsct-purifying-fire"], footer button')) {
+  for (const el of section.querySelectorAll('.dsct-effect-roll, .dsct-fm-roll, button[data-action="applyEffect"], button[data-action="gainResource"], button.dsct-grab-btn, [data-dsct-action="dsct-purifying-fire"], footer button, .card-buttons button')) {
     if (el.classList.contains('dsct-effect-roll')) {
       const btn = el.querySelector('button[data-action="applyEffect"]');
       if (btn) rest.push({ kind: 'effect', btn, row: el, key: `effect:${el.dataset.effectId}` });
@@ -74,7 +74,7 @@ function cardItems(root, message) {
   const section = part ? sectionOf(root, part.id) : null;
   if (!section) return [];
   const items = [];
-  for (const el of section.querySelectorAll('footer button')) {
+  for (const el of section.querySelectorAll('footer button, .card-buttons button')) {
     if (el.closest('.ctlib-split.dsct-apply-all')) continue;
     if (el.classList.contains('dsct-tp-ability-btn')) { items.push({ kind: 'option', btn: el, key: 'tp-ability' }); continue; }
     const flat = el.className.match?.(FLAT)?.[1];

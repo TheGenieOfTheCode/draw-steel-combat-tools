@@ -3501,14 +3501,26 @@ button.dsct-hn-token.is-gone img {
 .dsct-apply-all-row {
   gap: 4px;
   align-items: stretch;
+  flex-wrap: nowrap;
 }
+.dsct-apply-all-row > .ctlib-split.dsct-apply-all > .dsct-apply-all-go { min-width: 0; }
+.dsct-effect-roll .ctlib-applied .dsct-btn-label { display: none; }
+body.dsp-improved-chat .chat-message .dsct-apply-all-row {
+  flex-direction: row !important;
+  align-items: stretch !important;
+}
+body.dsp-improved-chat .chat-message .dsct-apply-all-row > .dsct-update-targets-wrap:has(~ .ctlib-split.dsct-apply-all) { flex: 0 0 auto !important; }
+body.dsp-improved-chat .chat-message .dsct-update-targets-wrap > button.dsct-update-targets { width: auto !important; }
+body.dsp-improved-chat .chat-message .dsct-apply-all-row > .ctlib-split.dsct-apply-all { flex: 1 1 auto !important; min-width: 0; }
 .dsct-apply-all-row > .dsct-update-targets-wrap {
   display: flex;
   flex: 1 1 0;
   min-width: 0;
   margin-top: 3px;
 }
-.dsct-apply-all-row > .dsct-update-targets-wrap ~ .ctlib-split.dsct-apply-all { flex: 1 1 0; min-width: 0; }
+.dsct-apply-all-row > .dsct-update-targets-wrap:has(~ .ctlib-split.dsct-apply-all) { flex: 0 0 auto; }
+.dsct-apply-all-row > .dsct-update-targets-wrap ~ .ctlib-split.dsct-apply-all { flex: 1 1 auto; min-width: 0; }
+.dsct-apply-all-row .dsct-apply-all-go { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dsct-update-targets-wrap > button.dsct-update-targets {
   flex: 1 1 auto;
   margin: 0 !important;

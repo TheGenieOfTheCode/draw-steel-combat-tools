@@ -3,10 +3,11 @@ import { RollEditorBase, rollPillAmount, addGlobalRollPills } from './dstd-roll-
 import { applyTierMods } from '../ability-automation/roll-dialog-hooks.mjs';
 import { usedKeywords, chooseHiddenRollIndexes } from '../ability-automation/choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
+import { SECTION } from './section-markup.mjs';
 import { fmMessageState, undoFmMessage } from '../forced-movement/forced-movement-undo.mjs';
 import { FmModifyPanel, replayModifiers } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { _fmBaseStateFromBtn, _fmMakeLabel } from '../system-patches.mjs';
-import { RESULT_MENU, APPLY, DAMAGE_TYPES, addTargetResult, safeUpdate } from '../ctlib.mjs';
+import { RESULT_MENU, APPLY, DAMAGE_TYPES, addTargetResult, safeUpdate, passHover, journal } from '../ctlib.mjs';
 import { hasRecurring } from '../conditions/recurring-damage.mjs';
 import { pillAmountLabel, pillCss, EFFECT_END_LABELS } from '../ability-automation/roll-dialog-hooks.mjs';
 import { getSetting, getWindowById, mentorOf, spendBeyondCost, isOwnAbilityActor } from '../helpers.mjs';
@@ -591,12 +592,12 @@ function addForcedRows(part, html) {
     return false;
   });
   if (!btns.length) {
-    const footer = sec?.querySelector('footer.message-part-buttons');
+    const footer = sec?.querySelector(SECTION.buttons);
     if (footer && !footer.querySelector('button, a')) footer.remove();
     return;
   }
   const mods = modsOf(part);
-  const host = sec.querySelector('.message-part-rolls') ?? sec;
+  const host = sec.querySelector(SECTION.rolls) ?? sec;
   const item = part.ability;
   const autoOwn = getSetting('fmAutoForOwnAbilities') && isOwnAbilityActor(item?.actor);
   btns.forEach((btn, index) => {
@@ -651,8 +652,18 @@ function addForcedRows(part, html) {
     host.append(row);
     btn.remove();
   });
-  const footer = sec.querySelector('footer.message-part-buttons');
+  const footer = sec.querySelector(SECTION.buttons);
   if (footer && !footer.querySelector('button, a')) footer.remove();
+  const shown = new Set([...sec.querySelectorAll('.dsct-fm-roll')].map((row) => {
+    try { return _fmMakeLabel(JSON.parse(row.dataset.fmBase)).trim().toLowerCase(); } catch { return null; }
+  }).filter(Boolean));
+  for (const dl of sec.querySelectorAll(SECTION.tierLine)) {
+    const parts = [...dl.querySelectorAll('dd')].flatMap((dd) => dd.textContent.split(';')).map((s) => s.trim().toLowerCase()).filter(Boolean);
+    if (!parts.length || !parts.every((p) => shown.has(p))) continue;
+    const wrap = dl.parentElement;
+    dl.remove();
+    if (wrap?.matches('.card-target-text') && !wrap.children.length) wrap.remove();
+  }
 }
 
 function forcedBases(part) {
@@ -910,7 +921,7 @@ async function addEffectPill(message, target, pill) {
 function addEffectRows(part, html) {
   if (part.type !== 'targetResult') return;
   const sec = html.querySelector(`section[data-message-part="${part.id}"]`);
-  const host = sec?.querySelector('.message-part-rolls');
+  const host = sec?.querySelector(SECTION.rolls);
   if (!host) return;
   const effects = appliedEffectsOf(part);
   const mods = modsOf(part);
@@ -949,8 +960,8 @@ function hideAppliedPotencyLines(part, sec) {
     .filter((pre) => pre.potencyOption?.(part.tier, actor, { bonus: part.potencies?.[pre.id] }));
   if (withPotency.length !== lines.length) return;
   withPotency.forEach((pre, i) => { if (pre.type === 'applied') lines[i].remove(); });
-  const box = sec.querySelector('.message-part-potency');
-  if (box && !box.querySelector('.flexrow')) box.remove();
+  const box = sec.querySelector(SECTION.potency);
+  if (box && !box.querySelector('.flexrow, .potency-row')) box.remove();
 }
 
 class ResultEffectEditor extends ds.applications.api.DSApplication {
@@ -1200,7 +1211,7 @@ function addRollTooltip(part, html) {
 
 function addDamageTerms(part, html) {
   const mods = modsOf(part);
-  const rollEls = html.querySelectorAll(`section[data-message-part="${part.id}"] .message-part-rolls > .dice-roll`);
+  const rollEls = html.querySelectorAll(`section[data-message-part="${part.id}"] ${SECTION.rolls} > .dice-roll`);
   for (const index of damageIndexes(part)) {
     const entry = mods.damage?.[index];
     const formulaEl = rollEls[index]?.querySelector('.dice-formula');
@@ -1253,7 +1264,7 @@ function addBadges(message, html) {
     if (!RESULT_TYPES.has(part.type)) continue;
     const sections = modifierSections(part);
     if (!sections.length) continue;
-    const header = html.querySelector(`section[data-message-part="${part.id}"] .message-part-header`);
+    const header = html.querySelector(`section[data-message-part="${part.id}"] ${SECTION.header}`);
     if (!header || header.querySelector('.dsct-mod-cog')) continue;
     const badge = document.createElement('a');
     badge.className = 'dsct-mod-cog fa-fw fa-solid fa-gear';
@@ -1266,7 +1277,7 @@ function addBadges(message, html) {
       const box = dots?.getBoundingClientRect();
       dots?.dispatchEvent(new PointerEvent('click', { bubbles: true, clientX: box?.x ?? 0, clientY: box?.y ?? 0 }));
     });
-    const name = header.querySelector('.targetName');
+    const name = header.querySelector(SECTION.name);
     if (name) { name.classList.add('dsct-modified'); name.append(badge); }
     else { header.classList.add('dsct-modified'); header.append(badge); }
   }
