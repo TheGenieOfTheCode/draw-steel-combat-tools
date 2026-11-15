@@ -3,9 +3,10 @@ import { RollEditorBase, rollPillAmount, addGlobalRollPills } from './dstd-roll-
 import { applyTierMods } from '../ability-automation/roll-dialog-hooks.mjs';
 import { usedKeywords, chooseHiddenRollIndexes } from '../ability-automation/choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
+import { fmMessageState, undoFmMessage } from '../forced-movement/forced-movement-undo.mjs';
 import { FmModifyPanel, replayModifiers } from '../forced-movement/forced-movement-modify-panel.mjs';
 import { _fmBaseStateFromBtn, _fmMakeLabel } from '../system-patches.mjs';
-import { RESULT_MENU, APPLY, DAMAGE_TYPES, addTargetResult } from '../ctlib.mjs';
+import { RESULT_MENU, APPLY, DAMAGE_TYPES, addTargetResult, safeUpdate } from '../ctlib.mjs';
 import { hasRecurring } from '../conditions/recurring-damage.mjs';
 import { pillAmountLabel, pillCss, EFFECT_END_LABELS } from '../ability-automation/roll-dialog-hooks.mjs';
 import { getSetting, getWindowById, mentorOf, spendBeyondCost, isOwnAbilityActor } from '../helpers.mjs';
@@ -520,15 +521,34 @@ function addForcedRows(part, html) {
     row.dataset.fmBase = JSON.stringify(base);
     
     row.dataset.fmAuto = runSt.fastMove && !runSt.vertical && /^(push|pull)$/i.test(runSt.movement) ? '1' : '';
+    const moveId = part.message.getFlag(M, `fmMoves.${part.id}.${index}`);
+    const moveMsg = moveId ? game.messages.get(moveId) : null;
+    const moved = fmMessageState(moveMsg) === 'live';
     row.innerHTML = `<div class="dice-flavor">${esc(L('sectionForced'))}</div><div class="dice-result"><div class="inline-result">`
       + `<div class="dice-formula">${[baseLabel, ...terms].join(' ')}</div>`
-      + `<button type="button" class="dice-total dsct-fm-go" data-tooltip="${esc(`${_fmMakeLabel(st)} · ${L('fmGo')}`)}"><i class="${FM_ICON}" inert></i> ${st.distance}</button>`
+      + `<span class="ctlib-split${moved ? ' ctlib-split-applied' : ''}"><button type="button" class="dice-total dsct-fm-go${moved ? ' ctlib-applied' : ''}"><i class="${FM_ICON}" inert></i> ${st.distance}</button>`
+      + `<button type="button" class="ctlib-undo${moved ? '' : ' ctlib-undo-off'}" aria-label="${esc(L('fmUndo'))}"><i class="fa-solid fa-rotate-left" inert></i></button></span>`
       + `</div></div>`;
     for (const term of row.querySelectorAll('.dsct-mod-term')) bindTip(term, term.dataset.dsctTip);
-    row.querySelector('.dsct-fm-go').addEventListener('click', (event) => {
+    const go = row.querySelector('.dsct-fm-go');
+    bindTip(go, tipHTML([[L('sectionForced'), [{ amt: '', name: _fmMakeLabel(base), effect: L('fmGo') }, ...enabled.map((e) => fmRow(e, base))]]], _fmMakeLabel(st)));
+    go.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      runForced(part, runSt, keywords, index).catch((err) => console.error('DSCT | result modifiers | forced movement', err));
+      let captured = null;
+      const hook = Hooks.on('createChatMessage', (m) => { if (!captured && m.getFlag(M, 'isFmUndo')) captured = m.id; });
+      runForced(part, runSt, keywords, index)
+        .then(() => (captured ? safeUpdate(part.message, { [`flags.${M}.fmMoves.${part.id}.${index}`]: captured }) : null))
+        .catch((err) => console.error('DSCT | result modifiers | forced movement', err))
+        .finally(() => Hooks.off('createChatMessage', hook));
+    });
+    const undo = row.querySelector('.ctlib-undo');
+    undo.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!moved || undo.classList.contains('ctlib-undo-off')) return;
+      undo.classList.add('ctlib-undo-off');
+      if (await undoFmMessage(moveMsg)) await safeUpdate(part.message, { [`flags.${M}.fmMoves.${part.id}.-=${index}`]: null });
     });
     host.append(row);
     btn.remove();
@@ -1152,4 +1172,11 @@ export function registerResultModifiers() {
     applyEffectPills(part, context).catch((err) => console.error('DSCT | result modifiers | effect modifiers', err));
   });
   Hooks.on('renderChatMessageHTML', addBadges);
+  Hooks.on('updateChatMessage', (msg, changed) => {
+    if (!active() || !foundry.utils.hasProperty(changed, `flags.${M}.isUndone`) || !msg.getFlag(M, 'isFmUndo')) return;
+    for (const owner of game.messages.contents.slice(-100)) {
+      const moves = owner.getFlag(M, 'fmMoves');
+      if (moves && Object.values(moves).some((byIndex) => Object.values(byIndex ?? {}).includes(msg.id))) ui.chat?.updateMessage?.(owner);
+    }
+  });
 }

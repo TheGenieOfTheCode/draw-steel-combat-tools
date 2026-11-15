@@ -218,6 +218,43 @@ const addFmUndoPreview = (btn, previews) => {
   });
 };
 
+export function fmMessageState(msg) {
+  const F = 'draw-steel-combat-tools';
+  if (!msg?.getFlag(F, 'isFmUndo') || msg.getFlag(F, 'noMove')) return null;
+  if (msg.getFlag(F, 'isUndone')) return 'undone';
+  if (msg.getFlag(F, 'isExpired')) return 'expired';
+  const expired = msg.getFlag(F, 'isCombined')
+    ? (msg.getFlag(F, 'entries') ?? []).some(isEntryExpired)
+    : isEntryExpired({
+      moveId: msg.getFlag(F, 'moveId'), targetTokenId: msg.getFlag(F, 'targetTokenId'),
+      targetSceneId: msg.getFlag(F, 'targetSceneId'), finalPos: msg.getFlag(F, 'finalPos'),
+    });
+  return expired ? 'expired' : 'live';
+}
+
+export async function undoFmMessage(msg) {
+  const F = 'draw-steel-combat-tools';
+  if (fmMessageState(msg) !== 'live' || !(game.user.isGM || msg.isAuthor)) return false;
+  const entries = msg.getFlag(F, 'isCombined')
+    ? [...(msg.getFlag(F, 'entries') ?? [])].reverse()
+    : [{ undoLog: msg.getFlag(F, 'undoLog'), grabsToRestore: msg.getFlag(F, 'grabsToRestore') }];
+  if (!entries.some((e) => e.undoLog)) return false;
+  await safeUpdate(msg, { [`flags.${F}.isUndone`]: true });
+  const revived = [];
+  for (const entry of entries) {
+    if (entry.undoLog) {
+      revived.push(...await handleStaminaRevival(entry.undoLog));
+      await replayUndo(entry.undoLog);
+    }
+    await restoreGrabs(entry.grabsToRestore);
+  }
+  const unique = [...new Set(revived)];
+  ui.notifications.info(unique.length > 0
+    ? game.i18n.format('DSCT.notice.fm.reversedRevived', { names: unique.join(', ') })
+    : game.i18n.localize(msg.getFlag(F, 'isCombined') ? 'DSCT.notice.fm.allUndone' : 'DSCT.notice.fm.undone'));
+  return true;
+}
+
 export const registerForcedMovementHooks = () => {
   Hooks.on('renderChatMessageHTML', (msg, el) => {
     if (!msg.getFlag('draw-steel-combat-tools', 'isFmUndo') || msg.getFlag('draw-steel-combat-tools', 'noMove')) return;
@@ -244,22 +281,7 @@ export const registerForcedMovementHooks = () => {
       } else if (isExpired) {
         btnArea.appendChild(makeStatusDiv(L('undoExpired')));
       } else if (game.user.isGM || msg.isAuthor) {
-        const btn = makeUndoBtn(L('undoAll'), async () => {
-          await safeUpdate(msg, { 'flags.draw-steel-combat-tools.isUndone': true });
-          const allRevived = [];
-          for (const entry of [...entries].reverse()) {
-            if (entry.undoLog) {
-              allRevived.push(...await handleStaminaRevival(entry.undoLog));
-              await replayUndo(entry.undoLog);
-            }
-            await restoreGrabs(entry.grabsToRestore);
-          }
-          const unique = [...new Set(allRevived)];
-          ui.notifications.info(unique.length > 0
-            ? game.i18n.format('DSCT.notice.fm.reversedRevived', { names: unique.join(', ') })
-            : game.i18n.localize('DSCT.notice.fm.allUndone')
-          );
-        });
+        const btn = makeUndoBtn(L('undoAll'), () => undoFmMessage(msg));
         addFmUndoPreview(btn, entries.map(e => ({
           tokenId:  e.targetTokenId,
           startPos: e.undoLog?.find(op => op.op === 'update')?.data ?? null,
@@ -286,18 +308,7 @@ export const registerForcedMovementHooks = () => {
     } else if (game.user.isGM || msg.isAuthor) {
       const undoLog     = msg.getFlag('draw-steel-combat-tools', 'undoLog');
       const targetTokId = msg.getFlag('draw-steel-combat-tools', 'targetTokenId');
-      const btn = makeUndoBtn(L('undo'), async () => {
-        if (undoLog) {
-          await safeUpdate(msg, { 'flags.draw-steel-combat-tools.isUndone': true });
-          const revivedNames = await handleStaminaRevival(undoLog);
-          await replayUndo(undoLog);
-          await restoreGrabs(msg.getFlag('draw-steel-combat-tools', 'grabsToRestore'));
-          ui.notifications.info(revivedNames.length > 0
-            ? game.i18n.format('DSCT.notice.fm.reversedRevived', { names: [...new Set(revivedNames)].join(', ') })
-            : game.i18n.localize('DSCT.notice.fm.undone')
-          );
-        }
-      });
+      const btn = makeUndoBtn(L('undo'), () => undoFmMessage(msg));
       addFmUndoPreview(btn, [{ tokenId: targetTokId, startPos: undoLog?.find(op => op.op === 'update')?.data ?? null }]);
       btnArea.appendChild(btn);
     }

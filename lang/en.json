@@ -3230,6 +3230,7 @@
       "fmFall": "Fall damage reduced by {n}",
       "fmAuto": "Automatic path",
       "fmGo": "Move this target",
+      "fmUndo": "Undo the move",
       "fmTitle": "Modify Forced Movement: {name}",
       "fmAdd": "Add a forced movement modifier",
       "rollTitle": "Modify Power Roll: {name}"
