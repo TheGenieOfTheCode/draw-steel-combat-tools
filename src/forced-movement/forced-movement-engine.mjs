@@ -2871,6 +2871,23 @@ export const pickTarget = (remaining) => new Promise((resolve) => {
   ui.notifications.info(game.i18n.localize('DSCT.notice.fm.resolveInstruction'));
 });
 
+function _messageSource(messageId) {
+  const message = game.messages.get(messageId);
+  if (!message) return null;
+  const recorded = message.flags?.['draw-steel-target-damage']?.state?.sourceTokenUuid;
+  const recordedDoc = recorded ? fromUuidSync(recorded) : null;
+  if (recordedDoc?.object && recordedDoc.parent === canvas.scene) return recordedDoc.object;
+  const speaker = message.speaker ?? {};
+  if (speaker.token && (!speaker.scene || speaker.scene === canvas.scene?.id)) {
+    const token = canvas.tokens.get(speaker.token);
+    if (token) return token;
+  }
+  const abilityUuid = Array.from(message.system?.parts?.contents ?? []).find((p) => p.abilityUuid)?.abilityUuid;
+  const actor = (abilityUuid ? fromUuidSync(abilityUuid)?.actor : null) ?? (speaker.actor ? game.actors.get(speaker.actor) : null);
+  const tokens = actor?.getActiveTokens?.(true) ?? [];
+  return tokens.find((t) => t.inCombat) ?? tokens[0] ?? null;
+}
+
 export async function runForcedMovement(macroArgs = []) {
   const fm = standAsideApi();
   const hasArgs = Array.isArray(macroArgs) ? macroArgs.length >= 2 : (macroArgs && typeof macroArgs === 'object' && Object.keys(macroArgs).length > 0);
@@ -2986,7 +3003,7 @@ export async function runForcedMovement(macroArgs = []) {
 
     const userTargets = explicitTarget ? [explicitTarget] : [...game.user.targets];
     const controlled  = canvas.tokens.controlled;
-    const source      = explicitSource ?? (controlled.length === 1 ? controlled[0] : null);
+    const source      = explicitSource ?? (contextMessageId ? _messageSource(contextMessageId) : (controlled.length === 1 ? controlled[0] : null));
 
     let targetsToProcess;
     if (userTargets.length >= 1) {

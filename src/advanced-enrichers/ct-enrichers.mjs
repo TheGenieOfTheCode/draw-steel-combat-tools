@@ -88,6 +88,7 @@ const forced = {
       await runForcedMovement({
         movement: d.movement, distance: String(distance), properties: props,
         verticalDistance: props.has('vertical') ? distance : 0, fallReduction: Number(d.fallReduction) || 0,
+        contextMessageId: a.closest('[data-message-id]')?.dataset.messageId ?? null,
       });
     });
   },
