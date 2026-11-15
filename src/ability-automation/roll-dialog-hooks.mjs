@@ -52,7 +52,9 @@ function _rebuildTargetsOnModeSwap(app) {
 
 const _rangedForDistraction = (ability) => {
   const kw = ability?.system?.keywords;
-  return !!(kw?.has?.('ranged') && kw.has('strike'));
+  if (!kw?.has?.('strike')) return false;
+  const mode = ability.system.rangeMode;
+  return mode === undefined ? kw.has('ranged') : mode === 'ranged';
 };
 
 export const TIER_KINDS = new Set(['tier', 'autoTier', 'tierFloor', 'tierCeiling']);
