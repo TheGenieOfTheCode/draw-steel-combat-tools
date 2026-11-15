@@ -321,6 +321,11 @@ function _rolledTierPills(roll) {
 
 export const chatPillHTML = (p, msgId, targetKey) => _chatPillHTML(p, msgId, targetKey);
 
+export function _srcAttr(p) {
+  if (p?.srcTokenIds?.length) return ` data-src-token-ids="${p.srcTokenIds.join(',')}"`;
+  return p?.srcTokenId ? ` data-src-token-id="${p.srcTokenId}"` : '';
+}
+
 function _chatPillHTML(p, msgId, targetKey) {
   const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
   let cls = `dsct-source-pill dsct-chat-roll-pill dsct-pill-${pillCss(p)}`;
@@ -915,12 +920,12 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
         const off = (p.enabled === false) !== this._baseOff.has(idx);
         const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
         const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.enablePill' : 'DSCT.panel.rollEditor.disablePill');
-        return `<button type="button" class="dsct-source-pill dsct-re-base dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-base-idx="${idx}" ${_editorPillTip(p, title)}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
+        return `<button type="button" class="dsct-source-pill dsct-re-base dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-base-idx="${idx}"${_srcAttr(p)} ${_editorPillTip(p, title)}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
       });
       const session = this._session.map((p, idx) => {
         const off = p.enabled === false;
         const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
-        return `<button type="button" class="dsct-source-pill dsct-re-pill dsct-pill-${pillCss(p)} dsct-pill-custom${off ? ' dsct-pill-disabled' : ''}" data-session-idx="${idx}" ${_editorPillTip(p, game.i18n.localize('DSCT.panel.rollEditor.sessionPill'))}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
+        return `<button type="button" class="dsct-source-pill dsct-re-pill dsct-pill-${pillCss(p)} dsct-pill-custom${off ? ' dsct-pill-disabled' : ''}" data-session-idx="${idx}"${_srcAttr(p)} ${_editorPillTip(p, game.i18n.localize('DSCT.panel.rollEditor.sessionPill'))}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
       });
       const echoes = [];
       if (!this._global && this._ctx.grouped) {
@@ -930,13 +935,13 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
           const off = this._globalBaseOffT.has(idx);
           const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.echoPillOff' : 'DSCT.panel.rollEditor.echoPill');
           const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
-          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-gbecho-idx="${idx}" ${_editorPillTip(p, title)}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
+          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-gbecho-idx="${idx}"${_srcAttr(p)} ${_editorPillTip(p, title)}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
         });
         for (const p of this._ctx.globalPills.filter(p => p.enabled !== false)) {
           const off = this._globalOff.has(p.id);
           const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.echoPillOff' : 'DSCT.panel.rollEditor.echoPill');
           const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
-          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-echo-id="${p.id}" ${_editorPillTip(p, title)}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
+          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-echo-id="${p.id}"${_srcAttr(p)} ${_editorPillTip(p, title)}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
         }
       }
       const labelText = this._global
@@ -1213,6 +1218,17 @@ export function registerDstdRollPills() {
     _persistProvenance(message);
   });
 
+  document.addEventListener('pointerover', _onPillHoverIn);
+  document.addEventListener('pointerout', _onPillHoverOut);
+  Hooks.on('openDetachedWindow', (_id, win) => {
+    setTimeout(() => {
+      try {
+        win.document.addEventListener('pointerover', _onPillHoverIn);
+        win.document.addEventListener('pointerout', _onPillHoverOut);
+      } catch {}
+    }, 300);
+  });
+
   if (!dstd) return;
 
   Hooks.on('updateChatMessage', (message, changed) => {
@@ -1233,23 +1249,19 @@ export function registerDstdRollPills() {
 
   document.addEventListener('click', _onDocumentClick, true);
   document.addEventListener('contextmenu', _onDocumentContextMenu, true);
-  document.addEventListener('pointerover', _onPillHoverIn);
-  document.addEventListener('pointerout', _onPillHoverOut);
 
   Hooks.on('openDetachedWindow', (_id, win) => {
     setTimeout(() => {
       try {
         win.document.addEventListener('click', _onDocumentClick, true);
         win.document.addEventListener('contextmenu', _onDocumentContextMenu, true);
-        win.document.addEventListener('pointerover', _onPillHoverIn);
-        win.document.addEventListener('pointerout', _onPillHoverOut);
       } catch {}
     }, 300);
   });
 }
 
 function _hoverPillEl(e) {
-  const el = e.target?.closest?.('.dsct-source-pill[data-src-token-id]');
+  const el = e.target?.closest?.('[data-src-token-id], [data-src-token-ids]');
   if (!el) return null;
   if (!el.closest('li.chat-message, .dsct-roll-editor, .dsct-damage-editor')) return null;
   return el;
@@ -1266,7 +1278,13 @@ function _ownerTokenFor(el) {
 
 function _targetTokenFor(el) {
   const key = el.closest('[data-target-key]')?.dataset.targetKey;
-  if (!key || key === 'selected-token') return null;
+  if (!key) {
+    const partId = el.closest('section[data-message-part]')?.dataset.messagePart;
+    const msg = partId ? game.messages.get(el.closest('li.chat-message')?.dataset.messageId) : null;
+    const tokenUuid = Array.from(msg?.system?.parts?.contents ?? []).find((p) => p.id === partId)?.tokenUuid;
+    return tokenUuid ? (fromUuidSync(tokenUuid)?.object ?? null) : null;
+  }
+  if (key === 'selected-token') return null;
   const uuid = key.replace(/__/g, '.');
   const doc  = fromUuidSync(uuid);
   return doc?.object ?? canvas.tokens.placeables.find(t => t.document.uuid === uuid) ?? null;
@@ -1305,9 +1323,8 @@ function _onPillHoverIn(e) {
   if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
   if (!canvas?.ready) return;
   _drawPillSourceLines(el);
-  const token = canvas.tokens.placeables.find(t => t.id === el.dataset.srcTokenId);
-  if (!token || !token.visible || !token._canHover(game.user, e)) return;
-  token._onHoverIn(e, { hoverOutOthers: true });
+  _sourceTokensFor(el).filter((t) => t.visible && t._canHover(game.user, e))
+    .forEach((t, i) => t._onHoverIn(e, { hoverOutOthers: i === 0 }));
 }
 
 function _onPillHoverOut(e) {
@@ -1315,8 +1332,7 @@ function _onPillHoverOut(e) {
   if (!el || (e.relatedTarget && el.contains(e.relatedTarget))) return;
   if (!canvas?.ready) return;
   clearSourceLines();
-  const token = canvas.tokens.placeables.find(t => t.id === el.dataset.srcTokenId);
-  token?._onHoverOut(e);
+  for (const t of _sourceTokensFor(el)) t._onHoverOut(e);
 }
 
 export { DstdRollEditor as RollEditorBase, _rollBasis as rollBasis, _effectiveFrom as effectiveRollFrom, _buildOverride as buildRollPreview, _pillAmtStr as rollPillAmount };

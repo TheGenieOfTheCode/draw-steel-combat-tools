@@ -1,5 +1,5 @@
 import { openDamageEditor, foldDamagePills, damagePillType, damagePillEffect, damagePillAmtStr, damagePillDisplayList, damageTypeLabel, addGlobalDamagePills } from './dstd-damage-pills.mjs';
-import { RollEditorBase, rollPillAmount, addGlobalRollPills } from './dstd-roll-pills.mjs';
+import { RollEditorBase, rollPillAmount, addGlobalRollPills, _srcAttr as srcAttr } from './dstd-roll-pills.mjs';
 import { applyTierMods } from '../ability-automation/roll-dialog-hooks.mjs';
 import { usedKeywords, chooseHiddenRollIndexes } from '../ability-automation/choose-effect.mjs';
 import { runForcedMovement } from '../forced-movement/forced-movement-engine.mjs';
@@ -411,7 +411,11 @@ const toneOf = (kind, amount) => {
   const n = Number(amount);
   return Number.isFinite(n) && n !== 0 ? (n > 0 ? 'plus' : 'minus') : 'neutral';
 };
-const shown = (key, row, off, tone) => ({ key, text: [row.amt, row.name].filter(Boolean).join(' · '), short: row.amt || row.name, sub: [row.effect, row.from].filter(Boolean).join(' · '), off, tone });
+const srcIdsOf = (p) => (p?.srcTokenIds?.length ? [...p.srcTokenIds] : p?.srcTokenId ? [p.srcTokenId] : []);
+const shown = (key, row, off, tone, p = null) => ({
+  key, text: [row.amt, row.name].filter(Boolean).join(' · '), short: row.amt || row.name, sub: [row.effect, row.from].filter(Boolean).join(' · '), off, tone,
+  srcTokenIds: srcIdsOf(p), lineFrom: p?.lineFrom ?? null, lineStyle: p?.lineStyle ?? null,
+});
 
 function sectionPills(message, target = null) {
   const part = active() ? partFor(message, target) : null;
@@ -421,19 +425,19 @@ function sectionPills(message, target = null) {
   if (isPower(part.rolls[0])) {
     const editor = new ResultRollEditor(part);
     editor._basePills.forEach((p, i) => {
-      if (!p.removed) out.roll.push(shown(`rollBase:${i}`, rollRow(p), (p.enabled === false) !== editor._baseOff.has(i), toneOf(p.kind, p.amount)));
+      if (!p.removed) out.roll.push(shown(`rollBase:${i}`, rollRow(p), (p.enabled === false) !== editor._baseOff.has(i), toneOf(p.kind, p.amount), p));
     });
-    editor._session.forEach((p, i) => out.roll.push(shown(`roll:${i}`, rollRow(p), p.enabled === false, toneOf(p.kind, p.amount))));
+    editor._session.forEach((p, i) => out.roll.push(shown(`roll:${i}`, rollRow(p), p.enabled === false, toneOf(p.kind, p.amount), p)));
   }
   for (const i of damageIndexes(part)) {
-    out.damage[i] = (mods.damage?.[i]?.pills ?? []).map((p, j) => (p.kind === 'note' ? null : shown(`damage:${i}:${j}`, damageRow(p), p.enabled === false, toneOf(p.kind, p.value)))).filter(Boolean);
+    out.damage[i] = (mods.damage?.[i]?.pills ?? []).map((p, j) => (p.kind === 'note' ? null : shown(`damage:${i}:${j}`, damageRow(p), p.enabled === false, toneOf(p.kind, p.value), p))).filter(Boolean);
   }
   for (const [i, f] of Object.entries(mods.forced ?? {})) {
-    out.forced[i] = (f.stack ?? []).map((e, j) => shown(`forced:${i}:${j}`, fmRow(e, f.base), e.enabled === false, toneOf(null, e.modState?.[0]?.distanceDelta)));
+    out.forced[i] = (f.stack ?? []).map((e, j) => shown(`forced:${i}:${j}`, fmRow(e, f.base), e.enabled === false, toneOf(null, e.modState?.[0]?.distanceDelta), e));
   }
   const named = Object.fromEntries((part.type === 'targetResult' ? appliedEffectsOf(part) : []).map((e) => [e.effectId, e]));
   for (const [id, e] of Object.entries(mods.effects ?? {})) {
-    out.effects[id] = (e?.stack ?? []).map((p, j) => shown(`effect:${id}:${j}`, effectRow(p, named[id]), p.enabled === false, toneOf(p.kind, p.amount)));
+    out.effects[id] = (e?.stack ?? []).map((p, j) => shown(`effect:${id}:${j}`, effectRow(p, named[id]), p.enabled === false, toneOf(p.kind, p.amount), p));
   }
   const applied = appliedIn(part);
   const lock = (list, section, index) => { for (const p of list ?? []) p.locked = lockedSection(applied, section, index); };
@@ -790,7 +794,7 @@ class ResultFmEditor extends ds.applications.api.DSApplication {
         const row = fmRow(entry, this._base);
         const off = entry.enabled === false;
         const tip = tipHTML([[L('sectionForced'), [row]]]);
-        return `<button type="button" class="dsct-source-pill dsct-fm-pill${off ? ' dsct-pill-disabled' : ''}" data-pill-idx="${idx}" data-tooltip="${esc(tip)}">`
+        return `<button type="button" class="dsct-source-pill dsct-fm-pill${off ? ' dsct-pill-disabled' : ''}" data-pill-idx="${idx}"${srcAttr(entry)} data-tooltip="${esc(tip)}">`
           + `<span class="dsct-pip">${esc([row.amt, row.name].filter(Boolean).join(' · '))}</span></button>`;
       });
       const add = `<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" title="${esc(L('fmAdd'))}">+</button>`;
@@ -1051,7 +1055,7 @@ class ResultEffectEditor extends ds.applications.api.DSApplication {
       const pills = this._stack.map((p, idx) => {
         const off = p.enabled === false;
         const tip = tipHTML([[L('sectionEffects'), [effectRow(p, this._effect)]]]);
-        return `<button type="button" class="dsct-source-pill dsct-effect-pill dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-pill-idx="${idx}" data-tooltip="${esc(tip)}">`
+        return `<button type="button" class="dsct-source-pill dsct-effect-pill dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-pill-idx="${idx}"${srcAttr(p)} data-tooltip="${esc(tip)}">`
           + `<span class="dsct-pip">${esc([pillAmountLabel(p), (p.reason ?? '').trim()].filter(Boolean).join(' · '))}</span></button>`;
       });
       const add = `<button type="button" class="dsct-add-mod-btn dsct-add-pill-mini" title="${esc(L('effectAdd'))}">+</button>`;
