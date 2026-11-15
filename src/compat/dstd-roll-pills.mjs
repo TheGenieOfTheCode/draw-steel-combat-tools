@@ -301,11 +301,11 @@ function _persistProvenance(message) {
 
 const _pillAmtStr = (p) => pillAmountLabel(p);
 
-const _editorPillTip = (p, hint) => tipAttrs(pillTip({
+const _editorPillTip = (p, hint, { global = false } = {}) => tipAttrs(richTip({
   title: [_pillAmtStr(p), p.reason].filter(Boolean).join(' · '),
   category: game.i18n.localize(EFFECT_PILL_KINDS.has(p.kind) ? 'DSCT.tip.effectPill.category' : 'DSCT.tip.rollPill.category'),
-  src: p.src,
-  hint,
+  html: [negatesLine(p), global ? game.i18n.localize('DSCT.tip.pillGlobal') : '', p.src ? game.i18n.format('DSCT.tip.pillFrom', { source: p.src }) : '', hint]
+    .filter(Boolean).map((line) => `<p>${foundry.utils.escapeHTML(line)}</p>`).join(''),
 }));
 
 function _rolledTierPills(roll) {
@@ -928,20 +928,20 @@ class DstdRollEditor extends ds.applications.api.DSApplication {
         return `<button type="button" class="dsct-source-pill dsct-re-pill dsct-pill-${pillCss(p)} dsct-pill-custom${off ? ' dsct-pill-disabled' : ''}" data-session-idx="${idx}"${_srcAttr(p)} ${_editorPillTip(p, game.i18n.localize('DSCT.panel.rollEditor.sessionPill'))}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`;
       });
       const echoes = [];
-      if (!this._global && this._ctx.grouped) {
-        this._ctx.globalBase.forEach((p, idx) => {
+      if (!this._global) {
+        if (this._ctx.grouped) this._ctx.globalBase.forEach((p, idx) => {
           if (p.removed) return;
           if ((p.enabled === false) !== this._ctx.globalBaseOff.has(idx)) return;
           const off = this._globalBaseOffT.has(idx);
           const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.echoPillOff' : 'DSCT.panel.rollEditor.echoPill');
           const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
-          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-gbecho-idx="${idx}"${_srcAttr(p)} ${_editorPillTip(p, title)}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
+          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-gbecho-idx="${idx}"${_srcAttr(p)} ${_editorPillTip(p, title, { global: true })}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
         });
         for (const p of this._ctx.globalPills.filter(p => p.enabled !== false)) {
           const off = this._globalOff.has(p.id);
           const title = game.i18n.localize(off ? 'DSCT.panel.rollEditor.echoPillOff' : 'DSCT.panel.rollEditor.echoPill');
           const fromStr = p.src ? `<span class="dsct-pill-from">from ${foundry.utils.escapeHTML(p.src)}</span>` : '';
-          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-echo-id="${p.id}"${_srcAttr(p)} ${_editorPillTip(p, title)}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
+          echoes.push(`<button type="button" class="dsct-source-pill dsct-re-echo dsct-chat-pill-echo dsct-pill-${pillCss(p)}${off ? ' dsct-pill-disabled' : ''}" data-echo-id="${p.id}"${_srcAttr(p)} ${_editorPillTip(p, title, { global: true })}><span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}</button>`);
         }
       }
       const labelText = this._global

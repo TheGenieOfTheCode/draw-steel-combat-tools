@@ -187,12 +187,13 @@ async function openDamage(part, index) {
 class ResultRollEditor extends RollEditorBase {
   constructor(part, options = {}) {
     const entry = modsOf(part).roll;
-    const base = entry ? foundry.dice.Roll.fromData(entry.base) : part.rolls[0];
+    const base = entry?.base ? foundry.dice.Roll.fromData(entry.base) : part.rolls[0];
     const target = { name: part.actorTarget?.name ?? part.ability?.name ?? '', tokenUuid: part.tokenUuid ?? null, actorUuid: part.targetUuid ?? null };
     super(part.message, target, base, options);
     this._part = part;
     this._session = (entry?.pills ?? []).map((p) => ({ ...p }));
     this._baseOff = new Set(entry?.baseOff ?? []);
+    this._globalOff = new Set(entry?.globalOff ?? []);
   }
 
   get title() {
@@ -201,7 +202,25 @@ class ResultRollEditor extends RollEditorBase {
 
   _refresh() {
     super._refresh();
-    this.element?.querySelector('.dsct-re-pills .dsct-pills-label')?.remove();
+    const row = this.element?.querySelector('.dsct-re-pills');
+    if (!row) return;
+    row.querySelector('.dsct-pills-label')?.remove();
+    const nGlobal = (this._message.getFlag(M, 'rollPills')?.global ?? []).length;
+    const globals = [
+      ...[...row.querySelectorAll('.dsct-re-base')].filter((b) => Number(b.dataset.baseIdx) < nGlobal),
+      ...row.querySelectorAll('.dsct-re-echo'),
+    ];
+    this.element.querySelector('.dsct-re-pills-global')?.remove();
+    if (!globals.length) return;
+    const globalRow = document.createElement('div');
+    globalRow.className = 'dsct-mod-pills-row dsct-re-pills-global';
+    globalRow.innerHTML = `<span class="dsct-pills-label">${esc(L('rowGlobal'))}</span>`;
+    for (const pill of globals) {
+      pill.classList.remove('dsct-chat-pill-echo');
+      globalRow.append(pill);
+    }
+    row.before(globalRow);
+    row.insertAdjacentHTML('afterbegin', `<span class="dsct-pills-label">${esc(L('rowTarget'))}</span>`);
   }
 
   async _commit() {
@@ -210,13 +229,73 @@ class ResultRollEditor extends RollEditorBase {
       kind: p.kind, amount: p.amount, reason: p.reason ?? '', src: p.src ?? null, srcTokenId: p.srcTokenId ?? null,
       ...(p.source ? { source: p.source } : {}), ...(p.enabled === false ? { enabled: false } : {}),
     }));
-    await rebake(this._part, { roll: { pills, baseOff: [...this._baseOff], eff } });
+    const globals = this._ctx.globalPills;
+    const globalOff = [...this._globalOff].filter((id) => globals.some((p) => p.id === id));
+    const globalAt = globals.filter((p) => p.enabled !== false && !this._globalOff.has(p.id)).map((p) => p.id);
+    const globalBaseAt = [...(this._message.getFlag(M, 'rollGlobalBaseOff') ?? [])];
+    await rebake(this._part, { roll: { pills, baseOff: [...this._baseOff], globalOff, globalAt, globalBaseAt, eff } });
   }
 
   async _apply() {
     await this._commit();
     this.close();
   }
+}
+
+const powerParts = (message) => resultPartsOf(message).filter((p) => isPower(p.rolls[0]));
+
+class ResultGlobalRollEditor extends RollEditorBase {
+  constructor(message, options = {}) {
+    const part = powerParts(message)[0];
+    const entry = modsOf(part).roll;
+    super(message, null, entry?.base ? foundry.dice.Roll.fromData(entry.base) : part.rolls[0], { ...options, globalMode: true });
+    this._basePills = (message.getFlag(M, 'rollPills')?.global ?? []).map((p) => ({ ...p }));
+    this._baseOff = new Set([...this._baseOff].filter((i) => i < this._basePills.length));
+  }
+
+  get title() {
+    return L('rollTitleGlobal');
+  }
+
+  async _apply() {
+    await applyGlobalRoll(this._message, this._session, this._baseOff);
+    this.close();
+  }
+}
+
+const idSet = (list) => [...new Set(list ?? [])].sort().join();
+
+function globalsStale(part) {
+  const roll = modsOf(part).roll;
+  const off = new Set(roll?.globalOff ?? []);
+  const live = (part.message.getFlag(M, 'rollGlobalPills') ?? []).filter((p) => p.enabled !== false && !off.has(p.id)).map((p) => p.id);
+  return idSet(live) !== idSet(roll?.globalAt) || idSet(part.message.getFlag(M, 'rollGlobalBaseOff')) !== idSet(roll?.globalBaseAt);
+}
+
+async function syncGlobals(part) {
+  const editor = new ResultRollEditor(part);
+  const now = new Set(part.message.getFlag(M, 'rollGlobalBaseOff') ?? []);
+  const was = new Set(modsOf(part).roll?.globalBaseAt ?? []);
+  for (const i of new Set([...now, ...was])) {
+    if (now.has(i) === was.has(i)) continue;
+    if (editor._baseOff.has(i)) editor._baseOff.delete(i);
+    else editor._baseOff.add(i);
+  }
+  await editor._commit();
+}
+
+async function applyGlobalRoll(message, session, baseOff) {
+  const pills = session.map((p) => ({
+    id: p.id ?? foundry.utils.randomID(), kind: p.kind, amount: p.amount, reason: p.reason ?? '', src: p.src ?? null,
+    srcTokenId: p.srcTokenId ?? null, ...(p.enabled === false ? { enabled: false } : {}),
+  }));
+  await message.update({ [`flags.${M}.rollGlobalPills`]: pills, [`flags.${M}.rollGlobalBaseOff`]: [...baseOff] });
+  let kept = 0;
+  for (const part of powerParts(message)) {
+    if (appliedIn(part).any) { kept++; continue; }
+    await serial(part.id, () => syncGlobals(part));
+  }
+  if (kept) ui.notifications.info(plural(kept, 'globalKeptOne', 'globalKept'));
 }
 
 function partFor(message, target = null) {
@@ -356,7 +435,6 @@ function potencyEffects(message, target) {
     .filter((pre) => pre.potencyOption?.(part.tier, actor)).map((pre) => ({ effectId: pre.id, label: pre.name }));
 }
 
-
 async function addTargetPart(message, token) {
   const all = Array.from(message?.system?.parts?.contents ?? []);
   const template = all.find((p) => p.type === 'targetResult') ?? all.find((p) => p.type === 'abilityResult');
@@ -424,10 +502,17 @@ function sectionPills(message, target = null) {
   const out = { partId: part.id, roll: [], damage: {}, forced: {}, effects: {} };
   if (isPower(part.rolls[0])) {
     const editor = new ResultRollEditor(part);
+    const nGlobal = powerParts(message).length > 1 ? (message.getFlag(M, 'rollPills')?.global ?? []).length : 0;
     editor._basePills.forEach((p, i) => {
-      if (!p.removed) out.roll.push(shown(`rollBase:${i}`, rollRow(p), (p.enabled === false) !== editor._baseOff.has(i), toneOf(p.kind, p.amount), p));
+      if (p.removed) return;
+      const entry = shown(`rollBase:${i}`, rollRow(p), (p.enabled === false) !== editor._baseOff.has(i), toneOf(p.kind, p.amount), p);
+      out.roll.push(i < nGlobal ? { ...entry, global: true, note: [negatesLine(p), game.i18n.localize('DSCT.tip.pillGlobal')].filter(Boolean) } : entry);
     });
     editor._session.forEach((p, i) => out.roll.push(shown(`roll:${i}`, rollRow(p), p.enabled === false, toneOf(p.kind, p.amount), p)));
+    const counted = new Set(mods.roll?.globalAt ?? []);
+    for (const p of editor._ctx.globalPills) {
+      out.roll.push({ ...shown(`rollGlobal:${p.id}`, rollRow(p), !counted.has(p.id), toneOf(p.kind, p.amount), p), global: true, note: [negatesLine(p), game.i18n.localize('DSCT.tip.pillGlobal')].filter(Boolean) });
+    }
   }
   for (const i of damageIndexes(part)) {
     out.damage[i] = (mods.damage?.[i]?.pills ?? []).map((p, j) => (p.kind === 'note' ? null : shown(`damage:${i}:${j}`, damageRow(p), p.enabled === false, toneOf(p.kind, p.value), p))).filter(Boolean);
@@ -455,10 +540,15 @@ async function togglePill(message, target, key, enabled = null) {
   const want = (current) => (enabled == null ? !current : !!enabled);
   return serial(part.id, async () => {
     const mods = modsOf(part);
-    if (section === 'rollBase' || section === 'roll') {
+    if (section === 'rollBase' || section === 'roll' || section === 'rollGlobal') {
       const editor = new ResultRollEditor(part);
       const i = Number(a);
-      if (section === 'rollBase') {
+      if (section === 'rollGlobal') {
+        const p = editor._ctx.globalPills.find((x) => x.id === a);
+        if (!p || p.enabled === false) return false;
+        if (want(!editor._globalOff.has(a))) editor._globalOff.delete(a);
+        else editor._globalOff.add(a);
+      } else if (section === 'rollBase') {
         const p = editor._basePills[i];
         if (!p) return false;
         const on = want((p.enabled === false) === editor._baseOff.has(i));
@@ -519,8 +609,47 @@ function openModifier(message, target, section, index = 0) {
   return true;
 }
 
+function globalState(message) {
+  const base = (message.getFlag(M, 'rollPills')?.global ?? []).map((p) => ({ ...p }));
+  const baseOff = new Set((message.getFlag(M, 'rollGlobalBaseOff') ?? []).filter((i) => i < base.length));
+  const session = (message.getFlag(M, 'rollGlobalPills') ?? []).map((p) => ({ ...p }));
+  return { base, baseOff, session };
+}
+
+function globalRollPills(message) {
+  const parts = active() ? powerParts(message) : [];
+  if (parts.length < 2) return [];
+  const { base, baseOff, session } = globalState(message);
+  const locked = parts.every((p) => appliedIn(p).any);
+  const note = (p) => [negatesLine(p), game.i18n.localize('DSCT.tip.pillGlobalAll')].filter(Boolean);
+  return [
+    ...base.map((p, i) => ({ ...shown(`globalBase:${i}`, rollRow(p), (p.enabled === false) !== baseOff.has(i), toneOf(p.kind, p.amount), p), note: note(p), locked })),
+    ...session.map((p) => ({ ...shown(`global:${p.id}`, rollRow(p), p.enabled === false, toneOf(p.kind, p.amount), p), note: note(p), locked })),
+  ];
+}
+
+function toggleGlobal(message, key) {
+  const [section, a] = String(key ?? '').split(':');
+  return serial(`global:${message.id}`, async () => {
+    const { baseOff, session } = globalState(message);
+    if (section === 'globalBase') {
+      const i = Number(a);
+      if (baseOff.has(i)) baseOff.delete(i);
+      else baseOff.add(i);
+    } else if (section === 'global') {
+      const p = session.find((x) => x.id === a);
+      if (!p) return false;
+      if (p.enabled === false) delete p.enabled;
+      else p.enabled = false;
+    } else return false;
+    await applyGlobalRoll(message, session, baseOff);
+    return true;
+  });
+}
+
 export const resultModifiersApi = {
   active, partFor, pills: resultPills, sections: sectionPills, toggle: togglePill, open: openModifier,
+  globalPills: globalRollPills, toggleGlobal,
   addDamage: addDamagePill, setDamageEnabled: setDamagePillEnabled,
   addRoll: addRollPill, setRollEnabled: setRollPillEnabled,
   addPotency: addPotencyPill, potencyEffects, addTarget: addTargetPart, addEffect: addEffectPill,
@@ -1104,7 +1233,7 @@ function appliedIn(part) {
   return { damage, effects, forced, any: damage.size + effects.size + forced.size > 0 };
 }
 
-const lockedSection = (applied, section, index) => (section === 'roll' || section === 'rollBase' ? applied.any
+const lockedSection = (applied, section, index) => (section === 'roll' || section === 'rollBase' || section === 'rollGlobal' ? applied.any
   : section === 'damage' ? applied.damage.has(Number(index))
     : section === 'forced' ? applied.forced.has(Number(index))
       : section === 'effect' ? applied.effects.has(index) : false);
@@ -1124,6 +1253,17 @@ function addMenuEntries(part, options) {
       label: n ? plural(n, 'modifyRollCountOne', 'modifyRollCount') : L('modifyRoll'),
       icon: 'fa-solid fa-dice-d10', visible: owner,
       onClick: () => { try { new ResultRollEditor(part).render({ force: true }); } catch (err) { fail(err); } },
+    });
+  }
+  if (isPower(part.rolls[0]) && powerParts(part.message).length > 1) {
+    ours.push({
+      get label() {
+        const n = live(part.message.getFlag(M, 'rollGlobalPills')).length + (part.message.getFlag(M, 'rollGlobalBaseOff')?.length ?? 0);
+        return n ? plural(n, 'modifyRollGlobalCountOne', 'modifyRollGlobalCount') : L('modifyRollGlobal');
+      },
+      icon: 'fa-solid fa-globe',
+      visible: () => owner() && powerParts(part.message).some((p) => !appliedIn(p).any),
+      onClick: () => { try { new ResultGlobalRollEditor(part.message).render({ force: true }); } catch (err) { fail(err); } },
     });
   }
   for (const index of damageIndexes(part)) {
@@ -1332,6 +1472,15 @@ export function registerResultModifiers() {
     const key = /^part:([^:]+):(\d+)$/.exec(msg.getFlag(M, 'fmKey') ?? '');
     const owner = key ? game.messages.get(msg.getFlag(M, 'contextMessageId')) : null;
     if (owner) safeUpdate(owner, { [`flags.${M}.fmMoves.${key[1]}.${key[2]}`]: msg.id });
+  });
+  Hooks.on('updateChatMessage', (msg) => {
+    if (!active() || game.users.activeGM?.id !== game.user.id) return;
+    if (!msg.getFlag(M, 'rollGlobalPills')?.length && !msg.getFlag(M, 'rollGlobalBaseOff')?.length) return;
+    for (const part of powerParts(msg)) {
+      if (appliedIn(part).any || !globalsStale(part)) continue;
+      serial(part.id, () => (appliedIn(part).any || !globalsStale(part) ? null : syncGlobals(part)))
+        .catch((err) => console.error('DSCT | result modifiers | global sync', err));
+    }
   });
   Hooks.on('updateChatMessage', (msg, changed) => {
     if (!active() || !foundry.utils.hasProperty(changed, `flags.${M}.isUndone`) || !msg.getFlag(M, 'isFmUndo')) return;
