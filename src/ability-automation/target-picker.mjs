@@ -842,6 +842,15 @@ const takeTriggerSubject = () => {
   return held;
 };
 
+function _targetInPlace(dialog, ability, tokens) {
+  setFoundryTargets(tokens);
+  if (dialog.options?.context && ability.system?.power?.roll?.enabled) {
+    dialog.options.context.targets = Object.fromEntries(tokens.map(t => [t.id, {
+      tokenUuid: t.document.uuid, uuid: t.actor?.uuid ?? '', modifiers: ability.system.getTargetModifiers(t),
+    }]));
+  }
+}
+
 export function checkAndRunBurstTargeting(dialog) {
   const ability = dialog.options?.ability;
   if (!ability || !getSetting('abilityTargetingEnabled')) return null;
@@ -869,12 +878,7 @@ export function checkAndRunBurstTargeting(dialog) {
   const previous = [...game.user.targets];
   if (filter.carriers) _useTargets.set(ability.uuid, { targets: tokens.map(t => t.document.uuid), skip });
   else if (filter.includeSelf && !tokens.some(t => t.id === casterToken.id)) tokens.unshift(casterToken);
-  setFoundryTargets(tokens);
-  if (dialog.options?.context && ability.system?.power?.roll?.enabled) {
-    dialog.options.context.targets = Object.fromEntries(tokens.map(t => [t.id, {
-      tokenUuid: t.document.uuid, uuid: t.actor?.uuid ?? '', modifiers: ability.system.getTargetModifiers(t),
-    }]));
-  }
+  _targetInPlace(dialog, ability, tokens);
   _restoreTargetsAfterUse(ability.uuid, previous);
   if (getSetting('debugMode')) console.log(`DSCT | burst targeting | ${ability.name}: ${label}, ${tokens.length} target(s)`);
   return null;
@@ -911,10 +915,8 @@ export function checkAndRunTargetPicker(dialog) {
     const self = _getCasterToken(ability);
     if (!self) return null;
     if (game.user.targets.size === 1 && game.user.targets.first()?.id === self.id) return null;
-    _dsctPreTargeted.add(ability.uuid);
-    setFoundryTargets([self]);
-    ds.helpers.macros.rollItemMacro(ability.uuid);
-    return 'block';
+    _targetInPlace(dialog, ability, [self]);
+    return null;
   }
 
   if (!_isPickerEligible(ability, view)) return null;
