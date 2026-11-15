@@ -386,6 +386,8 @@ function showMarks(message, html) {
 
 const _eligible = new Set();
 
+export const armAutoApply = (msgId) => { if (on12() && getSetting('autoApplyOwnAbilities')) _eligible.add(msgId); };
+
 async function autoApply(msgId) {
   const message = game.messages.get(msgId);
   if (!message || message.getFlag(M, 'autoApplied') || !getSetting('autoApplyOwnAbilities')) return;

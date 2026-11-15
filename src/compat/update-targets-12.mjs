@@ -4,7 +4,7 @@ import { canPickTargetsFor, setFoundryTargets } from '../ability-automation/targ
 import { canPickAreaFor } from '../ability-automation/area-picker.mjs';
 import { _repickForMessage } from './dstd-compat.mjs';
 import { notePendingDice } from '../ability-automation/roll-dialog-hooks.mjs';
-import { undoAll12 } from './apply-12.mjs';
+import { undoAll12, armAutoApply } from './apply-12.mjs';
 import { takeProvenance } from './dstd-roll-pills.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -145,6 +145,8 @@ export async function updateTargets12(message) {
       if (flags.applied12?.[id]) update[`flags.${M}.applied12.-=${id}`] = null;
     }
     for (const part of parts) update[`system.parts.${part._id}`] = part;
+    update[`flags.${M}.autoApplied`] = false;
+    armAutoApply(message.id);
     await fresh().update(update);
     return true;
   } finally {
