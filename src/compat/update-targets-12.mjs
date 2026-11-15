@@ -1,6 +1,8 @@
 import { getSetting } from '../helpers.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
-import { canPickTargetsFor, pickTargetsFor, setFoundryTargets } from '../ability-automation/target-picker.mjs';
+import { canPickTargetsFor, setFoundryTargets } from '../ability-automation/target-picker.mjs';
+import { canPickAreaFor } from '../ability-automation/area-picker.mjs';
+import { _repickForMessage } from './dstd-compat.mjs';
 import { notePendingDice } from '../ability-automation/roll-dialog-hooks.mjs';
 import { undoAll12 } from './apply-12.mjs';
 import { takeProvenance } from './dstd-roll-pills.mjs';
@@ -25,18 +27,23 @@ export const canUpdateTargets = (message) => {
     && resultPartsOf(message).some((p) => Array.from(p.rolls ?? []).some(isPowerRoll));
 };
 
-const hasWork = (ability) => game.user.targets.size > 0 || canPickTargetsFor(ability);
+const canRepick = (ability) => {
+  if (!getSetting('abilityTargetingEnabled') || !ability) return false;
+  if (ability.getFlag?.(M, 'areaFilter')?.carriers) return true;
+  return canPickAreaFor(ability) || canPickTargetsFor(ability);
+};
 
-async function chooseTargets(ability) {
+const repicks = (ability) => canRepick(ability) && (!game.user.targets.size || !!getSetting('alwaysRepickTargets'));
+
+const hasWork = (ability) => game.user.targets.size > 0 || canRepick(ability);
+
+async function chooseTargets(message, ability) {
   const current = [...game.user.targets];
-  const repick = current.length && getSetting('alwaysRepickTargets');
-  if ((!current.length || repick) && canPickTargetsFor(ability)) {
-    if (repick) setFoundryTargets([]);
-    const picked = await pickTargetsFor(ability);
-    if (picked === null) { if (repick) setFoundryTargets(current); return null; }
-    if (picked?.length) return picked;
-  }
-  return current;
+  if (!repicks(ability)) return current;
+  if (current.length) setFoundryTargets([]);
+  const picked = await _repickForMessage(message);
+  if (picked === null) { if (current.length) setFoundryTargets(current); return null; }
+  return picked?.length ? picked : current;
 }
 
 function dialogConfigFor(message, ability, tokens) {
@@ -115,7 +122,7 @@ export async function updateTargets12(message) {
   if (!game.user.isGM && !message.isOwner) return false;
   _running.add(message.id);
   try {
-    const tokens = await chooseTargets(ability);
+    const tokens = await chooseTargets(message, ability);
     if (!tokens) return false;
     if (!tokens.length) { ui.notifications.warn(L('noTargets')); return false; }
     setFoundryTargets(tokens);
@@ -151,8 +158,12 @@ function setState(wrap, message) {
   const btn = wrap.querySelector('button.dsct-update-targets');
   const ability = abilityOf(message);
   const off = !ability || !hasWork(ability);
+  const repick = !off && repicks(ability);
+  const label = L(repick ? 'repickTargets' : 'updateTargets');
+  btn.innerHTML = `<i class="fa-solid fa-bullseye" inert></i> ${foundry.utils.escapeHTML(label)}`;
+  btn.setAttribute('aria-label', label);
   btn.disabled = off || _busy.has(message.id);
-  setTip(wrap, tipFor(off ? 'updateTargets12Off' : 'updateTargets12'));
+  setTip(wrap, tipFor(off ? 'updateTargets12Off' : repick ? 'repickTargets12' : 'updateTargets12'));
 }
 
 const refreshButtons = () => {
@@ -169,8 +180,6 @@ export function updateTargetsButton(message) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'dsct-update-targets';
-  btn.innerHTML = `<i class="fa-solid fa-bullseye" inert></i> ${foundry.utils.escapeHTML(L('updateTargets'))}`;
-  btn.setAttribute('aria-label', L('updateTargets'));
   wrap.append(btn);
   setState(wrap, message);
   btn.addEventListener('click', async (event) => {

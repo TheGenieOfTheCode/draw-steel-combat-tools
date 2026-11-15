@@ -1139,6 +1139,9 @@ async function runAreaPicker(ability, area, caster) {
   });
 }
 
+export const canPickAreaFor = (ability) => !!getSetting('areaPicker') && !!areaOf(ability) && !!casterTokenFor(ability)
+  && !isTriggeredAbility(ability) && !ability.getFlag?.(M, 'areaFilter')?.carriers;
+
 export async function pickAreaTargetsFor(ability) {
   if (!getSetting('areaPicker')) return undefined;
   const area = areaOf(ability);

@@ -2000,6 +2000,7 @@
       "applyAll12": { "title": "Apply All", "category": "All Targets", "body": "Applies everything on this chat message to every target, one effect at a time, in the order they're listed. Anything that needs a choice is left for you, with a reminder." },
       "undoAll12": { "title": "Undo All", "category": "All Targets", "body": "Undoes the damage, effects and resources applied from this chat message. Forced movement keeps its own undo." },
       "updateTargets12": { "title": "Update Targets", "category": "All Targets", "body": "Rolls this ability against new targets with the same dice. Pick the targets, then each one gets its own edges and banes in the roll window. Anything already applied is undone first, and nothing is spent again." },
+      "repickTargets12": { "title": "Repick Targets", "category": "All Targets", "body": "Pick new targets, then roll this ability against them with the same dice. Each one gets its own edges and banes in the roll window. Anything already applied is undone first, and nothing is spent again." },
       "updateTargets12Off": { "title": "Update Targets", "category": "All Targets", "body": "Target one or more creatures to roll this ability against them instead." },
       "squadApply": { "title": "Apply to {group}", "category": "Squad", "body": "Applies this damage to every member of {group} at once." },
       "squadUndo": { "title": "Undo for {group}", "category": "Squad", "body": "Undoes this damage for every member of {group}." },
@@ -3181,6 +3182,7 @@
       "reminderSpeaker": "Combat Tools",
       "reminderIntro": "{ability} applied everything it could. These need a choice, so apply them from its chat message:",
       "updateTargets": "Update Targets",
+      "repickTargets": "Repick Targets",
       "updateTargetsTitle": "{ability}: Update Targets",
       "noTargets": "Target one or more creatures first, then click Update Targets again."
     },
