@@ -3,6 +3,7 @@ import { setTip, tipFor } from '../chat-tips.mjs';
 import { canPickTargetsFor, pickTargetsFor, setFoundryTargets } from '../ability-automation/target-picker.mjs';
 import { notePendingDice } from '../ability-automation/roll-dialog-hooks.mjs';
 import { undoAll12 } from './apply-12.mjs';
+import { takeProvenance } from './dstd-roll-pills.mjs';
 
 const M = 'draw-steel-combat-tools';
 const L = (k, data) => game.i18n.format(`DSCT.apply12.${k}`, data ?? {});
@@ -129,6 +130,8 @@ export async function updateTargets12(message) {
     const uuids = tokens.map((t) => t.document.uuid);
     const flags = fresh().flags?.[M] ?? {};
     const update = { [`flags.${M}.useTargets`]: uuids };
+    const provenance = takeProvenance(ability.uuid);
+    if (provenance) update[`flags.${M}.rollPills`] = provenance;
     for (const id of resultPartsOf(fresh()).map((p) => p.id)) {
       update[`system.parts.-=${id}`] = null;
       if (flags.resultMods?.[id]) update[`flags.${M}.resultMods.-=${id}`] = null;

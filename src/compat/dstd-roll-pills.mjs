@@ -1192,20 +1192,28 @@ function _onDocumentClick(e) {
   _openRollEditorOrAdd(message, target, roll, {}, e.shiftKey);
 }
 
+export function takeProvenance(abilityUuid) {
+  const entry = _pendingProvenance.get(abilityUuid);
+  _pendingProvenance.delete(abilityUuid);
+  return entry && Date.now() - entry.at <= 30000 ? entry.data : null;
+}
+
 export function registerDstdRollPills() {
-  if (!game.modules.get(DSTD)?.active) return;
+  const dstd = !!game.modules.get(DSTD)?.active;
+  if (!dstd && !globalThis.ds?.CONFIG?.MessagePart?.targetResult) return;
+  const keep = () => !dstd || getSetting('dstdRollPills');
 
   Hooks.on('closeAbilityConfigurationDialog', (app) => {
-    if (!getSetting('dstdRollPills')) return;
-    if (app.config == null) return;
+    if (!keep() || app.config == null) return;
     _stashProvenance(app);
   });
 
   Hooks.on('createChatMessage', (message, _options, userId) => {
-    if (userId !== game.user.id) return;
-    if (!getSetting('dstdRollPills')) return;
+    if (userId !== game.user.id || !keep()) return;
     _persistProvenance(message);
   });
+
+  if (!dstd) return;
 
   Hooks.on('updateChatMessage', (message, changed) => {
     if (!getSetting('dstdRollPills')) return;
