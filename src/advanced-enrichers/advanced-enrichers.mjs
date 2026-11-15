@@ -76,6 +76,14 @@ const sentenceBefore = (ec) => {
 
 const OTHERS = /\b(targets?|them|they|their|creatures?|enem(?:y|ies)|all(?:y|ies)|each|any|it)\b/i;
 
+const OPTIONAL_LEAD = /\b(?:can|may)\b[^.]*\b(?:spend|one of the following|choose)\b/i;
+
+const optionalChoice = (ec) => {
+  if (/\b(?:can|may) spend\b/i.test(sentenceBefore(ec))) return true;
+  const lead = ec.closest('ul, ol')?.previousElementSibling?.textContent ?? '';
+  return OPTIONAL_LEAD.test(lead.split(/[.!?]\s/).pop());
+};
+
 const meansSpeaker = (ec) => {
   const before = sentenceBefore(ec);
   return /\b(you|yourself)\b/i.test(before) && !OTHERS.test(before);
@@ -1388,6 +1396,7 @@ const autoApplies = (kind, a, message, ec) => {
   const ability = abilityOf(message);
   if (!ability) return false;
   if (Number(sourceConfig(a).spend) > 0) return false;
+  if (optionalChoice(ec)) return false;
   if (!sourceConfig(a).flat && !sourceConfig(a).recipient && ability.system?.target?.type === 'self' && OTHERS.test(sentenceBefore(ec))) return false;
   if (sourceConfig(a).flat) {
     if (kind.id === 'forced') return (a.dataset.properties ?? '').split(',').includes('fast-auto-path') || autoPathsFm(message, a);
@@ -1396,8 +1405,9 @@ const autoApplies = (kind, a, message, ec) => {
   }
   const sig = kind.single(a) ? kind.signature(a) : null;
   if (sig && derivedSignatures(ability).has(sig)) return true;
-  
-  return kind.id === 'apply' && !!a.dataset.status && !!message.getFlag(M, 'abilityDsid');
+
+  if (kind.id !== 'apply' || !message.getFlag(M, 'abilityDsid')) return false;
+  return !!a.dataset.status || (a.dataset.type === 'custom' && !!a.dataset.uuid?.startsWith(`${ability.uuid}.`));
 };
 
 const spentOn = (message) => {
