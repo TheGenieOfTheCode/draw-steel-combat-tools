@@ -200,6 +200,7 @@ function registerRollDialogHooks() {
   Hooks.on('closeAbilityConfigurationDialog', async (app) => {
     if (app._dsctBaneLockTimeout) { clearTimeout(app._dsctBaneLockTimeout); app._dsctBaneLockTimeout = null; }
     if (app._dsctRollTrackHookId) { Hooks.off('createChatMessage', app._dsctRollTrackHookId); app._dsctRollTrackHookId = null; }
+    if (app.options?.dsctUpdateTargets) return;
 
     if (app._dsctJudgementBaneInjected && !app._dsctAbilityRolled && app._dsctJudgementBaneMsgId) {
       

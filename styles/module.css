@@ -3498,6 +3498,25 @@ button.dsct-hn-token.is-gone img {
   margin-top: 4px;
 }
 .dsct-apply-all-row > .ctlib-split.dsct-apply-all { flex: 1 1 auto; }
+.dsct-apply-all-row {
+  gap: 4px;
+  align-items: stretch;
+}
+.dsct-apply-all-row > .dsct-update-targets-wrap {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  margin-top: 3px;
+}
+.dsct-apply-all-row > .dsct-update-targets-wrap ~ .ctlib-split.dsct-apply-all { flex: 1 1 0; min-width: 0; }
+.dsct-update-targets-wrap > button.dsct-update-targets {
+  flex: 1 1 auto;
+  margin: 0 !important;
+  white-space: nowrap;
+}
+.dsct-update-targets-wrap > button.dsct-update-targets:disabled {
+  pointer-events: none;
+}
 .dsct-squad12 > .dsct-dstd-squad-rows > section[data-message-part] { margin: 0; }
 .dsct-squad12 .ctlib-split.dsct-squad12-btn {
   flex: 0 0 auto;

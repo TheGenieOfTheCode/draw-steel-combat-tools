@@ -774,6 +774,9 @@ function _restoreTargetsAfterUse(abilityUuid, previous) {
 
 export const casterTokenFor = (ability) => _getCasterToken(ability);
 
+export const canPickTargetsFor = (ability) => !!getSetting('abilityTargetingEnabled')
+  && _isPickerEligible(ability, chooseTargeting(ability)) && !!_getCasterToken(ability);
+
 export async function pickTargetsFor(ability) {
   if (!_isPickerEligible(ability, chooseTargeting(ability))) return undefined;
   const casterToken = _getCasterToken(ability);

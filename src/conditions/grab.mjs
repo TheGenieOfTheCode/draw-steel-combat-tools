@@ -839,6 +839,7 @@ export function registerKnockbackGuard() {
       else _checkAbilityRange(app, { warnOnly: true });
       return;
     }
+    if (app.options?.dsctUpdateTargets) return;
     if (getSetting('conditionsEnabled') && _isKnockbackGrabbed(app)) return false;
     
     

@@ -3,6 +3,7 @@ import { services, safeSetFlag, safeUpdate } from '../ctlib.mjs';
 import { setTip, tipFor } from '../chat-tips.mjs';
 import { settleCriticalChoice } from '../ability-automation/choose-effect.mjs';
 import { _waitForHolds, _waitForChoice, _promptOpen, _resolving } from './dstd-compat.mjs';
+import { updateTargetsButton, registerUpdateTargets12 } from './update-targets-12.mjs';
 
 const M = 'draw-steel-combat-tools';
 const DSTD_ID = 'draw-steel-target-damage';
@@ -286,18 +287,28 @@ function splitButton({ applyLabel, applyIcon, applyTip, undoTip, cls, canApply, 
 const mayRun = (message) => game.user.isGM || message.isOwner;
 
 function addApplyAllRow(message, html) {
+  if (!mayRun(message)) return;
   const parts = resultParts(message);
-  if (!parts.length || !mayRun(message)) return;
   const count = parts.reduce((n, p) => n + itemsOf(sectionOf(html, p.id)).length, 0) + cardItems(html, message).length;
   const enrichers = !!html.querySelector('enriched-content.dsct-adv[data-adv-auto]');
-  if (count + (enrichers ? 1 : 0) < 2) return;
   const content = html.querySelector('.message-content') ?? html;
   content.querySelector(':scope > .dsct-apply-all-row')?.remove();
+  const alone = !parts.length || count + (enrichers ? 1 : 0) < 2;
+  const retarget = updateTargetsButton(message);
+  if (alone) {
+    if (!retarget) return;
+    const footer = document.createElement('footer');
+    footer.className = 'message-part-buttons dsct-apply-all-row';
+    footer.append(retarget);
+    content.append(footer);
+    return;
+  }
   const canApply = appliable(message, html) || (enrichers && !html.querySelector('enriched-content.dsct-adv[data-adv-auto].dsct-adv-done'));
   const choicesLeft = !canApply && [...parts.flatMap((p) => itemsOf(sectionOf(html, p.id)).map((it) => ({ it, id: p.id }))), ...cardItems(html, message).map((it) => ({ it, id: it.partId }))]
     .some(({ it, id }) => verdictOf(it, message, id) === 'manual');
   const footer = document.createElement('footer');
   footer.className = 'message-part-buttons dsct-apply-all-row';
+  if (retarget) footer.append(retarget);
   footer.append(splitButton({
     cls: 'dsct-apply-all',
     applyLabel: L(canApply ? 'applyAll' : choicesLeft ? 'choicesLeft' : 'allApplied'),
@@ -390,21 +401,27 @@ async function autoApply(msgId) {
 export function registerApply12() {
   if (!ds.CONFIG.MessagePart?.targetResult) return;
   services.provide('applyAllEffects', (message) => applyAll12(message));
+  registerUpdateTargets12();
   Hooks.on('createChatMessage', (message, _options, userId) => {
     if (userId === game.user.id && on12() && getSetting('autoApplyOwnAbilities') && usePart(message)) _eligible.add(message.id);
   });
   Hooks.once('ready', () => {
     
-    Hooks.on('renderChatMessageHTML', (message, html) => {
+    const decorate = (message, html) => {
       if (!on12() || !usePart(message)) return;
       try {
         showMarks(message, html);
-        if (resultParts(message).length) {
-          addSquadSections(message, html);
-          addApplyAllRow(message, html);
-        }
+        if (resultParts(message).length) addSquadSections(message, html);
+        addApplyAllRow(message, html);
       } catch (err) { console.warn('DSCT | apply all', err); }
+    };
+    Hooks.on('renderChatMessageHTML', (message, html) => {
+      decorate(message, html);
       if (_eligible.delete(message.id)) setTimeout(() => autoApply(message.id).catch((err) => console.warn('DSCT | auto-apply', err)), SETTLE_MS);
     });
+    for (const li of document.querySelectorAll('li.chat-message[data-message-id]')) {
+      const message = game.messages.get(li.dataset.messageId);
+      if (message && !li.querySelector('.dsct-apply-all-row')) decorate(message, li);
+    }
   });
 }
