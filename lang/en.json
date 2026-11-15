@@ -3232,6 +3232,7 @@
       "fmFall": "Fall damage reduced by {n}",
       "fmAuto": "Automatic path",
       "fmGo": "Move this target",
+      "fmHeld": "Held on the Trigger Stack while triggered abilities are decided",
       "damageGo": "Apply this damage to the target",
       "fmUndo": "Undo the move",
       "fmTitle": "Modify Forced Movement: {name}",

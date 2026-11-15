@@ -634,15 +634,16 @@ function addForcedRows(part, html) {
     const moveId = part.message.getFlag(M, `fmMoves.${part.id}.${index}`);
     const moveMsg = moveId ? game.messages.get(moveId) : null;
     const moved = fmMessageState(moveMsg) === 'live';
+    const held = !moved && !!part.message.getFlag(M, `dstdFmState.part:${part.id}:${index}`)?.dstHeld;
     row.innerHTML = `<div class="dice-flavor">${esc(L('sectionForced'))}</div><div class="dice-result"><div class="inline-result">`
       + `<div class="dice-formula">${[baseLabel, ...terms].join(' ')}</div>`
-      + `<span class="ctlib-split${moved ? ' ctlib-split-applied' : ''}"><button type="button" class="dice-total dsct-fm-go${moved ? ' ctlib-applied' : ''}"${moved ? ' disabled' : ''}><i class="${FM_ICON}" inert></i> ${st.distance}</button>`
+      + `<span class="ctlib-split${moved ? ' ctlib-split-applied' : ''}"><button type="button" class="dice-total dsct-fm-go${moved ? ' ctlib-applied' : ''}${held ? ' dsct-fm-held' : ''}"${moved || held ? ' disabled' : ''}><i class="${held ? 'fa-solid fa-hourglass-half' : FM_ICON}" inert></i> ${st.distance}</button>`
       + `<button type="button" class="ctlib-undo${moved ? '' : ' ctlib-undo-off'}" aria-label="${esc(L('fmUndo'))}"><i class="fa-solid fa-rotate-left" inert></i></button></span>`
       + `</div></div>`;
     for (const term of row.querySelectorAll('.dsct-mod-term')) bindTip(term, term.dataset.dsctTip);
     const go = row.querySelector('.dsct-fm-go');
-    if (moved) passHover(go.parentElement, go);
-    bindTip(go, tipHTML([[L('sectionForced'), [{ amt: '', name: _fmMakeLabel(base), effect: L('fmGo') }, ...enabled.map((e) => fmRow(e, base))]]], _fmMakeLabel(st)));
+    if (moved || held) passHover(go.parentElement, go);
+    bindTip(go, tipHTML([[L('sectionForced'), [{ amt: '', name: _fmMakeLabel(base), effect: L(held ? 'fmHeld' : 'fmGo') }, ...enabled.map((e) => fmRow(e, base))]]], _fmMakeLabel(st)));
     go.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
