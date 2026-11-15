@@ -1204,6 +1204,15 @@ function addDamageTerms(part, html) {
   for (const index of damageIndexes(part)) {
     const entry = mods.damage?.[index];
     const formulaEl = rollEls[index]?.querySelector('.dice-formula');
+    const applyBtn = rollEls[index]?.querySelector('[data-action="applyDamage"]');
+    const roll = part.rolls[index];
+    if (applyBtn && roll) {
+      const base = entry ? foundry.dice.Roll.fromData(damageBaseData(entry, part.tier)).formula : roll.formula;
+      const rows = [{ amt: '', name: base, effect: L('damageGo') }, ...live(entry?.pills).map((p) => damageRow(p))];
+      const type = roll.type ?? roll.options?.type ?? '';
+      delete applyBtn.dataset.tooltip;
+      bindTip(applyBtn, tipHTML([[L('sectionDamage'), rows]], [roll.total, type ? damageTypeLabel(type) : null].filter((x) => x != null && x !== '').join(' ')));
+    }
     if (!entry || !formulaEl) continue;
     if (entry.steps?.length) {
       const base = foundry.dice.Roll.fromData(damageBaseData(entry, part.tier)).formula;

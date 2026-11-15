@@ -3232,6 +3232,7 @@
       "fmFall": "Fall damage reduced by {n}",
       "fmAuto": "Automatic path",
       "fmGo": "Move this target",
+      "damageGo": "Apply this damage to the target",
       "fmUndo": "Undo the move",
       "fmTitle": "Modify Forced Movement: {name}",
       "fmAdd": "Add a forced movement modifier",
