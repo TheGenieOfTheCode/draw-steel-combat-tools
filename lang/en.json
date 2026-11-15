@@ -2105,6 +2105,8 @@
       "searchPing": { "category": "Creature" },
       "pillCustom": "Click to turn it off or on. Right-click to remove it.",
       "pillGlobal": "Global: counts on every target. Set in the roll window or in Modify Power Roll (Global).",
+      "sourceDyingLabel": "Until Source Is Dying",
+      "sourceDyingMark": "Marks always end when their source is dying.",
       "pillGlobalAll": "Global: switching it changes every target that isn't applied yet.",
       "pillNegates": {
         "edge": "Negates an Edge.",

@@ -1708,6 +1708,10 @@ body.dsbl-dark-chat .themed.theme-dark .chat-log { --dsct-pill-dim: 0.45; --dsct
   gap: 4px;
   justify-items: stretch;
 }
+.dsct-source-dying input:disabled {
+  opacity: var(--dsct-pill-dim, 0.45);
+  cursor: not-allowed;
+}
 .dsct-amw-negate {
   display: flex;
   align-items: center;

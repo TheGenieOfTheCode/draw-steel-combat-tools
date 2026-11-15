@@ -121,10 +121,31 @@ function sourceActorOf(effect) {
   return origin?.documentName === 'Actor' ? origin : origin?.actor ?? null;
 }
 
-function endsWithSource(effect) {
-  if (effect.getFlag(M, SOURCE_DYING) || effect.flags?.[M]?.mark) return true;
-  const origin = effect.origin ? fromUuidSync(effect.origin, { strict: false }) : null;
-  return origin?.documentName === 'Item' && origin.type === 'ability' && kindIn(origin, effect) === 'marked';
+function isMarkEffect(effect) {
+  if (effect.flags?.[M]?.mark) return true;
+  const holder = effect.parent?.documentName === 'Item' ? effect.parent
+    : (effect.origin ? fromUuidSync(effect.origin, { strict: false }) : null);
+  return holder?.documentName === 'Item' && holder.type === 'ability' && kindIn(holder, effect) === 'marked';
+}
+
+const endsWithSource = (effect) => !!effect.getFlag(M, SOURCE_DYING) || isMarkEffect(effect);
+
+function addSourceDyingToggle(app, element) {
+  if (systemEndsOnSourceDying() || !enabled()) return;
+  const name = `flags.${M}.${SOURCE_DYING}`;
+  const after = element.querySelector('[name="system.end.roll"]')?.closest('.form-group');
+  if (!after || element.querySelector(`[name="${name}"]`)) return;
+  const mark = isMarkEffect(app.document);
+  const row = document.createElement('div');
+  row.className = 'form-group dsct-source-dying';
+  row.innerHTML = `<label>${game.i18n.localize('DSCT.tip.sourceDyingLabel')}</label><div class="form-fields"><input type="checkbox" name="${name}"></div>`;
+  const box = row.querySelector('input');
+  box.checked = mark || !!app.document.getFlag(M, SOURCE_DYING);
+  if (mark) {
+    box.disabled = true;
+    row.dataset.tooltip = game.i18n.localize('DSCT.tip.sourceDyingMark');
+  }
+  after.after(row);
 }
 
 function isExpiryEvent(wrapped, event, context) {
@@ -136,6 +157,7 @@ function isExpiryEvent(wrapped, event, context) {
 export function registerJudgedMarked() {
   libWrapper.register(M, 'CONFIG.ActiveEffect.documentClass.prototype.isExpiryEvent', isExpiryEvent, 'MIXED');
   Hooks.on('createActiveEffect', (effect, _options, userId) => { onCreated(effect, userId); });
+  Hooks.on('renderActiveEffectConfig', addSourceDyingToggle);
   Hooks.on('updateActor', (actor, changes, options) => {
     if (systemEndsOnSourceDying() || !enabled()) return;
     const before = options.ds?.previousStamina?.value;
