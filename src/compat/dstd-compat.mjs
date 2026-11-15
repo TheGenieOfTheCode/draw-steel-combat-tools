@@ -2921,7 +2921,7 @@ async function _injectFmButtons(message, root) {
           e.stopPropagation(); e.preventDefault();
           const d = tokenUuid ? await fromUuid(tokenUuid).catch(() => null) : null;
           d?.object?.setTarget(true, { user: game.user, releaseOthers: true });
-          await getModuleApi(false)?.mark({ ...config, dsid, sourceActorId: sourceActor?.id ?? null });
+          await getModuleApi(false)?.mark({ maxTargets: config.maxTargets, override: config.override, dsid: config.asDsid ?? dsid, sourceActorId: sourceActor?.id ?? null });
           markBtn.disabled        = true;
           undoMarkBtn.disabled    = false;
           markSpan.textContent    = appliedLbl;

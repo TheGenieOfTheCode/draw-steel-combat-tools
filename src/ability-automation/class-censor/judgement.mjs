@@ -4,6 +4,7 @@ import { applyTaunted } from '../../conditions/conditions.mjs';
 import { safeUpdate } from '../../ctlib.mjs';
 
 const M = 'draw-steel-combat-tools';
+const PASS_JUDGEMENT = 'judgement-a-creature-judged-by-you-is-reduced-to-0-stamina';
 
 const _speakerActor = (msg) => {
   const tokenDoc = msg.speaker?.token ? canvas?.tokens?.get(msg.speaker.token)?.document : null;
@@ -26,7 +27,7 @@ export const registerJudgementHooks = () => {
     };
     const dsid = msg.getFlag(M, 'abilityDsid');
 
-    if (getSetting('judgementAutomation') && dsid === 'judgement' && !game.modules.get('draw-steel-target-damage')?.active) {
+    if (getSetting('judgementAutomation') && (dsid === 'judgement' || dsid === PASS_JUDGEMENT) && !game.modules.get('draw-steel-target-damage')?.active) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'dsct-judgement-btn';

@@ -111,8 +111,25 @@ async function onCreated(effect, userId) {
   if (isPrimaryGM()) await settle(effect);
 }
 
+async function endMarksOf(actor) {
+  if (!actor || !enabled() || !isPrimaryGM()) return;
+  const doomed = (await allOfKind('marked')).filter(({ info }) => sameActor(info.owner, actor)).map(({ effect }) => effect);
+  if (!doomed.length) return;
+  console.log(`${M} | ${actor.name} is dying, so ${doomed.length} mark(s) they made end`);
+  for (const e of doomed) await e.delete().catch(() => {});
+}
+
 export function registerJudgedMarked() {
-  Hooks.on('createActiveEffect', (effect, _options, userId) => { onCreated(effect, userId); });
+  Hooks.on('createActiveEffect', (effect, _options, userId) => {
+    onCreated(effect, userId);
+    if (effect.statuses?.has('dying')) endMarksOf(effect.parent);
+  });
+  Hooks.on('updateActor', (actor, changes, options) => {
+    const now = changes.system?.stamina?.value;
+    if (actor.type !== 'hero' || now === undefined || now > 0) return;
+    const before = options.ds?.previousStamina?.value;
+    if (before === undefined || before > 0) endMarksOf(actor);
+  });
   Hooks.on('updateActiveEffect', (effect, changes) => {
     if (enabled() && isPrimaryGM() && 'origin' in changes) settle(effect);
   });

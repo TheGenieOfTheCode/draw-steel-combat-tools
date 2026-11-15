@@ -152,6 +152,12 @@ const triggerProc = async (actor, effect) => {
   const isMark = !!effect.getFlag(M, 'mark');
   if ((isJudgement && !getSetting('judgementAutomation')) || (isMark && !getSetting('markAutomation'))) return;
 
+  
+  if (game.modules.get('draw-steel-triggers')?.active) {
+    await safeDelete(effect);
+    return;
+  }
+
   if (isJudgement) {
     const judgeFlag = effect.getFlag(M, 'judgement') ?? {};
     

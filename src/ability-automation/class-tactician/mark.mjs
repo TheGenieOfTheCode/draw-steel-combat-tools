@@ -17,6 +17,7 @@ export const MARK_ABILITY_CONFIG = {
   'hustle':                 { maxTargets: 2, override: false },
   'no-escape':              { maxTargets: 1, override: false },
   'that-one-is-mine':       { maxTargets: 1, override: false },
+  'mark-a-creature-marked-by-you-is-reduced-to-0-stamina': { maxTargets: 1, override: true, asDsid: 'mark' },
 };
 
 export const registerMarkHooks = () => {
@@ -65,9 +66,10 @@ export const registerMarkHooks = () => {
     }
 
     if (getSetting('markAutomation') && MARK_ABILITY_CONFIG[dsid]) {
-      const config         = MARK_ABILITY_CONFIG[dsid];
+      const { asDsid, ...config } = MARK_ABILITY_CONFIG[dsid];
+      const markDsid       = asDsid ?? dsid;
       const speakerActor   = game.actors.get(msg.speaker?.actor);
-      const speakerAnticip = dsid === 'mark' && (speakerActor?.items.some(i => getItemDsid(i) === 'anticipation') ?? false);
+      const speakerAnticip = markDsid === 'mark' && (speakerActor?.items.some(i => getItemDsid(i) === 'anticipation') ?? false);
       const effectiveMax   = speakerAnticip ? Math.max(config.maxTargets, 2) : config.maxTargets;
 
       const injectNormalMarkBtn = () => {
@@ -78,7 +80,7 @@ export const registerMarkHooks = () => {
         btn.style.cssText = 'cursor:pointer;';
         btn.addEventListener('click', (e) => {
           e.preventDefault();
-          getModuleApi(false)?.mark({ ...config, dsid, sourceActorId: msg.speaker?.actor ?? null });
+          getModuleApi(false)?.mark({ ...config, dsid: markDsid, sourceActorId: msg.speaker?.actor ?? null });
         });
         btnArea().appendChild(btn);
       };
