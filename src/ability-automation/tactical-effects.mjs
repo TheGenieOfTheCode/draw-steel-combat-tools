@@ -192,7 +192,7 @@ const triggerProc = async (actor, effect) => {
 const handleActorDeath = (actor) => {
   if (!actor) return;
   const relevantEffects = actor.effects.filter(e =>
-    e.getFlag(M, 'judgement') || e.getFlag(M, 'mark')
+    (e.getFlag(M, 'judgement') || e.getFlag(M, 'mark')) && !e.duration?.expired
   );
 
   for (const effect of relevantEffects) {

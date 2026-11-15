@@ -111,24 +111,37 @@ async function onCreated(effect, userId) {
   if (isPrimaryGM()) await settle(effect);
 }
 
-async function endMarksOf(actor) {
-  if (!actor || !enabled() || !isPrimaryGM()) return;
-  const doomed = (await allOfKind('marked')).filter(({ info }) => sameActor(info.owner, actor)).map(({ effect }) => effect);
-  if (!doomed.length) return;
-  console.log(`${M} | ${actor.name} is dying, so ${doomed.length} mark(s) they made end`);
-  for (const e of doomed) await e.delete().catch(() => {});
+const SOURCE_DYING = 'sourceDying';
+const systemEndsOnSourceDying = () => !!CONFIG.ActiveEffect.dataModels?.base?.schema?.fields?.end?.fields?.sourceDying;
+
+function sourceActorOf(effect) {
+  const mark = effect.flags?.[M]?.mark;
+  if (mark?.actorId) return game.actors.get(mark.actorId) ?? null;
+  const origin = effect.origin ? fromUuidSync(effect.origin, { strict: false }) : null;
+  return origin?.documentName === 'Actor' ? origin : origin?.actor ?? null;
+}
+
+function endsWithSource(effect) {
+  if (effect.getFlag(M, SOURCE_DYING) || effect.flags?.[M]?.mark) return true;
+  const origin = effect.origin ? fromUuidSync(effect.origin, { strict: false }) : null;
+  return origin?.documentName === 'Item' && origin.type === 'ability' && kindIn(origin, effect) === 'marked';
+}
+
+function isExpiryEvent(wrapped, event, context) {
+  if (event !== SOURCE_DYING) return wrapped(event, context);
+  if (systemEndsOnSourceDying() && wrapped(event, context)) return true;
+  return enabled() && !!context?.source && endsWithSource(this) && sameActor(sourceActorOf(this), context.source);
 }
 
 export function registerJudgedMarked() {
-  Hooks.on('createActiveEffect', (effect, _options, userId) => {
-    onCreated(effect, userId);
-    if (effect.statuses?.has('dying')) endMarksOf(effect.parent);
-  });
+  libWrapper.register(M, 'CONFIG.ActiveEffect.documentClass.prototype.isExpiryEvent', isExpiryEvent, 'MIXED');
+  Hooks.on('createActiveEffect', (effect, _options, userId) => { onCreated(effect, userId); });
   Hooks.on('updateActor', (actor, changes, options) => {
-    const now = changes.system?.stamina?.value;
-    if (actor.type !== 'hero' || now === undefined || now > 0) return;
+    if (systemEndsOnSourceDying() || !enabled()) return;
     const before = options.ds?.previousStamina?.value;
-    if (before === undefined || before > 0) endMarksOf(actor);
+    if (before === undefined || changes.system?.stamina?.value === undefined) return;
+    const dying = Number(ds.CONST.staminaEffects?.dying?.threshold ?? 0);
+    if (before > dying && actor.system.stamina.value <= dying) foundry.documents.ActiveEffect.registry.refresh(SOURCE_DYING, { source: actor });
   });
   Hooks.on('updateActiveEffect', (effect, changes) => {
     if (enabled() && isPrimaryGM() && 'origin' in changes) settle(effect);
