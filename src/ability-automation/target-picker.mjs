@@ -774,6 +774,8 @@ function _restoreTargetsAfterUse(abilityUuid, previous) {
 
 export const casterTokenFor = (ability) => _getCasterToken(ability);
 
+export const markPreTargeted = (uuid) => { if (uuid) _dsctPreTargeted.add(uuid); };
+
 export const canPickTargetsFor = (ability) => !!getSetting('abilityTargetingEnabled')
   && _isPickerEligible(ability, chooseTargeting(ability)) && !!_getCasterToken(ability);
 
@@ -881,6 +883,7 @@ export function checkAndRunBurstTargeting(dialog) {
 export function checkAndRunTargetPicker(dialog) {
   const ability = dialog.options?.ability;
   if (!ability) return null;
+  if (dialog.options?.rollResume) { _dsctPreTargeted.delete(ability.uuid); return null; }
 
   if (_dsctPreTargeted.has(ability.uuid)) {
     _dsctPreTargeted.delete(ability.uuid);

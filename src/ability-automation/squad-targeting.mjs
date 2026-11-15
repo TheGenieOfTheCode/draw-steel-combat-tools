@@ -1,5 +1,5 @@
 import { getSetting, tokFootprintDist } from '../helpers.mjs';
-import { _getValidTargets, setFoundryTargets, _addPickerReticle, _removePickerReticle, _addPickerTarget, _removePickerTarget, _clearPickerReticles } from './target-picker.mjs';
+import { _getValidTargets, setFoundryTargets, markPreTargeted, _addPickerReticle, _removePickerReticle, _addPickerTarget, _removePickerTarget, _clearPickerReticles } from './target-picker.mjs';
 import { beginPickerOverlay } from './picker-overlay.mjs';
 import { getStrikeType } from './class-shadow/crossfade.mjs';
 import { _recomputeAndSync, _injectPillUI } from './roll-dialog-hooks.mjs';
@@ -816,6 +816,7 @@ export async function useSquadAbility(ability, assignments) {
   const minionTokens = [...pairs.keys()].map((id) => canvas.tokens.get(id));
   setFoundryTargets([...new Set(pairs.values())].map((id) => canvas.tokens.get(id)));
   _squadTargeted.set(ability.uuid, Date.now());
+  markPreTargeted(ability.uuid);
   _pendingSquadMap = _buildTargetMap(pairs, minionTokens, ability);
   return ability.system.use();
 }
@@ -823,12 +824,11 @@ export async function useSquadAbility(ability, assignments) {
 export function checkAndRunSquadTargeting(dialog) {
   const ability = dialog.options?.ability;
   if (!ability) return null;
+  if (dialog.options?.rollResume) { _squadTargeted.delete(ability.uuid); return null; }
 
   const _sqStamp = _squadTargeted.get(ability.uuid);
-  if (_sqStamp && Date.now() - _sqStamp < 300000) {
-    return null;
-  }
   _squadTargeted.delete(ability.uuid);
+  if (_sqStamp && Date.now() - _sqStamp < 300000) return null;
 
   if (!_groupActionsLive()) return null;
 
@@ -871,6 +871,7 @@ export function checkAndRunSquadTargeting(dialog) {
       .filter(Boolean);
     setFoundryTargets(targetTokens);
     _squadTargeted.set(ability.uuid, Date.now());
+    markPreTargeted(ability.uuid);
     _pendingSquadMap = targetMap;
     _pendingSquadAbility = ability.uuid;
     ability.system.use();
