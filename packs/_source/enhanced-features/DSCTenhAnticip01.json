@@ -1,0 +1,51 @@
+{
+ "folder": "DSCTfffTacticL50",
+ "name": "Anticipation",
+ "type": "feature",
+ "_id": "DSCTenhAnticip01",
+ "img": "icons/magic/time/clock-stopwatch-white-blue.webp",
+ "system": {
+  "description": {
+   "value": "<p>You have learned to be more preemptive on the battlefield, thinking more steps ahead than your opponents. You can target two creatures with your Mark ability.</p>",
+   "director": ""
+  },
+  "source": {
+   "book": "Heroes",
+   "page": "181",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "anticipation",
+  "advancements": {},
+  "prerequisites": {
+   "value": "",
+   "dsid": [],
+   "level": null
+  }
+ },
+ "effects": [],
+ "sort": 0,
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true,
+   "enhancedSpecific": true,
+   "enhancedGrants": [
+    "Compendium.draw-steel-combat-tools.enhanced-abilities.Item.DSCTenhMarkAnt01"
+   ]
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.370",
+  "systemId": "draw-steel",
+  "systemVersion": "1.2.2",
+  "createdTime": 1794773599281,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhAnticip01"
+}

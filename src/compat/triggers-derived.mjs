@@ -39,7 +39,8 @@ function enhance(spec, { line }) {
   const entry = _entries.get(line?.key);
   if (!entry || game.settings.get(M, 'enhancedAutoAdd') === false) return;
   for (const [id, effect] of Object.entries(entry.system?.effects ?? {})) {
-    if (String(effect?.type ?? '').startsWith('dsct')) spec.system.effects[id] = foundry.utils.deepClone(effect);
+    const choiceText = effect?.type === 'base' && effect.before === false;
+    if (String(effect?.type ?? '').startsWith('dsct') || choiceText) spec.system.effects[id] = foundry.utils.deepClone(effect);
   }
   if (entry.system?.power?.roll?.enabled) spec.system.power = foundry.utils.deepClone(entry.system.power);
   if (entry.system?.distance?.type && entry.system.distance.type !== 'special') {

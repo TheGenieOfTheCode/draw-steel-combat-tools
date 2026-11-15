@@ -173,6 +173,7 @@ export async function enhancedDocIndex() {
   if (_docIndex) return _docIndex;
   const map = new Map();
   for (const doc of await enhancedDocuments()) {
+    if (doc.flags?.[ENH_FLAG]?.enhancedGrantOnly) continue;
     const key = enhancedDocKey(doc);
     if (key) map.set(key, doc);
   }
@@ -358,6 +359,10 @@ export async function syncEnhancedGrants(item, doc) {
     const src = await fromUuid(uuid).catch(() => null);
     if (!src) { console.warn(`DSCT | enhanced | ${doc.name} grants ${uuid}, which could not be found`); continue; }
     const data = _stamped(src);
+    const own = data.flags?.[ENH_FLAG]?.enhancedReplaces
+      ? actor.items.find((i) => i.type === data.type && i.system?._dsid === data.system?._dsid && !i.getFlag(ENH_FLAG, GRANTED_BY))
+      : null;
+    if (own) { await _replaceInPlace(own, data, item.id, uuid); continue; }
     delete data._id;
     foundry.utils.setProperty(data, `flags.${ENH_FLAG}.${GRANTED_BY}`, item.id);
     foundry.utils.setProperty(data, `flags.${ENH_FLAG}.enhancedGrantSource`, uuid);
@@ -367,16 +372,42 @@ export async function syncEnhancedGrants(item, doc) {
   if (add.length) await actor.createEmbeddedDocuments('Item', add);
 }
 
+const REPLACED = 'enhancedReplacedData';
+
+async function _overwrite(item, data) {
+  await item.update({ name: data.name, img: data.img, system: _retypeSafe(item, data.system) });
+  if (!_overwriteLanded(item, data.system)) await _retypeInTwoSteps(item, data.system);
+  await _syncEffects(item, data.effects ?? []);
+}
+
+async function _replaceInPlace(item, data, grantedBy, uuid) {
+  const before = item.toObject();
+  const kept = { name: before.name, img: before.img, system: before.system, effects: before.effects ?? [], flags: before.flags?.[ENH_FLAG] ?? {} };
+  await _overwrite(item, data);
+  await item.update({ flags: { [ENH_FLAG]: { ...(data.flags?.[ENH_FLAG] ?? {}), [GRANTED_BY]: grantedBy, enhancedGrantSource: uuid, [REPLACED]: kept } } });
+}
+
+async function _restoreReplaced(item) {
+  const kept = item.getFlag(ENH_FLAG, REPLACED);
+  await _overwrite(item, kept);
+  for (const key of Object.keys(item.flags?.[ENH_FLAG] ?? {})) if (!(key in kept.flags)) await item.unsetFlag(ENH_FLAG, key);
+  if (Object.keys(kept.flags).length) await item.update({ flags: { [ENH_FLAG]: kept.flags } });
+}
+
 export async function removeEnhancedGrants(item) {
   const actor = item?.parent;
   if (actor?.documentName !== 'Actor') return;
-  const ids = actor.items.filter(i => i.getFlag(ENH_FLAG, GRANTED_BY) === item.id).map(i => i.id);
+  const granted = actor.items.filter(i => i.getFlag(ENH_FLAG, GRANTED_BY) === item.id);
+  const replaced = granted.filter((g) => g.getFlag(ENH_FLAG, REPLACED));
+  const ids = granted.filter((g) => !replaced.includes(g)).map(i => i.id);
+  for (const i of replaced) await _restoreReplaced(i);
   if (ids.length) await actor.deleteEmbeddedDocuments('Item', ids);
 }
 
 export const applyEnhanced = async (item, doc, { allowSwap = true } = {}) => {
   if (!item || !doc) return false;
   if (isDerivedTrigger(item) || item.getFlag(ENH_FLAG, 'enhancedLock')) return false;
+  if (item.getFlag(ENH_FLAG, GRANTED_BY)) return false;
   const effectsOnly = isEffectsOnly(doc);
   if (!allowSwap && !effectsOnly && !item.getFlag(ENH_FLAG, 'enhanced')) return false;
   await syncEnhancedGrants(item, doc);
