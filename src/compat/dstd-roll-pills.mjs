@@ -1,6 +1,6 @@
 import { DSTD, registerPanelDecorator, safeUpdate } from '../ctlib.mjs';
 import { getSetting, getModuleApi , dropKeyOverSocket } from '../helpers.mjs';
-import { DSCTAddModifierDialog, TIER_KINDS, EFFECT_PILL_KINDS, tierModsOf, applyTierMods, pillAmountLabel, pillCss } from '../ability-automation/roll-dialog-hooks.mjs';
+import { DSCTAddModifierDialog, TIER_KINDS, EFFECT_PILL_KINDS, tierModsOf, applyTierMods, pillAmountLabel, pillCss, negatesLine } from '../ability-automation/roll-dialog-hooks.mjs';
 import { drawSourceLines, clearSourceLines } from '../ability-automation/source-lines.mjs';
 import { compactPillHTML } from './pill-compact.mjs';
 import { pillTip, richTip, setTip, tipAttrs, tipFor } from '../chat-tips.mjs';
@@ -390,7 +390,7 @@ function _chatPillHTML(p, msgId, targetKey) {
   const tip = richTip({
     title: [_pillAmtStr(p), p.reason].filter(Boolean).join(' · '),
     category: game.i18n.localize(EFFECT_PILL_KINDS.has(p.kind) ? 'DSCT.tip.effectPill.category' : 'DSCT.tip.rollPill.category'),
-    html: [p.src ? game.i18n.format('DSCT.tip.pillFrom', { source: p.src }) : '', ...title.split('\n')]
+    html: [negatesLine(p), p.src ? game.i18n.format('DSCT.tip.pillFrom', { source: p.src }) : '', ...title.split('\n')]
       .filter(Boolean).map((line) => `<p>${esc(line)}</p>`).join(''),
   });
   return `<button type="button" class="${cls}"${attrs} ${tipAttrs(tip)}>${compactPillHTML(_pillAmtStr(p), `<span class="dsct-pip">${_pillAmtStr(p)} &middot; ${foundry.utils.escapeHTML(p.reason ?? '')}</span>${fromStr}`)}</button>`;

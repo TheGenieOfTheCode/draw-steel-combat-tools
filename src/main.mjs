@@ -53,7 +53,7 @@ import { registerSystemPatches } from './system-patches.mjs';
 import { registerSystemFalls } from './forced-movement/system-falls.mjs';
 import { registerBonds } from './bonds.mjs';
 import { registerRollDialogDodge } from './ability-automation/roll-dialog-dodge.mjs';
-import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, removeExternalRollPill, _hasHighGround, registerTierOutcomes, registerPowerRollDice, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
+import { registerRollDialogPillHooks, setBaneDialogLockWithOverlay, injectJudgementBanePill, addExternalRollPill, removeExternalRollPill, extraBanes, _hasHighGround, registerTierOutcomes, registerPowerRollDice, applyTierMods, tierModsOf, flankingAlly } from './ability-automation/roll-dialog-hooks.mjs';
 import { registerDstdCompat, setFmRowRemoteExecuting } from './compat/dstd-compat.mjs';
 import { registerDstdRollPills, addResultPill, addGlobalRollPills } from './compat/dstd-roll-pills.mjs';
 import { registerResultModifiers, resultModifiersApi, globalModifiersApi } from './compat/result-modifiers.mjs';
@@ -215,6 +215,7 @@ const api = {
   rollDialog: {
     addPill: addExternalRollPill,
     removePill: removeExternalRollPill,
+    extraBanes,
     addResultPill,
     potencyVerdict,
     potencyEffectsOf,

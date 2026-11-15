@@ -1708,6 +1708,13 @@ body.dsbl-dark-chat .themed.theme-dark .chat-log { --dsct-pill-dim: 0.45; --dsct
   gap: 4px;
   justify-items: stretch;
 }
+.dsct-amw-negate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 2px;
+  width: fit-content;
+}
 .dsct-amw-type-btn {
   height: auto;
   min-height: 0;

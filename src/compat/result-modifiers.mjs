@@ -9,7 +9,7 @@ import { FmModifyPanel, replayModifiers } from '../forced-movement/forced-moveme
 import { _fmBaseStateFromBtn, _fmMakeLabel } from '../system-patches.mjs';
 import { RESULT_MENU, APPLY, DAMAGE_TYPES, addTargetResult, safeUpdate, passHover, journal } from '../ctlib.mjs';
 import { hasRecurring } from '../conditions/recurring-damage.mjs';
-import { pillAmountLabel, pillCss, EFFECT_END_LABELS } from '../ability-automation/roll-dialog-hooks.mjs';
+import { pillAmountLabel, pillCss, EFFECT_END_LABELS, negatesLine } from '../ability-automation/roll-dialog-hooks.mjs';
 import { getSetting, getWindowById, mentorOf, spendBeyondCost, isOwnAbilityActor } from '../helpers.mjs';
 
 const M = 'draw-steel-combat-tools';
@@ -407,13 +407,13 @@ function resultPills(message, target = null) {
 }
 
 const toneOf = (kind, amount) => {
-  if (kind === 'edge' || kind === 'bane') return kind;
   const n = Number(amount);
+  if (kind === 'edge' || kind === 'bane') return n < 0 ? (kind === 'edge' ? 'bane' : 'edge') : kind;
   return Number.isFinite(n) && n !== 0 ? (n > 0 ? 'plus' : 'minus') : 'neutral';
 };
 const srcIdsOf = (p) => (p?.srcTokenIds?.length ? [...p.srcTokenIds] : p?.srcTokenId ? [p.srcTokenId] : []);
 const shown = (key, row, off, tone, p = null) => ({
-  key, text: [row.amt, row.name].filter(Boolean).join(' · '), short: row.amt || row.name, sub: [row.effect, row.from].filter(Boolean).join(' · '), off, tone,
+  key, text: [row.amt, row.name].filter(Boolean).join(' · '), short: row.amt || row.name, sub: [row.effect, row.from].filter(Boolean).join(' · '), note: negatesLine(p), off, tone,
   srcTokenIds: srcIdsOf(p), lineFrom: p?.lineFrom ?? null, lineStyle: p?.lineStyle ?? null,
 });
 

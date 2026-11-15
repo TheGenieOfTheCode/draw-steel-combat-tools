@@ -85,18 +85,20 @@ export function applyTierMods(tier, mods) {
   return out;
 }
 
+const signed = (n) => `${n < 0 ? '−' : '+'}${Math.abs(n)}`;
+
 export function pillAmountLabel(p) {
   const n = Number(p.amount) || 0;
-  if (p.kind === 'tier') return `${n >= 0 ? '+' : ''}${n} Tier${Math.abs(n) === 1 ? '' : 's'}`;
+  if (p.kind === 'tier') return `${signed(n)} Tier${Math.abs(n) === 1 ? '' : 's'}`;
   if (p.kind === 'autoTier') return `Tier ${n} Outcome`;
   if (p.kind === 'tierFloor') return `Tier ${n} or Higher`;
   if (p.kind === 'tierCeiling') return `Tier ${n} or Lower`;
   if (p.kind === 'base') return `Base Roll ${p.dice?.length ? p.dice.join(' + ') : n}`;
   if (p.kind === 'dice') return `+${Math.abs(n)} ${Math.abs(n) === 1 ? 'Die' : 'Dice'} (Drop ${n >= 0 ? 'Lowest' : 'Highest'})`;
-  if (p.kind === 'potency') return `${n >= 0 ? '+' : ''}${n} Potency`;
-  if (p.kind === 'saveMod') return `${n >= 0 ? '+' : ''}${n} Save`;
+  if (p.kind === 'potency') return `${signed(n)} Potency`;
+  if (p.kind === 'saveMod') return `${signed(n)} Save`;
   if (p.kind === 'potencyForce') return n >= 0 ? 'Always Lands' : 'Never Lands';
-  if (p.kind === 'recurAmount') return `${n >= 0 ? '+' : ''}${n} Recurring`;
+  if (p.kind === 'recurAmount') return `${signed(n)} Recurring`;
   if (p.kind === 'recurMult') return n < 1 ? 'Half Recurring' : 'Double Recurring';
   if (p.kind === 'recurType') return `Recurring ${game.i18n.localize(ds.CONFIG.damageTypes?.[p.damageType]?.label ?? p.damageType ?? '')}`;
   if (p.kind === 'recurIgnore') return 'Recurring Ignores Immunity';
@@ -104,7 +106,7 @@ export function pillAmountLabel(p) {
   if (p.kind === 'effectEnd') return `Lasts: ${EFFECT_END_LABELS[p.end] ? game.i18n.localize(EFFECT_END_LABELS[p.end]) : game.i18n.localize(ds.CONFIG.effectEnds?.[p.end]?.abbreviation ?? p.end)}`;
   const kindLabel = p.kind === 'edge' ? 'Edge' : p.kind === 'bane' ? 'Bane' : (n >= 0 ? 'Bonus' : 'Penalty');
   const plural = p.kind !== 'bonus' && Math.abs(n) !== 1 ? 's' : '';
-  return `${n >= 0 ? '+' : ''}${n} ${kindLabel}${plural}`;
+  return `${signed(n)} ${kindLabel}${plural}`;
 }
 
 export function pillCss(p) {
@@ -118,6 +120,7 @@ export function pillCss(p) {
   if (p.kind === 'recurAmount') return `${(Number(p.amount) || 0) >= 0 ? 'edge' : 'bane'} dsct-pill-effect`;
   if (p.kind === 'recurMult') return `${(Number(p.amount) || 0) >= 1 ? 'edge' : 'bane'} dsct-pill-effect`;
   if (EFFECT_PILL_KINDS.has(p.kind)) return 'bonus dsct-pill-effect';
+  if ((p.kind === 'edge' || p.kind === 'bane') && (Number(p.amount) || 0) < 0) return p.kind === 'edge' ? 'bane' : 'edge';
   return p.kind;
 }
 
@@ -610,6 +613,12 @@ function _totalClass(val, kind) {
   return kind === 'edge' ? 'dsct-total-edge' : kind === 'bane' ? 'dsct-total-bane' : 'dsct-total-bonus';
 }
 
+export function negatesLine(p) {
+  const n = Number(p?.amount) || 0;
+  if (n >= 0 || (p.kind !== 'edge' && p.kind !== 'bane')) return '';
+  return game.i18n.localize(`DSCT.tip.pillNegates.${p.kind}${n <= -2 ? 'Double' : ''}`);
+}
+
 function _pillHTML(p) {
   const amtStr    = pillAmountLabel(p);
   const fromStr      = p.src ? `<span class="dsct-pill-from">from ${p.src}</span>` : '';
@@ -620,7 +629,7 @@ function _pillHTML(p) {
   const tip          = richTip({
     title: [amtStr, p.reason].filter(Boolean).join(' · '),
     category: game.i18n.localize(EFFECT_PILL_KINDS.has(p.kind) ? 'DSCT.tip.effectPill.category' : 'DSCT.tip.rollPill.category'),
-    html: [p.src ? game.i18n.format('DSCT.tip.pillFrom', { source: p.src }) : '', hint].filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join(''),
+    html: [negatesLine(p), p.src ? game.i18n.format('DSCT.tip.pillFrom', { source: p.src }) : '', hint].filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join(''),
   });
   const srcTokenAttr = (p.srcTokenIds?.length > 0
     ? ` data-src-token-ids="${p.srcTokenIds.join(',')}"`
@@ -870,6 +879,8 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
     this._valueInput     = this._amwRoot.querySelector('.dsct-amw-value-input');
     this._valueGroup     = this._amwRoot.querySelector('.dsct-amw-value-group');
     this._typeButtons    = [...this._amwRoot.querySelectorAll('.dsct-amw-type-btn')];
+    this._negateInput    = this._amwRoot.querySelector('.dsct-amw-negate-input');
+    this._negateGroup    = this._amwRoot.querySelector('.dsct-amw-negate');
     const scopeSel       = this._amwRoot.querySelector('.dsct-amw-scope-select');
     if (scopeSel) scopeSel.value = this._scope;
 
@@ -906,6 +917,7 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
     this._reasonInput?.addEventListener('input', () => this._updatePreview());
     this._sourceInput?.addEventListener('input', () => this._updatePreview());
     this._valueInput?.addEventListener('input',  () => this._updatePreview());
+    this._negateInput?.addEventListener('change', () => this._updatePreview());
     scopeSel?.addEventListener('change', (e) => { this._scope = e.target.value; this._updatePreview(); });
 
     this._updatePreview();
@@ -915,8 +927,13 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
     return this._kind === 'autoTier' || this._kind === 'tierFloor' || this._kind === 'tierCeiling';
   }
 
+  get _negatable() {
+    return this._kind === 'edge' || this._kind === 'bane';
+  }
+
   _syncValueField() {
     if (this._valueGroup) this._valueGroup.style.display = (this._kind === 'bonus' || this._kind === 'dice' || this._tierValued) ? '' : 'none';
+    if (this._negateGroup) this._negateGroup.style.display = this._negatable ? '' : 'none';
     if (!this._valueInput) return;
     if (this._tierValued) {
       this._valueInput.max = '3';
@@ -926,6 +943,7 @@ export class DSCTAddModifierDialog extends ds.applications.api.DSApplication {
 
   _readValueAmount() {
     if (this._tierValued) return Math.clamp(parseInt(this._valueInput?.value) || 3, 1, 3);
+    if (this._negatable && this._negateInput?.checked) return -this._amount;
     if (this._kind !== 'bonus' && this._kind !== 'dice') return this._negate ? -this._amount : this._amount;
     const raw = this._kind === 'dice' ? Math.max(1, Math.abs(parseInt(this._valueInput?.value) || 1)) : Math.abs(parseFloat(this._valueInput?.value) || 1);
     return this._negate ? -raw : raw;
@@ -974,6 +992,17 @@ export function addExternalRollPill(app, { kind, amount = 1, reason, src = null,
   _recomputeAndSync(app);
   if (app.rendered) _injectPillUI(app);
   return true;
+}
+
+export function extraBanes(app) {
+  const out = { global: 0, targets: {} };
+  if (!getSetting('abilityAutomationEnabled') || !getSetting('rollDialogPillUI') || !app?.options?.ability) return out;
+  for (const p of _buildModifierSources(app)) {
+    if (p.kind !== 'bane' || p.dsNative || !p.enabled) continue;
+    if (p.scope === 'global') out.global += Number(p.amount) || 0;
+    else out.targets[p.scope] = (out.targets[p.scope] ?? 0) + (Number(p.amount) || 0);
+  }
+  return out;
 }
 
 export function removeExternalRollPill(app, { reason, src = null } = {}) {

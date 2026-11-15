@@ -2104,6 +2104,13 @@
       "searchHero": { "title": "Hero Token Reroll", "category": "Search Roll" },
       "searchPing": { "category": "Creature" },
       "pillCustom": "Click to turn it off or on. Right-click to remove it.",
+      "pillNegates": {
+        "edge": "Negates an Edge.",
+        "edgeDouble": "Negates a Double Edge.",
+        "bane": "Negates a Bane.",
+        "baneDouble": "Negates a Double Bane."
+      },
+      "negateModifier": { "title": "Negate", "category": "Roll Modifier", "body": "Takes the Edge or Bane away instead of adding it, such as a feature that negates a Bane." },
       "addModifier": { "title": "Add Modifier", "category": "Roll Modifier", "body": "Adds an edge, bane, bonus or other modifier to this roll." },
       "addGlobalModifier": { "title": "Add Global Modifier", "category": "Roll Modifier", "body": "Adds a modifier to this roll for every target." },
       "addDamageModifier": { "title": "Add Modifier", "category": "Damage Modifier", "body": "Adds a bonus, penalty, surge or other change to this damage." },
