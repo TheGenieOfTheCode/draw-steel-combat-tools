@@ -2761,6 +2761,19 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         }
       }
     }
+    const heldBy = grabState && window._activeGrabs?.get(targetToken.id);
+    if (heldBy) {
+      const grabberTok = getTokenById(heldBy.grabberTokenId);
+      const size = (t) => t.actor?.system?.combat?.size?.value ?? 1;
+      const a = toGrid(targetToken.document), b = grabberTok ? toGrid(grabberTok.document) : null;
+      const gap = b ? Math.max(
+        Math.max(0, a.x - (b.x + size(grabberTok) - 1), b.x - (a.x + size(targetToken) - 1)),
+        Math.max(0, a.y - (b.y + size(grabberTok) - 1), b.y - (a.y + size(targetToken) - 1))) : Infinity;
+      if (gap > 1) {
+        grabsEnded.push({ grabberTokenId: heldBy.grabberTokenId, grabbedTokenId: targetToken.id });
+        await endGrab(targetToken.id, { silent: false, customMsg: L('grabbedFreed', { grabber: heldBy.grabberName, grabbed: heldBy.grabbedName }) });
+      }
+    }
 
     const oldMoveId = targetToken.document.getFlag('draw-steel-combat-tools', 'lastFmMoveId');
     if (oldMoveId) {

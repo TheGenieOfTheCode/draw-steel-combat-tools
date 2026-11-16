@@ -2601,6 +2601,7 @@
         "noFreeSpace": "{name} could not find a free space to land.",
         "bothDefeated": "{name} and {other} are both defeated; no repositioning needed.",
         "grabReleased": "{grabber} was force-moved out of reach and released {grabbed}.",
+        "grabbedFreed": "{grabbed} was force-moved out of {grabber}'s reach and is no longer grabbed.",
         "totalDamage": "<strong>Total damage to {name}: {n}</strong>",
         "undo": "Undo Movement",
         "undoAll": "Undo All Movements",

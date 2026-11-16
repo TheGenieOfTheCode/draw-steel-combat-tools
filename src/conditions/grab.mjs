@@ -62,9 +62,12 @@ const ensureGrabHooks = () => {
     window._grabPreHook = Hooks.on('preUpdateToken', async (doc, changes) => {
       if (window._grabFollowActive?.has(doc.id))    return;
       if (window._grabRepositioning?.has(doc.id))   return;
+      if (window._dsctFMBypassFrightened?.has(doc.id)) return;
       if (!window._activeGrabs?.has(doc.id))        return;
       if (changes.x === undefined && changes.y === undefined) return;
       if (getSetting('allowIllegalMovement')) {
+        
+        if (window._activeGrabs.get(window._activeGrabs.get(doc.id).grabberTokenId)?.grabberTokenId === doc.id) return;
         ui.notifications.warn(game.i18n.format('DSCT.notice.grab.grabbedCannotMove', { name: window._activeGrabs.get(doc.id).grabbedName }));
         await endGrab(doc.id, { silent: true });
       } else {
@@ -85,6 +88,9 @@ const ensureGrabHooks = () => {
       const deltaY = (changes.y ?? doc.y) - doc.y;
       for (const [gid, grab] of window._activeGrabs.entries()) {
         if (doc.id !== grab.grabberTokenId) continue;
+        
+        if (window._grabFollowActive.has(gid)) continue;
+        if (window._grabFollowActive.has(doc.id) && window._activeGrabs.get(doc.id)?.grabberTokenId === gid) continue;
         const gt = getTokenById(gid);
         if (gt) {
           window._grabFollowActive.add(gid);
@@ -95,38 +101,26 @@ const ensureGrabHooks = () => {
     });
   }
 
-  if (!window._grabberGrabbedHook) {
-    window._grabberGrabbedHook = Hooks.on('createActiveEffect', async (effect) => {
-      if (!isPrimaryGM()) return;
-      if (!effect.statuses.has('grabbed') || !window._activeGrabs?.size) return;
-      const effectToken = effect.parent?.token;
-      for (const [gid, grab] of [...window._activeGrabs.entries()]) {
-        const isGrabber = effectToken
-          ? effectToken.id === grab.grabberTokenId
-          : effect.parent?.id === grab.grabberActorId;
-        if (!isGrabber) continue;
-        await endGrab(gid, { silent: !game.user.isGM, customMsg: game.user.isGM ? `${grab.grabberName} was grabbed and released ${grab.grabbedName}.` : null });
-      }
-    });
-  }
-
   if (!window._grabEffectDeleteHook) {
     window._grabEffectDeleteHook = Hooks.on('deleteActiveEffect', async (effect, options) => {
       if (!window._activeGrabs?.size) return;
+      const onToken = (tokenId, actorId) => effect.parent?.token ? effect.parent.token.id === tokenId : effect.parent?.id === actorId;
       for (const [gid, grab] of [...window._activeGrabs.entries()]) {
-        if (effect.id !== grab.grabbedEffectId && effect.id !== grab.grabberEffectId) continue;
         
-        
-        
-        
+        const ofGrabbed = effect.id === grab.grabbedEffectId && onToken(grab.grabbedTokenId, grab.grabbedActorId);
+        const ofGrabber = effect.id === grab.grabberEffectId && onToken(grab.grabberTokenId, grab.grabberActorId);
+        if (!ofGrabbed && !ofGrabber) continue;
+
+
+
+
         if (options?.dsctGrabTeardown || !isPrimaryGM()) {
           window._activeGrabs.delete(gid);
           if (!window._activeGrabs.size) removeGrabHooks();
           refreshOpenPanel();
           break;
         }
-        const isGrabber = effect.id === grab.grabberEffectId;
-        const msg = isGrabber
+        const msg = ofGrabber
           ? `${grab.grabberName}'s Grabber effect was removed, ending the grab on ${grab.grabbedName}.`
           : `${grab.grabbedName}'s Grabbed effect was removed, ending the grab.`;
         await endGrab(gid, { customMsg: msg });
@@ -139,7 +133,6 @@ const ensureGrabHooks = () => {
 const removeGrabHooks = () => {
   if (window._grabPreHook)           { Hooks.off('preUpdateToken',     window._grabPreHook);           window._grabPreHook           = null; }
   if (window._grabFollowHook)        { Hooks.off('updateToken',        window._grabFollowHook);        window._grabFollowHook        = null; }
-  if (window._grabberGrabbedHook)    { Hooks.off('createActiveEffect', window._grabberGrabbedHook);    window._grabberGrabbedHook    = null; }
   if (window._grabEffectDeleteHook)  { Hooks.off('deleteActiveEffect', window._grabEffectDeleteHook);  window._grabEffectDeleteHook  = null; }
   if (window._grabRepositionHook)    { Hooks.off('updateToken',        window._grabRepositionHook);    window._grabRepositionHook    = null; }
   window._grabFollowActive  = new Set();
