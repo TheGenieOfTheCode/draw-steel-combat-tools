@@ -1,0 +1,111 @@
+{
+ "name": "Summon Source of Earth",
+ "type": "ability",
+ "img": "icons/magic/earth/construct-stone.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "126",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "summon-source-of-earth",
+  "story": "The ground rumbles as an elemental bursts forth, ready to serve.",
+  "keywords": [
+   "magic",
+   "ranged",
+   "earth"
+  ],
+  "type": "main",
+  "category": "",
+  "resource": null,
+  "trigger": "",
+  "distance": {
+   "type": "ranged",
+   "primary": "10",
+   "secondary": "1",
+   "tertiary": "1",
+   "count": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "special",
+   "custom": "",
+   "value": null
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false,
+    "criticalThreshold": 19
+   },
+   "effects": {}
+  },
+  "prerequisites": {
+   "dsid": [
+    "earth"
+   ],
+   "value": "",
+   "level": null
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "description": "<p>A @UUID[Compendium.draw-steel.monsters.Actor.o7qp5KCUuRgfCko6]{Source of Earth} emerges from an unoccupied space within distance. The source takes their turn immediately after you, moving up to their speed and either taking a main action or a maneuver. The source is dismissed at the start of your next turn.</p><p>The source starts an encounter at full Stamina, but maintains their current Stamina throughout the encounter, even if they are dismissed and you use this ability again. They can’t regain Stamina during the encounter. When the source’s Stamina is reduced to 0, you can’t use this ability again until you earn 1 or more Victories.</p>",
+    "before": true,
+    "name": "",
+    "img": null,
+    "sort": 0
+   },
+   "persistent000000": {
+    "_id": "persistent000000",
+    "type": "persistent",
+    "description": "<p>The source takes another turn. They are dismissed at the start of your next turn.</p>",
+    "essence": 2,
+    "before": true,
+    "name": "",
+    "img": null,
+    "sort": 0
+   },
+   "dsctSummonSrc001": {
+    "_id": "dsctSummonSrc001",
+    "type": "summon",
+    "name": "",
+    "img": null,
+    "sort": 200000,
+    "summoning": {
+     "pool": [
+      "Compendium.draw-steel.monsters.Actor.o7qp5KCUuRgfCko6"
+     ],
+     "count": 1,
+     "items": []
+    }
+   }
+  }
+ },
+ "effects": [],
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true
+  }
+ },
+ "folder": "DSCTfldElemntL08",
+ "ownership": {
+  "default": 0
+ },
+ "_id": "DSCTenhSrcErth01",
+ "sort": 0,
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.370",
+  "systemId": "draw-steel",
+  "systemVersion": "1.2.2",
+  "createdTime": 1794949969010,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_key": "!items!DSCTenhSrcErth01"
+}

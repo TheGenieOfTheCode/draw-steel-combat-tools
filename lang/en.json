@@ -3278,7 +3278,8 @@
         "flatTeleport": "Teleport",
         "flatGrant": "Grant Action",
         "choose": "Choose",
-        "hide": "Hide"
+        "hide": "Hide",
+        "signatureSummon": "Summon Signature Minions"
       }
     },
     "PowerRollEffect": {
