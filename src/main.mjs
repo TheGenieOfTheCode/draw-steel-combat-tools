@@ -14,6 +14,7 @@ import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered
 import { registerHostileNeutralHooks } from './hostile-neutrals.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
 import { registerFadeSummons } from './fade-summons.mjs';
+import './live-applies.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
 import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities, swapEnhancedItem, removeEnhancedGrants } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport, registerTeleportHandler } from './teleport.mjs';
