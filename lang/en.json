@@ -2119,7 +2119,13 @@
       "addGlobalModifier": { "title": "Add Global Modifier", "category": "Roll Modifier", "body": "Adds a modifier to this roll for every target." },
       "addDamageModifier": { "title": "Add Modifier", "category": "Damage Modifier", "body": "Adds a bonus, penalty, surge or other change to this damage." },
       "pillOn": "Click to turn it off.",
-      "pillOff": "Off. Click to turn it back on."
+      "pillOff": "Off. Click to turn it back on.",
+      "markOff": {
+        "noTactician": "{tactician} isn't on the scene, so Mark gives no edge.",
+        "noLoeTarget": "{tactician} has no line of effect to {target}, so Mark gives no edge.",
+        "noLoeRoller": "{tactician} has no line of effect to {roller}, so Mark gives no edge.",
+        "notAlly": "{roller} isn't {tactician}'s ally, so Mark gives no edge."
+      }
     },
     "dialog": {
       "peek": {

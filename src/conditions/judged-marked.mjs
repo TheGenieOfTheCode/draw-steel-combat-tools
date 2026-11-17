@@ -1,4 +1,4 @@
-import { getSetting, getItemDsid } from '../helpers.mjs';
+import { getSetting, getItemDsid, hasSightToToken } from '../helpers.mjs';
 import { isPrimaryGM, safeUpdate } from '../ctlib.mjs';
 import { MARK_ABILITY_CONFIG } from '../ability-automation/class-tactician/mark.mjs';
 
@@ -154,8 +154,49 @@ function isExpiryEvent(wrapped, event, context) {
   return enabled() && !!context?.source && endsWithSource(this) && sameActor(sourceActorOf(this), context.source);
 }
 
+const MARK_EDGE_KEY = 'system.combat.targetModifiers.edges';
+const markEdgeOf = (effect) => (effect.changes ?? []).filter((c) => c.key === MARK_EDGE_KEY).reduce((n, c) => n + (Number(c.value) || 0), 0);
+
+export const rollerTokenOf = (actor) => (actor ? canvas.tokens?.controlled.find((t) => t.actor === actor) ?? actor.getActiveTokens?.()[0] ?? null : null);
+
+export function markEdgeChecks(roller, target) {
+  if (!getSetting('conditionsEnabled') || !target?.actor) return [];
+  const out = [];
+  for (const effect of target.actor.appliedEffects ?? []) {
+    if (!isMarkEffect(effect)) continue;
+    const amount = markEdgeOf(effect);
+    const tactician = amount > 0 ? sourceActorOf(effect) : null;
+    if (!tactician) continue;
+    const tacToken = tactician.getActiveTokens?.()[0] ?? null;
+    let why = null;
+    if (!tacToken) why = 'noTactician';
+    else if (!hasSightToToken(tacToken, target)) why = 'noLoeTarget';
+    else if (roller && !sameActor(roller.actor, tactician)) {
+      if (roller.document.disposition !== tacToken.document.disposition) why = 'notAlly';
+      else if (!hasSightToToken(tacToken, roller)) why = 'noLoeRoller';
+    }
+    out.push({ effect, amount, tactician, tacToken, why });
+  }
+  return out;
+}
+
+const _targetModifierSteps = [];
+export const addTargetModifierStep = (step) => { _targetModifierSteps.push(step); };
+
+function withoutBlockedMarks(wrapped, target) {
+  let call = wrapped;
+  for (const step of _targetModifierSteps) {
+    const inner = call;
+    call = (t) => step.call(this, inner, t);
+  }
+  const mods = call(target);
+  for (const c of markEdgeChecks(rollerTokenOf(this.actor), target)) if (c.why) mods.edges = Math.max(0, (mods.edges ?? 0) - c.amount);
+  return mods;
+}
+
 export function registerJudgedMarked() {
   libWrapper.register(M, 'CONFIG.ActiveEffect.documentClass.prototype.isExpiryEvent', isExpiryEvent, 'MIXED');
+  Hooks.once('ready', () => libWrapper.register(M, 'CONFIG.Item.dataModels.ability.prototype.getTargetModifiers', withoutBlockedMarks, 'WRAPPER'));
   Hooks.on('createActiveEffect', (effect, _options, userId) => { onCreated(effect, userId); });
   Hooks.on('renderActiveEffectConfig', addSourceDyingToggle);
   Hooks.on('updateActor', (actor, changes, options) => {

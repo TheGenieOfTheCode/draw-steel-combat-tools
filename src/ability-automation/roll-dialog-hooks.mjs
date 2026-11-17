@@ -7,6 +7,7 @@ import { getStrikeType, isCrossfadeStrike, getCrossfadeEdgeForAbility } from './
 import { chooseKeywords } from './choose-effect.mjs';
 import { areaOriginFor } from './area-picker.mjs';
 import { richTip, tipAttrs, tipFor } from '../chat-tips.mjs';
+import { markEdgeChecks, rollerTokenOf, addTargetModifierStep } from '../conditions/judged-marked.mjs';
 
 let _pillIdCounter = 0;
 const mkId = (s) => `dsct-p-${++_pillIdCounter}-${s}`;
@@ -14,7 +15,6 @@ const mkId = (s) => `dsct-p-${++_pillIdCounter}-${s}`;
 function pill(id, kind, amount, reason, src, scope, dsNative = false) {
   return { id, kind, amount, reason, src, srcTokenId: null, srcTokenIds: [], srcAbility: null, scope, enabled: true, custom: false, dsNative };
 }
-
 
 function _unrecognizedPills(scope, orig, sources) {
   const pills = [];
@@ -48,7 +48,6 @@ function _rebuildTargetsOnModeSwap(app) {
   }
   return true;
 }
-
 
 const _rangedForDistraction = (ability) => {
   const kw = ability?.system?.keywords;
@@ -411,10 +410,22 @@ function _buildTargetPills(app, tokenId) {
     }
   }
   
+  const marks = new Map(markEdgeChecks(casterToken ?? rollerTokenOf(actor), targetToken).map((c) => [c.effect.id, c]));
   for (const eff of targetActor.appliedEffects ?? []) {
     for (const ch of eff.changes ?? []) {
       if (!ch.key?.startsWith('system.combat.targetModifiers.')) continue;
       const amt = Math.abs(parseInt(ch.value) || 1);
+      const mark = ch.key.includes('.edges') ? marks.get(eff.id) : null;
+      if (mark) {
+        const p = pill(mkId(`ae-te-${eff.id}-${tokenId}`), 'edge', amt, eff.name, mark.tactician.name, tokenId, !mark.why);
+        p.srcTokenId = mark.tacToken?.id ?? null;
+        if (mark.why) {
+          p.enabled = false;
+          p.offWhy = game.i18n.format(`DSCT.tip.markOff.${mark.why}`, { tactician: mark.tactician.name, target: targetToken.name, roller: casterToken?.name ?? '' });
+        }
+        pills.push(p);
+        continue;
+      }
       if (ch.key.includes('.edges')) pills.push(pill(mkId(`ae-te-${eff.id}-${tokenId}`), 'edge', amt, eff.name, null, tokenId, true));
       if (ch.key.includes('.banes')) pills.push(pill(mkId(`ae-tb-${eff.id}-${tokenId}`), 'bane', amt, eff.name, null, tokenId, true));
     }
@@ -629,7 +640,7 @@ function _pillHTML(p) {
   const tip          = richTip({
     title: [amtStr, p.reason].filter(Boolean).join(' · '),
     category: game.i18n.localize(EFFECT_PILL_KINDS.has(p.kind) ? 'DSCT.tip.effectPill.category' : 'DSCT.tip.rollPill.category'),
-    html: [negatesLine(p), p.src ? game.i18n.format('DSCT.tip.pillFrom', { source: p.src }) : '', hint].filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join(''),
+    html: [p.enabled ? '' : p.offWhy, negatesLine(p), p.src ? game.i18n.format('DSCT.tip.pillFrom', { source: p.src }) : '', hint].filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join(''),
   });
   const srcTokenAttr = (p.srcTokenIds?.length > 0
     ? ` data-src-token-ids="${p.srcTokenIds.join(',')}"`
@@ -1078,29 +1089,19 @@ export function registerRollDialogPillHooks() {
   
   
   if (game.modules.get('ds-terrain-designer')?.active) {
-    Hooks.once('ready', () => setTimeout(() => {
-      const AbilitySystem = CONFIG.Item.dataModels?.ability;
-      if (!AbilitySystem?.prototype?.getTargetModifiers) return;
-      const mute = function (wrapped, target) {
-        const notes = getSetting('rollDialogPillUI') && getSetting('highGroundEnabled') ? ui.notifications : null;
-        const own = notes && Object.prototype.hasOwnProperty.call(notes, 'info');
-        const info = notes?.info;
-        if (notes) {
-          notes.info = (msg, ...rest) => {
-            if (typeof msg === 'string' && /high ground/i.test(msg)) return;
-            return info.call(notes, msg, ...rest);
-          };
-        }
-        try { return wrapped(target); }
-        finally { if (notes) { if (own) notes.info = info; else delete notes.info; } }
-      };
-      if (game.modules.get('lib-wrapper')?.active) {
-        libWrapper.register(M_ID, 'CONFIG.Item.dataModels.ability.prototype.getTargetModifiers', mute, 'WRAPPER');
-        return;
+    addTargetModifierStep(function (wrapped, target) {
+      const notes = getSetting('rollDialogPillUI') && getSetting('highGroundEnabled') ? ui.notifications : null;
+      const own = notes && Object.prototype.hasOwnProperty.call(notes, 'info');
+      const info = notes?.info;
+      if (notes) {
+        notes.info = (msg, ...rest) => {
+          if (typeof msg === 'string' && /high ground/i.test(msg)) return;
+          return info.call(notes, msg, ...rest);
+        };
       }
-      const _prev = AbilitySystem.prototype.getTargetModifiers;
-      AbilitySystem.prototype.getTargetModifiers = function (target) { return mute.call(this, _prev.bind(this), target); };
-    }, 0));
+      try { return wrapped(target); }
+      finally { if (notes) { if (own) notes.info = info; else delete notes.info; } }
+    });
   }
 
   Hooks.on('renderAbilityConfigurationDialog', (app) => {
