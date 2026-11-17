@@ -337,12 +337,11 @@ const DAMAGE = {
     for (const doc of docs) {
       const r = this.result(ctx.st, ctx.a, doc, ctx.message);
       if (!r) continue;
-      const ignoreImmunity = r.pills.length === 0 && (prep[0].ignored.includes('all') || prep[0].ignored.includes(r.type));
       const prev = await applyDamage(doc.actor, r.raw, undefined,
-        { damageType: r.type || 'untyped', ignoreImmunity, isArea: prep[0].aoe, source: messageDamageSource(ctx.message) });
+        { damageType: r.type || 'untyped', ignoredImmunities: prep[0].ignored, isArea: prep[0].aoe, source: messageDamageSource(ctx.message) });
       for (let i = 1; i < prep.length; i++) {
         const extra = ctx.st.totals?.[i];
-        if (extra) await applyDamage(doc.actor, extra, undefined, { damageType: prep[i].types[0] || 'untyped', isArea: prep[i].aoe, source: messageDamageSource(ctx.message) });
+        if (extra) await applyDamage(doc.actor, extra, undefined, { damageType: prep[i].types[0] || 'untyped', ignoredImmunities: prep[i].ignored, isArea: prep[i].aoe, source: messageDamageSource(ctx.message) });
       }
       out[doc.uuid] = { amount: r.amount, ...staminaRecord(prev) };
     }

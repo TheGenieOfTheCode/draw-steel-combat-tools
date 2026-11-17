@@ -1762,7 +1762,7 @@ export function addFlatEffectListeners(section, item, message, { targetToken = n
           if (!target.actor) continue;
           await applyDamage(target.actor, amount, undefined, {
             damageType: typeList[0] ?? "untyped",
-            ignoreImmunity: immunities.includes("all"),
+            ignoredImmunities: immunities,
           });
         }
       });

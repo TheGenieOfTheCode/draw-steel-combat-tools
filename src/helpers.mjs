@@ -147,6 +147,7 @@ export const spendBeyondCost = (message, ability = null) => {
 export const applyDamage = async (actor, amount, squadGroupOverride = undefined, {
   damageType     = 'untyped',
   ignoreImmunity = false,
+  ignoredImmunities: ignoredList = null,
   isArea         = false,
   staminaLoss    = false,
   source         = _damageSource,
@@ -165,7 +166,7 @@ export const applyDamage = async (actor, amount, squadGroupOverride = undefined,
   }
   const type = damageType || 'untyped';
   
-  const ignoredImmunities = staminaLoss ? ['all'] : (ignoreImmunity ? [type] : []);
+  const ignoredImmunities = staminaLoss ? ['all'] : (ignoredList?.length ? [...ignoredList] : (ignoreImmunity ? [type] : []));
   
   
   const lossWeakness      = staminaLoss ? (actor.system.calculateImmunityAndWeakness?.({ type, ignoredImmunities }).weakness ?? 0) : 0;

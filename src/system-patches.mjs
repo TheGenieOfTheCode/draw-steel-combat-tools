@@ -346,9 +346,9 @@ function _patchDamageRollButton() {
         if (dsctArea === 'true') {
           const squadGroup   = getSquadGroup(actor);
           const effectiveAmt = squadGroup ? Math.min(amount, actor.system.stamina.max ?? amount) : amount;
-          await applyDamage(actor, effectiveAmt, undefined, { damageType: roll.type, source: messageDamageSource(msg) });
+          await applyDamage(actor, effectiveAmt, undefined, { damageType: roll.type, ignoredImmunities: roll.ignoredImmunities, source: messageDamageSource(msg) });
         } else {
-          await applyDamage(actor, amount, undefined, { damageType: roll.type, source: messageDamageSource(msg) });
+          await applyDamage(actor, amount, undefined, { damageType: roll.type, ignoredImmunities: roll.ignoredImmunities, source: messageDamageSource(msg) });
         }
       }
     },
