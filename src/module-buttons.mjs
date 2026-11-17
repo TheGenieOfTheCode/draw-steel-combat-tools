@@ -1,5 +1,6 @@
 import { getSetting, STEALTH_WORKFLOW_READY } from './helpers.mjs';
 import { selectConnectedWalls } from './forced-movement/wall-builder.mjs';
+import { fadingSummons, toggleFadeSummons } from './fade-summons.mjs';
 
 const addTools = (control, tools) => {
   if (!control) return;
@@ -14,7 +15,7 @@ const addTools = (control, tools) => {
   }
 };
 
-const DSCT_GROUP_TOOLS = ['dsct-grab', 'dsct-forced-movement', 'dsct-teleport', 'dsct-dc', 'dsct-stealth', 'dsct-hide-defeated'];
+const DSCT_GROUP_TOOLS = ['dsct-grab', 'dsct-forced-movement', 'dsct-teleport', 'dsct-dc', 'dsct-stealth', 'dsct-hide-defeated', 'dsct-fade-summons'];
 
 export const registerModuleButtons = () => {
   Hooks.on('renderSceneControls', (app, html) => {
@@ -98,6 +99,15 @@ export const registerModuleButtons = () => {
         button: true,
         visible: S('conditionsEnabled') && S('showDamageConditionsButton'),
         onChange: () => game.modules.get('draw-steel-combat-tools')?.api?.damageConditionsUI()
+      },
+      'dsct-fade-summons': {
+        name: 'dsct-fade-summons',
+        title: game.i18n.localize('DSCT.button.fadeSummons'),
+        icon: 'fa-solid fa-ghost',
+        toggle: true,
+        active: fadingSummons(),
+        visible: true,
+        onChange: (_event, active) => toggleFadeSummons(active),
       },
     });
 

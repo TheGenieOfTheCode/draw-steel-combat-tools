@@ -2475,6 +2475,7 @@
       }
     },
     "button": {
+      "fadeSummons": "Fade Summoned Minions",
       "acceptEscape": "Accept Escape",
       "stayGrabbed": "Stay Grabbed",
       "undoBleeding": "Undo Bleeding",

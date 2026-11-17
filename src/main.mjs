@@ -13,6 +13,7 @@ import { registerPairTurnHooks } from './pair-turns.mjs';
 import { applyTriggeredActions, registerTriggeredActionHooks } from './triggered-actions.mjs';
 import { registerHostileNeutralHooks } from './hostile-neutrals.mjs';
 import { registerModuleButtons } from './module-buttons.mjs';
+import { registerFadeSummons } from './fade-summons.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
 import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities, swapEnhancedItem, removeEnhancedGrants } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport, registerTeleportHandler } from './teleport.mjs';
@@ -283,6 +284,7 @@ Hooks.once('init', () => {
   registerTriggeredActionHooks();
   registerHostileNeutralHooks();
   registerModuleButtons();
+  registerFadeSummons();
   registerForcedMovementHooks();
   registerWallDoorHooks();
   registerTeleportHooks();
