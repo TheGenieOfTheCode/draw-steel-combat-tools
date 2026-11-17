@@ -1,14 +1,14 @@
 const M = 'draw-steel-combat-tools';
 const FADE_ALPHA = 0.3;
 
-let _summoner = null;
+const lib = () => game.modules.get('draw-steel-ctlib')?.api;
 
 export const fadingSummons = () => game.user?.getFlag(M, 'fadeSummons') === true;
 
 export const isSummonedMinion = (token) => {
   const actor = token?.actor;
   if (!(actor?.system?.isMinion ?? actor?.isMinion)) return false;
-  return !!(token.document?.getFlag(M, 'summonedBy') || actor.getFlag?.('draw-steel', 'summonSource'));
+  return !!(lib()?.isSummoned?.(token) ?? actor.getFlag?.('draw-steel', 'summonSource'));
 };
 
 const refreshAll = () => {
@@ -22,19 +22,7 @@ export const toggleFadeSummons = async (on = !fadingSummons()) => {
   refreshAll();
 };
 
-async function stampSummons(wrapped, ...args) {
-  _summoner = this.parent?.uuid ?? null;
-  try { return await wrapped(...args); }
-  finally { _summoner = null; }
-}
-
 export const registerFadeSummons = () => {
-  Hooks.once('ready', () => {
-    if (typeof CONFIG.Item.dataModels?.ability?.prototype?.performSummon !== 'function') return;
-    libWrapper.register(M, 'CONFIG.Item.dataModels.ability.prototype.performSummon', stampSummons, 'WRAPPER');
-  });  Hooks.on('preCreateToken', (doc) => {
-    if (_summoner) doc.updateSource({ [`flags.${M}.summonedBy`]: _summoner });
-  });
   Hooks.on('refreshToken', (token) => {
     if (!token.mesh || !fadingSummons() || !isSummonedMinion(token)) return;
     token.mesh.alpha = Math.min(token.mesh.alpha, FADE_ALPHA);
