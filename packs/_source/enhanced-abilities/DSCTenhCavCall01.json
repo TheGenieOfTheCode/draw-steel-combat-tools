@@ -11,7 +11,9 @@
   "_dsid": "cavalry-call",
   "prerequisites": {
    "value": "",
-   "dsid": [],
+   "dsid": [
+    "summoner"
+   ],
    "level": null
   },
   "story": "A lone squad appears to disrupt the enemy's plans and peels off their forces, one by one.",

@@ -2367,6 +2367,7 @@
         "enhancedSummary": "Enhanced Abilities: added to {added} actor(s), brought up to date on {refreshed}, already up to date on {current}.",
         "enhancedSwapped": "{swapped} item(s) were swapped for their enhanced version; see the console for the list.",
         "enhancedKeptCurrent": "Enhanced Abilities: {count} actor(s) brought up to date on load.",
+        "enhancedCleanedUp": "Enhanced Abilities: removed {count} copies of Cavalry Call that were given to actors who aren’t Summoners by mistake.",
         "enhancedRepaired": "Enhanced Abilities: repaired {count} actor(s) whose entries did not import correctly.",
         "abilitiesPackNotFound": "Could not find the draw-steel.abilities compendium.",
         "knockbackNotFound": "Could not find Knockback in the abilities pack.",

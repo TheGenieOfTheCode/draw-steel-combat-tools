@@ -55,7 +55,8 @@
  "effects": [],
  "flags": {
   "draw-steel-combat-tools": {
-   "enhanced": true
+   "enhanced": true,
+   "enhancedUniversal": true
   }
  },
  "_stats": {

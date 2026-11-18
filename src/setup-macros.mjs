@@ -470,7 +470,8 @@ const _prereqDsids = (doc) => {
 
 export function isUniversalEnhanced(doc) {
   const p = doc?.system?.prerequisites ?? {};
-  
+  if (OWN_ENHANCED_PACKS.includes(doc?.pack)) return !!doc.flags?.[ENH_FLAG]?.enhancedUniversal;
+
   if (doc?.flags?.["draw-steel-combat-tools"]?.enhancedSpecific || isEffectsOnly(doc)) return false;
   return !_prereqDsids(doc).length && !String(p.value ?? '').trim() && !p.level;
 }
@@ -527,6 +528,38 @@ export const cleanupEnhancedAbilities = async ({ apply = false } = {}) => {
   if (out.keptActors.length) console.log('DSCT | enhanced cleanup | kept (actor qualifies):', out.keptActors);
   ui.notifications.info(`DSCT: ${apply ? 'removed' : 'found'} ${out.removed} misplaced enhanced ability copies, kept ${out.kept} on actors that qualify. See the console for the list.`);
   return out;
+};
+
+const MISGIVEN = new Map([['cavalry-call', 'summoner']]);
+
+export const removeMisgivenEnhanced = async () => {
+  const seen = new Set();
+  const targets = [];
+  for (const actor of game.actors) if (!seen.has(actor.uuid) && seen.add(actor.uuid)) targets.push(actor);
+  for (const scene of game.scenes) {
+    for (const token of scene.tokens) {
+      const actor = token.actorLink ? null : token.actor;
+      if (actor && !seen.has(actor.uuid) && seen.add(actor.uuid)) targets.push(actor);
+    }
+  }
+  let removed = 0;
+  const affected = [];
+  for (const actor of targets) {
+    const classes = new Set(actor.items.filter(i => i.type === 'class').map(i => i.system?._dsid));
+    const doomed = actor.items.filter(i => MISGIVEN.has(i.system?._dsid) && !classes.has(MISGIVEN.get(i.system._dsid))
+      && i.getFlag(ENH_FLAG, 'enhanced') && i.getFlag(ENH_FLAG, 'enhancedHash')
+      && !i.getFlag(ENH_FLAG, 'enhancedSwapped') && !i.getFlag(ENH_FLAG, GRANTED_BY)).map(i => i.id);
+    if (!doomed.length) continue;
+    try {
+      await actor.deleteEmbeddedDocuments('Item', doomed);
+      removed += doomed.length;
+      affected.push(actor.name);
+    } catch (err) {
+      console.warn(`DSCT | enhanced cleanup | could not clean ${actor.name}:`, err);
+    }
+  }
+  if (removed) console.log(`DSCT | enhanced cleanup | removed ${removed} misplaced copies from:`, affected);
+  return removed;
 };
 
 export const distributeEnhancedAbilities = async ({ actors = null, silent = false, repair = false } = {}) => {

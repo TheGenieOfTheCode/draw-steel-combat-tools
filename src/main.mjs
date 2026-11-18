@@ -16,7 +16,7 @@ import { registerModuleButtons } from './module-buttons.mjs';
 import { registerFadeSummons } from './fade-summons.mjs';
 import './live-applies.mjs';
 import { registerCornerVision } from './corner-vision.mjs';
-import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities, swapEnhancedItem, removeEnhancedGrants } from './setup-macros.mjs';
+import { installMacros, distributeAbilities, distributeEnhancedAbilities, cleanupEnhancedAbilities, removeMisgivenEnhanced, swapEnhancedItem, removeEnhancedGrants } from './setup-macros.mjs';
 import { toggleTeleportPanel, registerTeleportHooks, runTeleport, runBurstTeleport, registerTeleportHandler } from './teleport.mjs';
 import { registerTargetDistance } from './ability-automation/target-distance.mjs';
 import { registerSourceLineHooks } from './ability-automation/source-lines.mjs';
@@ -501,6 +501,17 @@ Hooks.once('ready', async () => {
   const currentVersion = game.modules.get(M).version ?? '';
   const promptMode     = game.settings.get(M, 'enhancedPromptMode');
   const seenVersion    = game.settings.get(M, 'enhancedPromptSeenVersion') ?? '';
+
+  const CLEANUP_ID = 'cavalry-call-1';
+  if (game.settings.get(M, 'enhancedCleanupDone') !== CLEANUP_ID) {
+    try {
+      const removed = await removeMisgivenEnhanced();
+      if (removed) ui.notifications.info(game.i18n.format('DSCT.notice.macros.enhancedCleanedUp', { count: removed }));
+    } catch (err) {
+      console.warn('DSCT | enhanced | cleanup pass failed:', err);
+    }
+    await game.settings.set(M, 'enhancedCleanupDone', CLEANUP_ID);
+  }
 
   const REPAIR_ID = 'retype-1';
   if (game.settings.get(M, 'enhancedRepairDone') !== REPAIR_ID) {

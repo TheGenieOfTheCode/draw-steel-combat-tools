@@ -71,7 +71,8 @@
  "flags": {
   "draw-steel-combat-tools": {
    "keepsHidden": true,
-   "enhanced": true
+   "enhanced": true,
+   "enhancedUniversal": true
   }
  },
  "_stats": {

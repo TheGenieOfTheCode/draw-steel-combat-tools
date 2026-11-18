@@ -69,6 +69,7 @@ export const registerSettings = () => {
   });
   game.settings.register(M, 'enhancedPromptSeenVersion', { scope: 'world', config: false, type: String, default: '' });
   game.settings.register(M, 'enhancedRepairDone', { scope: 'world', config: false, type: String, default: '' });
+  game.settings.register(M, 'enhancedCleanupDone', { scope: 'world', config: false, type: String, default: '' });
   game.settings.register(M, 'startupNoticeState', { scope: 'world', config: false, type: Object, default: {} });
   game.settings.register(M, 'onlineNoticeCheck', {
     name: L('onlineNoticeCheck.name'), hint: L('onlineNoticeCheck.hint'),
