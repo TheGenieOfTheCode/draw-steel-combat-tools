@@ -17,7 +17,7 @@ export const MARK_ABILITY_CONFIG = {
   'hustle':                 { maxTargets: 2, override: false },
   'no-escape':              { maxTargets: 1, override: false },
   'that-one-is-mine':       { maxTargets: 1, override: false },
-  'mark-a-creature-marked-by-you-is-reduced-to-0-stamina': { maxTargets: 1, override: true, asDsid: 'mark' },
+  'mark-a-creature-marked-by-you-is-reduced-to-0-stamina': { maxTargets: 1, override: false, asDsid: 'mark', reapply: true },
 };
 
 export const registerMarkHooks = () => {
@@ -39,25 +39,16 @@ export const registerMarkHooks = () => {
     if (getSetting('markAutomation') && !game.modules.get('draw-steel-target-damage')?.active) {
       const reminder = msg.getFlag('draw-steel-combat-tools', 'markReminder');
       if (reminder && !msg.getFlag('draw-steel-combat-tools', 'markReminderUsed')) {
-        const { dsid: rDsid, isMarkAbility, sourceActorId } = reminder;
-        const reminderActor   = game.actors.get(sourceActorId);
-        const reminderAnticip = isMarkAbility && (reminderActor?.items.some(i => getItemDsid(i) === 'anticipation') ?? false);
-        const reminderMax     = reminderAnticip ? 2 : 1;
+        const { dsid: rDsid, sourceActorId } = reminder;
 
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'dsct-mark-reminder-btn';
-        btn.innerHTML = markButtonHTML(reminderMax, isMarkAbility);
+        btn.innerHTML = markButtonHTML(1, false);
         btn.style.cssText = 'cursor:pointer;margin-top:4px;';
         btn.addEventListener('click', async (e) => {
           e.preventDefault();
-          let maxTargets = 1, override = false;
-          if (isMarkAbility) {
-            const actor = game.actors.get(sourceActorId);
-            maxTargets = actor?.items.some(i => getItemDsid(i) === 'anticipation') ? 2 : 1;
-            override   = true;
-          }
-          await getModuleApi(false)?.mark({ maxTargets, override, dsid: rDsid, sourceActorId });
+          await getModuleApi(false)?.mark({ maxTargets: 1, override: false, reapply: true, dsid: rDsid, sourceActorId });
           if (msg.isOwner) await msg.setFlag(M, 'markReminderUsed', true);
           else await safeUpdate(msg, { [`flags.${M}.markReminderUsed`]: true });
         });
@@ -69,7 +60,7 @@ export const registerMarkHooks = () => {
       const { asDsid, ...config } = MARK_ABILITY_CONFIG[dsid];
       const markDsid       = asDsid ?? dsid;
       const speakerActor   = game.actors.get(msg.speaker?.actor);
-      const speakerAnticip = markDsid === 'mark' && (speakerActor?.items.some(i => getItemDsid(i) === 'anticipation') ?? false);
+      const speakerAnticip = markDsid === 'mark' && !config.reapply && (speakerActor?.items.some(i => getItemDsid(i) === 'anticipation') ?? false);
       const effectiveMax   = speakerAnticip ? Math.max(config.maxTargets, 2) : config.maxTargets;
 
       const injectNormalMarkBtn = () => {

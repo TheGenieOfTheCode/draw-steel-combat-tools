@@ -1,5 +1,6 @@
 import { safeCreateEmbedded, safeDelete, getItemDsid, getSetting, normalizeCollection, getModuleApi, getActingActor } from '../helpers.mjs';
 import { safeUpdate, rolledTargets, powerRollFor } from '../ctlib.mjs';
+import { fallenMarkOf } from '../conditions/judged-marked.mjs';
 
 const M = 'draw-steel-combat-tools';
 
@@ -67,7 +68,23 @@ export const applyJudgement = async ({ sourceActorId = null } = {}) => {
   await ChatMessage.create({ content: game.i18n.format('DSCT.chat.tactical.judged', { name: targetToken.name }) });
 };
 
-export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'other', sourceActorId = null } = {}) => {
+const _fallenMarks = new Map();
+const FALLEN_MARK_MS = 600000;
+
+const noteFallenMarks = (actor) => {
+  for (const e of actor.effects) {
+    const fell = fallenMarkOf(e);
+    if (fell) _fallenMarks.set(fell.ownerId, { dsid: fell.dsid, at: Date.now() });
+  }
+};
+
+const takeFallenMark = (ownerId) => {
+  const fell = _fallenMarks.get(ownerId);
+  _fallenMarks.delete(ownerId);
+  return fell && Date.now() - fell.at < FALLEN_MARK_MS ? fell : null;
+};
+
+export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'other', sourceActorId = null, reapply = false } = {}) => {
   const targets = [...game.user.targets];
   if (!targets.length) { ui.notifications.warn(game.i18n.localize('DSCT.notice.tactical.markOneTarget')); return; }
 
@@ -76,8 +93,13 @@ export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'othe
                       ?? getActingActor();
   const resolvedActorId = resolvedActor?.id ?? null;
 
+  if (reapply) {
+    override = false;
+    dsid = takeFallenMark(resolvedActorId)?.dsid ?? dsid;
+  }
+
   let effectiveMax = maxTargets;
-  if (dsid === 'mark') {
+  if (dsid === 'mark' && !reapply) {
     if (resolvedActor?.items.some(i => getItemDsid(i) === 'anticipation')) effectiveMax = Math.max(effectiveMax, 2);
   }
 
@@ -110,7 +132,7 @@ export const applyMark = async ({ maxTargets = 1, override = false, dsid = 'othe
       system: { end: { roll: '1d10 + @combat.save.bonus' } },
       duration: { expiry: 'combatEnd' },
       changes: [{ key: 'system.combat.targetModifiers.edges', mode: 2, value: '1', priority: null }],
-      flags: { [M]: { mark: { userId: game.user.id, actorId: resolvedActorId, dsid, isMarkAbility } } },
+      flags: { [M]: { mark: { userId: game.user.id, actorId: resolvedActorId, dsid, isMarkAbility, ...(reapply ? { reapply: true } : {}) } } },
     };
     await safeCreateEmbedded(targetToken.actor, 'ActiveEffect', [effectData]);
   }
@@ -191,6 +213,7 @@ const triggerProc = async (actor, effect) => {
 
 const handleActorDeath = (actor) => {
   if (!actor) return;
+  noteFallenMarks(actor);
   const relevantEffects = actor.effects.filter(e =>
     (e.getFlag(M, 'judgement') || e.getFlag(M, 'mark')) && !e.duration?.expired
   );

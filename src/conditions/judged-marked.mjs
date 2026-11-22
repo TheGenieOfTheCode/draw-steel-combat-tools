@@ -7,6 +7,10 @@ const APPLY = /\[\[\/apply\s+([^\]\s]+)[^\]]*\]\]\{([^}]+)\}/g;
 const KINDS = new Set(['judged', 'marked']);
 
 const enabled = () => getSetting('conditionsEnabled') && getSetting('judgedMarkedLifetimes');
+const kindOfLabel = (label) => {
+  const l = label.trim().toLowerCase();
+  return l === 'mark' ? 'marked' : l;
+};
 
 function textOf(item) {
   const s = item?.system;
@@ -17,14 +21,14 @@ function textOf(item) {
 
 function kindIn(item, effect) {
   for (const m of textOf(item).matchAll(APPLY)) {
-    const label = m[2].trim().toLowerCase();
+    const label = kindOfLabel(m[2]);
     if (KINDS.has(label) && (m[1] === effect.id || item.effects?.get(m[1])?.name === effect.name)) return label;
   }
   return null;
 }
 
 const abilityFor = (actor, kind) => actor?.items.find((i) => i.type === 'ability'
-  && [...textOf(i).matchAll(APPLY)].some((m) => m[2].trim().toLowerCase() === kind)) ?? null;
+  && [...textOf(i).matchAll(APPLY)].some((m) => kindOfLabel(m[2]) === kind)) ?? null;
 
 async function infoOf(effect) {
   if (effect.parent?.documentName !== 'Actor') return null;
@@ -47,6 +51,8 @@ function everyActor() {
 }
 
 const createdAt = (effect) => effect._stats?.createdTime ?? 0;
+const SAME_USE_MS = 2000;
+const fallen = (actor) => !!actor && (actor.statuses?.has('dead') || (actor.type !== 'hero' && Number(actor.system?.stamina?.value ?? 1) <= 0));
 const sameActor = (a, b) => !!a && !!b && (a === b || a.uuid === b.uuid || (a.id === b.id && !a.isToken && !b.isToken));
 
 async function allOfKind(kind) {
@@ -71,12 +77,15 @@ async function settle(effect) {
   } else {
     for (const { effect: e } of all) if (e.parent === effect.parent) doomed.add(e);
     const config = MARK_ABILITY_CONFIG[info.dsid];
-    if (config?.override) {
+    if (config?.override && !effect.flags?.[M]?.mark?.reapply) {
       const anticipation = info.dsid === 'mark' && info.owner.items.some((i) => getItemDsid(i) === 'anticipation');
       const max = anticipation ? Math.max(config.maxTargets, 2) : config.maxTargets;
       const mine = all.filter(({ effect: e, info: o }) => o.dsid === 'mark' && sameActor(o.owner, info.owner) && e.parent !== effect.parent)
-        .map(({ effect: e }) => e).sort((a, b) => createdAt(b) - createdAt(a));
-      for (const e of mine.slice(Math.max(0, max - 1))) doomed.add(e);
+        .map(({ effect: e }) => e)
+        .filter((e) => Math.abs(createdAt(e) - createdAt(effect)) >= SAME_USE_MS)
+        .sort((a, b) => createdAt(b) - createdAt(a));
+      const down = mine.filter((e) => fallen(e.parent));
+      for (const e of (down.length ? down : mine.slice(Math.max(0, max - 1)))) doomed.add(e);
     }
   }
   doomed.delete(effect);
@@ -126,6 +135,15 @@ function isMarkEffect(effect) {
   const holder = effect.parent?.documentName === 'Item' ? effect.parent
     : (effect.origin ? fromUuidSync(effect.origin, { strict: false }) : null);
   return holder?.documentName === 'Item' && holder.type === 'ability' && kindIn(holder, effect) === 'marked';
+}
+
+export function fallenMarkOf(effect) {
+  const mark = effect.flags?.[M]?.mark;
+  if (mark) return mark.actorId ? { ownerId: mark.actorId, dsid: mark.isMarkAbility ? 'mark' : mark.dsid } : null;
+  if (!isMarkEffect(effect)) return null;
+  const owner = sourceActorOf(effect);
+  const origin = effect.origin ? fromUuidSync(effect.origin, { strict: false }) : null;
+  return owner ? { ownerId: owner.id, dsid: getItemDsid(origin) || 'mark' } : null;
 }
 
 const endsWithSource = (effect) => !!effect.getFlag(M, SOURCE_DYING) || isMarkEffect(effect);
