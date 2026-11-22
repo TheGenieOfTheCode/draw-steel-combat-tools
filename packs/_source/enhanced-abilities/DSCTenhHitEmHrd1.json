@@ -1,0 +1,151 @@
+{
+ "folder": "DSCTfldTacticL03",
+ "name": "Hit 'Em Hard!",
+ "type": "ability",
+ "img": "icons/skills/melee/strike-axe-blood-red.webp",
+ "system": {
+  "source": {
+   "book": "Heroes",
+   "page": "180",
+   "license": "Draw Steel Creator License"
+  },
+  "_dsid": "hit-em-hard",
+  "story": "Your allies see the advantages in attacking the targets you select.",
+  "keywords": [],
+  "type": "maneuver",
+  "category": "heroic",
+  "resource": 7,
+  "trigger": "",
+  "distance": {
+   "type": "self",
+   "primary": "1",
+   "secondary": "1",
+   "tertiary": "1"
+  },
+  "damageDisplay": "melee",
+  "target": {
+   "type": "self",
+   "custom": "",
+   "value": null
+  },
+  "power": {
+   "roll": {
+    "formula": "@chr",
+    "characteristics": [],
+    "reactive": false
+   },
+   "effects": {}
+  },
+  "prerequisites": {
+   "dsid": [
+    "tactician"
+   ],
+   "value": "",
+   "level": null
+  },
+  "effects": {
+   "before0000000000": {
+    "_id": "before0000000000",
+    "type": "base",
+    "description": "<p>[[/flat dsctTracker00001]]{Until the end of the encounter or until you are dying}, whenever you or any ally deals damage to a target marked by you, that creature [[/surge 2]], which they can use immediately.</p>",
+    "before": true,
+    "name": "",
+    "img": null,
+    "sort": 0
+   },
+   "dsctTracker00001": {
+    "_id": "dsctTracker00001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 400000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "",
+     "display": "",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "DSCTtrkHitEmHrd1",
+     "exclusiveSelf": true,
+     "end": "",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
+   }
+  }
+ },
+ "effects": [
+  {
+   "_id": "DSCTtrkHitEmHrd1",
+   "name": "Hit 'Em Hard!",
+   "img": "icons/skills/melee/strike-axe-blood-red.webp",
+   "type": "base",
+   "disabled": false,
+   "transfer": false,
+   "description": "<p>Until the end of the encounter or until you are dying, whenever you or any ally deals damage to a target marked by you, that creature [[/surge 2]], which they can use immediately.</p>",
+   "statuses": [],
+   "tint": "#ffffff",
+   "showIcon": 1,
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "tracker": true,
+     "sourceDying": true
+    }
+   },
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "combatEnd",
+    "expired": false
+   },
+   "start": null,
+   "origin": null,
+   "folder": null,
+   "system": {
+    "changes": []
+   },
+   "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.370",
+    "systemId": "draw-steel",
+    "systemVersion": "1.2.2",
+    "createdTime": 1795332445018,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+   },
+   "_key": "!items.effects!DSCTenhHitEmHrd1.DSCTtrkHitEmHrd1"
+  }
+ ],
+ "ownership": {
+  "default": 0
+ },
+ "flags": {
+  "draw-steel-combat-tools": {
+   "enhanced": true
+  }
+ },
+ "_stats": {
+  "compendiumSource": null,
+  "duplicateSource": null,
+  "exportSource": null,
+  "coreVersion": "14.370",
+  "systemId": "draw-steel",
+  "systemVersion": "1.2.2",
+  "createdTime": 1795332445018,
+  "modifiedTime": null,
+  "lastModifiedBy": null
+ },
+ "_id": "DSCTenhHitEmHrd1",
+ "sort": 0,
+ "_key": "!items!DSCTenhHitEmHrd1"
+}

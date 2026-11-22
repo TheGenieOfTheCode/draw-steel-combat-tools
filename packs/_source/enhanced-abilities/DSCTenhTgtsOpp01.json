@@ -49,11 +49,37 @@
    "before0000000000": {
     "_id": "before0000000000",
     "type": "base",
-    "description": "<p>Each target is [[/apply DSCTmarkTgtOpp01]]{marked} by you, and you [[/surge 2]].</p><p><strong>Mark Benefit:</strong> Until the end of the encounter, whenever you or any ally makes a strike against a creature marked by you, you can spend 2 focus to add one additional target to the strike.</p>",
+    "description": "<p>Each target is [[/apply DSCTmarkTgtOpp01]]{marked} by you, and you [[/surge 2]].</p><p><strong>Mark Benefit:</strong> [[/flat dsctTracker00001]]{Until the end of the encounter}, whenever you or any ally makes a strike against a creature marked by you, you can spend 2 focus to add one additional target to the strike.</p>",
     "before": true,
     "name": "",
     "img": null,
     "sort": 0
+   },
+   "dsctTracker00001": {
+    "_id": "dsctTracker00001",
+    "type": "dsct.flatApplied",
+    "name": "",
+    "img": null,
+    "sort": 400000,
+    "description": "",
+    "before": false,
+    "flatApplied": {
+     "displayText": "",
+     "display": "",
+     "potency": {
+      "characteristic": "",
+      "strength": "",
+      "custom": ""
+     },
+     "statusId": "DSCTtrkTgtsOpp01",
+     "exclusiveSelf": true,
+     "end": "",
+     "properties": [],
+     "spend": {
+      "enabled": false,
+      "value": 1
+     }
+    }
    }
   }
  },
@@ -116,6 +142,48 @@
    "showIcon": 1,
    "folder": null,
    "_key": "!items.effects!DSCTenhTgtsOpp01.DSCTmarkTgtOpp01"
+  },
+  {
+   "_id": "DSCTtrkTgtsOpp01",
+   "name": "Targets of Opportunity",
+   "img": "icons/skills/ranged/target-bullseye-arrow-white.webp",
+   "type": "base",
+   "disabled": false,
+   "transfer": false,
+   "description": "<p><strong>Mark Benefit:</strong> Until the end of the encounter, whenever you or any ally makes a strike against a creature marked by you, you can spend 2 focus to add one additional target to the strike.</p>",
+   "statuses": [],
+   "tint": "#ffffff",
+   "showIcon": 1,
+   "sort": 0,
+   "flags": {
+    "draw-steel-combat-tools": {
+     "tracker": true
+    }
+   },
+   "duration": {
+    "value": null,
+    "units": "seconds",
+    "expiry": "combatEnd",
+    "expired": false
+   },
+   "start": null,
+   "origin": null,
+   "folder": null,
+   "system": {
+    "changes": []
+   },
+   "_stats": {
+    "compendiumSource": null,
+    "duplicateSource": null,
+    "exportSource": null,
+    "coreVersion": "14.370",
+    "systemId": "draw-steel",
+    "systemVersion": "1.2.2",
+    "createdTime": 1795331382895,
+    "modifiedTime": null,
+    "lastModifiedBy": null
+   },
+   "_key": "!items.effects!DSCTenhTgtsOpp01.DSCTtrkTgtsOpp01"
   }
  ],
  "ownership": {
