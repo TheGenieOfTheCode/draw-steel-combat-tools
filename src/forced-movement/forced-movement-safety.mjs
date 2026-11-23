@@ -56,8 +56,12 @@ export const harmfulFallAt = (grid, elev, { agility = 0, fallReduction = 0, noFa
   return elev > surface && fallDamageFor(elev - surface, agility, fallReduction).damage > 0;
 };
 
-export const harmfulSlam = (dist, { noFallDamage = false, canFly = false } = {}) =>
-  !canFly && !noFallDamage && fallDamageFor(dist, 0, 0, { slam: true }).damage > 0;
+export const harmfulSlam = (dist, { noFallDamage = false, canFly = false, grid = null, startElev = null, terrain } = {}) => {
+  if (canFly) return false;
+  const height = grid && Number.isFinite(startElev) ? startElev - landingSurfaceAt(grid, startElev - dist, startElev, terrain).surface : dist;
+  const travelled = Math.max(0, Math.min(dist, height));
+  return dist - travelled > 0 || (!noFallDamage && travelled >= 2);
+};
 
 export const landingElevation = (grid, elev, canFly, terrain) => {
   if (canFly) return elev;

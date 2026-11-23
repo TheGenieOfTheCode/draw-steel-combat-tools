@@ -1,9 +1,10 @@
 import {
   hasTags, GRID as getGRID, toGrid, toWorld, gridDist,
   tokenAt, tileAt, safeUpdate, replayUndo, getWallBlockTop, tileIsOpenDoor,
-  applyDamage, safeToggleStatusEffect, getSetting, canCurrentlyFly, applyFall, snapStamina,
-  getTokenById, getWindowById, pickCanvasTarget, confirmFall,
+  applyDamage, safeToggleStatusEffect, getSetting, canCurrentlyFly, surfaceUnder,
+  getTokenById, getWindowById, pickCanvasTarget,
 } from './helpers.mjs';
+import { fallViaSystem, undoLinkedFall, linkedFallPosition } from './forced-movement/system-falls.mjs';
 import { endGrab, applyGrab } from './conditions/grab.mjs';
 import { markRevealed } from './conditions/stealth.mjs';
 import { runSourcePicker } from './ability-automation/target-picker.mjs';
@@ -30,8 +31,9 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}
 
   const checkArea = (startX, startY) => {
      let landedOnObject = null;
+     const standing = [];
 
-     
+
      for (const t of canvas.tokens.placeables) {
          if (t.id === sourceToken.id) continue;
          if (t.actor?.statuses?.has('dead')) continue; 
@@ -50,9 +52,9 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}
              const isObj = typeStr1 === 'object' || typeStr2 === 'object' || typeStr3 === 'object' || typeStr4 === 'object';
              
              if (isObj) {
-                 landedOnObject = t; 
+                 landedOnObject = t;
              } else {
-                 return { free: false }; 
+                 standing.push(t.document);
              }
          }
      }
@@ -96,6 +98,13 @@ const chooseTeleportSquare = (sourceToken, maxDist, phaseColor = null, opts = {}
      const drop       = srcElev - targetElev;
      const willFall   = drop > maxDist;
      const arrivalElev = willFall ? srcElev - maxDist : targetElev;
+
+     const tall = Math.max(w, h);
+     const overlaps = (d) => {
+       const bottom = d.elevation ?? 0;
+       return arrivalElev < bottom + Math.max(d.width ?? 1, d.height ?? 1) && bottom < arrivalElev + tall;
+     };
+     if (standing.some(overlaps)) return { free: false };
 
      return { free: true, isOnTerrain, targetElev, willFall, arrivalElev };
   };
@@ -280,29 +289,13 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
        await new Promise(r => setTimeout(r, animDuration));
    }
 
-   const staminaSnap = (chosenGrid.willFall && actor) ? snapStamina(actor) : null;
-
    const arrivalElev = chosenGrid.willFall ? chosenGrid.arrivalElev : targetWorld.elevation;
    window._dsctTeleportActive = true;
    await safeUpdate(token.document, { x: targetWorld.x, y: targetWorld.y, elevation: arrivalElev }, { isUndo: true });
    window._dsctTeleportActive = false;
 
-   let fallDmg = 0, fallDist = 0, effectiveFall = 0, fallCancelled = false;
-   if (chosenGrid.willFall) {
-     let doFall = true;
-     if (getSetting('fallConfirmation')) {
-       const agility    = actor?.system?.characteristics?.agility?.value ?? 0;
-       const pFallDist  = arrivalElev - (chosenGrid.targetElev ?? 0);
-       const pEffective = Math.max(0, pFallDist - agility);
-       const pDmg       = (canCurrentlyFly(actor) || pEffective < 2) ? 0 : Math.min(pEffective * 2, getSetting('fallDamageCap'));
-       doFall = await confirmFall(token, pFallDist, pEffective, pDmg);
-     }
-     if (doFall) {
-       ({ dmg: fallDmg, fallDist, effectiveFall } = await applyFall(token, targetWorld.elevation, { skipConfirm: true }));
-     } else {
-       fallCancelled = true;
-     }
-   }
+   const fallHeight = chosenGrid.willFall ? arrivalElev - surfaceUnder(token) : 0;
+   const fallLink = fallHeight > 0 ? await fallViaSystem(token, fallHeight) : null;
 
    if (animate) {
        await safeUpdate(token.document, { alpha: origAlpha, 'texture.tint': origTint }, { animation: { duration: animDuration } });
@@ -320,14 +313,7 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
 
    const undoLog = [];
 
-   if (staminaSnap) {
-     undoLog.push({
-       op: 'stamina', uuid: actor.uuid,
-       prevTemp: staminaSnap.prevTemp, prevValue: staminaSnap.prevValue,
-       squadGroupUuid: staminaSnap.squadGroup?.uuid ?? null,
-       prevSquadHP: staminaSnap.prevSquadHP,
-     });
-   }
+   if (fallLink) undoLog.push({ op: 'systemFall', messageId: fallLink.id });
 
    undoLog.push({
      op: 'update', uuid: token.document.uuid,
@@ -343,21 +329,15 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
 
    const adjNote  = into ? `, into <strong>${into.name}</strong>'s space`
      : opts.adjacentTo ? `, arriving next to <strong>${opts.adjacentTo.name}</strong>` : '';
-   const elevNote = chosenGrid.isOnTerrain ? ` (Elevation ${destElev})` : (destElev === 0 && origWorld.elevation !== 0 ? ` (Returned to Ground)` : '');
-   let fallNote = '';
-   if (chosenGrid.willFall && !fallCancelled) {
-     const effectivePart = effectiveFall !== fallDist ? ` (${effectiveFall} effective after Agility)` : '';
-     fallNote = fallDmg > 0
-       ? ` Falls ${fallDist} square${fallDist !== 1 ? 's' : ''}${effectivePart}, taking <strong>${fallDmg}</strong> damage.`
-       : ` Falls ${fallDist} square${fallDist !== 1 ? 's' : ''}${effectivePart} - not enough to deal damage.`;
-   }
+   const elevNote = fallLink ? '' : chosenGrid.isOnTerrain ? ` (Elevation ${destElev})` : (destElev === 0 && origWorld.elevation !== 0 ? ` (Returned to Ground)` : '');
+   const fallNote = fallLink ? ` ${game.i18n.format('DSCT.chat.tp.fallsToSystem', { dist: fallHeight, s: fallHeight !== 1 ? 's' : '' })}` : '';
 
    await ChatMessage.create({
        content: game.i18n.format('DSCT.chat.tp.teleported', { name: token.name, dist: actualDist, s: actualDist !== 1 ? 's' : '' }) + `${adjNote}${elevNote}.${fallNote}`,
        flags: {
            'draw-steel-combat-tools': {
                isTpUndo: true, isUndone: false, undoLog, moveId, tpDistance: actualDist,
-               targetTokenId: token.id, targetSceneId: canvas.scene.id, finalPos: targetWorld,
+               targetTokenId: token.id, targetSceneId: canvas.scene.id, finalPos: { ...targetWorld, elevation: arrivalElev },
                grabsToRestore: removedGrabs,
            }
        }
@@ -894,7 +874,9 @@ export const registerTeleportHooks = () => {
     const moveId     = msg.getFlag('draw-steel-combat-tools', 'moveId');
     const targetId   = msg.getFlag('draw-steel-combat-tools', 'targetTokenId');
     const sceneId    = msg.getFlag('draw-steel-combat-tools', 'targetSceneId');
-    const finalPos   = msg.getFlag('draw-steel-combat-tools', 'finalPos');
+    const fallLinks  = (msg.getFlag('draw-steel-combat-tools', 'undoLog') ?? []).filter((op) => op.op === 'systemFall');
+    const finalPosNow = () => fallLinks.map((op) => linkedFallPosition(op.messageId)).filter(Boolean).at(-1) ?? msg.getFlag('draw-steel-combat-tools', 'finalPos');
+    const finalPos   = finalPosNow();
 
     let isExpired = getSetting('undoExpirationCheck') ? (msg.getFlag('draw-steel-combat-tools', 'isExpired') ?? false) : false;
 
@@ -944,6 +926,7 @@ export const registerTeleportHooks = () => {
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         const token = canvas.scene.tokens.get(targetId);
+        const finalPos = finalPosNow();
         if (token && finalPos) {
           const isDead = token.actor?.statuses?.has('dead') || token.hidden;
           const lastMoveId = token.getFlag('draw-steel-combat-tools', 'lastTpMoveId');
@@ -960,7 +943,13 @@ export const registerTeleportHooks = () => {
         const undoLog = msg.getFlag('draw-steel-combat-tools', 'undoLog');
         if (undoLog) {
           await safeUpdate(msg, { 'flags.draw-steel-combat-tools.isUndone': true });
-          await replayUndo(undoLog);
+          window._dsctTeleportActive = true;
+          try {
+            for (const link of [...fallLinks].reverse()) await undoLinkedFall(link.messageId);
+            await replayUndo(undoLog.filter((op) => op.op !== 'systemFall'));
+          } finally {
+            window._dsctTeleportActive = false;
+          }
           const grabsToRestore = msg.getFlag('draw-steel-combat-tools', 'grabsToRestore') ?? [];
           for (const { grabberTokenId, grabbedTokenId } of grabsToRestore) {
             const grabberTok = getTokenById(grabberTokenId);

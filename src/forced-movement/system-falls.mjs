@@ -28,22 +28,66 @@ const editedHeight = (part) => {
   return Number.isFinite(height) ? height : null;
 };
 
+const CONTEXT = 'fallContext';
+const contextOf = (message) => message.getFlag(M, CONTEXT) ?? {};
+const _pendingContext = new Map();
+
+export async function fallViaSystem(token, height, undoOps = null, context = {}) {
+  const doc = token?.document ?? token;
+  const system = doc?.actor?.system;
+  if (!doc?.object || typeof system?.processFall !== 'function' || !(height > 0)) return null;
+  const known = new Set(game.messages.keys());
+  _pendingContext.set(doc.uuid, context);
+  try {
+    await system.processFall(doc.object, height);
+  } finally {
+    _pendingContext.delete(doc.uuid);
+  }
+  const message = game.messages.contents.findLast((m) => !known.has(m.id) && fallingParts(m).some((p) => p.token === doc || p.fallerUuid === doc.uuid));
+  if (message) undoOps?.push({ op: 'systemFall', messageId: message.id });
+  return message ?? null;
+}
+
+export async function undoLinkedFall(messageId) {
+  const message = game.messages.get(messageId);
+  for (const part of message ? fallingParts(message) : []) {
+    const state = stateOf(message, part);
+    if (resolved(state)) await undoSystemFall(message, part, { checkPosition: false });
+    else if (!state) await safeUpdate(message, { [`flags.${M}.${FLAG}.${part.id}`]: { done: true, undone: true, canUndo: false, lines: [] } });
+  }
+}
+
+export function linkedFallPosition(messageId) {
+  const message = game.messages.get(messageId);
+  for (const part of message ? fallingParts(message) : []) {
+    const state = stateOf(message, part);
+    if (resolved(state) && state.finalPos) return state.finalPos;
+  }
+  return null;
+}
+
 async function takeSystemFall(message, part, { redo = false } = {}) {
   const doc = part.token;
   const token = doc?.object;
   const fresh = game.messages.get(message.id) ?? message;
   if (!token || (!redo && resolved(stateOf(fresh, part)))) return;
+  const ctx = contextOf(fresh);
+  const height = Number(part.fallerDistance);
   let rollCount = rollsOf(part).length;
-  const autoEdit = !redo && rollCount === 1;
+  const autoEdit = !redo && rollCount === 1 && !ctx.driven;
   if (autoEdit) {
     const agility = token.actor?.system?.combat?.fall?.agility === false ? 0 : Math.max(0, token.actor?.system?.characteristics?.agility?.value ?? 0);
-    const height = Number(part.fallerDistance);
-    if (agility > 0 && Number.isFinite(height)) {
-      await part.createModifiedFallRoll(rollsOf(part)[0], Math.max(0, height - agility));
+    const lower = agility + Math.max(0, Number(ctx.reduction) || 0);
+    if (lower > 0 && Number.isFinite(height)) {
+      await part.createModifiedFallRoll(rollsOf(part)[0], Math.max(0, height - lower));
       rollCount = 2;
     }
   }
-  const result = await applyFall(token, surfaceUnder(doc), { skipConfirm: true, silent: true, effective: autoEdit ? null : editedHeight(part) });
+  const effective = ctx.driven ? (editedHeight(part) ?? height) : (autoEdit ? null : editedHeight(part));
+  const result = await applyFall(token, surfaceUnder(doc), {
+    silent: true, effective, fallen: ctx.driven ? effective : null,
+    noFallDamage: !!ctx.noFallDamage, spareLandedOn: !!ctx.spareLandedOn, reduction: autoEdit ? Number(ctx.reduction) || 0 : 0,
+  });
   if (!(result?.cancelled || result?.aloft || result?.fallDist > 0)) return;
   const lines = result.aloft ? [game.i18n.format('DSCT.fall.staysAloft', { name: token.name })] : result.lines ?? [];
   const state = { done: true, undone: false, lines, undoLog: result.undoLog ?? [], finalPos: result.finalPos ?? null,
@@ -66,12 +110,12 @@ async function editSystemFall(message) {
   if (part && roll) await part.modifyFallDialog(roll);
 }
 
-async function undoSystemFall(message, part) {
+async function undoSystemFall(message, part, { checkPosition = true } = {}) {
   const state = stateOf(message, part);
   if (!resolved(state) || !state.canUndo) return;
   const token = state.tokenUuid ? fromUuidSync(state.tokenUuid) : null;
   const final = state.finalPos;
-  if (getSetting('undoExpirationCheck') && token && final
+  if (checkPosition && getSetting('undoExpirationCheck') && token && final
     && (token.x !== final.x || token.y !== final.y || (token.elevation ?? 0) !== final.elevation)) {
     ui.notifications.warn(game.i18n.localize('DSCT.notice.tp.undoExpiredMoved'));
     return;
@@ -215,8 +259,14 @@ export function registerSystemFalls() {
   registerFallUndo();
   if (!globalThis.ds?.CONFIG?.MessagePart?.fall) return;
   registerImmediateFalls();
+  Hooks.on('preCreateChatMessage', (message, _data, _options, userId) => {
+    if (userId !== game.user.id || !_pendingContext.size) return;
+    const part = fallingParts(message).find((p) => _pendingContext.has(p.fallerUuid));
+    if (part) message.updateSource({ [`flags.${M}.${CONTEXT}`]: _pendingContext.get(part.fallerUuid) });
+  });
   Hooks.on('createChatMessage', (message) => {
-    if (!getSetting('forcedMovementEnabled') || !getSetting('fallAutoResolve') || !isPrimaryGM()) return;
+    if (!getSetting('forcedMovementEnabled') || !isPrimaryGM()) return;
+    if (!getSetting('fallAutoResolve') && !contextOf(message).force) return;
     for (const part of fallingParts(message)) {
       takeSystemFall(message, part).catch((err) => console.error('DSCT | system fall', err));
     }

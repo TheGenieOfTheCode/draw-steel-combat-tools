@@ -5,6 +5,9 @@ import {
 import { applyGrab } from '../conditions/grab.mjs';
 import { forcedMovementHandler } from './forced-movement-engine.mjs';
 import { addPreviewToken, removePreviewToken, activateTokenLayer, services } from '../ctlib.mjs';
+import { undoLinkedFall, linkedFallPosition } from './system-falls.mjs';
+
+const fallLinks = (undoLog) => (undoLog ?? []).filter((op) => op.op === 'systemFall');
 
 const L = (key) => game.i18n.localize(`DSCT.chat.fm.${key}`);
 
@@ -148,14 +151,15 @@ const isEntryExpired = (entry) => {
     if (getSetting('debugMode')) console.log(`DSCT | FM | EXPIRED (moveId mismatch) msg=${entry.moveId} token=${lastMoveId} | target=${token.name}`);
     return true;
   }
-  if (entry.finalPos) {
+  const finalPos = fallLinks(entry.undoLog).map((op) => linkedFallPosition(op.messageId)).filter(Boolean).at(-1) ?? entry.finalPos;
+  if (finalPos) {
     const isDead = token.actor?.statuses?.has('dead');
     if (!isDead) {
-      const posMatch = token.x === entry.finalPos.x && token.y === entry.finalPos.y && (token.elevation ?? 0) === entry.finalPos.elevation;
-      if (getSetting('debugMode')) console.log(`DSCT | FM | Position check for ${token.name}: token(${token.x},${token.y},${token.elevation??0}) vs finalPos(${entry.finalPos.x},${entry.finalPos.y},${entry.finalPos.elevation}) | match=${posMatch} | isDead=${isDead} | moveId=${entry.moveId}`);
+      const posMatch = token.x === finalPos.x && token.y === finalPos.y && (token.elevation ?? 0) === finalPos.elevation;
+      if (getSetting('debugMode')) console.log(`DSCT | FM | Position check for ${token.name}: token(${token.x},${token.y},${token.elevation??0}) vs finalPos(${finalPos.x},${finalPos.y},${finalPos.elevation}) | match=${posMatch} | isDead=${isDead} | moveId=${entry.moveId}`);
       if (!posMatch) return true;
     } else {
-      if (getSetting('debugMode')) console.log(`DSCT | FM | Skipping pos check for ${token.name}: isDead=${isDead} finalPos=${JSON.stringify(entry.finalPos)}`);
+      if (getSetting('debugMode')) console.log(`DSCT | FM | Skipping pos check for ${token.name}: isDead=${isDead} finalPos=${JSON.stringify(finalPos)}`);
     }
   }
   return false;
@@ -227,7 +231,7 @@ export function fmMessageState(msg) {
     ? (msg.getFlag(F, 'entries') ?? []).some(isEntryExpired)
     : isEntryExpired({
       moveId: msg.getFlag(F, 'moveId'), targetTokenId: msg.getFlag(F, 'targetTokenId'),
-      targetSceneId: msg.getFlag(F, 'targetSceneId'), finalPos: msg.getFlag(F, 'finalPos'),
+      targetSceneId: msg.getFlag(F, 'targetSceneId'), finalPos: msg.getFlag(F, 'finalPos'), undoLog: msg.getFlag(F, 'undoLog'),
     });
   return expired ? 'expired' : 'live';
 }
@@ -243,8 +247,15 @@ export async function undoFmMessage(msg) {
   const revived = [];
   for (const entry of entries) {
     if (entry.undoLog) {
-      revived.push(...await handleStaminaRevival(entry.undoLog));
-      await replayUndo(entry.undoLog);
+      const wasActive = window._dsctFMActive;
+      window._dsctFMActive = true;
+      try {
+        for (const link of fallLinks(entry.undoLog).reverse()) await undoLinkedFall(link.messageId);
+        revived.push(...await handleStaminaRevival(entry.undoLog));
+        await replayUndo(entry.undoLog.filter((op) => op.op !== 'systemFall'));
+      } finally {
+        window._dsctFMActive = wasActive;
+      }
     }
     await restoreGrabs(entry.grabsToRestore);
   }
@@ -298,6 +309,7 @@ export const registerForcedMovementHooks = () => {
         targetTokenId: msg.getFlag('draw-steel-combat-tools', 'targetTokenId'),
         targetSceneId: msg.getFlag('draw-steel-combat-tools', 'targetSceneId'),
         finalPos:      msg.getFlag('draw-steel-combat-tools', 'finalPos'),
+        undoLog:       msg.getFlag('draw-steel-combat-tools', 'undoLog'),
       });
     }
 

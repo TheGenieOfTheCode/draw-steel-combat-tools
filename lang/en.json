@@ -164,10 +164,6 @@
         "name": "Fall Damage Cap",
         "hint": "The most damage one fall can deal, however far the drop."
       },
-      "fallConfirmation": {
-        "name": "Fall Confirmation",
-        "hint": "Ask in chat before resolving a fall, rather than dropping the creature straight away."
-      },
       "fallAutoResolve": {
         "name": "Resolve Falls Automatically",
         "hint": "When a creature falls, drop it, deal the damage and knock it prone straight away, with an Undo button. Off leaves the Fall button to click."
@@ -2502,8 +2498,6 @@
       "applyCondition": "Apply {label}",
       "confirmGrab": "Confirm Grab",
       "cancelGrab": "Cancel",
-      "confirmFall": "Confirm Fall",
-      "cancelFall": "Cancel Fall",
       "stopMovement": "Stop Movement",
       "proceedAnyway": "Proceed Anyway",
       "confirmCollision": "Confirm",
@@ -2590,24 +2584,11 @@
         "breakOffTop": "{name} breaks {count} square{s} off the top of the {material} object ({height} tall, now {left} remain).",
         "objectSplits": "The {material} object splits at elevation {elevation}.",
         "topCollapses": "The top of the {material} object collapses into the gap (now {height} square{s} tall).",
-        "stopsFall": "{name} stops their fall in the air.",
-        "caughtSafely": "{name} is caught and lands safely.",
-        "fallNoDamage": "{name} falls {dist} square{s} but takes no damage.",
-        "fallDamage": "{name} falls {dist} square{s} ({note}) and takes <strong>{dmg} damage</strong>, landing prone.",
-        "fallTooShort": "{name} falls {dist} square{s} ({note}). Less than 2 squares, no damage.",
-        "fallNoteAgility": "{effective} effective after Agility {agility}",
-        "fallNoteReduced": "{raw} raw, reduced by Agility {agility} + {extra}",
         "launchedFlying": "{name} is launched into the air (elevation {elevation}). No fall damage since they can fly.",
-        "slammedNoDamage": "{name} is slammed {dist} square{s} downward but takes no fall damage.",
-        "slammedDamage": "{name} is slammed {dist} square{s} downward into the ground and takes <strong>{dmg} damage</strong> (Agility treated as 0), landing prone.",
-        "slammedShort": "{name} is slammed 1 square downward into the ground. Less than 2 squares, no fall damage.",
-        "slammedSurface": "{name} also takes <strong>{dmg} damage</strong> from being slammed into the surface (Agility treated as 0), landing prone.",
-        "slammedSurfaceShort": "{name} is slammed 1 square downward into the surface. Less than 2 squares, no fall damage.",
-        "impactDamage": "{name} takes <strong>{dmg} damage</strong> from the impact.",
-        "knockedProne": "{name} is knocked prone ({faller}'s size {size} exceeds their Might {might}).",
-        "landsNearby": "{name} lands in a nearby free space.",
-        "noFreeSpace": "{name} could not find a free space to land.",
-        "bothDefeated": "{name} and {other} are both defeated; no repositioning needed.",
+        "fallsToSystem": "{name} is left {dist} square{s} up and falls (see the Falling message).",
+        "drivenFall": "{name} is driven {dist} squares down into the ground and falls (see the Falling message).",
+        "drivenIntoGround": "{name} is driven into the ground and takes <strong>{dmg} damage</strong>.",
+        "drivenIntoGroundNoDamage": "{name} is driven into the ground and takes no damage.",
         "grabReleased": "{grabber} was force-moved out of reach and released {grabbed}.",
         "grabbedFreed": "{grabbed} was force-moved out of {grabber}'s reach and is no longer grabbed.",
         "totalDamage": "<strong>Total damage to {name}: {n}</strong>",
@@ -2684,6 +2665,7 @@
       },
       "tp": {
         "teleported": "<strong>{name}</strong> teleported {dist} square{s}",
+        "fallsToSystem": "Arrives {dist} square{s} up and falls (see the Falling message).",
         "teleswapped": "<strong>{a}</strong> and <strong>{b}</strong> teleported {dist} square{s}, swapping places."
       },
       "int": {
@@ -2925,9 +2907,6 @@
       "allyIgnored": "(Ally dodged out of the way)"
     },
     "fall": {
-      "confirmed": "(Fall Confirmed)",
-      "cancelled": "(Fall Cancelled)",
-      "awaitingConfirm": "(Awaiting confirmation...)",
       "fell": "<strong>{name}</strong> falls <strong>{dist}</strong> square{s}.",
       "staysAloft": "<strong>{name}</strong> can fly and stays aloft.",
       "undo": "Undo Fall",
@@ -2943,11 +2922,11 @@
       "damage": "{effective} squares after reductions: <strong>{dmg}</strong> fall damage.",
       "tooShort": "{effective} squares after reductions: too short to deal damage.",
       "prone": "{name} lands prone.",
-      "confirmPrompt": "<b><i class=\"fa-solid fa-chevrons-down\"></i> Fall:</b> <b>{name}</b> is about to fall <b>{dist}</b> square{s}{agility}{outcome}",
-      "confirmAgility": " ({effective} effective after Agility {agility})",
-      "confirmNoDamage": ". No fall damage will be taken.",
-      "confirmDamage": ", dealing <b>{dmg} damage</b> and landing prone.",
-      "confirmTooShort": ". Less than 2 effective squares; no damage."
+      "driven": "Driven into the ground: Agility does not reduce the fall.",
+      "noDamage": "No fall damage taken.",
+      "landsOn": "Lands on {other}, who takes {dmg} damage.",
+      "knocksProne": "{other} is knocked prone.",
+      "movesAside": "{name} moves to a free square nearby."
     },
     "region": {
       "disposition": {

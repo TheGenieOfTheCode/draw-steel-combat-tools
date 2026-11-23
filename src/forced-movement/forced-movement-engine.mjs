@@ -20,7 +20,7 @@ import {
   cornerCutsWall, parseType, buildUndoLog,
   footprintCells, newlyEnteredCells, wallsAtStep,
   tokensAtCells, tilesAtCells, doBreakObstacleWall,
-  applyFallDamage, applyForcedFallDamage, destroyObjectToken, _fmDistCap,
+  applyFallDamage, applyForcedFallDamage, drivenFall, destroyObjectToken, _fmDistCap,
   splitConvertedWall, splitTileAtElevation,
   wallSpan, sceneTerrain, terrainTop,
 } from './forced-movement-collision.mjs';
@@ -1767,7 +1767,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         }
         const endElev = startElev + v;
         if (v < 0 && (!path.length || endElev <= 0)) {
-          return !harmfulSlam(-v, fallOpts)
+          return !harmfulSlam(-v, { ...fallOpts, grid: last, startElev, terrain })
             && !harmfulRegionsAt(targetToken.document, last, landingElevation(last, endElev, canFly, terrain), { already: startRegions }).length;
         }
         return safeEnd(last, endElev);
@@ -1830,17 +1830,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
             const dmg = 2 + remaining + bonusObjectDmg;
             if (!noMoverDmg && !targetIsDead) await applyDamage(targetToken.actor, dmg, undefined, { forced: true });
             collisionMsgs.push(L('blockedWall', { name: targetToken.name, damage: dmgStr(dmg) }));
-            if (dir === -1) {
-              const ffd = Math.abs(reducedVert);
-              if (!noFallDamage && !targetIsDead && ffd >= 2) {
-                const fallDmg = Math.min(ffd * 2, getSetting('fallDamageCap'));
-                await applyDamage(targetToken.actor, fallDmg, undefined, { forced: true });
-                collisionMsgs.push(L('slammedSurface', { name: targetToken.name, dmg: fallDmg }));
-                await knockProne(targetToken.actor, undoOps);
-              } else if (!noFallDamage && !targetIsDead && ffd === 1) {
-                collisionMsgs.push(L('slammedSurfaceShort', { name: targetToken.name }));
-              }
-            }
+            if (dir === -1) await drivenFall(targetToken, i, undoOps, collisionMsgs, noFallDamage || targetIsDead, noFallDamage);
             blocked = true;
             break;
           }
@@ -1873,7 +1863,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
       const vertEffectiveNoFallDmg = noFallDamage || targetIsDead;
       const vertTargetElev = !blocked
         ? (dir === -1
-          ? await applyForcedFallDamage(targetToken, Math.abs(reducedVert), finalElev, startGrid, undoOps, collisionMsgs, vertEffectiveNoFallDmg, noFallDamage)
+          ? await applyForcedFallDamage(targetToken, Math.abs(reducedVert), finalElev, startGrid, undoOps, collisionMsgs, vertEffectiveNoFallDmg, noFallDamage, { startElev, objectBonus: bonusObjectDmg, noCollisionDamage: noMoverDmgBase || targetIsDead })
           : await applyFallDamage(targetToken, finalElev, startGrid, agility, canFly, undoOps, collisionMsgs, fallReduction, vertEffectiveNoFallDmg, noFallDamage))
         : finalElev;
 
@@ -1882,7 +1872,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         const deadline = Date.now() + 5000;
         while (Date.now() < deadline) {
           const live = canvas.scene.tokens.get(targetToken.id);
-          if (!live || Math.abs((live.elevation ?? 0) - vertTargetElev) < 0.1) break;
+          if (!live || Math.abs((live.elevation ?? 0) - vertTargetElev) < 0.1 || undoOps.some(o => o.op === 'systemFall')) break;
           await new Promise(r => setTimeout(r, 50));
         }
       }
@@ -2709,7 +2699,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
     
     const horzEffectiveNoFallDmg = noFallDamage || targetIsDead || moverIsDefeated;
     const targetElev = (reducedVert < 0 && finalElev <= 0)
-      ? await applyForcedFallDamage(targetToken, Math.abs(reducedVert), finalElev, landingGrid, undoOps, collisionMsgs, horzEffectiveNoFallDmg, noFallDamage)
+      ? await applyForcedFallDamage(targetToken, Math.abs(reducedVert), finalElev, landingGrid, undoOps, collisionMsgs, horzEffectiveNoFallDmg, noFallDamage, { startElev, objectBonus: bonusObjectDmg, noCollisionDamage: noMoverDmgBase || targetIsDead || moverIsDefeated })
       : await applyFallDamage(targetToken, finalElev, landingGrid, agility, canFly, undoOps, collisionMsgs, fallReduction, horzEffectiveNoFallDmg, noFallDamage);
     if (getSetting('debugMode')) console.log(`DSCT | FM | finalElev=${finalElev}, targetElev=${targetElev} (after fall)`);
 
@@ -2728,7 +2718,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
         const live = canvas.scene.tokens.get(targetToken.id);
         if (!live) break;
         const xOk    = stepsToAnimate.length === 0 || (Math.abs(live.x - destX) < 1 && Math.abs(live.y - destY) < 1);
-        const elevOk = Math.abs((live.elevation ?? 0) - targetElev) < 0.1;
+        const elevOk = Math.abs((live.elevation ?? 0) - targetElev) < 0.1 || undoOps.some(o => o.op === 'systemFall');
         if (xOk && elevOk) break;
         await new Promise(r => setTimeout(r, 50));
       }

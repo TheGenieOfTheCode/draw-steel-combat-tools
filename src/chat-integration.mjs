@@ -355,45 +355,6 @@ export function registerChatHooks() {
       return _ba;
     };
 
-    if (msg.getFlag('draw-steel-combat-tools', 'isFallConfirm')) {
-      const creatorUserId = msg.getFlag('draw-steel-combat-tools', 'creatorUserId');
-      const isResolved    = msg.getFlag('draw-steel-combat-tools', 'fallConfirmResolved') != null;
-      const canResolve    = game.user.isGM || game.user.id === creatorUserId;
-
-      if (isResolved) {
-        const res = msg.getFlag('draw-steel-combat-tools', 'fallConfirmResolved');
-        const status = document.createElement('div');
-        status.className = 'dsct-undo-status';
-        status.textContent = res === 'confirmed' ? game.i18n.localize('DSCT.fall.confirmed') : game.i18n.localize('DSCT.fall.cancelled');
-        btnArea().appendChild(status);
-      } else if (canResolve) {
-        const confirmBtn = document.createElement('button');
-        confirmBtn.type = 'button';
-        confirmBtn.innerHTML = `<i class="fa-solid fa-check"></i> ${game.i18n.localize('DSCT.button.confirmFall')}`;
-        const cancelBtn = document.createElement('button');
-        cancelBtn.type = 'button';
-        cancelBtn.innerHTML = `<i class="fa-solid fa-xmark"></i> ${game.i18n.localize('DSCT.button.cancelFall')}`;
-        confirmBtn.addEventListener('click', async (e) => {
-          e.preventDefault();
-          confirmBtn.disabled = true;
-          cancelBtn.disabled  = true;
-          await msg.setFlag('draw-steel-combat-tools', 'fallConfirmResolved', 'confirmed');
-        });
-        cancelBtn.addEventListener('click', async (e) => {
-          e.preventDefault();
-          confirmBtn.disabled = true;
-          cancelBtn.disabled  = true;
-          await msg.setFlag('draw-steel-combat-tools', 'fallConfirmResolved', 'cancelled');
-        });
-        btnArea().appendChild(confirmBtn);
-        btnArea().appendChild(cancelBtn);
-      } else {
-        const status = document.createElement('div');
-        status.className = 'dsct-undo-status';
-        status.textContent = game.i18n.localize('DSCT.fall.awaitingConfirm');
-        btnArea().appendChild(status);
-      }
-    }
 
     const consent = msg.getFlag('draw-steel-combat-tools', 'consent');
     if (consent) {

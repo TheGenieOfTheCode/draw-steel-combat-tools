@@ -195,10 +195,6 @@ export const registerSettings = () => {
     name: L('fallDamageCap.name'), hint: L('fallDamageCap.hint'),
     scope: 'world', config: false, type: Number, default: 50, range: { min: 10, max: 200, step: 5 },
   });
-  game.settings.register(M, 'fallConfirmation', {
-    name: L('fallConfirmation.name'), hint: L('fallConfirmation.hint'),
-    scope: 'world', config: false, type: Boolean, default: false,
-  });
   game.settings.register(M, 'fallAutoResolve', {
     name: L('fallAutoResolve.name'), hint: L('fallAutoResolve.hint'),
     scope: 'world', config: false, type: Boolean, default: true,

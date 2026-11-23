@@ -190,7 +190,7 @@ const api = {
   hasSightTo:       hasSightToToken,
   setRollDialogLock:         setBaneDialogLockWithOverlay,
   getStickBugged:   getStickBugged,
-  isFMActive:       () => !!window._dsctFMActive,
+  isFMActive:       () => !!(window._dsctFMActive || window._dsctTeleportActive),
   pendingSquadMap:  () => _pendingSquadMap,
   damagePills: {
     open: openDamageEditor,
