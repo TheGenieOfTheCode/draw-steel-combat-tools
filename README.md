@@ -22,7 +22,12 @@ A Foundry VTT module for the Draw Steel system that automates and streamlines th
 **From the Combat Tools family**
 
 - [Draw Steel: Death Tracker](https://github.com/TheGenieOfTheCode/draw-steel-death-tracker) keeps track of who falls: deaths announced in chat with an undo, the right minions taken from a squad, and the fallen left where they fell.
-- [Draw Steel: Battle Log](https://github.com/TheGenieOfTheCode/draw-steel-battle-log) draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat cards match the dark theme.
+- [Draw Steel: Battle Log](https://github.com/TheGenieOfTheCode/draw-steel-battle-log) draws each turn, round and fight into the chat log and folds away what's finished, and makes the chat messages match the dark theme.
+- [Draw Steel: Triggers](https://github.com/TheGenieOfTheCode/draw-steel-triggers) offers triggered actions on a stack the moment they trigger, and holds damage, rolls and forced movement until they're decided.
+
+**Also by me**
+
+- [Draw Steel: The Arcanist (Preview)](https://github.com/TheGenieOfTheCode/draw-steel-arcanist-preview) brings The Arcanist, Jenny [REDACTED]'s new master class, to your table at 1st level: the class, its abilities, every magical school and every arcane path.
 
 **Also recommended**
 
