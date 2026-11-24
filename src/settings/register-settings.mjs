@@ -192,8 +192,17 @@ export const registerSettings = () => {
     scope: 'world', config: false, type: Number, default: 80, range: { min: 0, max: 500, step: 10 },
   });
   game.settings.register(M, 'fallDamageCap', {
-    name: L('fallDamageCap.name'), hint: L('fallDamageCap.hint'),
+    name: L('fallDamageCap.name'),
     scope: 'world', config: false, type: Number, default: 50, range: { min: 10, max: 200, step: 5 },
+  });
+  game.settings.register(M, 'fallTiming', {
+    name: L('fallTiming.name'), hint: L('fallTiming.hint'),
+    scope: 'world', config: false, type: String, default: 'move',
+    choices: { move: L('fallTiming.move'), turnEnd: L('fallTiming.turnEnd') },
+  });
+  game.settings.register(M, 'flyStatusFlies', {
+    name: L('flyStatusFlies.name'), hint: L('flyStatusFlies.hint'),
+    scope: 'world', config: false, type: Boolean, default: false,
   });
   game.settings.register(M, 'fallAutoResolve', {
     name: L('fallAutoResolve.name'), hint: L('fallAutoResolve.hint'),

@@ -161,12 +161,21 @@
         "hint": "How long a forced move pauses on each square it crosses. Set it to 0 for no animation."
       },
       "fallDamageCap": {
-        "name": "Fall Damage Cap",
-        "hint": "The most damage one fall can deal, however far the drop."
+        "name": "Fall Damage Cap"
       },
       "fallAutoResolve": {
         "name": "Resolve Falls Automatically",
-        "hint": "When a creature falls, drop it, deal the damage and knock it prone straight away, with an Undo button. Off leaves the Fall button to click."
+        "hint": "When a creature falls, the system's fall confirmation message is applied automatically and can be undone afterwards. Forced movement falls always resolve immediately."
+      },
+      "fallTiming": {
+        "name": "When Creatures Fall",
+        "hint": "When an airborne creature checks if it falls during combat: right after it moves, or at the end of its turn as the core Draw Steel system does. Forced movement falls always happen as part of the forced movement.",
+        "move": "Right After They Move",
+        "turnEnd": "At the End of Their Turn"
+      },
+      "flyStatusFlies": {
+        "name": "Fly Status Counts as Flying",
+        "hint": "A creature with the Fly status counts as flying, staying airborne and making any forced movement against it vertical, even without a fly speed."
       },
       "friendlyFireConfirmation": {
         "name": "Friendly Fire Confirmation",
@@ -2666,6 +2675,7 @@
       "tp": {
         "teleported": "<strong>{name}</strong> teleported {dist} square{s}",
         "fallsToSystem": "Arrives {dist} square{s} up and falls (see the Falling message).",
+        "fallsAtTurnEnd": "Arrives {dist} square{s} up and falls at the end of its turn.",
         "teleswapped": "<strong>{a}</strong> and <strong>{b}</strong> teleported {dist} square{s}, swapping places."
       },
       "int": {

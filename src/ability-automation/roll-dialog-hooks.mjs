@@ -442,7 +442,7 @@ function _buildTargetPills(app, tokenId) {
     const dstdActive  = !!game.modules.get('ds-terrain-designer')?.active;
     const hasHighGrnd = _hasHighGround(casterToken, targetToken);
     const sysToken = _systemRollToken(actor);
-    const systemSees = !!sysToken && !actor.statuses?.has('flying')
+    const systemSees = !!sysToken && !actor.statuses?.has('fly')
       && ((sysToken.document.elevation ?? 0) - (targetToken.document.elevation ?? 0)) >= (targetToken.document.depth ?? 1);
     const p = pill(mkId(`hg-${tokenId}`), 'edge', 1, 'High Ground', null, tokenId, hasHighGrnd && (dstdActive || systemSees));
     p.enabled = hasHighGrnd;

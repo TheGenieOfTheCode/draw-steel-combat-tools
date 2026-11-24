@@ -1,4 +1,4 @@
-import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor, effectStartFor, spendBeyondCost } from '../helpers.mjs';
+import { getSetting, getModuleApi, getWindowById, getItemDsid, MULTI_GRAB_LIMITS, applyDamage, canForcedMoveTarget, safeDelete, tokFootprintDist, sizeRank, damageBatch , dropKey, cleansed, isOwnAbilityActor, effectStartFor, spendBeyondCost, isFlyingNow } from '../helpers.mjs';
 import { isOthersEffect, othersSpec, triggerRollData, triggerDamageTypeFor, grantTempStamina, levelAllows, expendAllows, buildCleanseAutoLabel, cleansePreviewLabel, healAutoLabel, runTeleportEffect, teleportAutoLabel, teleportDistance, applyFlatResource, undoFlatResource, resourceAppliedLabel, resourceFlagKey, resourceIcon, resourceRecipient, canGainResource, resourceJobs, resourceShortLabel, applyFlatAppliedEffect, flatAppliedSourceToken, removeFlatAppliedEffect, flatAppliedLabel, flatAppliedStacks, flatAppliedOptions, modifyAttributeSafely } from '../ability-automation/flat-special-effects.mjs';
 import { tieredAsFlat, tieredEffectsOf } from '../ability-automation/tiered-effects.mjs';
 import { runColoredTokenPicker, runMultiTokenPicker, pickTargetsFor, setFoundryTargets, carrierTargets, casterTokenFor } from '../ability-automation/target-picker.mjs';
@@ -2366,7 +2366,7 @@ async function _injectFmButtons(message, root) {
         if (autoFm && /^(push|pull)$/i.test(movementType)) baseState.fastMove = true;
 
         const _tgtDoc      = tokenUuid ? fromUuidSync(tokenUuid) : null;
-        const _tgtIsFlying = !baseState.vertical && (_tgtDoc?.actor?.statuses?.has('fly') ?? false);
+        const _tgtIsFlying = !baseState.vertical && isFlyingNow(_tgtDoc?.actor);
         const _flyingMod   = _tgtIsFlying ? {
           modState: [{
             distanceDelta:             0,
@@ -3253,7 +3253,7 @@ async function _injectFmButtons(message, root) {
       if (autoFm && /^(push|pull)$/i.test(firstMov)) baseState.fastMove = true;
 
       const _tgtDoc      = tokenUuid ? fromUuidSync(tokenUuid) : null;
-      const _tgtIsFlying = !baseState.vertical && (_tgtDoc?.actor?.statuses?.has('fly') ?? false);
+      const _tgtIsFlying = !baseState.vertical && isFlyingNow(_tgtDoc?.actor);
       const _flyingMod   = _tgtIsFlying ? {
         modState: [{
           distanceDelta: 0, movement: firstMov, vertical: true, verticalDistance: '',

@@ -7,7 +7,7 @@ import {
   getMaterialIcon, getMaterialAlpha,
   getMaterial, tokenAt, tileAt, wallBetween, tileIsOpenDoor, wallBlocksMovement,
   getSquadGroup, applyDamage, snapStamina, withDamageSource,
-  canCurrentlyFly, getWallBlockTileAt,
+  canCurrentlyFly, isFlyingNow, getWallBlockTileAt,
   sizeRank,
   safeUpdate, safeDelete, safeToggleStatusEffect,
   getSetting, rangeEnforced, getTokenById,
@@ -312,7 +312,7 @@ const _forcedMovementImpl = async (type, distance, targetToken, sourceToken, bon
   };
 
   const isBurrowing  = targetToken.actor?.statuses?.has('burrow') ?? false;
-  const isFlying     = targetToken.actor?.statuses?.has('fly')    ?? false;
+  const isFlying     = isFlyingNow(targetToken.actor);
   const statusMode   = getSetting('statusDrivesMovementType');
   const origReduced  = reduced;
 

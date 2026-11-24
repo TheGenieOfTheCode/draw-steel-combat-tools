@@ -4,7 +4,7 @@ import {
   applyDamage, safeToggleStatusEffect, getSetting, canCurrentlyFly, surfaceUnder,
   getTokenById, getWindowById, pickCanvasTarget,
 } from './helpers.mjs';
-import { fallViaSystem, undoLinkedFall, linkedFallPosition } from './forced-movement/system-falls.mjs';
+import { fallViaSystem, undoLinkedFall, linkedFallPosition, fallsWaitForTurnEnd } from './forced-movement/system-falls.mjs';
 import { endGrab, applyGrab } from './conditions/grab.mjs';
 import { markRevealed } from './conditions/stealth.mjs';
 import { runSourcePicker } from './ability-automation/target-picker.mjs';
@@ -295,7 +295,7 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
    window._dsctTeleportActive = false;
 
    const fallHeight = chosenGrid.willFall ? arrivalElev - surfaceUnder(token) : 0;
-   const fallLink = fallHeight > 0 ? await fallViaSystem(token, fallHeight) : null;
+   const fallLink = fallHeight > 0 && !fallsWaitForTurnEnd(token) ? await fallViaSystem(token, fallHeight) : null;
 
    if (animate) {
        await safeUpdate(token.document, { alpha: origAlpha, 'texture.tint': origTint }, { animation: { duration: animDuration } });
@@ -329,8 +329,8 @@ export const executeTeleport = async (token, distance, animate, colorHex, animDu
 
    const adjNote  = into ? `, into <strong>${into.name}</strong>'s space`
      : opts.adjacentTo ? `, arriving next to <strong>${opts.adjacentTo.name}</strong>` : '';
-   const elevNote = fallLink ? '' : chosenGrid.isOnTerrain ? ` (Elevation ${destElev})` : (destElev === 0 && origWorld.elevation !== 0 ? ` (Returned to Ground)` : '');
-   const fallNote = fallLink ? ` ${game.i18n.format('DSCT.chat.tp.fallsToSystem', { dist: fallHeight, s: fallHeight !== 1 ? 's' : '' })}` : '';
+   const elevNote = fallHeight > 0 ? '' : chosenGrid.isOnTerrain ? ` (Elevation ${destElev})` : (destElev === 0 && origWorld.elevation !== 0 ? ` (Returned to Ground)` : '');
+   const fallNote = fallHeight > 0 ? ` ${game.i18n.format(fallLink ? 'DSCT.chat.tp.fallsToSystem' : 'DSCT.chat.tp.fallsAtTurnEnd', { dist: fallHeight, s: fallHeight !== 1 ? 's' : '' })}` : '';
 
    await ChatMessage.create({
        content: game.i18n.format('DSCT.chat.tp.teleported', { name: token.name, dist: actualDist, s: actualDist !== 1 ? 's' : '' }) + `${adjNote}${elevNote}.${fallNote}`,

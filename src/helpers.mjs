@@ -1,11 +1,11 @@
 import { config, services, executeAsDirector } from './ctlib.mjs';
-import { GRID, canCurrentlyFly, chooseFreeSquare, getItemRange, getSquadGroup, safeToggleStatusEffect, safeUpdate, sizeRank, snapStamina, tierOf, toGrid, tokenAt } from './ctlib.mjs';
+import { GRID, canCurrentlyFly as ctlibCanFly, chooseFreeSquare, getItemRange, getSquadGroup, safeToggleStatusEffect, safeUpdate, sizeRank, snapStamina, tierOf, toGrid, tokenAt } from './ctlib.mjs';
 
 export {
   BASE_MATERIALS, COVER_KEY, CTLIB_SCOPE, DELETE_MARKER, GRID, LEGACY_SCOPE, LOE_KEY, MATERIAL_ALPHA, MATERIAL_ICONS,
   MATERIAL_RULES, MATERIAL_RULE_DEFAULTS, MULTI_GRAB_LIMITS, SIGHT_SAMPLE_COUNT, STEALTH_WORKFLOW_READY,
   WALL_RESTRICTIONS, WALL_RESTRICTION_DEFAULTS, addTags, armCoverImmunity, atLeastHalfBlocked, blocksLoeForEnemies,
-  burrowAdjacent, burrowBlocksLineOfEffect, burrowDepth, canCurrentlyFly, canForcedMoveTarget, chooseFreeSquare,
+  burrowAdjacent, burrowBlocksLineOfEffect, burrowDepth, canForcedMoveTarget, chooseFreeSquare,
   clampOutsetPoints, concealingRegions, cornersAreOutside, cornersNeedClamping, coverImmunityGrantor,
   coverObstaclesFor, coveredInSquare, ctlibFlag, damageBatch, disarmCoverImmunity, dropKey, dropKeyOverSocket,
   footprintCoverCells, footprintDistFromBounds, fullCoverBlockersFor, getActingActor, getAllMaterials, getByTag,
@@ -22,6 +22,16 @@ export {
   tokenCoverMode, touchesGround, undoDamage, visibleSquareCorners, visibleTargetCorners, wallBetween,
   wallBlocksMovement, wallGrantsCover
 } from './ctlib.mjs';
+
+const flyStatusFlies = (actor) => {
+  try { if (!game.settings.get('draw-steel-combat-tools', 'flyStatusFlies')) return false; } catch { return false; }
+  const s = actor?.statuses;
+  return !!s?.has('fly') && !s.has('prone') && !s.has('restrained') && (actor.system?.movement?.value ?? 1) > 0;
+};
+
+export const canCurrentlyFly = (actor) => ctlibCanFly(actor) || flyStatusFlies(actor);
+
+export const isFlyingNow = (actor) => !!actor?.statuses?.has('fly') && canCurrentlyFly(actor);
 
 const M = 'draw-steel-combat-tools';
 

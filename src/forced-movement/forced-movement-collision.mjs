@@ -316,7 +316,7 @@ const applyFallDamage = async (targetToken, finalElev, landingGrid, agility, can
   if (!canFly && finalElev > landingSurface) {
     const height = finalElev - surfaceUnder(targetToken);
     if (height > 0) {
-      await fallViaSystem(targetToken, height, undoOps, { reduction: fallReduction, noFallDamage, spareLandedOn });
+      await fallViaSystem(targetToken, height, undoOps, { force: true, reduction: fallReduction, noFallDamage, spareLandedOn });
       collisionMsgs.push(L('fallsToSystem', { name: targetToken.name, dist: height, s: pl(height) }));
     }
     return finalElev;

@@ -159,8 +159,10 @@ function splitFallButton(message, part, button) {
 }
 
 const pending = new Set();
-const inCombat = (doc) => !!game.combat?.started
-  && game.combat.combatants.some((c) => c.tokenId === doc.id && c.sceneId === doc.parent?.id);
+const inCombat = (doc) => game.combats.some((combat) => combat.started
+  && combat.combatants.some((c) => c.tokenId === doc.id && c.sceneId === doc.parent?.id));
+
+export const fallsWaitForTurnEnd = (doc) => getSetting('fallTiming') === 'turnEnd' && inCombat(doc?.document ?? doc);
 
 async function fallIfUnsupported(doc) {
   if (!doc?.actor || doc.hidden || pending.has(doc.id) || !inCombat(doc) || canCurrentlyFly(doc.actor)) return;
@@ -180,7 +182,7 @@ const remember = (doc) => {
 };
 
 function registerImmediateFalls() {
-  const live = () => getSetting('forcedMovementEnabled') && !movementOwnsFalls();
+  const live = () => getSetting('forcedMovementEnabled') && !movementOwnsFalls() && getSetting('fallTiming') !== 'turnEnd';
   Hooks.on('moveToken', (doc, movement, operation, user) => {
     if (movement.pending?.waypoints?.length) return;
     const settle = async () => {
@@ -260,9 +262,15 @@ export function registerSystemFalls() {
   if (!globalThis.ds?.CONFIG?.MessagePart?.fall) return;
   registerImmediateFalls();
   Hooks.on('preCreateChatMessage', (message, _data, _options, userId) => {
-    if (userId !== game.user.id || !_pendingContext.size) return;
-    const part = fallingParts(message).find((p) => _pendingContext.has(p.fallerUuid));
-    if (part) message.updateSource({ [`flags.${M}.${CONTEXT}`]: _pendingContext.get(part.fallerUuid) });
+    if (userId !== game.user.id) return;
+    const parts = fallingParts(message);
+    if (!parts.length) return;
+    const part = parts.find((p) => _pendingContext.has(p.fallerUuid));
+    if (part) {
+      message.updateSource({ [`flags.${M}.${CONTEXT}`]: _pendingContext.get(part.fallerUuid) });
+      return;
+    }
+    if (getSetting('forcedMovementEnabled') && parts.every((p) => canCurrentlyFly(p.token?.actor))) return false;
   });
   Hooks.on('createChatMessage', (message) => {
     if (!getSetting('forcedMovementEnabled') || !isPrimaryGM()) return;
